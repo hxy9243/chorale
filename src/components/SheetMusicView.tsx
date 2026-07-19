@@ -26,6 +26,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({ abcCode, onTuneR
         scale: scale,
         add_classes: true,
         visualTranspose: visualTranspose,
+        foregroundColor: '#000000',
         paddingtop: 15,
         paddingbottom: 15,
         paddingleft: 15,

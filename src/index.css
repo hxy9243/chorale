@@ -358,12 +358,31 @@ body {
 
 .abcjs-paper-container {
   width: 100%;
+  background: #ffffff;
+  border-radius: var(--radius-sm);
+  color: #000000;
 }
 
 .abcjs-paper-container svg {
   display: block;
   margin: 0 auto;
   max-width: 100%;
+  background-color: #ffffff;
+  color: #000000;
+}
+
+.abcjs-paper-container svg text {
+  fill: #000000 !important;
+  stroke: none !important;
+}
+
+.abcjs-paper-container svg path:not(.abcjs-highlight) {
+  fill: #000000;
+  stroke: #000000;
+}
+
+.abcjs-paper-container svg line {
+  stroke: #000000 !important;
 }
 
 /* Active note highlight color during WebAudio playback */
