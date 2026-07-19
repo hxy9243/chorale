@@ -387,10 +387,10 @@ body {
 
 /* Active note highlight color during WebAudio playback */
 .abcjs-highlight {
-  fill: #10b981 !important;
-  stroke: #059669 !important;
-  stroke-width: 1.5px !important;
-  transition: fill 0.1s ease;
+  fill: #e11d48 !important;
+  stroke: #be123c !important;
+  stroke-width: 2px !important;
+  transition: fill 0.1s ease, stroke 0.1s ease;
 }
 
 /* ABC Editor Card */
