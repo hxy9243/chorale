@@ -31,6 +31,12 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({ abcCode, onTuneR
       const tunes = abcjs.renderAbc(containerRef.current, abcCode, {
         responsive: 'resize',
         scale: scale,
+        staffwidth: 740,
+        wrap: {
+          minSpacing: 1.5,
+          maxSpacing: 3,
+          preferredMeasuresPerLine: 4,
+        },
         add_classes: true,
         visualTranspose: visualTranspose,
         foregroundColor: '#000000',
