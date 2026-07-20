@@ -45,7 +45,7 @@ describe('App Integration', () => {
       return Promise.resolve({
         ok: true,
         arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
-        text: () => Promise.resolve(''),
+        text: () => Promise.resolve(`<?xml version="1.0" encoding="UTF-8"?><score-partwise version="3.1"><part-list><score-part id="P1"><part-name>Test</part-name></score-part></part-list><part id="P1"><measure number="1"><attributes><divisions>1</divisions></attributes><note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration></note></measure></part></score-partwise>`),
       } as Response);
     });
   });

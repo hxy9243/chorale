@@ -9,6 +9,13 @@ export const PRESET_SAMPLES: MusicSample[] = [
     type: 'mxl',
   },
   {
+    id: 'moonlight-sonata-xml',
+    title: 'Moonlight Sonata (MusicXML)',
+    composer: 'Ludwig van Beethoven',
+    filename: 'samples/moonlight_sonata.xml',
+    type: 'xml',
+  },
+  {
     id: 'twinkle-xml',
     title: 'Twinkle, Twinkle, Little Star',
     composer: 'Traditional / W.A. Mozart',
