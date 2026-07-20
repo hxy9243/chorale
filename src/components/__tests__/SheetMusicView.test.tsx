@@ -73,4 +73,33 @@ describe('SheetMusicView Component', () => {
 
     expect(onTuneRendered).toHaveBeenCalled();
   });
+
+  it('clears the rendered score and tune when ABC is emptied', () => {
+    const onTuneRendered = vi.fn();
+    const { rerender } = render(
+      <SheetMusicView abcCode={sampleAbc} onTuneRendered={onTuneRendered} />,
+    );
+
+    expect(screen.getByTestId('mock-svg-paper')).toBeDefined();
+    rerender(<SheetMusicView abcCode="" onTuneRendered={onTuneRendered} />);
+
+    expect(screen.queryByTestId('mock-svg-paper')).toBeNull();
+    expect(onTuneRendered).toHaveBeenLastCalledWith(null);
+  });
+
+  it('clears stale score and tune when rendering fails', () => {
+    const onTuneRendered = vi.fn();
+    const { rerender } = render(
+      <SheetMusicView abcCode={sampleAbc} onTuneRendered={onTuneRendered} />,
+    );
+
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce(() => {
+      throw new Error('invalid ABC');
+    });
+    rerender(<SheetMusicView abcCode="invalid" onTuneRendered={onTuneRendered} />);
+
+    expect(screen.queryByTestId('mock-svg-paper')).toBeNull();
+    expect(screen.getByText(/invalid ABC/)).toBeDefined();
+    expect(onTuneRendered).toHaveBeenLastCalledWith(null);
+  });
 });
