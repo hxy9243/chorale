@@ -7,6 +7,7 @@ interface AudioPlayerProps {
 }
 
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
+  const soundFontBaseVolume = 0.4;
   const synthControllerRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isReady, setIsReady] = useState<boolean>(false);
@@ -16,6 +17,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
   const [audioError, setAudioError] = useState<string | null>(null);
 
   const audioContainerRef = useRef<HTMLDivElement>(null);
+  const effectiveVolume = isMuted ? 0 : volume;
 
   useEffect(() => {
     if (!tunes || tunes.length === 0) {
@@ -66,6 +68,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
           visualObj: tunes[0],
           options: {
             soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/',
+            soundFontVolumeMultiplier: soundFontBaseVolume * effectiveVolume,
             pan: [0],
           },
         });
@@ -74,6 +77,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
         await synthControl.setTune(tunes[0], false, {
           chordsOff: false,
           qpm: Math.round(defaultBpm * (tempo / 100)),
+          soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/',
+          soundFontVolumeMultiplier: soundFontBaseVolume * effectiveVolume,
         });
 
         setIsReady(true);
@@ -92,7 +97,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
         } catch (_e) {}
       }
     };
-  }, [tunes, tempo]);
+  }, [tunes, tempo, effectiveVolume]);
 
   const handlePlayToggle = () => {
     if (!synthControllerRef.current) return;

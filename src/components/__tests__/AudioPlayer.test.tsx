@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AudioPlayer } from '../AudioPlayer';
 
@@ -17,8 +17,8 @@ vi.mock('abcjs', () => ({
   default: {
     synth: {
       isSupported: vi.fn().mockReturnValue(true),
-      SynthController: vi.fn().mockImplementation(() => mockSynthControl),
-      CreateSynth: vi.fn().mockImplementation(() => mockCreateSynth),
+      SynthController: vi.fn(function () { return mockSynthControl; }),
+      CreateSynth: vi.fn(function () { return mockCreateSynth; }),
     },
   },
 }));
@@ -71,5 +71,27 @@ describe('AudioPlayer Component', () => {
 
     expect(screen.getByTitle('Unmute')).toBeDefined();
     expect(screen.getByText('0%')).toBeDefined();
+  });
+
+  it('applies volume changes and mute to the synth options', async () => {
+    render(<AudioPlayer tunes={[mockTune]} />);
+
+    await waitFor(() => {
+      expect(mockSynthControl.setTune).toHaveBeenLastCalledWith(mockTune, false, expect.any(Object));
+      expect(mockSynthControl.setTune.mock.lastCall?.[2].soundFontVolumeMultiplier).toBeCloseTo(0.32);
+    });
+
+    const volumeSlider = screen.getAllByRole('slider')[1];
+    fireEvent.change(volumeSlider, { target: { value: '0.5' } });
+
+    await waitFor(() => {
+      expect(mockSynthControl.setTune.mock.lastCall?.[2].soundFontVolumeMultiplier).toBeCloseTo(0.2);
+    });
+
+    fireEvent.click(screen.getByTitle('Mute'));
+
+    await waitFor(() => {
+      expect(mockSynthControl.setTune.mock.lastCall?.[2].soundFontVolumeMultiplier).toBe(0);
+    });
   });
 });
