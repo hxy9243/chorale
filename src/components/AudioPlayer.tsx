@@ -22,6 +22,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
   useEffect(() => {
     if (!tunes || tunes.length === 0) {
       setIsReady(false);
+      setIsPlaying(false);
       return;
     }
 
@@ -32,6 +33,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
     }
 
     let synthControl: any;
+    let cancelled = false;
 
     const initSynth = async () => {
       try {
@@ -73,6 +75,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
           },
         });
 
+        if (cancelled) return;
+
         const defaultBpm = typeof tunes[0].getBpm === 'function' ? tunes[0].getBpm() || 120 : 120;
         await synthControl.setTune(tunes[0], false, {
           chordsOff: false,
@@ -81,8 +85,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
           soundFontVolumeMultiplier: soundFontBaseVolume * effectiveVolume,
         });
 
+        if (cancelled) return;
         setIsReady(true);
       } catch (err: any) {
+        if (cancelled) return;
         console.error('Error initializing audio synth:', err);
         setAudioError('Could not initialize audio synthesizer.');
       }
@@ -91,10 +97,14 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
     initSynth();
 
     return () => {
-      if (synthControllerRef.current) {
+      cancelled = true;
+      if (synthControl) {
         try {
-          synthControllerRef.current.pause();
+          synthControl.pause();
         } catch (_e) {}
+      }
+      if (synthControllerRef.current === synthControl) {
+        synthControllerRef.current = null;
       }
     };
   }, [tunes, tempo, effectiveVolume]);
