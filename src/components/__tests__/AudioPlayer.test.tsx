@@ -75,25 +75,26 @@ describe('AudioPlayer Component', () => {
     expect(screen.getByText('0%')).toBeDefined();
   });
 
-  it('applies volume changes and mute to the synth options', async () => {
+  it('initializes synth with base volume and calls setWarp on tempo changes', async () => {
+    const instanceControl = {
+      ...mockSynthControl,
+      setWarp: vi.fn(),
+    };
+    const synthApi = (abcjs as any).synth;
+    vi.mocked(synthApi.SynthController).mockImplementationOnce(function () { return instanceControl; });
+
     render(<AudioPlayer tunes={[mockTune]} />);
 
     await waitFor(() => {
-      expect(mockSynthControl.setTune).toHaveBeenLastCalledWith(mockTune, false, expect.any(Object));
-      expect(mockSynthControl.setTune.mock.lastCall?.[2].soundFontVolumeMultiplier).toBeCloseTo(0.32);
+      expect(instanceControl.setTune).toHaveBeenLastCalledWith(mockTune, false, expect.any(Object));
+      expect(instanceControl.setTune.mock.lastCall?.[2].soundFontVolumeMultiplier).toBeCloseTo(0.4);
     });
 
-    const volumeSlider = screen.getAllByRole('slider')[1];
-    fireEvent.change(volumeSlider, { target: { value: '0.5' } });
+    const tempoSlider = screen.getAllByRole('slider')[0];
+    fireEvent.change(tempoSlider, { target: { value: '140' } });
 
     await waitFor(() => {
-      expect(mockSynthControl.setTune.mock.lastCall?.[2].soundFontVolumeMultiplier).toBeCloseTo(0.2);
-    });
-
-    fireEvent.click(screen.getByTitle('Mute'));
-
-    await waitFor(() => {
-      expect(mockSynthControl.setTune.mock.lastCall?.[2].soundFontVolumeMultiplier).toBe(0);
+      expect(instanceControl.setWarp).toHaveBeenCalledWith(140);
     });
   });
 

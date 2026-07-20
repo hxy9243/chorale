@@ -17,8 +17,54 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
   const [audioError, setAudioError] = useState<string | null>(null);
 
   const audioContainerRef = useRef<HTMLDivElement>(null);
+  const masterGainRef = useRef<GainNode | null>(null);
+  const isTempoInitialMount = useRef<boolean>(true);
+  const tempoRef = useRef<number>(tempo);
+  tempoRef.current = tempo;
   const effectiveVolume = isMuted ? 0 : volume;
 
+  // Master volume control using WebAudio GainNode
+  useEffect(() => {
+    const synthApi = (abcjs as any).synth;
+    if (!synthApi || typeof synthApi.activeAudioContext !== 'function') return;
+
+    try {
+      const audioCtx = synthApi.activeAudioContext();
+      if (!audioCtx || typeof audioCtx.createGain !== 'function') return;
+
+      if (!masterGainRef.current || masterGainRef.current.context !== audioCtx) {
+        const gainNode = audioCtx.createGain();
+        gainNode.connect(audioCtx.destination);
+
+        const originalConnect = AudioNode.prototype.connect;
+        (AudioNode.prototype as any).connect = function (this: AudioNode, destination: any, output?: number, input?: number) {
+          if (destination === audioCtx.destination) {
+            return (originalConnect as any).call(this, gainNode, output, input);
+          }
+          return (originalConnect as any).call(this, destination, output, input);
+        };
+
+        masterGainRef.current = gainNode;
+      }
+
+      masterGainRef.current?.gain.setValueAtTime(effectiveVolume, audioCtx.currentTime);
+    } catch (err) {
+      console.error('Error setting master volume gain:', err);
+    }
+  }, [effectiveVolume]);
+
+  // Tempo adjustment using setWarp
+  useEffect(() => {
+    if (isTempoInitialMount.current) {
+      isTempoInitialMount.current = false;
+      return;
+    }
+    if (synthControllerRef.current && typeof synthControllerRef.current.setWarp === 'function') {
+      synthControllerRef.current.setWarp(tempo);
+    }
+  }, [tempo]);
+
+  // Primary synth initialization on tune change
   useEffect(() => {
     if (!tunes || tunes.length === 0) {
       setIsReady(false);
@@ -81,7 +127,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
           visualObj: tunes[0],
           options: {
             soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/',
-            soundFontVolumeMultiplier: soundFontBaseVolume * effectiveVolume,
+            soundFontVolumeMultiplier: soundFontBaseVolume,
             pan: [0],
           },
         });
@@ -91,9 +137,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
         const defaultBpm = typeof tunes[0].getBpm === 'function' ? tunes[0].getBpm() || 120 : 120;
         await synthControl.setTune(tunes[0], false, {
           chordsOff: false,
-          qpm: Math.round(defaultBpm * (tempo / 100)),
+          qpm: Math.round(defaultBpm * (tempoRef.current / 100)),
           soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/',
-          soundFontVolumeMultiplier: soundFontBaseVolume * effectiveVolume,
+          soundFontVolumeMultiplier: soundFontBaseVolume,
         });
 
         if (cancelled) return;
@@ -119,7 +165,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
         synthControllerRef.current = null;
       }
     };
-  }, [tunes, tempo, effectiveVolume]);
+  }, [tunes]);
 
   const handlePlayToggle = () => {
     if (!synthControllerRef.current) return;
