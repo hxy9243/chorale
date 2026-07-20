@@ -150,4 +150,33 @@ describe('AudioPlayer Component', () => {
     expect(firstControl.setTune).not.toHaveBeenCalled();
     expect(secondControl.setTune).toHaveBeenCalledOnce();
   });
+
+  it('resets internal isStarted flag on pause so subsequent play click works immediately', async () => {
+    const instanceControl: any = {
+      ...mockSynthControl,
+      isStarted: true,
+      play: vi.fn(),
+      pause: vi.fn(),
+    };
+    const synthApi = (abcjs as any).synth;
+    vi.mocked(synthApi.SynthController).mockImplementationOnce(function () { return instanceControl; });
+
+    render(<AudioPlayer tunes={[mockTune]} />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+
+    // Play -> Pause -> Play
+    const playBtn = screen.getByTitle('Play Piano Synthesizer');
+    fireEvent.click(playBtn);
+    expect(instanceControl.play).toHaveBeenCalledTimes(1);
+
+    const pauseBtn = screen.getByTitle('Pause Audio');
+    fireEvent.click(pauseBtn);
+    expect(instanceControl.pause).toHaveBeenCalledTimes(1);
+    expect(instanceControl.isStarted).toBe(false);
+
+    const replayBtn = screen.getByTitle('Play Piano Synthesizer');
+    fireEvent.click(replayBtn);
+    expect(instanceControl.isStarted).toBe(false); // reset prior to call
+    expect(instanceControl.play).toHaveBeenCalledTimes(2);
+  });
 });

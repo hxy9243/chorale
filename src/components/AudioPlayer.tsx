@@ -46,23 +46,34 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
 
         if (audioContainerRef.current) {
           audioContainerRef.current.innerHTML = '';
-          synthControl.load(audioContainerRef.current, {
-            onEvent: (event: any) => {
-              if (event && event.elements) {
-                // Highlight active note elements in SVG score
+          synthControl.load(
+            audioContainerRef.current,
+            {
+              onEvent: (event: any) => {
+                if (event && event.elements) {
+                  // Highlight active note elements in SVG score
+                  document.querySelectorAll('.abcjs-highlight').forEach((el) => el.classList.remove('abcjs-highlight'));
+                  event.elements.forEach((group: any[]) => {
+                    group.forEach((el: Element) => el.classList.add('abcjs-highlight'));
+                  });
+                }
+              },
+              onFinished: () => {
+                setIsPlaying(false);
+                if (synthControllerRef.current) {
+                  synthControllerRef.current.isStarted = false;
+                }
                 document.querySelectorAll('.abcjs-highlight').forEach((el) => el.classList.remove('abcjs-highlight'));
-                event.elements.forEach((group: any[]) => {
-                  group.forEach((el: Element) => el.classList.add('abcjs-highlight'));
-                });
-              }
+              },
             },
-          }, {
-            displayLoop: true,
-            displayRestart: true,
-            displayPlay: true,
-            displayProgress: true,
-            displayWarp: true,
-          });
+            {
+              displayLoop: true,
+              displayRestart: true,
+              displayPlay: true,
+              displayProgress: true,
+              displayWarp: true,
+            }
+          );
         }
 
         const createSynth = new synthApi.CreateSynth();
@@ -101,6 +112,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
       if (synthControl) {
         try {
           synthControl.pause();
+          synthControl.isStarted = false;
         } catch (_e) {}
       }
       if (synthControllerRef.current === synthControl) {
@@ -113,8 +125,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
     if (!synthControllerRef.current) return;
     if (isPlaying) {
       synthControllerRef.current.pause();
+      synthControllerRef.current.isStarted = false;
       setIsPlaying(false);
     } else {
+      synthControllerRef.current.isStarted = false;
       synthControllerRef.current.play();
       setIsPlaying(true);
     }
@@ -124,6 +138,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
     if (!synthControllerRef.current) return;
     synthControllerRef.current.pause();
     synthControllerRef.current.restart();
+    synthControllerRef.current.isStarted = false;
     setIsPlaying(false);
     document.querySelectorAll('.abcjs-highlight').forEach((el) => el.classList.remove('abcjs-highlight'));
   };
