@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import abcjs from 'abcjs';
 import { Header } from './components/Header';
 import { FileSelector } from './components/FileSelector';
@@ -15,6 +15,7 @@ export const App: React.FC = () => {
   const [tunes, setTunes] = useState<abcjs.TuneObject[] | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const loadRequestRef = useRef(0);
 
   // Load initial preset sample on mount
   useEffect(() => {
@@ -24,6 +25,7 @@ export const App: React.FC = () => {
   }, []);
 
   const handleProcessMusicXml = async (fileData: ArrayBuffer | string, fileName: string) => {
+    const requestId = ++loadRequestRef.current;
     try {
       setLoading(true);
       setError(null);
@@ -31,16 +33,21 @@ export const App: React.FC = () => {
 
       const xmlText = await extractMusicXml(fileData);
       const abc = parseMusicXmlToAbc(xmlText);
+      if (requestId !== loadRequestRef.current) return;
       setAbcCode(abc);
     } catch (err: any) {
+      if (requestId !== loadRequestRef.current) return;
       console.error('Error parsing MusicXML:', err);
       setError(err?.message || 'Failed to parse MusicXML file.');
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   const loadSample = async (sample: MusicSample) => {
+    const requestId = ++loadRequestRef.current;
     try {
       setLoading(true);
       setError(null);
@@ -55,17 +62,22 @@ export const App: React.FC = () => {
         const buffer = await response.arrayBuffer();
         const xmlText = await extractMusicXml(buffer);
         const abc = parseMusicXmlToAbc(xmlText);
+        if (requestId !== loadRequestRef.current) return;
         setAbcCode(abc);
       } else {
         const text = await response.text();
         const abc = parseMusicXmlToAbc(text);
+        if (requestId !== loadRequestRef.current) return;
         setAbcCode(abc);
       }
     } catch (err: any) {
+      if (requestId !== loadRequestRef.current) return;
       console.error('Error loading sample:', err);
       setError(err?.message || 'Failed to load sample track.');
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestRef.current) {
+        setLoading(false);
+      }
     }
   };
 

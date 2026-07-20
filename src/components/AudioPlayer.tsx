@@ -7,6 +7,7 @@ interface AudioPlayerProps {
 }
 
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
+  const soundFontBaseVolume = 0.4;
   const synthControllerRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isReady, setIsReady] = useState<boolean>(false);
@@ -16,10 +17,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
   const [audioError, setAudioError] = useState<string | null>(null);
 
   const audioContainerRef = useRef<HTMLDivElement>(null);
+  const effectiveVolume = isMuted ? 0 : volume;
 
   useEffect(() => {
     if (!tunes || tunes.length === 0) {
       setIsReady(false);
+      setIsPlaying(false);
       return;
     }
 
@@ -30,6 +33,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
     }
 
     let synthControl: any;
+    let cancelled = false;
 
     const initSynth = async () => {
       try {
@@ -66,18 +70,25 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
           visualObj: tunes[0],
           options: {
             soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/',
+            soundFontVolumeMultiplier: soundFontBaseVolume * effectiveVolume,
             pan: [0],
           },
         });
+
+        if (cancelled) return;
 
         const defaultBpm = typeof tunes[0].getBpm === 'function' ? tunes[0].getBpm() || 120 : 120;
         await synthControl.setTune(tunes[0], false, {
           chordsOff: false,
           qpm: Math.round(defaultBpm * (tempo / 100)),
+          soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/',
+          soundFontVolumeMultiplier: soundFontBaseVolume * effectiveVolume,
         });
 
+        if (cancelled) return;
         setIsReady(true);
       } catch (err: any) {
+        if (cancelled) return;
         console.error('Error initializing audio synth:', err);
         setAudioError('Could not initialize audio synthesizer.');
       }
@@ -86,13 +97,17 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
     initSynth();
 
     return () => {
-      if (synthControllerRef.current) {
+      cancelled = true;
+      if (synthControl) {
         try {
-          synthControllerRef.current.pause();
+          synthControl.pause();
         } catch (_e) {}
       }
+      if (synthControllerRef.current === synthControl) {
+        synthControllerRef.current = null;
+      }
     };
-  }, [tunes, tempo]);
+  }, [tunes, tempo, effectiveVolume]);
 
   const handlePlayToggle = () => {
     if (!synthControllerRef.current) return;
@@ -108,6 +123,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
   const handleStop = () => {
     if (!synthControllerRef.current) return;
     synthControllerRef.current.pause();
+    synthControllerRef.current.restart();
     setIsPlaying(false);
     document.querySelectorAll('.abcjs-highlight').forEach((el) => el.classList.remove('abcjs-highlight'));
   };

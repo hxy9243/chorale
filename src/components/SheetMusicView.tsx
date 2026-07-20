@@ -4,7 +4,7 @@ import { ZoomIn, ZoomOut, RotateCcw, SlidersHorizontal } from 'lucide-react';
 
 interface SheetMusicViewProps {
   abcCode: string;
-  onTuneRendered?: (tune: abcjs.TuneObject[]) => void;
+  onTuneRendered?: (tune: abcjs.TuneObject[] | null) => void;
 }
 
 export const SheetMusicView: React.FC<SheetMusicViewProps> = ({ abcCode, onTuneRendered }) => {
@@ -14,7 +14,14 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({ abcCode, onTuneR
   const [renderError, setRenderError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!containerRef.current || !abcCode.trim()) return;
+    if (!containerRef.current) return;
+
+    if (!abcCode.trim()) {
+      containerRef.current.innerHTML = '';
+      setRenderError(null);
+      onTuneRendered?.(null);
+      return;
+    }
 
     try {
       setRenderError(null);
@@ -35,9 +42,13 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({ abcCode, onTuneR
 
       if (tunes && tunes.length > 0 && onTuneRendered) {
         onTuneRendered(tunes);
+      } else {
+        onTuneRendered?.(null);
       }
     } catch (err: any) {
       console.error('abcjs render error:', err);
+      containerRef.current.innerHTML = '';
+      onTuneRendered?.(null);
       setRenderError(err?.message || 'Failed to render sheet music SVG.');
     }
   }, [abcCode, scale, transpose]);
