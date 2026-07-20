@@ -113,6 +113,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
   const handleStop = () => {
     if (!synthControllerRef.current) return;
     synthControllerRef.current.pause();
+    synthControllerRef.current.restart();
     setIsPlaying(false);
     document.querySelectorAll('.abcjs-highlight').forEach((el) => el.classList.remove('abcjs-highlight'));
   };

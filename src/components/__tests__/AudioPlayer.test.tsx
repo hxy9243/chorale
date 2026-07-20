@@ -7,6 +7,7 @@ const mockSynthControl = {
   setTune: vi.fn().mockResolvedValue(true),
   play: vi.fn(),
   pause: vi.fn(),
+  restart: vi.fn(),
 };
 
 const mockCreateSynth = {
@@ -93,5 +94,15 @@ describe('AudioPlayer Component', () => {
     await waitFor(() => {
       expect(mockSynthControl.setTune.mock.lastCall?.[2].soundFontVolumeMultiplier).toBe(0);
     });
+  });
+
+  it('pauses and rewinds playback when stopped', async () => {
+    render(<AudioPlayer tunes={[mockTune]} />);
+
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    fireEvent.click(screen.getByTitle('Stop & Reset'));
+
+    expect(mockSynthControl.pause).toHaveBeenCalled();
+    expect(mockSynthControl.restart).toHaveBeenCalledOnce();
   });
 });
