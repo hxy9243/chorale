@@ -1,20 +1,25 @@
 import React, { useRef } from 'react';
 import { FolderOpen, Plus, Clock, Star, FileMusic, CheckCircle2, AlertCircle } from 'lucide-react';
+import type { FileDocument } from '../types/document';
 import type { MusicSample } from '../types/music';
 import { PRESET_SAMPLES } from '../data/samples';
 
 interface FileRailProps {
-  activeFileName: string;
-  onFileLoaded: (fileData: ArrayBuffer | string, fileName: string) => void;
+  documents: FileDocument[];
+  activeFileId: string;
+  onSelectDocument: (fileId: string) => void;
   onSampleSelected: (sample: MusicSample) => void;
+  onFileLoaded: (fileData: ArrayBuffer | string, fileName: string) => void;
   loading?: boolean;
   error?: string | null;
 }
 
 export const FileRail: React.FC<FileRailProps> = ({
-  activeFileName,
-  onFileLoaded,
+  documents,
+  activeFileId,
+  onSelectDocument,
   onSampleSelected,
+  onFileLoaded,
   loading = false,
   error = null,
 }) => {
@@ -57,7 +62,7 @@ export const FileRail: React.FC<FileRailProps> = ({
           type="file"
           ref={fileInputRef}
           onChange={handleFileChange}
-          accept=".xml,.musicxml,.mxl"
+          accept=".xml,.musicxml,.mxl,.abc"
           style={{ display: 'none' }}
         />
       </div>
@@ -82,41 +87,55 @@ export const FileRail: React.FC<FileRailProps> = ({
 
       <div className="file-rail-section">
         <div className="rail-section-title">
-          <span>PROJECT FILES</span>
-          <span className="rail-count">{PRESET_SAMPLES.length}</span>
+          <span>ACTIVE FILES</span>
+          <span className="rail-count">{documents.length}</span>
         </div>
 
         <div className="file-list">
-          {PRESET_SAMPLES.map((sample) => {
-            const sampleName = `${sample.title} (${sample.type.toUpperCase()})`;
-            const isActive = activeFileName === sampleName || activeFileName.includes(sample.title);
+          {documents.map((doc) => {
+            const isActive = doc.id === activeFileId;
             return (
               <button
-                key={sample.id}
+                key={doc.id}
                 type="button"
                 className={`file-item ${isActive ? 'active' : ''}`}
-                onClick={() => onSampleSelected(sample)}
+                onClick={() => onSelectDocument(doc.id)}
               >
                 <FileMusic size={16} className="file-item-icon" />
                 <div className="file-item-info">
-                  <span className="file-item-name">{sample.title}</span>
-                  <span className="file-item-meta">{sample.type.toUpperCase()}</span>
+                  <span className="file-item-name">{doc.name}</span>
+                  <span className="file-item-meta">
+                    {doc.sourceType.toUpperCase()} &bull; r{doc.revision}
+                  </span>
                 </div>
                 {isActive && <CheckCircle2 size={14} className="active-indicator" />}
               </button>
             );
           })}
+        </div>
+      </div>
 
-          {activeFileName && !PRESET_SAMPLES.some((s) => activeFileName.includes(s.title)) && (
-            <button type="button" className="file-item active">
+      <div className="file-rail-section">
+        <div className="rail-section-title">
+          <span>PRESET SAMPLES</span>
+          <span className="rail-count">{PRESET_SAMPLES.length}</span>
+        </div>
+
+        <div className="file-list">
+          {PRESET_SAMPLES.map((sample) => (
+            <button
+              key={sample.id}
+              type="button"
+              className="file-item sample-item"
+              onClick={() => onSampleSelected(sample)}
+            >
               <FileMusic size={16} className="file-item-icon" />
               <div className="file-item-info">
-                <span className="file-item-name">{activeFileName}</span>
-                <span className="file-item-meta">IMPORTED</span>
+                <span className="file-item-name">{sample.title}</span>
+                <span className="file-item-meta">{sample.type.toUpperCase()} SAMPLE</span>
               </div>
-              <CheckCircle2 size={14} className="active-indicator" />
             </button>
-          )}
+          ))}
         </div>
       </div>
 

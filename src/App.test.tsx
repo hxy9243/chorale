@@ -55,7 +55,7 @@ describe('App Integration', () => {
 
     expect(screen.getByText('Chorale')).toBeDefined();
     expect(screen.getByText('Import Score')).toBeDefined();
-    expect(screen.getByText('PROJECT FILES')).toBeDefined();
+    expect(screen.getByText('ACTIVE FILES')).toBeDefined();
 
     await waitFor(() => {
       expect(screen.getByTestId('sheet-svg')).toBeDefined();
@@ -70,8 +70,30 @@ describe('App Integration', () => {
       expect(screen.getByTestId('sheet-svg')).toBeDefined();
     });
 
-    const sampleButton = screen.getByText('Twinkle, Twinkle, Little Star');
+    const sampleButton = screen.getAllByText('Twinkle, Twinkle, Little Star')[0];
     fireEvent.click(sampleButton);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Twinkle, Twinkle, Little Star/).length).toBeGreaterThan(0);
+    });
+  });
+
+  it('supports active file switching in the session model', async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sheet-svg')).toBeDefined();
+    });
+
+    const sample2 = screen.getAllByText('Moonlight Sonata (MusicXML)')[0];
+    fireEvent.click(sample2);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Moonlight Sonata/).length).toBeGreaterThan(0);
+    });
+
+    const sample1 = screen.getAllByText('Twinkle, Twinkle, Little Star')[0];
+    fireEvent.click(sample1);
 
     await waitFor(() => {
       expect(screen.getAllByText(/Twinkle, Twinkle, Little Star/).length).toBeGreaterThan(0);
