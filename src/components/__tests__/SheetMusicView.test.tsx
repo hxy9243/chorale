@@ -162,4 +162,44 @@ describe('SheetMusicView Component', () => {
     expect(highlight?.getAttribute('width')).toBe('54');
     expect(highlight?.getAttribute('height')).toBe('44');
   });
+
+  it('selects a measure from its full hit target on the first click', () => {
+    const onSelectAnchor = vi.fn();
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
+      if (element && typeof element !== 'string') {
+        element.innerHTML = `
+          <svg>
+            <g class="abcjs-note abcjs-mm0"></g>
+            <g class="abcjs-bar abcjs-mm0"></g>
+            <g class="abcjs-note abcjs-mm1"></g>
+            <g class="abcjs-bar abcjs-mm1"></g>
+          </svg>
+        `;
+        element.querySelectorAll<SVGGraphicsElement>('.abcjs-mm0').forEach((node, index) => {
+          Object.defineProperty(node, 'getBBox', {
+            value: () => ({ x: 10 + index * 40, y: 20, width: 30, height: 24 }),
+          });
+        });
+        element.querySelectorAll<SVGGraphicsElement>('.abcjs-mm1').forEach((node, index) => {
+          Object.defineProperty(node, 'getBBox', {
+            value: () => ({ x: 90 + index * 40, y: 20, width: 30, height: 24 }),
+          });
+        });
+      }
+      return [{ getBpm: () => 120 }] as any;
+    });
+
+    const { container } = render(
+      <SheetMusicView abcCode={sampleAbc} onSelectAnchor={onSelectAnchor} />,
+    );
+
+    fireEvent.click(container.querySelector('[data-measure="2"]')!);
+    expect(onSelectAnchor).toHaveBeenCalledOnce();
+    expect(onSelectAnchor).toHaveBeenCalledWith({
+      measure: 2,
+      abcOffset: undefined,
+      label: 'm. 2',
+      playbackFraction: 0.5,
+    });
+  });
 });

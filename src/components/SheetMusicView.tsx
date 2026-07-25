@@ -56,6 +56,51 @@ const getRenderedMeasureCount = (container: HTMLDivElement) => {
   return indexes.length > 0 ? Math.max(...indexes) + 1 : 1;
 };
 
+const installMeasureHitAreas = (
+  container: HTMLDivElement,
+  onSelectMeasure: (measure: number) => void,
+) => {
+  container.querySelectorAll('.abcjs-measure-hit-area').forEach((element) => element.remove());
+  const measureCount = getRenderedMeasureCount(container);
+
+  for (let measure = 1; measure <= measureCount; measure += 1) {
+    const elements = Array.from(container.querySelectorAll<SVGGraphicsElement>(
+      `.abcjs-mm${measure - 1}`,
+    )).filter((element) => typeof element.getBBox === 'function');
+    if (elements.length === 0) continue;
+
+    const boxes = elements.map((element) => element.getBBox());
+    const left = Math.min(...boxes.map((box) => box.x));
+    const top = Math.min(...boxes.map((box) => box.y));
+    const right = Math.max(...boxes.map((box) => box.x + box.width));
+    const bottom = Math.max(...boxes.map((box) => box.y + box.height));
+    const svg = elements[0].ownerSVGElement;
+    if (!svg) continue;
+
+    const hitArea = document.createElementNS(SVG_NAMESPACE, 'rect');
+    hitArea.classList.add('abcjs-measure-hit-area');
+    hitArea.dataset.measure = String(measure);
+    hitArea.setAttribute('x', String(left - 8));
+    hitArea.setAttribute('y', String(top - 12));
+    hitArea.setAttribute('width', String(right - left + 16));
+    hitArea.setAttribute('height', String(bottom - top + 24));
+    hitArea.setAttribute('rx', '6');
+    hitArea.setAttribute('role', 'button');
+    hitArea.setAttribute('tabindex', '0');
+    hitArea.setAttribute('aria-label', `Select measure ${measure}`);
+    hitArea.addEventListener('click', (event) => {
+      event.stopPropagation();
+      onSelectMeasure(measure);
+    });
+    hitArea.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      onSelectMeasure(measure);
+    });
+    svg.appendChild(hitArea);
+  }
+};
+
 interface SheetMusicViewProps {
   abcCode: string;
   activeAnchor?: ScoreAnchor | null;
@@ -88,6 +133,23 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       setRenderError(null);
       containerRef.current.innerHTML = '';
       let renderedTune: abcjs.TuneObject | null = null;
+      const selectMeasure = (measure: number, abcOffset?: number) => {
+        const measureCount = getRenderedMeasureCount(containerRef.current!);
+        const playbackFraction = Math.max(0, Math.min(1, (measure - 1) / measureCount));
+        renderedTune?.setTiming?.(renderedTune.getBpm?.());
+        const totalTime = renderedTune?.getTotalTime?.();
+        const playbackSeconds = Number.isFinite(totalTime) && totalTime! > 0
+          ? totalTime! * playbackFraction
+          : undefined;
+        const newAnchor: ScoreAnchor = {
+          measure,
+          abcOffset,
+          label: `m. ${measure}`,
+          playbackFraction,
+          ...(playbackSeconds !== undefined ? { playbackSeconds } : {}),
+        };
+        onSelectAnchor?.(newAnchor);
+      };
 
       const visualTranspose = transpose;
       const tunes = abcjs.renderAbc(containerRef.current, abcCode, {
@@ -103,22 +165,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         clickListener: (abcElem: any, _tuneNumber, classes, analysis) => {
           if (!abcElem) return;
           const measure = resolveClickedMeasure(abcElem, classes, analysis);
-          const abcOffset = abcElem.startChar;
-          const measureCount = getRenderedMeasureCount(containerRef.current!);
-          const playbackFraction = Math.max(0, Math.min(1, (measure - 1) / measureCount));
-          renderedTune?.setTiming?.(renderedTune.getBpm?.());
-          const totalTime = renderedTune?.getTotalTime?.();
-          const playbackSeconds = Number.isFinite(totalTime) && totalTime! > 0
-            ? totalTime! * ((measure - 1) / measureCount)
-            : undefined;
-          const newAnchor: ScoreAnchor = {
-            measure,
-            abcOffset,
-            label: `m. ${measure}`,
-            playbackFraction,
-            ...(playbackSeconds !== undefined ? { playbackSeconds } : {}),
-          };
-          onSelectAnchor?.(newAnchor);
+          selectMeasure(measure, abcElem.startChar);
         },
         visualTranspose: visualTranspose,
         foregroundColor: '#000000',
@@ -128,6 +175,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         paddingright: 15,
       });
       renderedTune = tunes?.[0] || null;
+      installMeasureHitAreas(containerRef.current, (measure) => selectMeasure(measure));
 
       if (tunes && tunes.length > 0 && onTuneRendered) {
         onTuneRendered(tunes);
