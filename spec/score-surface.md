@@ -33,6 +33,8 @@ Examples from the design:
 
 Selection is not just visual emphasis. It is a reusable context handoff into playback, annotations, and chat.
 
+For a single-measure selection, Chorale should draw a faint warm highlight behind the complete measure. The highlight must not recolor notation, intercept pointer input, or depend on a particular note being selected. Selecting another measure replaces the previous highlight.
+
 ## 4. Annotation overlays
 
 The score surface should support inline annotation UI layered on top of rendered notation.
@@ -66,11 +68,12 @@ The current branch already has:
 - rendered ABC notation
 - zoom controls
 - transposition controls
+- global measure selection
+- a persistent measure highlight
+- selection handoff to chat and playback
 
 The design still requires:
 
 - continuous-scroll composition
-- structured selection state
 - annotation overlay rendering
 - score metadata header
-- selection-to-chat and selection-to-playback handoff

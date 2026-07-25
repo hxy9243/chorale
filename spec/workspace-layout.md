@@ -10,7 +10,7 @@ Define the top-level desktop workspace composition for Chorale.
 The design is no longer a simple player page. It is a persistent application workspace with four primary regions:
 
 1. global header
-2. project and file rail
+2. file rail
 3. central score workspace
 4. right-side chat panel
 
@@ -26,21 +26,20 @@ Required regions:
 
 The current PoC header is still tool/demo oriented. The product header should instead anchor the user in the active file and current save state.
 
-## 3. Project and file rail
+## 3. File rail
 
-The left rail introduces persistent navigation and file scope.
+The left rail is intentionally limited to file scope. Project and library hierarchy is omitted until the product has real project-backed behavior.
 
 Required content:
 
 - import score action
-- library shortcuts such as All projects, Recent, and Favorites
-- project list with score counts
-- file list scoped to the selected project
+- active and available file list
 - file metadata such as imported, edited, or draft
 
 Implication:
 
 - Chorale needs a file/session model rather than a single score loaded into component state.
+- placeholder library and project navigation must not be shown as if it were functional.
 
 ## 4. Central workspace
 
@@ -57,7 +56,7 @@ The score remains the dominant surface. The editor is subordinate even when visi
 
 ## 5. Right-side chat panel
 
-The chat panel is part of the fixed workspace layout rather than a transient overlay on desktop.
+The chat panel is part of the fixed workspace layout rather than a transient overlay on desktop. Closing it expands the score workspace, but a persistent header control must always allow the user to reopen it.
 
 It should feel like a persistent product surface with:
 

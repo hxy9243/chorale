@@ -18,6 +18,7 @@ A `ScoreAnchor` should identify a musical location in a way that survives UI han
 - voice or staff identity when available
 - ABC offset when recoverable
 - playback time when available
+- normalized playback fraction when absolute timing is not yet available
 
 Every feature should reference the same anchor object instead of keeping separate local notions of selection.
 
@@ -31,6 +32,8 @@ When the user clicks the score:
 2. Chorale creates or updates the active `ScoreAnchor`
 3. playback seeks to the same location
 4. chat and annotation affordances reuse that anchor immediately
+
+Measure resolution must use abcjs's global measure index rather than a line-local index or a missing note payload field. The first rendered measure maps to product measure `1`, the second to `2`, and so on across staff systems. The score records normalized progress from the rendered measure count and adds absolute playback time when the tune exposes duration.
 
 ### ABC edit to atomic rebuild
 
@@ -54,6 +57,8 @@ When chat proposes a score mutation:
 ## 4. Interaction invariants
 
 - playback, chat, and annotations must not invent separate selection models
+- the selected measure must remain visually highlighted until replaced, cleared, or the active file changes
+- closing chat must not clear the active score anchor, and chat must remain reopenable from the global header
 - chat history may change without deleting durable annotations or score info
 - stale render or synth output must never overwrite a newer revision
 - source-changing AI actions must remain reviewable before durable application

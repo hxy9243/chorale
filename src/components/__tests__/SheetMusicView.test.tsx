@@ -6,7 +6,7 @@ import abcjs from 'abcjs';
 vi.mock('abcjs', () => ({
   default: {
     renderAbc: vi.fn().mockImplementation((element) => {
-      if (element) {
+      if (element && typeof element !== 'string') {
         element.innerHTML = '<svg data-testid="mock-svg-paper"><path class="abcjs-note" /></svg>';
       }
       return [{ getBpm: () => 120 }];
@@ -105,7 +105,7 @@ describe('SheetMusicView Component', () => {
     expect(onSelectAnchor).toHaveBeenCalledWith(null);
   });
 
-  it('triggers onSelectAnchor when clickListener resolves an element', () => {
+  it('resolves the global measure class instead of falling back to measure one', () => {
     const onSelectAnchor = vi.fn();
     let capturedOptions: any = null;
     vi.mocked(abcjs.renderAbc).mockImplementationOnce((_element, _code, options) => {
@@ -117,13 +117,49 @@ describe('SheetMusicView Component', () => {
     render(<SheetMusicView abcCode={sampleAbc} onSelectAnchor={onSelectAnchor} />);
 
     expect(capturedOptions?.clickListener).toBeDefined();
-    capturedOptions.clickListener({ measureNumber: 3, startChar: 24 });
+    capturedOptions.clickListener(
+      { startChar: 24 },
+      0,
+      'abcjs-note abcjs-l1 abcjs-m0 abcjs-mm3',
+      { measure: 0 },
+    );
 
     expect(onSelectAnchor).toHaveBeenCalledWith({
       measure: 4,
       abcOffset: 24,
       label: 'm. 4',
+      playbackFraction: 1,
     });
   });
-});
 
+  it('draws a faint background highlight behind the selected measure', () => {
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
+      if (element && typeof element !== 'string') {
+        element.innerHTML = `
+          <svg data-testid="highlight-svg">
+            <g class="abcjs-note abcjs-mm2"></g>
+            <g class="abcjs-bar abcjs-mm2"></g>
+          </svg>
+        `;
+        const measureElements = element.querySelectorAll<SVGGraphicsElement>('.abcjs-mm2');
+        Object.defineProperty(measureElements[0], 'getBBox', {
+          value: () => ({ x: 20, y: 30, width: 40, height: 20 }),
+        });
+        Object.defineProperty(measureElements[1], 'getBBox', {
+          value: () => ({ x: 58, y: 28, width: 4, height: 28 }),
+        });
+      }
+      return [{ getBpm: () => 120 }] as any;
+    });
+
+    const { container } = render(
+      <SheetMusicView abcCode={sampleAbc} activeAnchor={{ measure: 3 }} />,
+    );
+
+    const highlight = container.querySelector('.abcjs-measure-highlight');
+    expect(highlight?.getAttribute('x')).toBe('14');
+    expect(highlight?.getAttribute('y')).toBe('20');
+    expect(highlight?.getAttribute('width')).toBe('54');
+    expect(highlight?.getAttribute('height')).toBe('44');
+  });
+});

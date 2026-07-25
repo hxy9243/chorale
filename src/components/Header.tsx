@@ -1,5 +1,5 @@
 import React from 'react';
-import { Share2 } from 'lucide-react';
+import { MessageSquare, Share2 } from 'lucide-react';
 
 interface HeaderProps {
   activeFileName?: string;
@@ -37,13 +37,14 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
         <button
           type="button"
-          className={`header-avatar ${chatOpen ? 'active' : ''}`}
+          className={`header-chat-button ${chatOpen ? 'active' : ''}`}
           onClick={onToggleChat}
           aria-expanded={chatOpen}
           aria-controls="current-sheet-agent"
           title={chatOpen ? 'Hide score chat' : 'Show score chat'}
         >
-          X
+          <MessageSquare size={15} aria-hidden="true" />
+          <span>Chat</span>
         </button>
       </div>
     </header>

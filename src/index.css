@@ -1824,22 +1824,33 @@ textarea {
   min-width: 80px;
 }
 
-.header-avatar {
-  display: grid;
-  width: 34px;
+.header-chat-button {
+  display: flex;
+  min-width: 72px;
   height: 34px;
-  place-items: center;
-  border: 0;
-  border-radius: 50%;
-  background: var(--figma-rail);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid var(--figma-border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--figma-ink);
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
 }
 
-.header-avatar:not(.active) {
-  background: #8e949e;
+.header-chat-button:hover,
+.header-chat-button.active {
+  border-color: var(--figma-rail);
+  background: var(--figma-rail);
+  color: #fff;
+}
+
+.header-chat-button:focus-visible {
+  outline: 2px solid var(--figma-coral);
+  outline-offset: 2px;
 }
 
 .workspace-body,
@@ -2193,6 +2204,14 @@ textarea {
 .abcjs-paper-container svg {
   width: 100% !important;
   max-width: 100%;
+}
+
+.abcjs-measure-highlight {
+  fill: #f8dfe5;
+  stroke: #e7a7b6;
+  stroke-width: 1;
+  opacity: 0.58;
+  pointer-events: none;
 }
 
 .score-canvas-footer {
@@ -2885,6 +2904,10 @@ textarea {
     padding-right: 38px;
     padding-left: 38px;
   }
+
+  .playback-dock-container .control-slider-group {
+    display: none;
+  }
 }
 
 @media (max-width: 980px) {
@@ -2953,6 +2976,16 @@ textarea {
   }
 
   .header-breadcrumb {
+    display: none;
+  }
+
+  .header-chat-button {
+    min-width: 38px;
+    width: 38px;
+    padding: 0;
+  }
+
+  .header-chat-button span {
     display: none;
   }
 

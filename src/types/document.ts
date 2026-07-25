@@ -10,6 +10,7 @@ export type ScoreAnchor = {
   voiceId?: string;
   abcOffset?: number;
   playbackSeconds?: number;
+  playbackFraction?: number;
   label?: string;
 };
 

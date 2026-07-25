@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { FolderOpen, Plus, Clock, Star, FileMusic, AlertCircle } from 'lucide-react';
+import { Plus, FileMusic, AlertCircle } from 'lucide-react';
 import type { FileDocument } from '../types/document';
 import type { MusicSample } from '../types/music';
 import { PRESET_SAMPLES } from '../data/samples';
@@ -47,7 +47,7 @@ export const FileRail: React.FC<FileRailProps> = ({
   };
 
   return (
-    <aside className="file-rail" aria-label="Project and File Navigation">
+    <aside className="file-rail" aria-label="Files">
       <button
         type="button"
         className="import-btn"
@@ -64,42 +64,6 @@ export const FileRail: React.FC<FileRailProps> = ({
         accept=".xml,.musicxml,.mxl,.abc"
         hidden
       />
-
-      <div className="file-rail-section">
-        <div className="rail-section-title">LIBRARY</div>
-        <nav className="rail-nav">
-          <button type="button" className="rail-nav-item">
-            <FolderOpen size={16} />
-            <span>All projects</span>
-          </button>
-          <button type="button" className="rail-nav-item">
-            <Clock size={16} />
-            <span>Recent</span>
-          </button>
-          <button type="button" className="rail-nav-item">
-            <Star size={16} />
-            <span>Favorites</span>
-          </button>
-        </nav>
-      </div>
-
-      <div className="file-rail-section">
-        <div className="rail-section-title">PROJECTS</div>
-        <div className="project-list">
-          <button type="button" className="project-item active">
-            <span className="project-color coral" />
-            <span><strong>Baroque Studies</strong><small>3 scores</small></span>
-          </button>
-          <button type="button" className="project-item">
-            <span className="project-color teal" />
-            <span><strong>Jazz Harmony</strong><small>7 scores</small></span>
-          </button>
-          <button type="button" className="project-item">
-            <span className="project-color ochre" />
-            <span><strong>Sketchbook</strong><small>12 scores</small></span>
-          </button>
-        </div>
-      </div>
 
       <div className="file-rail-section">
         <div className="rail-section-title">FILES</div>

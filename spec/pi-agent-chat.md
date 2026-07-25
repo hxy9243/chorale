@@ -27,6 +27,7 @@ The Figma design establishes four vertical zones.
 - thread title, for example `Harmony analysis`
 - history selector
 - active file subtitle
+- close action; a persistent global header control remains available to reopen chat
 
 ### Conversation
 
@@ -120,6 +121,8 @@ Deleting a thread must not delete durable file state. Changing files must switch
 ### Anchored chat
 
 If the user clicks a note or selected passage, the composer should attach that anchor automatically. The chip should remain visible until cleared or replaced.
+
+The attached measure must be the global score measure selected in the notation surface, including measures on later staff systems. Closing and reopening chat preserves that active anchor.
 
 ### Citation and seek-back
 
