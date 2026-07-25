@@ -30,6 +30,8 @@ Required behavior:
 - chat and score UI can reference the same anchor
 - playback position labels should match the same measure and beat identity shown elsewhere
 
+When an anchor is selected, playback seeks immediately to the anchor's resolved playback time. If exact timing is unavailable, it uses normalized progress derived from the rendered measure count, then falls back to the selected measure and beat against the tune's beat count. The dock shows the same formatted anchor label as chat and the score toolbar.
+
 ## 4. Timeline semantics
 
 The progress track should represent both transport progress and score location context.
@@ -42,11 +44,8 @@ Expected behavior:
 
 ## 5. Relationship to current implementation
 
-The current branch already has a working audio player and score highlighting path.
+The current branch already has a working audio player, live timing, seeking, score highlighting, and shared-anchor seek path.
 
 The design still requires:
 
-- bottom-dock workspace treatment
-- explicit measure and beat labeling
-- tighter integration with the shared `ScoreAnchor`
 - stronger synchronization with revision-gated score rebuilds

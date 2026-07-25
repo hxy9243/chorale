@@ -4,6 +4,58 @@ import { ZoomIn, ZoomOut, RotateCcw, SlidersHorizontal, Tag, X } from 'lucide-re
 import type { ScoreAnchor } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
 
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+
+const resolveClickedMeasure = (
+  abcElem: { measureNumber?: number } | null | undefined,
+  classes = '',
+  analysis?: { measure?: number },
+) => {
+  const globalMeasure = classes.match(/(?:^|\s)abcjs-mm(\d+)(?:\s|$)/);
+  if (globalMeasure) return Number(globalMeasure[1]) + 1;
+  if (typeof analysis?.measure === 'number') return analysis.measure + 1;
+  if (typeof abcElem?.measureNumber === 'number') return abcElem.measureNumber + 1;
+  return 1;
+};
+
+const highlightMeasure = (container: HTMLDivElement, anchor: ScoreAnchor | null) => {
+  container.querySelectorAll('.abcjs-measure-highlight').forEach((element) => element.remove());
+  if (!anchor) return;
+
+  const elements = Array.from(container.querySelectorAll<SVGGraphicsElement>(
+    `.abcjs-mm${Math.max(0, anchor.measure - 1)}`,
+  )).filter((element) => typeof element.getBBox === 'function');
+  if (elements.length === 0) return;
+
+  const boxes = elements.map((element) => element.getBBox());
+  const left = Math.min(...boxes.map((box) => box.x));
+  const top = Math.min(...boxes.map((box) => box.y));
+  const right = Math.max(...boxes.map((box) => box.x + box.width));
+  const bottom = Math.max(...boxes.map((box) => box.y + box.height));
+  const svg = elements[0].ownerSVGElement;
+  if (!svg) return;
+
+  const highlight = document.createElementNS(SVG_NAMESPACE, 'rect');
+  highlight.classList.add('abcjs-measure-highlight');
+  highlight.setAttribute('x', String(left - 6));
+  highlight.setAttribute('y', String(top - 8));
+  highlight.setAttribute('width', String(right - left + 12));
+  highlight.setAttribute('height', String(bottom - top + 16));
+  highlight.setAttribute('rx', '5');
+  highlight.setAttribute('aria-hidden', 'true');
+  svg.insertBefore(highlight, svg.firstChild);
+};
+
+const getRenderedMeasureCount = (container: HTMLDivElement) => {
+  const indexes = Array.from(container.querySelectorAll('[class*="abcjs-mm"]')).flatMap((element) => (
+    Array.from(element.classList).flatMap((className) => {
+      const match = className.match(/^abcjs-mm(\d+)$/);
+      return match ? [Number(match[1])] : [];
+    })
+  ));
+  return indexes.length > 0 ? Math.max(...indexes) + 1 : 1;
+};
+
 interface SheetMusicViewProps {
   abcCode: string;
   activeAnchor?: ScoreAnchor | null;
@@ -35,6 +87,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     try {
       setRenderError(null);
       containerRef.current.innerHTML = '';
+      let renderedTune: abcjs.TuneObject | null = null;
 
       const visualTranspose = transpose;
       const tunes = abcjs.renderAbc(containerRef.current, abcCode, {
@@ -47,14 +100,23 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
           preferredMeasuresPerLine: 4,
         },
         add_classes: true,
-        clickListener: (abcElem: any) => {
+        clickListener: (abcElem: any, _tuneNumber, classes, analysis) => {
           if (!abcElem) return;
-          const measure = typeof abcElem.measureNumber === 'number' ? abcElem.measureNumber + 1 : 1;
+          const measure = resolveClickedMeasure(abcElem, classes, analysis);
           const abcOffset = abcElem.startChar;
+          const measureCount = getRenderedMeasureCount(containerRef.current!);
+          const playbackFraction = Math.max(0, Math.min(1, (measure - 1) / measureCount));
+          renderedTune?.setTiming?.(renderedTune.getBpm?.());
+          const totalTime = renderedTune?.getTotalTime?.();
+          const playbackSeconds = Number.isFinite(totalTime) && totalTime! > 0
+            ? totalTime! * ((measure - 1) / measureCount)
+            : undefined;
           const newAnchor: ScoreAnchor = {
             measure,
             abcOffset,
             label: `m. ${measure}`,
+            playbackFraction,
+            ...(playbackSeconds !== undefined ? { playbackSeconds } : {}),
           };
           onSelectAnchor?.(newAnchor);
         },
@@ -65,6 +127,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         paddingleft: 15,
         paddingright: 15,
       });
+      renderedTune = tunes?.[0] || null;
 
       if (tunes && tunes.length > 0 && onTuneRendered) {
         onTuneRendered(tunes);
@@ -78,6 +141,11 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       setRenderError(err?.message || 'Failed to render sheet music SVG.');
     }
   }, [abcCode, scale, transpose]);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    highlightMeasure(containerRef.current, activeAnchor);
+  }, [abcCode, activeAnchor, scale, transpose]);
 
   const anchorLabel = formatAnchorLabel(activeAnchor);
 

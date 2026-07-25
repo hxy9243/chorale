@@ -29,6 +29,10 @@ vi.mock('abcjs', () => ({
 describe('AudioPlayer Component', () => {
   const mockTune = {
     getBpm: vi.fn().mockReturnValue(120),
+    getTotalBeats: vi.fn().mockReturnValue(16),
+    getBeatsPerMeasure: vi.fn().mockReturnValue(4),
+    getTotalTime: vi.fn().mockReturnValue(8),
+    setTiming: vi.fn(),
   } as any;
 
   beforeEach(() => {
@@ -90,6 +94,7 @@ describe('AudioPlayer Component', () => {
     await waitFor(() => {
       expect(instanceControl.setTune).toHaveBeenLastCalledWith(mockTune, false, expect.any(Object));
       expect(instanceControl.setTune.mock.lastCall?.[2].soundFontVolumeMultiplier).toBeCloseTo(0.4);
+      expect(mockTune.setTiming).toHaveBeenCalledWith(120);
     });
 
     const tempoSlider = screen.getAllByRole('slider')[0];
@@ -129,6 +134,46 @@ describe('AudioPlayer Component', () => {
     fireEvent.click(progress, { clientX: 100 });
 
     expect(mockSynthControl.seek).toHaveBeenCalledWith(0.5);
+  });
+
+  it('seeks playback to the selected measure and beat', async () => {
+    render(
+      <AudioPlayer
+        tunes={[mockTune]}
+        activeAnchor={{ measure: 3, beat: 2, label: 'm. 3, beat 2' }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockSynthControl.seek).toHaveBeenCalledWith(9 / 16);
+    });
+    expect(screen.getByText('Selected m. 3, beat 2')).toBeDefined();
+  });
+
+  it('uses the anchor playback time when score selection resolves it', async () => {
+    render(
+      <AudioPlayer
+        tunes={[mockTune]}
+        activeAnchor={{ measure: 2, playbackSeconds: 2, label: 'm. 2' }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockSynthControl.seek).toHaveBeenCalledWith(2, 'seconds');
+    });
+  });
+
+  it('uses normalized measure progress when absolute timing is unavailable', async () => {
+    render(
+      <AudioPlayer
+        tunes={[mockTune]}
+        activeAnchor={{ measure: 2, playbackFraction: 0.5, label: 'm. 2' }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockSynthControl.seek).toHaveBeenCalledWith(0.5);
+    });
   });
 
   it('ignores an obsolete synth initialization that finishes late', async () => {

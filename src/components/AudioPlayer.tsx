@@ -155,8 +155,13 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
           soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/',
           soundFontVolumeMultiplier: soundFontBaseVolume,
         });
+        tunes[0].setTiming?.(Math.round(defaultBpm * (tempoRef.current / 100)));
 
         if (cancelled) return;
+        const totalTime = tunes[0].getTotalTime?.();
+        if (Number.isFinite(totalTime) && totalTime > 0) {
+          setTotalDurationMs(totalTime * 1000);
+        }
         setIsReady(true);
       } catch (err: any) {
         if (cancelled) return;
@@ -180,6 +185,36 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
       }
     };
   }, [tunes]);
+
+  useEffect(() => {
+    const tune = tunes?.[0];
+    if (!isReady || !activeAnchor || !tune) return;
+
+    if (activeAnchor.playbackSeconds !== undefined) {
+      synthControllerRef.current?.seek?.(activeAnchor.playbackSeconds, 'seconds');
+      const totalTime = tune.getTotalTime?.() || 0;
+      if (totalTime > 0) {
+        setPlaybackProgress(Math.max(0, Math.min(1, activeAnchor.playbackSeconds / totalTime)));
+      }
+      return;
+    }
+
+    if (activeAnchor.playbackFraction !== undefined) {
+      const percent = Math.max(0, Math.min(1, activeAnchor.playbackFraction));
+      synthControllerRef.current?.seek?.(percent);
+      setPlaybackProgress(percent);
+      return;
+    }
+
+    const totalBeats = tune.getTotalBeats?.() || 0;
+    const beatsPerMeasure = tune.getBeatsPerMeasure?.() || 0;
+    if (totalBeats <= 0 || beatsPerMeasure <= 0) return;
+
+    const selectedBeat = Math.max(0, (activeAnchor.measure - 1) * beatsPerMeasure + (activeAnchor.beat || 1) - 1);
+    const percent = Math.max(0, Math.min(1, selectedBeat / totalBeats));
+    synthControllerRef.current?.seek?.(percent);
+    setPlaybackProgress(percent);
+  }, [activeAnchor, isReady, tunes]);
 
   const handlePlayToggle = () => {
     if (!synthControllerRef.current) return;
@@ -273,7 +308,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
           </div>
           {activeAnchor && (
             <div className="playback-loop-pill">
-              <span>Loop {formatAnchorLabel(activeAnchor)}</span>
+              <span>Selected {formatAnchorLabel(activeAnchor)}</span>
             </div>
           )}
         </div>

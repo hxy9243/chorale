@@ -101,4 +101,18 @@ describe('App Integration', () => {
       expect(screen.getAllByText(/Twinkle, Twinkle, Little Star/).length).toBeGreaterThan(0);
     });
   });
+
+  it('keeps a persistent control for reopening chat after it is closed', async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sheet-svg')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByTitle('Close assistant'));
+    expect(screen.queryByLabelText('Current sheet assistant')).toBeNull();
+
+    fireEvent.click(screen.getByTitle('Show score chat'));
+    expect(screen.getByLabelText('Current sheet assistant')).toBeDefined();
+  });
 });

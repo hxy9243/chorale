@@ -18,13 +18,13 @@ describe('FileRail Component', () => {
     error: null,
   };
 
-  it('renders import, library, projects, and files sections', () => {
+  it('renders a files-only sidebar', () => {
     render(<FileRail {...defaultProps} />);
 
     expect(screen.getByText('Import score')).toBeDefined();
-    expect(screen.getByText('LIBRARY')).toBeDefined();
-    expect(screen.getByText('PROJECTS')).toBeDefined();
     expect(screen.getByText('FILES')).toBeDefined();
+    expect(screen.queryByText('LIBRARY')).toBeNull();
+    expect(screen.queryByText('PROJECTS')).toBeNull();
   });
 
   it('renders active document names and preset sample list', () => {
