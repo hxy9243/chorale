@@ -31,9 +31,21 @@ export type ChatMessage = {
   status?: 'streaming' | 'complete' | 'stopped' | 'error';
 };
 
-export type PersistedConversation = {
-  version: 1;
+export type ChatThread = {
+  id: string;
+  title: string;
+  updatedAt: string;
   messages: ChatMessage[];
+};
+
+export type PersistedFileConversation = {
+  activeThreadId: string;
+  threads: ChatThread[];
+};
+
+export type PersistedConversationStore = {
+  version: 2;
+  files: Record<string, PersistedFileConversation>;
 };
 
 export type AgentResponseCallbacks = {

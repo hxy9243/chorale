@@ -27,6 +27,7 @@ describe('AgentChatPanel', () => {
       <AgentChatPanel
         open
         onClose={() => undefined}
+        fileId="doc-local-edit"
         abcCode={'X:1\nT:Edited in memory\nM:4/4\nK:C\nCDEF|'}
         activeFileName="Local edit.abc"
         revision={12}
@@ -45,6 +46,7 @@ describe('AgentChatPanel', () => {
       const saved = localStorage.getItem(CONVERSATION_STORAGE_KEY);
       expect(saved).toContain('Edited in memory');
       expect(saved).toContain('What changed?');
+      expect(saved).toContain('doc-local-edit');
     });
 
     unmount();
@@ -52,13 +54,14 @@ describe('AgentChatPanel', () => {
       <AgentChatPanel
         open
         onClose={() => undefined}
+        fileId="doc-local-edit"
         abcCode={'X:1\nT:Different state\nK:G\nGABc|'}
         activeFileName="Another score.abc"
         revision={13}
       />,
     );
 
-    expect(screen.getByText('What changed?')).toBeDefined();
+    expect(screen.getAllByText('What changed?').length).toBeGreaterThan(0);
     expect(screen.getByText('Grounded mock response')).toBeDefined();
     expect(screen.getByText('Local edit.abc · ABC rev 12')).toBeDefined();
   });

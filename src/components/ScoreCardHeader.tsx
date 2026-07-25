@@ -1,5 +1,5 @@
 import React from 'react';
-import { ZoomIn, ZoomOut, Check, Tag } from 'lucide-react';
+import { Eye, EyeOff, Tag, ZoomIn, ZoomOut } from 'lucide-react';
 
 interface ScoreCardHeaderProps {
   title: string;
@@ -8,6 +8,10 @@ interface ScoreCardHeaderProps {
   onZoomOut?: () => void;
   onResetZoom?: () => void;
   anchorContext?: string | null;
+  buildStatus?: 'idle' | 'building' | 'valid' | 'invalid';
+  saveState?: string;
+  editorVisible?: boolean;
+  onToggleEditor?: () => void;
 }
 
 export const ScoreCardHeader: React.FC<ScoreCardHeaderProps> = ({
@@ -17,16 +21,21 @@ export const ScoreCardHeader: React.FC<ScoreCardHeaderProps> = ({
   onZoomOut,
   onResetZoom,
   anchorContext,
+  buildStatus = 'valid',
+  saveState = 'Saved',
+  editorVisible = false,
+  onToggleEditor = () => undefined,
 }) => {
   return (
     <div className="score-card-header">
       <div className="score-header-title-group">
         <h2 className="score-title">{title || 'Untitled Score'}</h2>
-        <span className="status-pill status-saved">
-          <Check size={12} className="inline mr-1" />
-          Saved
+        <span className={`status-pill ${saveState === 'Draft' ? 'status-draft' : 'status-saved'}`}>
+          {saveState}
         </span>
-        <span className="status-pill status-ready">Ready</span>
+        <span className={`status-pill status-${buildStatus}`}>
+          {buildStatus}
+        </span>
       </div>
 
       <div className="score-header-actions">
@@ -36,6 +45,15 @@ export const ScoreCardHeader: React.FC<ScoreCardHeaderProps> = ({
             <span>{anchorContext}</span>
           </div>
         )}
+
+        <button
+          type="button"
+          className="btn btn-sm btn-secondary"
+          onClick={onToggleEditor}
+        >
+          {editorVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+          {editorVisible ? 'Hide ABC' : 'Show ABC'}
+        </button>
 
         <div className="zoom-controls">
           <button

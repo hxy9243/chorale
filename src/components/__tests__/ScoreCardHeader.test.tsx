@@ -10,6 +10,10 @@ describe('ScoreCardHeader Component', () => {
     onZoomOut: vi.fn(),
     onResetZoom: vi.fn(),
     anchorContext: 'm. 1-4',
+    buildStatus: 'valid' as const,
+    saveState: 'Saved',
+    editorVisible: false,
+    onToggleEditor: vi.fn(),
   };
 
   it('renders score title, status pills, and zoom controls', () => {
@@ -17,7 +21,7 @@ describe('ScoreCardHeader Component', () => {
 
     expect(screen.getByText('Test Symphony No. 5')).toBeDefined();
     expect(screen.getByText('Saved')).toBeDefined();
-    expect(screen.getByText('Ready')).toBeDefined();
+    expect(screen.getByText('valid')).toBeDefined();
     expect(screen.getByText('100%')).toBeDefined();
     expect(screen.getByText('m. 1-4')).toBeDefined();
   });

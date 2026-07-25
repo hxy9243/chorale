@@ -1,73 +1,103 @@
-import React, { useState } from 'react';
-import { Code2, Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { AlertTriangle, Check, Copy, FileCode2, LoaderCircle } from 'lucide-react';
 
 interface AbcEditorProps {
   abcCode: string;
   onAbcChange: (newAbc: string) => void;
+  revision?: number;
+  validationState?: 'idle' | 'building' | 'valid' | 'invalid';
+  validationMessage?: string | null;
+  visible?: boolean;
+  onToggleVisibility?: () => void;
 }
 
-export const AbcEditor: React.FC<AbcEditorProps> = ({ abcCode, onAbcChange }) => {
-  const [isExpanded, setIsExpanded] = useState<boolean>(true);
+export const AbcEditor: React.FC<AbcEditorProps> = ({
+  abcCode,
+  onAbcChange,
+  revision = 0,
+  validationState = 'idle',
+  validationMessage,
+  visible = true,
+  onToggleVisibility = () => undefined,
+}) => {
   const [copied, setCopied] = useState<boolean>(false);
+  const lineNumbers = useMemo(() => (
+    Array.from({ length: Math.max(abcCode.split('\n').length, 1) }, (_, index) => index + 1)
+  ), [abcCode]);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(abcCode);
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(abcCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const statusLabel = (
+    validationState === 'building' ? 'Rebuilding' :
+      validationState === 'valid' ? `Valid · r${revision}` :
+        validationState === 'invalid' ? 'Invalid ABC' :
+          'Waiting for source'
+  );
+
   return (
-    <div className="abc-editor-card glass-panel">
+    <section className={`abc-editor-card glass-panel ${visible ? '' : 'is-collapsed'}`} aria-label="ABC editor pane">
       <div className="editor-header">
-        <button
-          className="editor-toggle-btn"
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          <Code2 className="w-4 h-4 text-emerald-400 mr-2" />
-          <span className="section-title">ABC Notation Code</span>
-          {isExpanded ? (
-            <ChevronUp className="w-4 h-4 ml-2 opacity-70" />
-          ) : (
-            <ChevronDown className="w-4 h-4 ml-2 opacity-70" />
-          )}
-        </button>
+        <div className="editor-title-group">
+          <FileCode2 className="w-4 h-4" />
+          <div>
+            <h3>ABC code</h3>
+            <p>Revision-aware source for score rendering and playback.</p>
+          </div>
+        </div>
 
         <div className="editor-actions">
+          <span className={`editor-status-pill ${validationState}`}>
+            {validationState === 'building' && <LoaderCircle size={14} className="spin" />}
+            {validationState === 'valid' && <Check size={14} />}
+            {validationState === 'invalid' && <AlertTriangle size={14} />}
+            {statusLabel}
+          </span>
           <button
             className="btn btn-sm btn-ghost"
             onClick={handleCopy}
-            title="Copy ABC Notation to Clipboard"
+            title="Copy ABC notation to clipboard"
+            type="button"
           >
-            {copied ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-400 mr-1" />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5 mr-1" />
-                Copy ABC
-              </>
-            )}
+            <Copy className="w-3.5 h-3.5" />
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+          <button
+            className="btn btn-sm btn-secondary"
+            type="button"
+            onClick={onToggleVisibility}
+          >
+            {visible ? 'Hide pane' : 'Show pane'}
           </button>
         </div>
       </div>
 
-      {isExpanded && (
+      {validationMessage && (
+        <div className={`editor-banner ${validationState === 'invalid' ? 'error' : 'info'}`} role="status">
+          {validationMessage}
+        </div>
+      )}
+
+      {visible && (
         <div className="editor-body">
+          <div className="editor-line-numbers" aria-hidden="true">
+            {lineNumbers.map((lineNumber) => (
+              <span key={lineNumber}>{lineNumber}</span>
+            ))}
+          </div>
           <textarea
             className="abc-textarea"
             value={abcCode}
-            onChange={(e) => onAbcChange(e.target.value)}
-            placeholder="Parsed ABC code will appear here. Edit code directly to re-render score..."
-            rows={10}
+            onChange={(event) => onAbcChange(event.target.value)}
+            placeholder="Parsed ABC code will appear here. Edit code directly to rebuild score output."
+            rows={Math.max(lineNumbers.length, 16)}
             spellCheck={false}
           />
-          <p className="editor-hint">
-            Tip: You can modify the ABC code directly above to adjust notes, keys, or title in real-time.
-          </p>
         </div>
       )}
-    </div>
+    </section>
   );
 };
