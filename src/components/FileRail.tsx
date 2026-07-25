@@ -94,6 +94,8 @@ export const FileRail: React.FC<FileRailProps> = ({
         <div className="file-list">
           {documents.map((doc) => {
             const isActive = doc.id === activeFileId;
+            const lastReason = doc.versions[doc.versions.length - 1]?.reason;
+            const fileState = lastReason === 'manual-edit' ? 'Draft' : 'Imported';
             return (
               <button
                 key={doc.id}
@@ -105,7 +107,7 @@ export const FileRail: React.FC<FileRailProps> = ({
                 <div className="file-item-info">
                   <span className="file-item-name">{doc.name}</span>
                   <span className="file-item-meta">
-                    {doc.sourceType.toUpperCase()} &bull; r{doc.revision}
+                    {doc.sourceType.toUpperCase()} &bull; {fileState} &bull; r{doc.revision}
                   </span>
                 </div>
                 {isActive && <CheckCircle2 size={14} className="active-indicator" />}

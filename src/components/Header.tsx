@@ -6,9 +6,15 @@ interface HeaderProps {
   activeFileName?: string;
   chatOpen?: boolean;
   onToggleChat?: () => void;
+  saveState?: string;
 }
 
-export const Header: React.FC<HeaderProps> = ({ activeFileName = '', chatOpen = false, onToggleChat }) => {
+export const Header: React.FC<HeaderProps> = ({
+  activeFileName = '',
+  chatOpen = false,
+  onToggleChat,
+  saveState = 'Saved',
+}) => {
   return (
     <header className="app-header">
       <div className="header-left">
@@ -23,10 +29,11 @@ export const Header: React.FC<HeaderProps> = ({ activeFileName = '', chatOpen = 
       <div className="header-center">
         {activeFileName && (
           <div className="header-file-title">
+            <span className="header-project-name">Local library</span>
             <span className="file-title-text">{activeFileName}</span>
-            <span className="status-pill status-saved ml-2">
+            <span className={`status-pill ml-2 ${saveState === 'Draft' ? 'status-draft' : 'status-saved'}`}>
               <Check size={12} className="inline mr-0.5" />
-              Saved
+              {saveState}
             </span>
           </div>
         )}
@@ -53,4 +60,3 @@ export const Header: React.FC<HeaderProps> = ({ activeFileName = '', chatOpen = 
     </header>
   );
 };
-

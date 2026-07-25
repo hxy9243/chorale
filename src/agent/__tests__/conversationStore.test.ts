@@ -3,9 +3,10 @@ import {
   CONVERSATION_STORAGE_KEY,
   clearConversation,
   loadConversation,
+  makeEmptyConversation,
   saveConversation,
 } from '../conversationStore';
-import type { ChatMessage } from '../types';
+import type { ChatMessage, PersistedFileConversation } from '../types';
 
 const messages: ChatMessage[] = [{
   id: 'message-1',
@@ -14,29 +15,42 @@ const messages: ChatMessage[] = [{
   createdAt: '2026-07-23T12:00:00.000Z',
   status: 'complete',
 }];
+const fileId = 'doc-1';
+
+const buildConversation = (nextMessages: ChatMessage[]): PersistedFileConversation => {
+  const conversation = makeEmptyConversation();
+  return {
+    ...conversation,
+    threads: [{
+      ...conversation.threads[0],
+      title: 'Explain this phrase.',
+      messages: nextMessages,
+    }],
+  };
+};
 
 describe('conversationStore', () => {
   beforeEach(() => localStorage.clear());
 
   it('round-trips the versioned Chorale conversation schema', () => {
-    saveConversation(messages);
+    saveConversation(fileId, buildConversation(messages));
 
-    expect(loadConversation()).toEqual(messages);
-    expect(JSON.parse(localStorage.getItem(CONVERSATION_STORAGE_KEY) ?? '{}').version).toBe(1);
+    expect(loadConversation(fileId).threads[0].messages).toEqual(messages);
+    expect(JSON.parse(localStorage.getItem(CONVERSATION_STORAGE_KEY) ?? '{}').version).toBe(2);
   });
 
   it('marks an interrupted streaming message as stopped on reload', () => {
-    saveConversation([{ ...messages[0], status: 'streaming' }]);
+    saveConversation(fileId, buildConversation([{ ...messages[0], status: 'streaming' }]));
 
-    expect(loadConversation()[0].status).toBe('stopped');
+    expect(loadConversation(fileId).threads[0].messages[0].status).toBe('stopped');
   });
 
   it('ignores malformed storage and clears saved history', () => {
     localStorage.setItem(CONVERSATION_STORAGE_KEY, '{not json');
-    expect(loadConversation()).toEqual([]);
+    expect(loadConversation(fileId).threads[0].messages).toEqual([]);
 
-    saveConversation(messages);
-    clearConversation();
-    expect(loadConversation()).toEqual([]);
+    saveConversation(fileId, buildConversation(messages));
+    clearConversation(fileId);
+    expect(loadConversation(fileId).threads[0].messages).toEqual([]);
   });
 });
