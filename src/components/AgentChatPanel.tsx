@@ -8,12 +8,16 @@ import {
 } from '../agent/conversationStore';
 import type { ChatMessage, MusicContextSnapshot } from '../agent/types';
 
+import type { ScoreAnchor } from '../types/document';
+import { formatAnchorLabel } from '../utils/anchor';
+
 interface AgentChatPanelProps {
   open: boolean;
   onClose: () => void;
   abcCode: string;
   activeFileName: string;
   revision: number;
+  activeAnchor?: ScoreAnchor | null;
 }
 
 const makeId = () => crypto.randomUUID();
@@ -24,6 +28,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   abcCode,
   activeFileName,
   revision,
+  activeAnchor = null,
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadConversation());
   const [draft, setDraft] = useState('');
@@ -64,7 +69,18 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     capturedAt: new Date().toISOString(),
     fileName: activeFileName || 'Untitled score',
     abc: abcCode,
+    selection: activeAnchor
+      ? {
+          measureStart: activeAnchor.measure,
+          measureEnd: activeAnchor.endMeasure || activeAnchor.measure,
+          abcRange:
+            activeAnchor.abcOffset !== undefined
+              ? { start: activeAnchor.abcOffset, end: activeAnchor.abcOffset + 1 }
+              : undefined,
+        }
+      : undefined,
   });
+
 
   const stop = () => {
     abortControllerRef.current?.abort();
@@ -179,8 +195,13 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
 
       <div className="agent-context-banner">
         <span>{activeFileName || 'No score loaded'}</span>
-        <span>ABC rev {revision}</span>
+        {activeAnchor ? (
+          <span className="text-coral font-semibold">[{formatAnchorLabel(activeAnchor)}] &bull; r{revision}</span>
+        ) : (
+          <span>ABC rev {revision}</span>
+        )}
       </div>
+
 
       <div className="agent-transcript" ref={transcriptRef} role="log" aria-live="polite">
         {messages.length === 0 ? (

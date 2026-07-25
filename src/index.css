@@ -1247,6 +1247,33 @@ body {
   border-radius: var(--radius-pill);
 }
 
+.active-anchor-badge {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(217, 83, 79, 0.1);
+  border: 1px solid rgba(217, 83, 79, 0.3);
+  color: var(--coral-accent);
+  font-size: 0.78rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-pill);
+}
+
+.clear-anchor-btn {
+  background: none;
+  border: none;
+  color: var(--coral-accent);
+  cursor: pointer;
+  padding: 0 0.1rem;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 50%;
+}
+
+.clear-anchor-btn:hover {
+  background: rgba(217, 83, 79, 0.2);
+}
+
+
 /* Playback Dock */
 .playback-dock-container {
   background-color: var(--bg-dock);

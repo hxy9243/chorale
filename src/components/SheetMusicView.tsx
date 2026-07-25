@@ -1,13 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
 import abcjs from 'abcjs';
-import { ZoomIn, ZoomOut, RotateCcw, SlidersHorizontal } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, SlidersHorizontal, Tag, X } from 'lucide-react';
+import type { ScoreAnchor } from '../types/document';
+import { formatAnchorLabel } from '../utils/anchor';
 
 interface SheetMusicViewProps {
   abcCode: string;
+  activeAnchor?: ScoreAnchor | null;
+  onSelectAnchor?: (anchor: ScoreAnchor | null) => void;
   onTuneRendered?: (tune: abcjs.TuneObject[] | null) => void;
 }
 
-export const SheetMusicView: React.FC<SheetMusicViewProps> = ({ abcCode, onTuneRendered }) => {
+export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
+  abcCode,
+  activeAnchor = null,
+  onSelectAnchor,
+  onTuneRendered,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<number>(1.0);
   const [transpose, setTranspose] = useState<number>(0);
@@ -26,7 +35,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({ abcCode, onTuneR
     try {
       setRenderError(null);
       containerRef.current.innerHTML = '';
-      
+
       const visualTranspose = transpose;
       const tunes = abcjs.renderAbc(containerRef.current, abcCode, {
         responsive: 'resize',
@@ -38,6 +47,17 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({ abcCode, onTuneR
           preferredMeasuresPerLine: 4,
         },
         add_classes: true,
+        clickListener: (abcElem: any) => {
+          if (!abcElem) return;
+          const measure = typeof abcElem.measureNumber === 'number' ? abcElem.measureNumber + 1 : 1;
+          const abcOffset = abcElem.startChar;
+          const newAnchor: ScoreAnchor = {
+            measure,
+            abcOffset,
+            label: `m. ${measure}`,
+          };
+          onSelectAnchor?.(newAnchor);
+        },
         visualTranspose: visualTranspose,
         foregroundColor: '#000000',
         paddingtop: 15,
@@ -59,12 +79,29 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({ abcCode, onTuneR
     }
   }, [abcCode, scale, transpose]);
 
+  const anchorLabel = formatAnchorLabel(activeAnchor);
+
   return (
     <div className="sheet-music-card glass-panel">
       <div className="sheet-header">
         <div className="sheet-title-group">
           <h3 className="section-title">Interactive Sheet Music</h3>
+          {anchorLabel && (
+            <div className="active-anchor-badge ml-3">
+              <Tag className="w-3.5 h-3.5 mr-1 inline text-coral" />
+              <span>Selected: <strong>{anchorLabel}</strong></span>
+              <button
+                type="button"
+                className="clear-anchor-btn ml-1"
+                onClick={() => onSelectAnchor?.(null)}
+                title="Clear Selection"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
         </div>
+
         <div className="sheet-controls">
           <div className="control-group">
             <SlidersHorizontal className="w-4 h-4 text-emerald-400 mr-1" />
@@ -127,3 +164,5 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({ abcCode, onTuneR
     </div>
   );
 };
+
+export default SheetMusicView;

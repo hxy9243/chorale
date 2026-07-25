@@ -8,14 +8,16 @@ import { AudioPlayer } from './components/AudioPlayer';
 import { AbcEditor } from './components/AbcEditor';
 import { AgentChatPanel } from './components/AgentChatPanel';
 import type { MusicSample } from './types/music';
-import type { FileDocument } from './types/document';
+import type { FileDocument, ScoreAnchor } from './types/document';
 import { PRESET_SAMPLES } from './data/samples';
 import { extractMusicXml, parseMusicXmlToAbc } from './utils/xmlParser';
 import { createDocumentFromAbc, updateDocumentAbc, sampleToDocument } from './utils/fileSession';
+import { formatAnchorLabel } from './utils/anchor';
 
 export const App: React.FC = () => {
   const [documents, setDocuments] = useState<FileDocument[]>([]);
   const [activeFileId, setActiveFileId] = useState<string>('');
+  const [activeAnchor, setActiveAnchor] = useState<ScoreAnchor | null>(null);
   const [tunes, setTunes] = useState<abcjs.TuneObject[] | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +36,13 @@ export const App: React.FC = () => {
       loadSample(PRESET_SAMPLES[0]);
     }
   }, []);
+
+  const handleSelectFile = (fileId: string) => {
+    if (fileId !== activeFileId) {
+      setActiveFileId(fileId);
+      setActiveAnchor(null);
+    }
+  };
 
   const handleAbcChange = (newAbc: string) => {
     if (!activeFileId) return;
@@ -63,6 +72,7 @@ export const App: React.FC = () => {
 
       setDocuments((prevDocs) => [...prevDocs.filter((d) => d.name !== fileName), newDoc]);
       setActiveFileId(newDoc.id);
+      setActiveAnchor(null);
     } catch (err: any) {
       if (requestId !== loadRequestRef.current) return;
       console.error('Error parsing file:', err);
@@ -79,6 +89,7 @@ export const App: React.FC = () => {
     const existingDoc = documents.find((doc) => doc.name === sampleName);
     if (existingDoc) {
       setActiveFileId(existingDoc.id);
+      setActiveAnchor(null);
       return;
     }
 
@@ -107,6 +118,7 @@ export const App: React.FC = () => {
       const newDoc = sampleToDocument(sample, abc);
       setDocuments((prevDocs) => [...prevDocs, newDoc]);
       setActiveFileId(newDoc.id);
+      setActiveAnchor(null);
     } catch (err: any) {
       if (requestId !== loadRequestRef.current) return;
       console.error('Error loading sample:', err);
@@ -117,6 +129,8 @@ export const App: React.FC = () => {
       }
     }
   };
+
+  const anchorLabel = formatAnchorLabel(activeAnchor);
 
   return (
     <div className="chorale-app-shell">
@@ -130,7 +144,7 @@ export const App: React.FC = () => {
         <FileRail
           documents={documents}
           activeFileId={activeFileId}
-          onSelectDocument={(id) => setActiveFileId(id)}
+          onSelectDocument={handleSelectFile}
           onFileLoaded={handleProcessMusicXml}
           onSampleSelected={loadSample}
           loading={loading}
@@ -145,11 +159,14 @@ export const App: React.FC = () => {
               onZoomIn={() => setZoom((z) => Math.min(z + 10, 200))}
               onZoomOut={() => setZoom((z) => Math.max(z - 10, 50))}
               onResetZoom={() => setZoom(100)}
+              anchorContext={anchorLabel}
             />
 
             <div className="score-view-wrapper">
               <SheetMusicView
                 abcCode={abcCode}
+                activeAnchor={activeAnchor}
+                onSelectAnchor={setActiveAnchor}
                 onTuneRendered={(renderedTunes) => setTunes(renderedTunes)}
               />
             </div>
@@ -170,16 +187,18 @@ export const App: React.FC = () => {
             abcCode={abcCode}
             activeFileName={activeFileName}
             revision={abcRevision}
+            activeAnchor={activeAnchor}
           />
         </div>
       </div>
 
       <footer className="playback-dock-container">
-        <AudioPlayer tunes={tunes} />
+        <AudioPlayer tunes={tunes} activeAnchor={activeAnchor} />
       </footer>
     </div>
   );
 };
+
 
 export default App;
 

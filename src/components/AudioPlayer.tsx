@@ -2,11 +2,16 @@ import React, { useEffect, useRef, useState } from 'react';
 import abcjs from 'abcjs';
 import { Play, Pause, Square, Volume2, VolumeX, Gauge, Music2 } from 'lucide-react';
 
+import type { ScoreAnchor } from '../types/document';
+import { formatAnchorLabel } from '../utils/anchor';
+
 interface AudioPlayerProps {
   tunes: abcjs.TuneObject[] | null;
+  activeAnchor?: ScoreAnchor | null;
 }
 
-export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
+export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor }) => {
+
   const soundFontBaseVolume = 0.4;
   const synthControllerRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -228,7 +233,13 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes }) => {
           >
             <Square className="w-4 h-4 fill-current" />
           </button>
+          {activeAnchor && (
+            <div className="anchor-chip ml-2">
+              <span className="text-xs">Seek: <strong>{formatAnchorLabel(activeAnchor)}</strong></span>
+            </div>
+          )}
         </div>
+
 
         <div className="control-slider-group">
           <Gauge className="w-4 h-4 text-emerald-400" />

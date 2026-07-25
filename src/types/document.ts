@@ -5,11 +5,14 @@ export type RevisionNumber = number;
 
 export type ScoreAnchor = {
   measure: number;
+  endMeasure?: number;
   beat?: number;
   voiceId?: string;
   abcOffset?: number;
   playbackSeconds?: number;
+  label?: string;
 };
+
 
 export type ScoreInfo = {
   title?: string;

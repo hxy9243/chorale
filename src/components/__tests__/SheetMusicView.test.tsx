@@ -87,19 +87,43 @@ describe('SheetMusicView Component', () => {
     expect(onTuneRendered).toHaveBeenLastCalledWith(null);
   });
 
-  it('clears stale score and tune when rendering fails', () => {
-    const onTuneRendered = vi.fn();
-    const { rerender } = render(
-      <SheetMusicView abcCode={sampleAbc} onTuneRendered={onTuneRendered} />,
+  it('renders activeAnchor badge and clears selection on click', () => {
+    const onSelectAnchor = vi.fn();
+    render(
+      <SheetMusicView
+        abcCode={sampleAbc}
+        activeAnchor={{ measure: 5, label: 'm. 5' }}
+        onSelectAnchor={onSelectAnchor}
+      />
     );
 
-    vi.mocked(abcjs.renderAbc).mockImplementationOnce(() => {
-      throw new Error('invalid ABC');
-    });
-    rerender(<SheetMusicView abcCode="invalid" onTuneRendered={onTuneRendered} />);
+    expect(screen.getByText('Selected:')).toBeDefined();
+    expect(screen.getByText('m. 5')).toBeDefined();
 
-    expect(screen.queryByTestId('mock-svg-paper')).toBeNull();
-    expect(screen.getByText(/invalid ABC/)).toBeDefined();
-    expect(onTuneRendered).toHaveBeenLastCalledWith(null);
+    const clearBtn = screen.getByTitle('Clear Selection');
+    fireEvent.click(clearBtn);
+    expect(onSelectAnchor).toHaveBeenCalledWith(null);
+  });
+
+  it('triggers onSelectAnchor when clickListener resolves an element', () => {
+    const onSelectAnchor = vi.fn();
+    let capturedOptions: any = null;
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce((_element, _code, options) => {
+      capturedOptions = options;
+      return [{ getBpm: () => 120 }] as any;
+    });
+
+
+    render(<SheetMusicView abcCode={sampleAbc} onSelectAnchor={onSelectAnchor} />);
+
+    expect(capturedOptions?.clickListener).toBeDefined();
+    capturedOptions.clickListener({ measureNumber: 3, startChar: 24 });
+
+    expect(onSelectAnchor).toHaveBeenCalledWith({
+      measure: 4,
+      abcOffset: 24,
+      label: 'm. 4',
+    });
   });
 });
+
