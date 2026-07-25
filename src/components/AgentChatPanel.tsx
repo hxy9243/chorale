@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Bot, Eraser, Plus, Send, Square, Wrench, X } from 'lucide-react';
+import { Bot, Eraser, History, Plus, Send, Square, Wrench, X } from 'lucide-react';
 import type { PiSheetAgent } from '../agent/PiSheetAgent';
 import {
   clearConversation,
@@ -25,6 +25,12 @@ const AVAILABLE_TOOLS = [
   'score_info.read',
   'annotation.create',
   'abc.propose_edit',
+] as const;
+
+const SUGGESTED_QUESTIONS = [
+  'Explain the voice leading',
+  'Find non-chord tones',
+  'Suggest a simpler reharmonization',
 ] as const;
 
 const makeId = () => crypto.randomUUID();
@@ -254,18 +260,34 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   if (!open) return null;
 
   return (
-    <aside className="agent-panel glass-panel" aria-label="Current sheet assistant">
+    <aside className="agent-panel" aria-label="Current sheet assistant">
       <div className="agent-panel-header">
         <div>
-          <div className="agent-title">
-            <Bot aria-hidden="true" size={19} />
-            <h2>Chat with score</h2>
-          </div>
-          <p>{activeFileName || 'No file selected'}</p>
+          <h2>Chat with this score</h2>
+          <p>Grounded in {activeFileName || 'the active score'}</p>
         </div>
         <div className="agent-header-actions">
+          <div className="agent-history-control">
+            <History size={14} aria-hidden="true" />
+            <label htmlFor="conversation-history" className="sr-only">Conversation history</label>
+            <select
+              id="conversation-history"
+              value={activeThread?.id}
+              onChange={(event) => setConversation((current) => ({
+                ...current,
+                activeThreadId: event.target.value,
+              }))}
+              aria-label="Conversation history"
+            >
+              {conversation.threads.map((thread) => (
+                <option key={thread.id} value={thread.id}>
+                  {thread.title}
+                </option>
+              ))}
+            </select>
+          </div>
           <button
-            className="btn btn-ghost btn-icon"
+            className="agent-icon-button"
             type="button"
             onClick={handleNewThread}
             title="Start new thread"
@@ -275,17 +297,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
             <Plus size={17} />
           </button>
           <button
-            className="btn btn-ghost btn-icon"
-            type="button"
-            onClick={handleClearThread}
-            title="Clear current thread"
-            aria-label="Clear current thread"
-            disabled={!activeThread || messages.length === 0}
-          >
-            <Eraser size={17} />
-          </button>
-          <button
-            className="btn btn-ghost btn-icon"
+            className="agent-icon-button"
             type="button"
             onClick={onClose}
             title="Close assistant"
@@ -296,59 +308,38 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         </div>
       </div>
 
-      <div className="agent-thread-bar">
-        <label htmlFor="conversation-history" className="sr-only">Conversation history</label>
-        <select
-          id="conversation-history"
-          className="agent-thread-select"
-          value={activeThread?.id}
-          onChange={(event) => setConversation((current) => ({
-            ...current,
-            activeThreadId: event.target.value,
-          }))}
-        >
-          {conversation.threads.map((thread) => (
-            <option key={thread.id} value={thread.id}>
-              {thread.title}
-            </option>
-          ))}
-        </select>
-        <span className="agent-thread-meta">
-          {messages.length} message{messages.length === 1 ? '' : 's'}
-        </span>
-      </div>
-
-      <div className="agent-context-banner">
-        <span>{activeFileName || 'No score loaded'}</span>
-        <span>{anchorLabel ? `${anchorLabel} · r${revision}` : `ABC rev ${revision}`}</span>
-      </div>
-
-      <div className="agent-tool-disclosure" aria-label="Available tools">
-        <div className="agent-tool-heading">
-          <Wrench size={14} />
-          <span>Available tools</span>
-        </div>
-        <div className="agent-tool-list">
-          {AVAILABLE_TOOLS.map((tool) => (
-            <span key={tool} className="agent-tool-chip">{tool}</span>
-          ))}
-        </div>
-      </div>
+      {anchorLabel && <div className="agent-context-banner">Selection: {anchorLabel}</div>}
 
       <div className="agent-transcript" ref={transcriptRef} role="log" aria-live="polite">
         {messages.length === 0 ? (
           <div className="agent-empty-state">
-            <Bot aria-hidden="true" size={32} />
-            <h3>Ask about this score</h3>
-            <p>Messages stay scoped to the current file and capture the current revision when you send.</p>
-            <button
-              type="button"
-              className="agent-suggestion"
-              onClick={() => setDraft('What key and meter is this score in?')}
-              disabled={!abcCode.trim()}
-            >
-              What key and meter is this score in?
-            </button>
+            <div className="agent-empty-intro">
+              <span className="agent-brand-mark"><Bot aria-hidden="true" size={15} /></span>
+              <div>
+                <strong>Chorale</strong>
+                <span>Analysis</span>
+              </div>
+              <p>Ask about harmony, voice leading, form, or a selected passage in this score.</p>
+            </div>
+            <div className="agent-suggestions">
+              <span>TRY ASKING</span>
+              {SUGGESTED_QUESTIONS.map((question) => (
+                <button
+                  key={question}
+                  type="button"
+                  className="agent-suggestion"
+                  onClick={() => setDraft(question)}
+                  disabled={!abcCode.trim()}
+                >
+                  {question}
+                </button>
+              ))}
+            </div>
+            <div className="agent-history-preview">
+              <span>Earlier in this score</span>
+              <strong>{activeThread?.title || 'Cadence analysis'}</strong>
+              <small>{messages.length} messages · ABC revision {revision}</small>
+            </div>
           </div>
         ) : messages.map((message) => (
           <article
@@ -402,23 +393,47 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
             }
           }}
         />
+        <div className="agent-composer-footer">
+          <div className="agent-modes" aria-label="Assistant mode">
+            <span className="active">Analyze</span>
+            <span>Edit</span>
+            <span>Compose</span>
+          </div>
+          <details className="agent-tool-disclosure">
+            <summary><Wrench size={13} /> Tools</summary>
+            <div className="agent-tool-list">
+              {AVAILABLE_TOOLS.map((tool) => (
+                <span key={tool} className="agent-tool-chip">{tool}</span>
+              ))}
+              <button
+                type="button"
+                className="agent-clear-thread"
+                onClick={handleClearThread}
+                disabled={!activeThread || messages.length === 0}
+              >
+                <Eraser size={13} />
+                Clear thread
+              </button>
+            </div>
+          </details>
+        </div>
         {isStreaming ? (
           <button
-            className="btn btn-secondary"
+            className="agent-send-button"
             type="button"
             onClick={stop}
+            aria-label="Stop"
           >
             <Square size={16} />
-            Stop
           </button>
         ) : (
           <button
-            className="btn btn-primary"
+            className="agent-send-button"
             type="submit"
             disabled={!draft.trim() || !abcCode.trim()}
+            aria-label="Send"
           >
             <Send size={16} />
-            Send
           </button>
         )}
       </form>

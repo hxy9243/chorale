@@ -8,7 +8,7 @@ describe('Header Component', () => {
     expect(screen.getByText('Chorale')).toBeDefined();
     expect(screen.getByText('Test Score.xml')).toBeDefined();
     expect(screen.getByText('Share')).toBeDefined();
-    expect(screen.getByText('Ask Agent')).toBeDefined();
+    expect(screen.getByTitle('Hide score chat')).toBeDefined();
+    expect(screen.getByText('Saved just now')).toBeDefined();
   });
 });
-

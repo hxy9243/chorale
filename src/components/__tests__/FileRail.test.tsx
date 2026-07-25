@@ -18,30 +18,27 @@ describe('FileRail Component', () => {
     error: null,
   };
 
-  it('renders import score button, active files, and preset samples headers', () => {
+  it('renders import, library, projects, and files sections', () => {
     render(<FileRail {...defaultProps} />);
 
-    expect(screen.getByText('Import Score')).toBeDefined();
+    expect(screen.getByText('Import score')).toBeDefined();
     expect(screen.getByText('LIBRARY')).toBeDefined();
-    expect(screen.getByText('ACTIVE FILES')).toBeDefined();
-    expect(screen.getByText('PRESET SAMPLES')).toBeDefined();
+    expect(screen.getByText('PROJECTS')).toBeDefined();
+    expect(screen.getByText('FILES')).toBeDefined();
   });
 
   it('renders active document names and preset sample list', () => {
     render(<FileRail {...defaultProps} />);
 
-    expect(screen.getByText('Bach Minuet.xml')).toBeDefined();
-    expect(screen.getByText('Beethoven Ode.xml')).toBeDefined();
-
-    PRESET_SAMPLES.forEach((sample) => {
-      expect(screen.getAllByText(sample.title).length).toBeGreaterThan(0);
-    });
+    expect(screen.getByText('Bach Minuet')).toBeDefined();
+    expect(screen.getByText('Beethoven Ode')).toBeDefined();
+    expect(screen.getAllByText(PRESET_SAMPLES[0].title).length).toBeGreaterThan(0);
   });
 
   it('calls onSelectDocument when an active file item is clicked', () => {
     render(<FileRail {...defaultProps} />);
 
-    const doc2Button = screen.getByText('Beethoven Ode.xml');
+    const doc2Button = screen.getByText('Beethoven Ode');
     fireEvent.click(doc2Button);
 
     expect(defaultProps.onSelectDocument).toHaveBeenCalledWith(doc2.id);

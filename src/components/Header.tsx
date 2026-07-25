@@ -1,6 +1,5 @@
 import React from 'react';
-import { MessageCircle, Music, Share2, Check } from 'lucide-react';
-
+import { Share2 } from 'lucide-react';
 
 interface HeaderProps {
   activeFileName?: string;
@@ -11,51 +10,41 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   activeFileName = '',
-  chatOpen = false,
+  chatOpen = true,
   onToggleChat,
-  saveState = 'Saved',
+  saveState = 'Imported',
 }) => {
   return (
     <header className="app-header">
-      <div className="header-left">
-        <div className="header-brand">
-          <div className="brand-logo font-bold">
-            <Music className="w-5 h-5 text-coral inline mr-1.5" />
-            <span>Chorale</span>
-          </div>
-        </div>
+      <div className="header-brand">
+        <div className="brand-mark" aria-hidden="true">C</div>
+        <span>Chorale</span>
       </div>
 
-      <div className="header-center">
-        {activeFileName && (
-          <div className="header-file-title">
-            <span className="header-project-name">Local library</span>
-            <span className="file-title-text">{activeFileName}</span>
-            <span className={`status-pill ml-2 ${saveState === 'Draft' ? 'status-draft' : 'status-saved'}`}>
-              <Check size={12} className="inline mr-0.5" />
-              {saveState}
-            </span>
-          </div>
-        )}
+      <div className="header-breadcrumb" aria-label="Current project and score">
+        <span>Baroque Studies</span>
+        <span aria-hidden="true">/</span>
+        <strong>{activeFileName || 'Untitled score'}</strong>
       </div>
 
       <div className="header-right">
-        <button type="button" className="btn btn-secondary header-action-btn" title="Share Project">
-          <Share2 size={15} />
+        <span className={`header-save-pill ${saveState === 'Draft' ? 'draft' : ''}`}>
+          {saveState === 'Draft' ? 'Draft changes' : 'Saved just now'}
+        </span>
+        <button type="button" className="figma-button header-share-button" title="Share project">
+          <Share2 size={14} />
           <span>Share</span>
         </button>
-        {onToggleChat && (
-          <button
-            type="button"
-            className={`btn header-chat-button ${chatOpen ? 'btn-primary active' : 'btn-secondary'}`}
-            onClick={onToggleChat}
-            aria-expanded={chatOpen}
-            aria-controls="current-sheet-agent"
-          >
-            <MessageCircle size={15} />
-            <span>Ask Agent</span>
-          </button>
-        )}
+        <button
+          type="button"
+          className={`header-avatar ${chatOpen ? 'active' : ''}`}
+          onClick={onToggleChat}
+          aria-expanded={chatOpen}
+          aria-controls="current-sheet-agent"
+          title={chatOpen ? 'Hide score chat' : 'Show score chat'}
+        >
+          X
+        </button>
       </div>
     </header>
   );

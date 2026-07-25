@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, EyeOff, Tag, ZoomIn, ZoomOut } from 'lucide-react';
+import { Braces, Maximize2, Music2, Pencil, Tag } from 'lucide-react';
 
 interface ScoreCardHeaderProps {
   title: string;
@@ -17,72 +17,51 @@ interface ScoreCardHeaderProps {
 export const ScoreCardHeader: React.FC<ScoreCardHeaderProps> = ({
   title,
   zoom = 100,
-  onZoomIn,
   onZoomOut,
   onResetZoom,
   anchorContext,
-  buildStatus = 'valid',
-  saveState = 'Saved',
   editorVisible = false,
   onToggleEditor = () => undefined,
 }) => {
   return (
     <div className="score-card-header">
-      <div className="score-header-title-group">
-        <h2 className="score-title">{title || 'Untitled Score'}</h2>
-        <span className={`status-pill ${saveState === 'Draft' ? 'status-draft' : 'status-saved'}`}>
-          {saveState}
-        </span>
-        <span className={`status-pill status-${buildStatus}`}>
-          {buildStatus}
-        </span>
+      <h2 className="sr-only">{title || 'Untitled Score'}</h2>
+      <div className="score-view-switch">
+        <button
+          type="button"
+          className={`figma-button ${editorVisible ? '' : 'active'}`}
+          onClick={() => editorVisible && onToggleEditor()}
+        >
+          <Music2 size={14} />
+          Score
+        </button>
+        <button type="button" className={`figma-button ${editorVisible ? 'active' : ''}`} onClick={onToggleEditor}>
+          <Braces size={14} />
+          ABC code
+        </button>
       </div>
 
       <div className="score-header-actions">
         {anchorContext && (
           <div className="anchor-chip">
-            <Tag size={12} className="mr-1 inline text-coral" />
+            <Tag size={12} />
             <span>{anchorContext}</span>
           </div>
         )}
 
-        <button
-          type="button"
-          className="btn btn-sm btn-secondary"
-          onClick={onToggleEditor}
-        >
-          {editorVisible ? <EyeOff size={14} /> : <Eye size={14} />}
-          {editorVisible ? 'Hide ABC' : 'Show ABC'}
+        <button type="button" className="figma-button">
+          <Pencil size={14} />
+          Annotate
         </button>
 
-        <div className="zoom-controls">
-          <button
-            type="button"
-            className="zoom-btn"
-            onClick={onZoomOut}
-            title="Zoom Out"
-            aria-label="Zoom Out"
-          >
-            <ZoomOut size={14} />
-          </button>
-          <button
-            type="button"
-            className="zoom-value-btn"
-            onClick={onResetZoom}
-            title="Reset Zoom"
-          >
-            {zoom}%
-          </button>
-          <button
-            type="button"
-            className="zoom-btn"
-            onClick={onZoomIn}
-            title="Zoom In"
-            aria-label="Zoom In"
-          >
-            <ZoomIn size={14} />
-          </button>
-        </div>
+        <button type="button" className="figma-button zoom-button" onClick={onZoomOut} title="Zoom out">
+          <span aria-hidden="true">−</span>
+          {zoom}%
+        </button>
+        <button type="button" className="figma-button" onClick={onResetZoom}>
+          <Maximize2 size={14} />
+          Fit
+        </button>
       </div>
     </div>
   );
