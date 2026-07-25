@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import abcjs from 'abcjs';
 import { Header } from './components/Header';
-import { FileSelector } from './components/FileSelector';
+import { FileRail } from './components/FileRail';
+import { ScoreCardHeader } from './components/ScoreCardHeader';
 import { SheetMusicView } from './components/SheetMusicView';
 import { AudioPlayer } from './components/AudioPlayer';
 import { AbcEditor } from './components/AbcEditor';
@@ -18,6 +19,7 @@ export const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState<boolean>(true);
   const [abcRevision, setAbcRevision] = useState<number>(0);
+  const [zoom, setZoom] = useState<number>(100);
   const loadRequestRef = useRef(0);
 
   // Load initial preset sample on mount
@@ -89,34 +91,49 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="app-container">
-      <Header chatOpen={chatOpen} onToggleChat={() => setChatOpen((open) => !open)} />
+    <div className="chorale-app-shell">
+      <Header
+        activeFileName={activeFileName}
+        chatOpen={chatOpen}
+        onToggleChat={() => setChatOpen((open) => !open)}
+      />
 
-      <div className={`app-workspace ${chatOpen ? 'chat-open' : ''}`}>
-        <main className="app-grid">
-          <div className="app-grid-top">
-            <FileSelector
-              onFileLoaded={handleProcessMusicXml}
-              onSampleSelected={loadSample}
-              activeFileName={activeFileName}
-              loading={loading}
-              error={error}
+      <div className={`workspace-body ${chatOpen ? 'chat-open' : ''}`}>
+        <FileRail
+          activeFileName={activeFileName}
+          onFileLoaded={handleProcessMusicXml}
+          onSampleSelected={loadSample}
+          loading={loading}
+          error={error}
+        />
+
+        <main className="central-workspace">
+          <div className="score-workspace-card">
+            <ScoreCardHeader
+              title={activeFileName}
+              zoom={zoom}
+              onZoomIn={() => setZoom((z) => Math.min(z + 10, 200))}
+              onZoomOut={() => setZoom((z) => Math.max(z - 10, 50))}
+              onResetZoom={() => setZoom(100)}
             />
-            <AudioPlayer tunes={tunes} />
+
+            <div className="score-view-wrapper">
+              <SheetMusicView
+                abcCode={abcCode}
+                onTuneRendered={(renderedTunes) => setTunes(renderedTunes)}
+              />
+            </div>
           </div>
 
-          <SheetMusicView
-            abcCode={abcCode}
-            onTuneRendered={(renderedTunes) => setTunes(renderedTunes)}
-          />
-
-          <AbcEditor
-            abcCode={abcCode}
-            onAbcChange={(newAbc) => setAbcCode(newAbc)}
-          />
+          <div className="editor-workspace-card">
+            <AbcEditor
+              abcCode={abcCode}
+              onAbcChange={(newAbc) => setAbcCode(newAbc)}
+            />
+          </div>
         </main>
 
-        <div id="current-sheet-agent">
+        <div id="current-sheet-agent" className="right-panel">
           <AgentChatPanel
             open={chatOpen}
             onClose={() => setChatOpen(false)}
@@ -126,8 +143,13 @@ export const App: React.FC = () => {
           />
         </div>
       </div>
+
+      <footer className="playback-dock-container">
+        <AudioPlayer tunes={tunes} />
+      </footer>
     </div>
   );
 };
 
 export default App;
+

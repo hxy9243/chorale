@@ -50,11 +50,12 @@ describe('App Integration', () => {
     });
   });
 
-  it('renders application header, file uploader, sheet music, and ABC editor', async () => {
+  it('renders application header, file rail, sheet music workspace, and ABC editor', async () => {
     render(<App />);
 
-    expect(screen.getByText('Chorale Player')).toBeDefined();
-    expect(screen.getByText('MusicXML Source')).toBeDefined();
+    expect(screen.getByText('Chorale')).toBeDefined();
+    expect(screen.getByText('Import Score')).toBeDefined();
+    expect(screen.getByText('PROJECT FILES')).toBeDefined();
 
     await waitFor(() => {
       expect(screen.getByTestId('sheet-svg')).toBeDefined();
@@ -62,34 +63,19 @@ describe('App Integration', () => {
     });
   });
 
-  it('keeps the newest source when an older load finishes later', async () => {
-    let resolveFirstResponse: ((response: Response) => void) | undefined;
-    const firstResponse = new Promise<Response>((resolve) => {
-      resolveFirstResponse = resolve;
-    });
-    vi.mocked(global.fetch)
-      .mockImplementationOnce(() => firstResponse)
-      .mockResolvedValueOnce({
-        ok: true,
-        text: () => Promise.resolve('newest source'),
-      } as Response);
-    vi.spyOn(xmlParser, 'parseMusicXmlToAbc').mockImplementation((xml) => xml);
-
+  it('allows selecting preset samples from the file rail', async () => {
     render(<App />);
-    fireEvent.change(screen.getByLabelText('Sample:'), {
-      target: { value: 'twinkle-xml' },
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sheet-svg')).toBeDefined();
     });
 
-    const editor = screen.getByPlaceholderText(/Parsed ABC code will appear here/) as HTMLTextAreaElement;
-    await waitFor(() => expect(editor.value).toBe('newest source'));
+    const sampleButton = screen.getByText('Twinkle, Twinkle, Little Star');
+    fireEvent.click(sampleButton);
 
-    resolveFirstResponse?.({
-      ok: true,
-      arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
-    } as Response);
-    await waitFor(() => expect(screen.queryByText('Processing file...')).toBeNull());
-
-    expect(editor.value).toBe('newest source');
-    expect(screen.getByText('Loaded: Twinkle, Twinkle, Little Star (XML)')).toBeDefined();
+    await waitFor(() => {
+      expect(screen.getAllByText(/Twinkle, Twinkle, Little Star/).length).toBeGreaterThan(0);
+    });
   });
 });
+

@@ -1,136 +1,166 @@
-# Pi Agent Chat for the Current Sheet
+# Chat With Music Sheet
 
-Status: prototype  
-Branch: `spike/pi-sheet-chat`
+Date: 2026-07-25  
+Status: design target informed by the `Chorale — Chat with Music Sheet · V1` Figma file
 
-## Goal
+## 1. Goal
 
-Add a side-panel conversation to Chorale where an agent can answer questions about the music currently open in the app. The conversation must use the exact in-memory score state—including unsaved ABC edits—and retain its history across reloads.
+Make chat a score-aware workspace panel that can analyze, reference, and eventually propose changes against the active file and the user's current musical anchor.
 
-The prototype uses Pi's low-level agent SDK with a deterministic mock model. This proves Chorale's state, UI, streaming, and persistence boundaries without requiring a paid provider or storing credentials.
+The product is not a generic chat sidebar. It is a file-scoped analysis and editing surface attached to the same state as the score, ABC editor, and playback dock.
 
-## Product decisions
+## 2. Product rules
 
-- Chat is read-only. The agent can explain or suggest changes but cannot alter the score.
-- Chorale owns the React interface, conversation schema, and runtime contract.
-- Pi is used behind that contract; Pi UI components and Pi-specific persisted message types are not product boundaries.
-- Each user turn captures an immutable music-context snapshot.
-- A mock model is the prototype default. Real provider and OAuth configuration are follow-up work.
+- Chat belongs to the active file, not to the entire app globally.
+- The current score anchor is first-class chat context.
+- Grounded answers must reference score data, not only free-form model output.
+- Durable score mutations must outlive the chat thread that created them.
+- Tool use must be explicit to the user.
+- Chat may propose ABC or annotation edits, but application of durable changes must remain reviewable.
 
-## Context model
+## 3. Chat panel structure
+
+The Figma design establishes four vertical zones.
+
+### Header
+
+- thread title, for example `Harmony analysis`
+- history selector
+- active file subtitle
+
+### Conversation
+
+- anchor chip, for example `Selected m.5 · beat 3`
+- user prompt bubble
+- grounded assistant answer
+- visible tool inventory
+- durable mutation status card, for example `A1 Persistent annotation created`
+
+### Composer
+
+- attached anchor chip
+- free-form prompt area
+- visible tool affordances
+- mode presets such as `Analyze`, `Edit`, and `Compose`
+- send action
+
+### Thread model
+
+The thread is a per-file conversation history. The user can switch histories without losing file-owned annotations.
+
+## 4. Context contract
+
+The current prototype captures file name, ABC, and revision. The design now requires a richer context envelope.
 
 ```ts
-type MusicContextSnapshot = {
-  id: string;
-  revision: number;
-  capturedAt: string;
+type ChatContext = {
+  fileId: string;
   fileName: string;
+  revision: number;
   abc: string;
-  selection?: {
-    measureStart?: number;
+  scoreInfo?: ScoreInfo;
+  activeAnchor?: ScoreAnchor;
+  selectedRange?: {
+    measureStart: number;
     measureEnd?: number;
-    abcRange?: { start: number; end: number };
+    abcStart?: number;
+    abcEnd?: number;
   };
-  annotations?: Array<{
-    id: string;
-    kind: 'chord' | 'phrase' | 'harmony' | 'fingering' | 'comment' | string;
-    label: string;
-    description?: string;
-    measureStart?: number;
-    measureEnd?: number;
-    abcRange?: { start: number; end: number };
-  }>;
+  visibleAnnotations: Annotation[];
+  availableTools: ScoreToolName[];
 };
 ```
 
-Prototype scope:
+Minimum design requirement:
 
-- `abc`, `fileName`, and `revision`
-- conversation history
+- every send captures the current file revision
+- every send can include the active anchor
+- the assistant can cite or use score annotations already on the file
 
-Future scope already represented by the boundary:
+## 5. Tool model
 
-- the user's current range, note, or measure selection
-- existing musical annotations, including chord and phrase descriptions
-- other structured score analysis
+The design explicitly exposes score tools to the user.
 
-The future fields are optional so they can be added to the snapshot producer without replacing the chat UI or agent adapter.
+Initial tool categories:
 
-## Prototype architecture
+- `score_info.read`
+- `annotation.create`
+- `annotation.update`
+- `abc.propose_edit`
+- `abc.apply_edit`
 
-```text
-App score state
-  |
-  +-> captureMusicContext()
-  |       |
-  |       +-> immutable ABC snapshot per turn
-  |
-  +-> AgentChatPanel
-          |
-          +-> Chorale conversation store -> localStorage
-          |
-          +-> PiSheetAgent
-                  |
-                  +-> @earendil-works/pi-agent-core Agent
-                  +-> deterministic mock stream function
-                  +-> current snapshot embedded in the user turn
-```
+User-facing design rule:
 
-The mock response must be generated through Pi's agent loop, not by bypassing the SDK in the React component. The mock reads the current context block and returns a short streamed acknowledgement with score-derived facts.
+- the panel should disclose what classes of tools are available
+- durable file changes should produce a visible status event in the thread
+- destructive or source-changing actions should move through propose/review/apply steps
 
-## UX
+## 6. Durable versus ephemeral state
 
-- An `Ask` button in the header opens and closes a right-side panel.
-- The score stays primary; the chat is a secondary rail on wide screens and an overlay on narrow screens.
-- The panel provides an empty state, transcript, current-context badge, composer, Send, Stop, Clear, loading, and error states.
-- Sending is disabled when there is no ABC context or the composer is empty.
-- User turns display the file name and ABC revision captured for that request.
-- Editing ABC after sending does not rewrite prior context badges or the in-flight request.
-- History is restored after reload and may be cleared explicitly.
+This distinction is central to the design review.
 
-## Persistence
+Ephemeral chat state:
 
-Persist a versioned Chorale-owned record:
+- thread messages
+- draft composer text
+- current streaming response
+- temporary tool progress
 
-```ts
-type PersistedConversation = {
-  version: 1;
-  messages: ChatMessage[];
-};
-```
+Durable file state:
 
-Do not persist Pi internal state, provider credentials, or refresh tokens. On startup, reconstruct the Pi agent's conversational state from the validated Chorale messages.
+- score info
+- annotations
+- accepted ABC edits
+- stored file revisions
 
-## Validation criteria
+Deleting a thread must not delete durable file state. Changing files must switch the visible thread set and durable score objects together.
 
-- The production Vite build can bundle the chosen Pi package.
-- A question is sent through a Pi `Agent` instance and the mock answer streams into the panel.
-- The mock answer demonstrably sees the current unsaved ABC.
-- Every user message points to an immutable context revision.
-- Multiple turns form one conversation.
-- Reload restores the transcript.
-- Stop prevents late stream events from changing the transcript.
-- Existing tests, new focused tests, lint, and production build pass.
+## 7. Interaction rules
 
-## Follow-up architecture
+### Anchored chat
 
-Production web mode should put durable credentials and Pi provider calls behind a same-origin service. Electron should run the adapter in the main process and expose a narrow preload API with OS-backed secret storage. Both modes should retain the same React panel and `MusicContextSnapshot` contract.
+If the user clicks a note or selected passage, the composer should attach that anchor automatically. The chip should remain visible until cleared or replaced.
 
-ChatGPT subscription OAuth remains optional. It should ship only after callback handling, PKCE/state validation, secure token storage, refresh, logout, and failure recovery work in both supported runtimes.
+### Citation and seek-back
 
-### Global agent configuration
+Assistant answers should be able to reference an anchor such as `m.5 beat 3`. Clicking the cited reference should seek the score and playback cursor back to that location.
 
-A production iteration needs an app-level settings dialog that remains available when chat is closed:
+### Annotation handoff
 
-- provider and model selection
-- thinking level when the selected model supports it
-- API-key or subscription-login status
-- custom OpenAI-compatible endpoint
-- connection test with a redacted failure message
-- conversation-persistence and diagnostic-logging preferences
+An annotation detail card on the score should offer a direct handoff into chat, carrying the same anchor and annotation identity.
 
-Secrets are write-only after save. In web mode the dialog talks to the same-origin agent service; in Electron it talks through the validated preload API to OS-backed secret storage. Provider credentials never become React state, conversation content, or local-storage fields.
+### Thread switching
 
-### Why Pi remains a candidate
+Switching thread history should not mutate the active score selection, annotations, or score info. Only the visible conversation changes.
 
-Pi's low-level agent and AI packages fit the multi-provider, streaming, and optional subscription-login direction. Chorale does not adopt Pi's prebuilt web UI or its internal persistence format. Keeping `MusicContextSnapshot`, chat messages, and the transport contract under Chorale's control makes Vercel AI SDK or OpenAI Agents SDK viable fallbacks if the production web or Electron spikes expose a blocking Pi limitation.
+## 8. MVP implementation boundary
+
+The current branch only proves read-only analysis with a mock Pi-backed stream. For the designed MVP, the acceptable boundary is:
+
+- real file-scoped thread model
+- active anchor attachment
+- grounded analysis responses
+- visible tool inventory
+- persistent annotations
+- proposal-oriented edit flow
+
+Out of scope for the first implementation pass:
+
+- multi-user collaboration
+- cloud sync
+- production OAuth and provider auth polish
+- automatic background tool execution without user review
+
+## 9. Relationship to the current prototype
+
+Keep the current Pi adapter strategy:
+
+- Chorale owns the UI and data contracts
+- Pi stays behind an adapter
+- conversation and durable score objects remain Chorale-owned
+
+What changes from the prototype:
+
+- a single local transcript becomes per-file thread state
+- chat context upgrades from `MusicContextSnapshot` to a file and anchor-aware contract
+- read-only responses expand into explicit tool-backed proposals and durable file events

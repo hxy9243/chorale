@@ -3,9 +3,12 @@ import { describe, it, expect } from 'vitest';
 import { Header } from '../Header';
 
 describe('Header Component', () => {
-  it('renders application title and badge correctly', () => {
-    render(<Header />);
-    expect(screen.getByText('Chorale Player')).toBeDefined();
-    expect(screen.getByText(/abcjs \+ xml2abc PoC/)).toBeDefined();
+  it('renders brand logo title and action buttons', () => {
+    render(<Header activeFileName="Test Score.xml" chatOpen={true} onToggleChat={() => {}} />);
+    expect(screen.getByText('Chorale')).toBeDefined();
+    expect(screen.getByText('Test Score.xml')).toBeDefined();
+    expect(screen.getByText('Share')).toBeDefined();
+    expect(screen.getByText('Ask Agent')).toBeDefined();
   });
 });
+
