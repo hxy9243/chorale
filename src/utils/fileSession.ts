@@ -67,10 +67,17 @@ export function updateDocumentAbc(
 }
 
 export function sampleToDocument(sample: MusicSample, abcSource: string): FileDocument {
-  return createDocumentFromAbc(
+  const document = createDocumentFromAbc(
     `${sample.title} (${sample.type.toUpperCase()})`,
     sample.type,
     abcSource,
     sample.title
   );
+  return {
+    ...document,
+    scoreInfo: {
+      ...document.scoreInfo,
+      composer: sample.composer,
+    },
+  };
 }

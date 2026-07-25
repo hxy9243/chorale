@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { FolderOpen, Plus, Clock, Star, FileMusic, CheckCircle2, AlertCircle } from 'lucide-react';
+import { FolderOpen, Plus, Clock, Star, FileMusic, AlertCircle } from 'lucide-react';
 import type { FileDocument } from '../types/document';
 import type { MusicSample } from '../types/music';
 import { PRESET_SAMPLES } from '../data/samples';
@@ -48,31 +48,29 @@ export const FileRail: React.FC<FileRailProps> = ({
 
   return (
     <aside className="file-rail" aria-label="Project and File Navigation">
-      <div className="file-rail-header">
-        <button
-          type="button"
-          className="btn btn-primary import-btn"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={loading}
-        >
-          <Plus size={16} />
-          <span>Import Score</span>
-        </button>
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          accept=".xml,.musicxml,.mxl,.abc"
-          style={{ display: 'none' }}
-        />
-      </div>
+      <button
+        type="button"
+        className="import-btn"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={loading}
+      >
+        <Plus size={15} />
+        <span>Import score</span>
+      </button>
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept=".xml,.musicxml,.mxl,.abc"
+        hidden
+      />
 
       <div className="file-rail-section">
         <div className="rail-section-title">LIBRARY</div>
         <nav className="rail-nav">
-          <button type="button" className="rail-nav-item active">
+          <button type="button" className="rail-nav-item">
             <FolderOpen size={16} />
-            <span>All Scores</span>
+            <span>All projects</span>
           </button>
           <button type="button" className="rail-nav-item">
             <Clock size={16} />
@@ -86,16 +84,30 @@ export const FileRail: React.FC<FileRailProps> = ({
       </div>
 
       <div className="file-rail-section">
-        <div className="rail-section-title">
-          <span>ACTIVE FILES</span>
-          <span className="rail-count">{documents.length}</span>
+        <div className="rail-section-title">PROJECTS</div>
+        <div className="project-list">
+          <button type="button" className="project-item active">
+            <span className="project-color coral" />
+            <span><strong>Baroque Studies</strong><small>3 scores</small></span>
+          </button>
+          <button type="button" className="project-item">
+            <span className="project-color teal" />
+            <span><strong>Jazz Harmony</strong><small>7 scores</small></span>
+          </button>
+          <button type="button" className="project-item">
+            <span className="project-color ochre" />
+            <span><strong>Sketchbook</strong><small>12 scores</small></span>
+          </button>
         </div>
+      </div>
 
+      <div className="file-rail-section">
+        <div className="rail-section-title">FILES</div>
         <div className="file-list">
           {documents.map((doc) => {
             const isActive = doc.id === activeFileId;
             const lastReason = doc.versions[doc.versions.length - 1]?.reason;
-            const fileState = lastReason === 'manual-edit' ? 'Draft' : 'Imported';
+            const fileState = lastReason === 'manual-edit' ? 'draft' : 'edited';
             return (
               <button
                 key={doc.id}
@@ -103,39 +115,31 @@ export const FileRail: React.FC<FileRailProps> = ({
                 className={`file-item ${isActive ? 'active' : ''}`}
                 onClick={() => onSelectDocument(doc.id)}
               >
-                <FileMusic size={16} className="file-item-icon" />
-                <div className="file-item-info">
-                  <span className="file-item-name">{doc.name}</span>
+                <span className="file-icon"><FileMusic size={15} /></span>
+                <span className="file-item-info">
+                  <span className="file-item-name">{doc.scoreInfo.title || doc.name}</span>
                   <span className="file-item-meta">
-                    {doc.sourceType.toUpperCase()} &bull; {fileState} &bull; r{doc.revision}
+                    {doc.sourceType === 'mxl' ? 'MXL' : doc.sourceType === 'abc' ? 'ABC' : 'MusicXML'} · {fileState}
                   </span>
-                </div>
-                {isActive && <CheckCircle2 size={14} className="active-indicator" />}
+                </span>
               </button>
             );
           })}
-        </div>
-      </div>
-
-      <div className="file-rail-section">
-        <div className="rail-section-title">
-          <span>PRESET SAMPLES</span>
-          <span className="rail-count">{PRESET_SAMPLES.length}</span>
-        </div>
-
-        <div className="file-list">
-          {PRESET_SAMPLES.map((sample) => (
+          {PRESET_SAMPLES
+            .filter((sample) => !documents.some((doc) => doc.name.startsWith(sample.title)))
+            .slice(0, Math.max(0, 3 - documents.length))
+            .map((sample) => (
             <button
               key={sample.id}
               type="button"
-              className="file-item sample-item"
+              className="file-item"
               onClick={() => onSampleSelected(sample)}
             >
-              <FileMusic size={16} className="file-item-icon" />
-              <div className="file-item-info">
+              <span className="file-icon"><FileMusic size={15} /></span>
+              <span className="file-item-info">
                 <span className="file-item-name">{sample.title}</span>
-                <span className="file-item-meta">{sample.type.toUpperCase()} SAMPLE</span>
-              </div>
+                <span className="file-item-meta">{sample.type.toUpperCase()} · imported</span>
+              </span>
             </button>
           ))}
         </div>

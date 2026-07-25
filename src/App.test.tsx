@@ -50,17 +50,19 @@ describe('App Integration', () => {
     });
   });
 
-  it('renders application header, file rail, sheet music workspace, and ABC editor', async () => {
+  it('renders the Figma workspace and opens the ABC editor on demand', async () => {
     render(<App />);
 
-    expect(screen.getByText('Chorale')).toBeDefined();
-    expect(screen.getByText('Import Score')).toBeDefined();
-    expect(screen.getByText('ACTIVE FILES')).toBeDefined();
+    expect(screen.getByRole('banner').textContent).toContain('Chorale');
+    expect(screen.getByText('Import score')).toBeDefined();
+    expect(screen.getByText('FILES')).toBeDefined();
 
     await waitFor(() => {
       expect(screen.getByTestId('sheet-svg')).toBeDefined();
-      expect(screen.getByPlaceholderText(/Parsed ABC code will appear here/)).toBeDefined();
     });
+
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    expect(screen.getByPlaceholderText(/Parsed ABC code will appear here/)).toBeDefined();
   });
 
   it('allows selecting preset samples from the file rail', async () => {
@@ -100,4 +102,3 @@ describe('App Integration', () => {
     });
   });
 });
-

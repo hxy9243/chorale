@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { ScoreCardHeader } from '../ScoreCardHeader';
 
 describe('ScoreCardHeader Component', () => {
@@ -16,30 +16,44 @@ describe('ScoreCardHeader Component', () => {
     onToggleEditor: vi.fn(),
   };
 
-  it('renders score title, status pills, and zoom controls', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders the score view switch and Figma toolbar actions', () => {
     render(<ScoreCardHeader {...defaultProps} />);
 
     expect(screen.getByText('Test Symphony No. 5')).toBeDefined();
-    expect(screen.getByText('Saved')).toBeDefined();
-    expect(screen.getByText('valid')).toBeDefined();
+    expect(screen.getByText('Score')).toBeDefined();
+    expect(screen.getByText('ABC code')).toBeDefined();
+    expect(screen.getByText('Annotate')).toBeDefined();
     expect(screen.getByText('100%')).toBeDefined();
     expect(screen.getByText('m. 1-4')).toBeDefined();
   });
 
 
-  it('handles zoom button clicks', () => {
+  it('handles zoom and editor controls', () => {
     render(<ScoreCardHeader {...defaultProps} />);
 
-    const zoomInBtn = screen.getByLabelText('Zoom In');
-    fireEvent.click(zoomInBtn);
-    expect(defaultProps.onZoomIn).toHaveBeenCalledTimes(1);
-
-    const zoomOutBtn = screen.getByLabelText('Zoom Out');
+    const zoomOutBtn = screen.getByTitle('Zoom out');
     fireEvent.click(zoomOutBtn);
     expect(defaultProps.onZoomOut).toHaveBeenCalledTimes(1);
 
-    const resetZoomBtn = screen.getByText('100%');
+    const resetZoomBtn = screen.getByText('Fit');
     fireEvent.click(resetZoomBtn);
     expect(defaultProps.onResetZoom).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByText('ABC code'));
+    expect(defaultProps.onToggleEditor).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByText('Score'));
+    expect(defaultProps.onToggleEditor).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the editor from the Score tab', () => {
+    render(<ScoreCardHeader {...defaultProps} editorVisible />);
+
+    fireEvent.click(screen.getByText('Score'));
+    expect(defaultProps.onToggleEditor).toHaveBeenCalledTimes(1);
   });
 });

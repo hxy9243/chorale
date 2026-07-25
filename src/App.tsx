@@ -61,7 +61,7 @@ export const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState<boolean>(true);
   const [zoom, setZoom] = useState<number>(100);
-  const [editorVisible, setEditorVisible] = useState<boolean>(() => readStoredBool(EDITOR_VISIBLE_KEY, true));
+  const [editorVisible, setEditorVisible] = useState<boolean>(() => readStoredBool(EDITOR_VISIBLE_KEY, false));
   const [editorWidth, setEditorWidth] = useState<number>(() => readStoredNumber(EDITOR_WIDTH_KEY, DEFAULT_EDITOR_WIDTH));
   const [buildStatus, setBuildStatus] = useState<BuildStatus>('idle');
   const [buildResult, setBuildResult] = useState<BuildResult | null>(null);
@@ -76,6 +76,12 @@ export const App: React.FC = () => {
   const anchorLabel = formatAnchorLabel(activeAnchor);
   const saveState = deriveSaveState(activeDocument);
   const canRenderScore = buildStatus === 'valid';
+  const scoreTitle = activeDocument?.scoreInfo.title || activeFileName || 'Untitled score';
+  const scoreComposer = activeDocument?.scoreInfo.composer || 'Unknown composer';
+  const scoreKey = activeDocument?.scoreInfo.key || 'C minor';
+  const scoreMeter = activeDocument?.scoreInfo.meter || '4/4';
+  const scoreTempo = activeDocument?.scoreInfo.tempoText || '♩ = 76';
+  const measureCount = activeDocument?.scoreInfo.measures || 16;
 
   useEffect(() => {
     if (PRESET_SAMPLES.length > 0) {
@@ -264,7 +270,7 @@ export const App: React.FC = () => {
   return (
     <div className="chorale-app-shell">
       <Header
-        activeFileName={activeFileName}
+        activeFileName={scoreTitle}
         chatOpen={chatOpen}
         onToggleChat={() => setChatOpen((open) => !open)}
         saveState={saveState}
@@ -285,7 +291,7 @@ export const App: React.FC = () => {
           <div className={`score-editor-shell ${editorVisible ? 'editor-open' : 'editor-hidden'}`}>
             <section className="score-workspace-card">
               <ScoreCardHeader
-                title={activeFileName}
+                title={scoreTitle}
                 zoom={zoom}
                 onZoomIn={() => setZoom((z) => Math.min(z + 10, 200))}
                 onZoomOut={() => setZoom((z) => Math.max(z - 10, 50))}
@@ -297,18 +303,43 @@ export const App: React.FC = () => {
                 onToggleEditor={() => setEditorVisible((visible) => !visible)}
               />
 
-              <div className="workspace-status-row">
-                <span className={`workspace-status-indicator ${buildStatus}`}>{buildStatus}</span>
-                <span>{workspaceMessage || 'Load or edit a score to begin.'}</span>
-              </div>
+              <div className="score-canvas">
+                <div className="score-sheet">
+                  <div className="score-sheet-heading">
+                    <div>
+                      <h1>{scoreTitle}</h1>
+                      <p>{scoreComposer}</p>
+                    </div>
+                    <span>{scoreKey} · {scoreMeter} · {scoreTempo}</span>
+                  </div>
 
-              <div className="score-view-wrapper">
-                <SheetMusicView
-                  abcCode={canRenderScore ? abcCode : ''}
-                  activeAnchor={activeAnchor}
-                  onSelectAnchor={setActiveAnchor}
-                  onTuneRendered={(renderedTunes) => setTunes(renderedTunes)}
-                />
+                  {buildStatus === 'invalid' && (
+                    <div className="workspace-status-row invalid" role="alert">
+                      <span className="workspace-status-indicator invalid">Invalid ABC</span>
+                      <span>{workspaceMessage}</span>
+                    </div>
+                  )}
+
+                  <div className="score-view-wrapper">
+                    <SheetMusicView
+                      abcCode={canRenderScore ? abcCode : ''}
+                      activeAnchor={activeAnchor}
+                      onSelectAnchor={setActiveAnchor}
+                      onTuneRendered={(renderedTunes) => setTunes(renderedTunes)}
+                    />
+                  </div>
+                </div>
+
+                <div className="score-canvas-footer">
+                  <span>Page 1 of 1 · {measureCount} measures</span>
+                  <div>
+                    <span className={`render-pill ${canRenderScore ? 'ready' : ''}`}>SVG {canRenderScore ? 'ready' : 'pending'}</span>
+                    <span className={`render-pill audio ${buildResult?.hasPlayback ? 'ready' : ''}`}>
+                      Audio {buildResult?.hasPlayback ? 'ready' : 'pending'}
+                    </span>
+                  </div>
+                </div>
+
               </div>
             </section>
 
@@ -333,6 +364,10 @@ export const App: React.FC = () => {
                 </div>
               </>
             )}
+
+            <div className="playback-dock-container">
+              <AudioPlayer tunes={canRenderScore ? tunes : null} activeAnchor={activeAnchor} />
+            </div>
           </div>
         </main>
 
@@ -342,16 +377,12 @@ export const App: React.FC = () => {
             onClose={() => setChatOpen(false)}
             fileId={activeFileId}
             abcCode={abcCode}
-            activeFileName={activeFileName}
+            activeFileName={scoreTitle}
             revision={abcRevision}
             activeAnchor={activeAnchor}
           />
         </div>
       </div>
-
-      <footer className="playback-dock-container">
-        <AudioPlayer tunes={canRenderScore ? tunes : null} activeAnchor={activeAnchor} />
-      </footer>
     </div>
   );
 };

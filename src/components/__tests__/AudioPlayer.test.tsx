@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AudioPlayer } from '../AudioPlayer';
 import abcjs from 'abcjs';
@@ -9,6 +9,7 @@ const mockSynthControl = {
   play: vi.fn(),
   pause: vi.fn(),
   restart: vi.fn(),
+  seek: vi.fn(),
 };
 
 const mockCreateSynth = {
@@ -53,6 +54,7 @@ describe('AudioPlayer Component', () => {
     expect(screen.getByText('Tempo:')).toBeDefined();
     expect(screen.getByText('100%')).toBeDefined();
     expect(screen.getByText('80%')).toBeDefined();
+    expect(screen.getByText('/ --:--')).toBeDefined();
   });
 
   it('updates tempo slider state on change', () => {
@@ -106,6 +108,27 @@ describe('AudioPlayer Component', () => {
 
     expect(mockSynthControl.pause).toHaveBeenCalled();
     expect(mockSynthControl.restart).toHaveBeenCalledOnce();
+  });
+
+  it('shows live abcjs timing and seeks from the progress track', async () => {
+    render(<AudioPlayer tunes={[mockTune]} />);
+
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    const cursorControl = mockSynthControl.load.mock.calls.at(-1)?.[1];
+    fireEvent.click(screen.getByTitle('Play Piano Synthesizer'));
+    act(() => cursorControl.onBeat(30, 120, 120_000));
+
+    expect(screen.getByText('0:30')).toBeDefined();
+    expect(screen.getByText('/ 2:00')).toBeDefined();
+
+    const progress = screen.getByRole('button', { name: 'Seek playback' });
+    vi.spyOn(progress, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      width: 200,
+    } as DOMRect);
+    fireEvent.click(progress, { clientX: 100 });
+
+    expect(mockSynthControl.seek).toHaveBeenCalledWith(0.5);
   });
 
   it('ignores an obsolete synth initialization that finishes late', async () => {
