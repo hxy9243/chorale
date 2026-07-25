@@ -5,6 +5,7 @@ import { FileSelector } from './components/FileSelector';
 import { SheetMusicView } from './components/SheetMusicView';
 import { AudioPlayer } from './components/AudioPlayer';
 import { AbcEditor } from './components/AbcEditor';
+import { AgentChatPanel } from './components/AgentChatPanel';
 import type { MusicSample } from './types/music';
 import { PRESET_SAMPLES } from './data/samples';
 import { extractMusicXml, parseMusicXmlToAbc } from './utils/xmlParser';
@@ -15,6 +16,8 @@ export const App: React.FC = () => {
   const [tunes, setTunes] = useState<abcjs.TuneObject[] | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState<boolean>(true);
+  const [abcRevision, setAbcRevision] = useState<number>(0);
   const loadRequestRef = useRef(0);
 
   // Load initial preset sample on mount
@@ -23,6 +26,10 @@ export const App: React.FC = () => {
       loadSample(PRESET_SAMPLES[0]);
     }
   }, []);
+
+  useEffect(() => {
+    if (abcCode.trim()) setAbcRevision((revision) => revision + 1);
+  }, [abcCode]);
 
   const handleProcessMusicXml = async (fileData: ArrayBuffer | string, fileName: string) => {
     const requestId = ++loadRequestRef.current;
@@ -83,30 +90,42 @@ export const App: React.FC = () => {
 
   return (
     <div className="app-container">
-      <Header />
+      <Header chatOpen={chatOpen} onToggleChat={() => setChatOpen((open) => !open)} />
 
-      <main className="app-grid">
-        <div className="app-grid-top">
-          <FileSelector
-            onFileLoaded={handleProcessMusicXml}
-            onSampleSelected={loadSample}
-            activeFileName={activeFileName}
-            loading={loading}
-            error={error}
+      <div className={`app-workspace ${chatOpen ? 'chat-open' : ''}`}>
+        <main className="app-grid">
+          <div className="app-grid-top">
+            <FileSelector
+              onFileLoaded={handleProcessMusicXml}
+              onSampleSelected={loadSample}
+              activeFileName={activeFileName}
+              loading={loading}
+              error={error}
+            />
+            <AudioPlayer tunes={tunes} />
+          </div>
+
+          <SheetMusicView
+            abcCode={abcCode}
+            onTuneRendered={(renderedTunes) => setTunes(renderedTunes)}
           />
-          <AudioPlayer tunes={tunes} />
+
+          <AbcEditor
+            abcCode={abcCode}
+            onAbcChange={(newAbc) => setAbcCode(newAbc)}
+          />
+        </main>
+
+        <div id="current-sheet-agent">
+          <AgentChatPanel
+            open={chatOpen}
+            onClose={() => setChatOpen(false)}
+            abcCode={abcCode}
+            activeFileName={activeFileName}
+            revision={abcRevision}
+          />
         </div>
-
-        <SheetMusicView
-          abcCode={abcCode}
-          onTuneRendered={(renderedTunes) => setTunes(renderedTunes)}
-        />
-
-        <AbcEditor
-          abcCode={abcCode}
-          onAbcChange={(newAbc) => setAbcCode(newAbc)}
-        />
-      </main>
+      </div>
     </div>
   );
 };

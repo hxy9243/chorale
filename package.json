@@ -11,6 +11,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@earendil-works/pi-agent-core": "^0.81.1",
+    "@earendil-works/pi-ai": "^0.81.1",
     "@educandu/abc-tools": "^3.0.3",
     "abcjs": "^6.6.4",
     "jszip": "^3.10.1",
