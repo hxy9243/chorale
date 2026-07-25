@@ -2214,6 +2214,20 @@ textarea {
   pointer-events: none;
 }
 
+.abcjs-measure-hit-area {
+  fill: transparent;
+  stroke: transparent;
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.abcjs-measure-hit-area:focus {
+  stroke: var(--figma-coral);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  outline: none;
+}
+
 .score-canvas-footer {
   display: flex;
   min-height: 29px;

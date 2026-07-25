@@ -35,6 +35,8 @@ Selection is not just visual emphasis. It is a reusable context handoff into pla
 
 For a single-measure selection, Chorale should draw a faint warm highlight behind the complete measure. The highlight must not recolor notation, intercept pointer input, or depend on a particular note being selected. Selecting another measure replaces the previous highlight.
 
+Measure selection uses a transparent interaction layer above the notation so staff lines and whitespace are as reliable as noteheads. The interaction layer must support pointer and keyboard activation without changing the printed score appearance.
+
 ## 4. Annotation overlays
 
 The score surface should support inline annotation UI layered on top of rendered notation.

@@ -35,6 +35,8 @@ When the user clicks the score:
 
 Measure resolution must use abcjs's global measure index rather than a line-local index or a missing note payload field. The first rendered measure maps to product measure `1`, the second to `2`, and so on across staff systems. The score records normalized progress from the rendered measure count and adds absolute playback time when the tune exposes duration.
 
+Each rendered measure must expose one continuous hit region covering its notation bounds. A click on a note, staff line, accidental, or open space inside that region selects the measure on the first attempt.
+
 ### ABC edit to atomic rebuild
 
 When the user edits ABC:
