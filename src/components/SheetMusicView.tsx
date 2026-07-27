@@ -175,7 +175,8 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         const selected = selectMeasureWithRepeats(
           measure,
           occurrences,
-          activeAnchor?.playbackSeconds || 0,
+          0,
+          false,
         );
 
         const measureCount = getRenderedMeasureCount(containerRef.current!);
@@ -238,7 +239,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       measureOccurrencesRef.current = [];
       setRenderError(err?.message || 'Failed to render sheet music SVG.');
     }
-  }, [abcCode, activeAnchor?.playbackSeconds, onSelectAnchor, onTuneRendered, transpose]);
+  }, [abcCode, onSelectAnchor, onTuneRendered, transpose]);
 
   useEffect(() => {
     if (!containerRef.current) return;

@@ -24,7 +24,7 @@ G A B c | d e f g |]`;
     expect(sel0?.startTimeSec).toBe(occurrences[1].startTimeSec);
 
     // When playing at pass 2 (e.g. 2.5s), selecting m.2 picks pass 2
-    const selPass2 = selectMeasureWithRepeats(2, occurrences, 2.5);
+    const selPass2 = selectMeasureWithRepeats(2, occurrences, 2.5, true);
     expect(selPass2?.startTimeSec).toBe(occurrences[3].startTimeSec);
   });
 

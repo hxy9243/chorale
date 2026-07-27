@@ -68,18 +68,25 @@ export function buildMeasureOccurrences(tune: abcjs.TuneObject): MeasureOccurren
 /**
  * Selects the measure occurrence that best matches current playback state.
  * If audio is playing at `currentPlaybackSeconds`, selects the occurrence corresponding
- * to the current or next repeat pass. If stopped, selects the first pass occurrence.
+ * to the current or next repeat pass. If stopped/not playing, selects the first pass occurrence.
  */
 export function selectMeasureWithRepeats(
   targetMeasure: number,
   occurrences: MeasureOccurrence[],
   currentPlaybackSeconds: number = 0,
+  isPlaying: boolean = false,
 ): MeasureOccurrence | null {
   if (!occurrences || occurrences.length === 0) return null;
 
   const matching = occurrences.filter((occ) => occ.measure === targetMeasure);
   if (matching.length === 0) return null;
   if (matching.length === 1) return matching[0];
+
+  // If audio is not actively playing, always default to the first occurrence (Pass 1).
+  // This prevents cascading jumps into higher repeat passes when user clicks around the score.
+  if (!isPlaying || currentPlaybackSeconds <= 0) {
+    return matching[0];
+  }
 
   let chosen = matching[0];
   let minDiff = Infinity;
