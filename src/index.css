@@ -1853,8 +1853,7 @@ textarea {
   outline-offset: 2px;
 }
 
-.workspace-body,
-.workspace-body.chat-open {
+.workspace-body {
   display: grid;
   grid-template-columns: 236px minmax(0, 1fr);
   flex: 1;
@@ -1864,6 +1863,14 @@ textarea {
 
 .workspace-body.chat-open {
   grid-template-columns: 236px minmax(0, 1fr) 392px;
+}
+
+.right-panel {
+  display: none;
+}
+
+.workspace-body.chat-open .right-panel {
+  display: block;
 }
 
 .file-rail {
