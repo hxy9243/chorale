@@ -2468,7 +2468,9 @@ textarea {
 }
 
 .editor-open .score-sheet-heading > span {
-  display: none;
+  display: inline-flex;
+  font-size: 11px;
+  padding: 4px 8px;
 }
 
 .abc-editor-card .editor-header {
