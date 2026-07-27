@@ -6,6 +6,50 @@ import type { ScoreAnchor } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
 import type { PlaybackPosition } from '../utils/repeatPlayback';
 
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+const PLAYBACK_CURSOR_SELECTOR = '.abcjs-playback-cursor';
+
+const isFiniteNumber = (value: unknown): value is number => (
+  typeof value === 'number' && Number.isFinite(value)
+);
+
+const removePlaybackCursor = () => {
+  document.querySelectorAll(PLAYBACK_CURSOR_SELECTOR).forEach((element) => element.remove());
+  document.querySelectorAll('.abcjs-highlight').forEach((element) => {
+    element.classList.remove('abcjs-highlight');
+  });
+};
+
+const updatePlaybackCursor = (event: abcjs.NoteTimingEvent) => {
+  const eventElements = event.elements?.flat() || [];
+  const scoreElement = eventElements.find((element) => (
+    Boolean((element as unknown as SVGElement).ownerSVGElement)
+  )) as unknown as SVGElement | undefined;
+  const svg = scoreElement?.ownerSVGElement
+    || document.querySelector<SVGSVGElement>('#paper svg');
+  if (!svg || !isFiniteNumber(event.left) || !isFiniteNumber(event.top) || !isFiniteNumber(event.height)) {
+    return;
+  }
+
+  document.querySelectorAll('.abcjs-highlight').forEach((element) => {
+    element.classList.remove('abcjs-highlight');
+  });
+
+  let cursor = svg.querySelector<SVGLineElement>(PLAYBACK_CURSOR_SELECTOR);
+  if (!cursor) {
+    removePlaybackCursor();
+    cursor = document.createElementNS(SVG_NAMESPACE, 'line');
+    cursor.classList.add('abcjs-playback-cursor');
+    cursor.setAttribute('aria-hidden', 'true');
+    svg.appendChild(cursor);
+  }
+
+  cursor.setAttribute('x1', String(event.left));
+  cursor.setAttribute('x2', String(event.left));
+  cursor.setAttribute('y1', String(event.top));
+  cursor.setAttribute('y2', String(event.top + event.height));
+};
+
 interface AudioPlayerProps {
   tunes: abcjs.TuneObject[] | null;
   activeAnchor?: ScoreAnchor | null;
@@ -91,6 +135,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   // Primary synth initialization on tune change
   useEffect(() => {
     const currentTune = tunes?.[0] || null;
+    removePlaybackCursor();
     if (!currentTune) {
       setIsReady(false);
       updatePlaybackPosition({ progress: 0, durationMs: 0, playing: false });
@@ -126,14 +171,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           synthControl.load(
             audioContainerRef.current,
             {
-              onEvent: (event: any) => {
-                if (event && event.elements) {
-                  // Highlight active note elements in SVG score
-                  document.querySelectorAll('.abcjs-highlight').forEach((el) => el.classList.remove('abcjs-highlight'));
-                  event.elements.forEach((group: any[]) => {
-                    group.forEach((el: Element) => el.classList.add('abcjs-highlight'));
-                  });
-                }
+              onEvent: (event: abcjs.NoteTimingEvent) => {
+                if (event) updatePlaybackCursor(event);
               },
               onBeat: (beatNumber: number, totalBeats: number, totalTime: number) => {
                 updatePlaybackPosition({
@@ -146,7 +185,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                 if (synthControllerRef.current) {
                   synthControllerRef.current.isStarted = false;
                 }
-                document.querySelectorAll('.abcjs-highlight').forEach((el) => el.classList.remove('abcjs-highlight'));
+                removePlaybackCursor();
               },
             },
             {
@@ -221,6 +260,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       if (synthControllerRef.current === synthControl) {
         synthControllerRef.current = null;
       }
+      removePlaybackCursor();
     };
   }, [tunes, updatePlaybackPosition]);
 
@@ -304,7 +344,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     synthControllerRef.current.isStarted = false;
     synthControllerRef.current.seek?.(0);
     updatePlaybackPosition({ progress: 0, playing: false });
-    document.querySelectorAll('.abcjs-highlight').forEach((el) => el.classList.remove('abcjs-highlight'));
+    removePlaybackCursor();
   };
 
   const handleSeekTrackClick = (event: React.MouseEvent<HTMLButtonElement>) => {

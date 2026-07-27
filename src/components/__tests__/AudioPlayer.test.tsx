@@ -129,6 +129,49 @@ describe('AudioPlayer Component', () => {
     });
   });
 
+  it('draws a playback needle instead of bolding the active note', async () => {
+    const { container, unmount } = render(
+      <>
+        <svg data-testid="score-svg">
+          <g data-testid="playing-note" />
+        </svg>
+        <AudioPlayer tunes={[mockTune]} />
+      </>,
+    );
+
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    const cursorControl = mockSynthControl.load.mock.calls.at(-1)?.[1];
+    const playingNote = screen.getByTestId('playing-note');
+
+    act(() => cursorControl.onEvent({
+      left: 42,
+      top: 12,
+      height: 36,
+      elements: [[playingNote]],
+    }));
+
+    const needle = container.querySelector('.abcjs-playback-cursor');
+    expect(playingNote.classList.contains('abcjs-highlight')).toBe(false);
+    expect(needle?.tagName).toBe('line');
+    expect(needle?.getAttribute('x1')).toBe('42');
+    expect(needle?.getAttribute('x2')).toBe('42');
+    expect(needle?.getAttribute('y1')).toBe('12');
+    expect(needle?.getAttribute('y2')).toBe('48');
+
+    act(() => cursorControl.onEvent({
+      left: 64,
+      top: 16,
+      height: 40,
+      elements: [[playingNote]],
+    }));
+    expect(container.querySelectorAll('.abcjs-playback-cursor')).toHaveLength(1);
+    expect(needle?.getAttribute('x1')).toBe('64');
+    expect(needle?.getAttribute('y2')).toBe('56');
+
+    unmount();
+    expect(document.querySelector('.abcjs-playback-cursor')).toBeNull();
+  });
+
   it('seeks playback to the selected measure and beat', async () => {
     render(
       <AudioPlayer

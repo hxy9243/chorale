@@ -12,6 +12,70 @@ import {
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
+type SvgBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+const measureHighlightBounds = (
+  container: HTMLDivElement,
+  measureIndex: number,
+  elements: SVGGraphicsElement[],
+): SvgBounds => {
+  const contentBoxes = elements.map((element) => element.getBBox());
+  const contentLeft = Math.min(...contentBoxes.map((box) => box.x));
+  const contentTop = Math.min(...contentBoxes.map((box) => box.y));
+  const contentRight = Math.max(...contentBoxes.map((box) => box.x + box.width));
+  const contentBottom = Math.max(...contentBoxes.map((box) => box.y + box.height));
+  const lineClass = elements
+    .flatMap((element) => Array.from(element.classList))
+    .find((className) => /^abcjs-l\d+$/.test(className));
+  const endBarBoxes = elements
+    .filter((element) => element.classList.contains('abcjs-bar'))
+    .map((element) => element.getBBox());
+  const staffBoxes = lineClass
+    ? Array.from(container.querySelectorAll<SVGGraphicsElement>(`.abcjs-staff.${lineClass}`))
+      .filter((element) => typeof element.getBBox === 'function')
+      .map((element) => element.getBBox())
+    : [];
+  const previousBarBoxes = measureIndex > 0 && lineClass
+    ? Array.from(container.querySelectorAll<SVGGraphicsElement>(
+      `.abcjs-mm${measureIndex - 1}.abcjs-bar.${lineClass}`,
+    ))
+      .filter((element) => typeof element.getBBox === 'function')
+      .map((element) => element.getBBox())
+    : [];
+
+  const left = previousBarBoxes.length > 0
+    ? Math.max(...previousBarBoxes.map((box) => box.x + box.width))
+    : staffBoxes.length > 0
+      ? Math.min(...staffBoxes.map((box) => box.x))
+      : contentLeft;
+  const right = endBarBoxes.length > 0
+    ? Math.min(...endBarBoxes.map((box) => box.x))
+    : contentRight;
+  const verticalBoxes = endBarBoxes.length > 0
+    ? endBarBoxes
+    : staffBoxes.length > 0
+      ? staffBoxes
+      : contentBoxes;
+  const top = Math.min(...verticalBoxes.map((box) => box.y));
+  const bottom = Math.max(...verticalBoxes.map((box) => box.y + box.height));
+
+  if (right <= left || bottom <= top) {
+    return {
+      x: contentLeft,
+      y: contentTop,
+      width: contentRight - contentLeft,
+      height: contentBottom - contentTop,
+    };
+  }
+
+  return { x: left, y: top, width: right - left, height: bottom - top };
+};
+
 const resolveClickedMeasure = (
   abcElem: { measureNumber?: number } | null | undefined,
   classes = '',
@@ -33,21 +97,17 @@ const highlightMeasure = (container: HTMLDivElement, anchor: ScoreAnchor | null)
   )).filter((element) => typeof element.getBBox === 'function');
   if (elements.length === 0) return;
 
-  const boxes = elements.map((element) => element.getBBox());
-  const left = Math.min(...boxes.map((box) => box.x));
-  const top = Math.min(...boxes.map((box) => box.y));
-  const right = Math.max(...boxes.map((box) => box.x + box.width));
-  const bottom = Math.max(...boxes.map((box) => box.y + box.height));
+  const bounds = measureHighlightBounds(container, Math.max(0, anchor.measure - 1), elements);
   const svg = elements[0].ownerSVGElement;
   if (!svg) return;
 
   const highlight = document.createElementNS(SVG_NAMESPACE, 'rect');
   highlight.classList.add('abcjs-measure-highlight');
-  highlight.setAttribute('x', String(left - 6));
-  highlight.setAttribute('y', String(top - 8));
-  highlight.setAttribute('width', String(right - left + 12));
-  highlight.setAttribute('height', String(bottom - top + 16));
-  highlight.setAttribute('rx', '5');
+  highlight.setAttribute('x', String(bounds.x));
+  highlight.setAttribute('y', String(bounds.y));
+  highlight.setAttribute('width', String(bounds.width));
+  highlight.setAttribute('height', String(bounds.height));
+  highlight.setAttribute('rx', '2');
   highlight.setAttribute('aria-hidden', 'true');
   svg.insertBefore(highlight, svg.firstChild);
 };
@@ -337,8 +397,8 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
           className="sheet-zoom-wrapper"
           style={{
             zoom: currentZoom / 100,
-            transformOrigin: 'top center',
-            width: '100%',
+            width: `${currentZoom}%`,
+            marginInline: 'auto',
           }}
         >
           <div ref={containerRef} id="paper" className="abcjs-paper-container" />

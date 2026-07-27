@@ -412,7 +412,7 @@ body {
   stroke: none !important;
 }
 
-.abcjs-paper-container svg path:not(.abcjs-highlight) {
+.abcjs-paper-container svg path {
   fill: #000000;
   stroke: #000000;
 }
@@ -421,12 +421,13 @@ body {
   stroke: #000000 !important;
 }
 
-/* Active note highlight color during WebAudio playback */
-.abcjs-highlight {
-  fill: #e11d48 !important;
-  stroke: #be123c !important;
+/* Thin score-position needle shown during WebAudio playback. */
+.abcjs-paper-container svg .abcjs-playback-cursor {
+  stroke: var(--figma-coral) !important;
   stroke-width: 2px !important;
-  transition: fill 0.1s ease, stroke 0.1s ease;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
 }
 
 /* ABC Editor Card */
@@ -2326,7 +2327,8 @@ textarea {
 .sheet-viewport {
   min-height: 0;
   padding: 0;
-  overflow: visible;
+  overflow-x: auto;
+  overflow-y: hidden;
   border-radius: 0;
   background: #fff;
   box-shadow: none;
