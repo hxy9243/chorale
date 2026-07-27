@@ -312,9 +312,8 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         <div
           className="sheet-zoom-wrapper"
           style={{
-            transform: `scale(${currentZoom / 100})`,
+            zoom: currentZoom / 100,
             transformOrigin: 'top center',
-            transition: 'transform 0.15s ease-out',
             width: '100%',
           }}
         >
