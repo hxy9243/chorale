@@ -161,6 +161,74 @@ describe('App Integration', () => {
     });
   });
 
+  it('debounces workspace persistence across rapid ABC edits', async () => {
+    const mockDoc = {
+      id: 'stored-doc-123',
+      name: 'Persisted Score.abc',
+      sourceType: 'abc',
+      abcSource: 'X:1\nT:Persisted Score\nK:C\nCDEF',
+      revision: 1,
+      versions: [],
+      scoreInfo: { title: 'Persisted Score' },
+    };
+    localStorage.setItem('chorale.workspace.documents', JSON.stringify([mockDoc]));
+    localStorage.setItem('chorale.workspace.activeFileId', 'stored-doc-123');
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    const editor = screen.getByPlaceholderText(/Parsed ABC code will appear here/);
+
+    for (let edit = 1; edit <= 8; edit += 1) {
+      fireEvent.change(editor, {
+        target: { value: `X:1\nT:Persisted Score\nK:C\nCDEF % edit ${edit}` },
+      });
+    }
+
+    const documentWrites = () => setItemSpy.mock.calls.filter(
+      ([key]) => key === 'chorale.workspace.documents',
+    );
+    expect(documentWrites()).toHaveLength(0);
+
+    await waitFor(() => expect(documentWrites()).toHaveLength(1), { timeout: 1200 });
+    const savedDocuments = JSON.parse(String(documentWrites()[0][1]));
+    expect(savedDocuments[0].abcSource).toContain('% edit 8');
+
+    setItemSpy.mockRestore();
+  });
+
+  it('surfaces localStorage quota failures in the header', async () => {
+    const mockDoc = {
+      id: 'stored-doc-123',
+      name: 'Persisted Score.abc',
+      sourceType: 'abc',
+      abcSource: 'X:1\nT:Persisted Score\nK:C\nCDEF',
+      revision: 1,
+      versions: [],
+      scoreInfo: { title: 'Persisted Score' },
+    };
+    localStorage.setItem('chorale.workspace.documents', JSON.stringify([mockDoc]));
+    localStorage.setItem('chorale.workspace.activeFileId', 'stored-doc-123');
+
+    const originalSetItem = Storage.prototype.setItem;
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (key, value) {
+      if (key === 'chorale.workspace.documents') {
+        throw new DOMException('Storage quota exceeded', 'QuotaExceededError');
+      }
+      return originalSetItem.call(this, key, value);
+    });
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('status').textContent).toBe('Save failed');
+    }, { timeout: 1200 });
+
+    setItemSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+  });
+
   it('restores the active file and documents from localStorage on page refresh', async () => {
     const mockDoc = {
       id: 'stored-doc-123',

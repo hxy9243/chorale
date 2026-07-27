@@ -1,6 +1,16 @@
 import type { FileDocument, ScoreInfo, ScoreVersion } from '../types/document';
 import type { MusicSample } from '../types/music';
 
+export const MAX_SCORE_VERSIONS = 20;
+
+export function limitScoreVersions(versions: ScoreVersion[]): ScoreVersion[] {
+  if (versions.length <= MAX_SCORE_VERSIONS) return versions;
+
+  const firstVersion = versions[0];
+  const recentVersions = versions.slice(-(MAX_SCORE_VERSIONS - 1));
+  return [firstVersion, ...recentVersions];
+}
+
 export function generateId(prefix = 'file'): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
@@ -114,7 +124,7 @@ export function updateDocumentAbc(
       meter: parsedMeta.meter || doc.scoreInfo.meter,
       tempoText: parsedMeta.tempoText || doc.scoreInfo.tempoText,
     },
-    versions: [...doc.versions, newVersion],
+    versions: limitScoreVersions([...doc.versions, newVersion]),
     updatedAt: now,
   };
 }

@@ -11,7 +11,13 @@ import type { MusicSample } from './types/music';
 import type { BuildResult, FileDocument, ScoreAnchor } from './types/document';
 import { PRESET_SAMPLES } from './data/samples';
 import { extractMusicXml, parseMusicXmlToAbc } from './utils/xmlParser';
-import { createDocumentFromAbc, updateDocumentAbc, sampleToDocument, parseAbcMetadata } from './utils/fileSession';
+import {
+  createDocumentFromAbc,
+  limitScoreVersions,
+  parseAbcMetadata,
+  sampleToDocument,
+  updateDocumentAbc,
+} from './utils/fileSession';
 import { formatAnchorLabel } from './utils/anchor';
 
 const EDITOR_VISIBLE_KEY = 'chorale.workspace.editorVisible';
@@ -21,6 +27,7 @@ const ACTIVE_FILE_KEY = 'chorale.workspace.activeFileId';
 const DEFAULT_EDITOR_WIDTH = 420;
 const MIN_EDITOR_WIDTH = 320;
 const MAX_EDITOR_WIDTH = 720;
+const AUTOSAVE_DELAY_MS = 400;
 
 type BuildStatus = 'idle' | 'building' | 'valid' | 'invalid';
 
@@ -44,7 +51,11 @@ const readStoredDocuments = (): FileDocument[] => {
     const raw = window.localStorage.getItem(DOCUMENTS_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((document) => ({
+      ...document,
+      versions: limitScoreVersions(Array.isArray(document.versions) ? document.versions : []),
+    }));
   } catch {
     return [];
   }
@@ -55,10 +66,7 @@ const readStoredActiveFileId = (): string => {
   return window.localStorage.getItem(ACTIVE_FILE_KEY) || '';
 };
 
-const deriveSaveState = (document?: FileDocument) => {
-  if (!document) return 'No file';
-  return 'Auto-saved';
-};
+type SaveStatus = 'saved' | 'saving' | 'error';
 
 const buildValidationMessage = (status: BuildStatus, buildResult: BuildResult | null) => {
   if (status === 'building') return 'Checking ABC syntax and rebuilding derived score output.';
@@ -71,6 +79,7 @@ const buildValidationMessage = (status: BuildStatus, buildResult: BuildResult | 
 
 export const App: React.FC = () => {
   const [documents, setDocuments] = useState<FileDocument[]>(() => readStoredDocuments());
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [activeFileId, setActiveFileId] = useState<string>(() => readStoredActiveFileId());
   const [activeAnchor, setActiveAnchor] = useState<ScoreAnchor | null>(null);
   const [tunes, setTunes] = useState<abcjs.TuneObject[] | null>(null);
@@ -91,7 +100,13 @@ export const App: React.FC = () => {
   const abcCode = activeDocument?.abcSource || '';
   const abcRevision = activeDocument?.revision || 0;
   const anchorLabel = formatAnchorLabel(activeAnchor);
-  const saveState = deriveSaveState(activeDocument);
+  const saveState = !activeDocument
+    ? 'No file'
+    : saveStatus === 'saving'
+      ? 'Saving'
+      : saveStatus === 'error'
+        ? 'Error'
+        : 'Saved';
   const canRenderScore = buildStatus === 'valid';
   const liveMetadata = useMemo(() => parseAbcMetadata(abcCode), [abcCode]);
   const scoreTitle = liveMetadata.title || activeDocument?.scoreInfo.title || activeFileName || 'Untitled score';
@@ -132,13 +147,24 @@ export const App: React.FC = () => {
   }, [editorWidth]);
 
   useEffect(() => {
-    if (documents.length > 0) {
+    if (documents.length === 0) {
+      window.localStorage.removeItem(DOCUMENTS_STORAGE_KEY);
+      setSaveStatus('saved');
+      return;
+    }
+
+    setSaveStatus('saving');
+    const timeout = window.setTimeout(() => {
       try {
         window.localStorage.setItem(DOCUMENTS_STORAGE_KEY, JSON.stringify(documents));
-      } catch (e) {
-        console.error('Failed to auto-save documents:', e);
+        setSaveStatus('saved');
+      } catch (caught) {
+        console.error('Failed to auto-save documents:', caught);
+        setSaveStatus('error');
       }
-    }
+    }, AUTOSAVE_DELAY_MS);
+
+    return () => window.clearTimeout(timeout);
   }, [documents]);
 
   useEffect(() => {

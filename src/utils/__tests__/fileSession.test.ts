@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { createDocumentFromAbc, updateDocumentAbc, sampleToDocument, parseAbcMetadata } from '../fileSession';
+import {
+  MAX_SCORE_VERSIONS,
+  createDocumentFromAbc,
+  updateDocumentAbc,
+  sampleToDocument,
+  parseAbcMetadata,
+} from '../fileSession';
 import type { MusicSample } from '../../types/music';
 
 describe('fileSession Utilities', () => {
@@ -35,6 +41,19 @@ describe('fileSession Utilities', () => {
     expect(updated.versions).toHaveLength(2);
     expect(updated.versions[1].revision).toBe(2);
     expect(updated.versions[1].reason).toBe('manual-edit');
+  });
+
+  it('bounds full-score history during sustained editing while retaining import and latest revisions', () => {
+    const original = createDocumentFromAbc('Test.xml', 'musicxml', 'X:1\nK:C\nC', 'Test');
+    const updated = Array.from({ length: MAX_SCORE_VERSIONS * 3 }).reduce(
+      (doc, _, index) => updateDocumentAbc(doc, `X:1\nK:C\nC % edit ${index + 1}`),
+      original,
+    );
+
+    expect(updated.versions).toHaveLength(MAX_SCORE_VERSIONS);
+    expect(updated.versions[0]).toEqual(original.versions[0]);
+    expect(updated.versions[updated.versions.length - 1]?.abcSource).toBe(updated.abcSource);
+    expect(updated.versions[updated.versions.length - 1]?.revision).toBe(updated.revision);
   });
 
   it('updateDocumentAbc returns same doc if ABC content is unchanged', () => {
