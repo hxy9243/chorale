@@ -326,6 +326,8 @@ export const App: React.FC = () => {
                       activeAnchor={activeAnchor}
                       onSelectAnchor={setActiveAnchor}
                       onTuneRendered={(renderedTunes) => setTunes(renderedTunes)}
+                      zoom={zoom}
+                      onZoomChange={(newZoom) => setZoom(Math.max(50, Math.min(200, newZoom)))}
                     />
                   </div>
                 </div>

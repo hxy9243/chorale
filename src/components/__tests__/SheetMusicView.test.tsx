@@ -202,4 +202,23 @@ describe('SheetMusicView Component', () => {
       playbackFraction: 0.5,
     });
   });
+
+  it('triggers onZoomChange on ctrl+wheel scroll gesture without page zoom', () => {
+    const onZoomChange = vi.fn();
+    const { container } = render(
+      <SheetMusicView abcCode={sampleAbc} zoom={100} onZoomChange={onZoomChange} />
+    );
+
+    const card = container.querySelector('.sheet-music-card')!;
+    const wheelEvent = new WheelEvent('wheel', {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+      deltaY: -100,
+    });
+
+    fireEvent(card, wheelEvent);
+    expect(onZoomChange).toHaveBeenCalledWith(110);
+    expect(wheelEvent.defaultPrevented).toBe(true);
+  });
 });
