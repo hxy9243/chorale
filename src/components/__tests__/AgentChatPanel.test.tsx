@@ -65,4 +65,41 @@ describe('AgentChatPanel', () => {
     expect(screen.getByText('Grounded mock response')).toBeDefined();
     expect(screen.getByText('Local edit.abc · ABC rev 12')).toBeDefined();
   });
+
+  it('disables start new thread button when conversation is empty and does not create empty threads', () => {
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-test"
+        abcCode={'X:1\nT:Test\nK:C\nCDEF|'}
+        activeFileName="Test.abc"
+        revision={1}
+      />,
+    );
+
+    const newThreadBtn = screen.getByTitle('Start new thread') as HTMLButtonElement;
+    expect(newThreadBtn.disabled).toBe(true);
+
+    fireEvent.click(newThreadBtn);
+    const options = screen.getAllByRole('option');
+    expect(options.length).toBe(1);
+  });
+
+  it('does not render analyze, edit, compose buttons or tools disclosure', () => {
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-test"
+        abcCode={'X:1\nT:Test\nK:C\nCDEF|'}
+        activeFileName="Test.abc"
+        revision={1}
+      />,
+    );
+
+    expect(screen.queryByText('Analyze')).toBeNull();
+    expect(screen.queryByText('Compose')).toBeNull();
+    expect(screen.queryByText('Tools')).toBeNull();
+  });
 });

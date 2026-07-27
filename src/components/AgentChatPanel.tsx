@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Bot, Eraser, History, Plus, Send, Square, Wrench, X } from 'lucide-react';
+import { Bot, History, Plus, Send, Square, X } from 'lucide-react';
 import type { PiSheetAgent } from '../agent/PiSheetAgent';
 import {
-  clearConversation,
   loadConversation,
   makeEmptyConversation,
   saveConversation,
@@ -20,12 +19,6 @@ interface AgentChatPanelProps {
   revision: number;
   activeAnchor?: ScoreAnchor | null;
 }
-
-const AVAILABLE_TOOLS = [
-  'score_info.read',
-  'annotation.create',
-  'abc.propose_edit',
-] as const;
 
 const SUGGESTED_QUESTIONS = [
   'Explain the voice leading',
@@ -156,6 +149,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   };
 
   const handleNewThread = () => {
+    if (!fileId || (activeThread && activeThread.messages.length === 0)) return;
     if (isStreaming) stop();
     const thread = makeThread();
     setConversation((current) => ({
@@ -163,27 +157,6 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       threads: [thread, ...current.threads],
     }));
     setDraft('');
-    setError(null);
-  };
-
-  const handleClearThread = () => {
-    if (!activeThread) return;
-    if (isStreaming) stop();
-
-    if (conversation.threads.length === 1) {
-      clearConversation(fileId);
-      const emptyConversation = makeEmptyConversation();
-      setConversation(emptyConversation);
-      saveConversation(fileId, emptyConversation);
-      setError(null);
-      return;
-    }
-
-    const nextThreads = conversation.threads.filter((thread) => thread.id !== activeThread.id);
-    setConversation({
-      activeThreadId: nextThreads[0].id,
-      threads: nextThreads,
-    });
     setError(null);
   };
 
@@ -292,7 +265,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
             onClick={handleNewThread}
             title="Start new thread"
             aria-label="Start new thread"
-            disabled={!fileId}
+            disabled={!fileId || (!!activeThread && activeThread.messages.length === 0)}
           >
             <Plus size={17} />
           </button>
@@ -393,30 +366,6 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
             }
           }}
         />
-        <div className="agent-composer-footer">
-          <div className="agent-modes" aria-label="Assistant mode">
-            <span className="active">Analyze</span>
-            <span>Edit</span>
-            <span>Compose</span>
-          </div>
-          <details className="agent-tool-disclosure">
-            <summary><Wrench size={13} /> Tools</summary>
-            <div className="agent-tool-list">
-              {AVAILABLE_TOOLS.map((tool) => (
-                <span key={tool} className="agent-tool-chip">{tool}</span>
-              ))}
-              <button
-                type="button"
-                className="agent-clear-thread"
-                onClick={handleClearThread}
-                disabled={!activeThread || messages.length === 0}
-              >
-                <Eraser size={13} />
-                Clear thread
-              </button>
-            </div>
-          </details>
-        </div>
         {isStreaming ? (
           <button
             className="agent-send-button"

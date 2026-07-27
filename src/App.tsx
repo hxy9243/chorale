@@ -11,7 +11,7 @@ import type { MusicSample } from './types/music';
 import type { BuildResult, FileDocument, ScoreAnchor } from './types/document';
 import { PRESET_SAMPLES } from './data/samples';
 import { extractMusicXml, parseMusicXmlToAbc } from './utils/xmlParser';
-import { createDocumentFromAbc, updateDocumentAbc, sampleToDocument } from './utils/fileSession';
+import { createDocumentFromAbc, updateDocumentAbc, sampleToDocument, parseAbcMetadata } from './utils/fileSession';
 import { formatAnchorLabel } from './utils/anchor';
 
 const EDITOR_VISIBLE_KEY = 'chorale.workspace.editorVisible';
@@ -93,12 +93,12 @@ export const App: React.FC = () => {
   const anchorLabel = formatAnchorLabel(activeAnchor);
   const saveState = deriveSaveState(activeDocument);
   const canRenderScore = buildStatus === 'valid';
-  const scoreTitle = activeDocument?.scoreInfo.title || activeFileName || 'Untitled score';
-  const scoreComposer = activeDocument?.scoreInfo.composer || 'Unknown composer';
-  const scoreKey = activeDocument?.scoreInfo.key || 'C minor';
-  const scoreMeter = activeDocument?.scoreInfo.meter || '4/4';
-  const scoreTempo = activeDocument?.scoreInfo.tempoText || '♩ = 76';
-  const measureCount = activeDocument?.scoreInfo.measures || 16;
+  const liveMetadata = useMemo(() => parseAbcMetadata(abcCode), [abcCode]);
+  const scoreTitle = liveMetadata.title || activeDocument?.scoreInfo.title || activeFileName || 'Untitled score';
+  const scoreComposer = liveMetadata.composer || activeDocument?.scoreInfo.composer || 'Unknown composer';
+  const scoreKey = liveMetadata.key || activeDocument?.scoreInfo.key || 'C';
+  const scoreMeter = liveMetadata.meter || activeDocument?.scoreInfo.meter || '4/4';
+  const scoreTempo = liveMetadata.tempoText || activeDocument?.scoreInfo.tempoText || (tunes?.[0]?.getBpm?.() ? `♩ = ${tunes[0].getBpm()}` : '♩ = 120');
 
   useEffect(() => {
     if (documents.length === 0 && PRESET_SAMPLES.length > 0) {
@@ -395,7 +395,6 @@ export const App: React.FC = () => {
                 </div>
 
                 <div className="score-canvas-footer">
-                  <span>Page 1 of 1 · {measureCount} measures</span>
                   <div>
                     <span className={`render-pill ${canRenderScore ? 'ready' : ''}`}>SVG {canRenderScore ? 'ready' : 'pending'}</span>
                     <span className={`render-pill audio ${buildResult?.hasPlayback ? 'ready' : ''}`}>

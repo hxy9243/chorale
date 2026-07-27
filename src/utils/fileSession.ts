@@ -1,4 +1,4 @@
-import type { FileDocument, ScoreVersion } from '../types/document';
+import type { FileDocument, ScoreInfo, ScoreVersion } from '../types/document';
 import type { MusicSample } from '../types/music';
 
 export function generateId(prefix = 'file'): string {
@@ -8,13 +8,50 @@ export function generateId(prefix = 'file'): string {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 }
 
+export function parseAbcMetadata(abc: string): Partial<ScoreInfo> {
+  let title: string | undefined;
+  let composer: string | undefined;
+  let key: string | undefined;
+  let meter: string | undefined;
+  let tempoText: string | undefined;
+
+  const lines = abc.split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('T:')) {
+      const val = trimmed.slice(2).trim();
+      if (val && !title) title = val;
+    } else if (trimmed.startsWith('C:')) {
+      const val = trimmed.slice(2).trim();
+      if (val && !composer) composer = val;
+    } else if (trimmed.startsWith('K:')) {
+      const val = trimmed.slice(2).trim();
+      if (val && !key) key = val;
+    } else if (trimmed.startsWith('M:')) {
+      const val = trimmed.slice(2).trim();
+      if (val && !meter) meter = val === 'C' ? '4/4' : val === 'C|' ? '2/2' : val;
+    } else if (trimmed.startsWith('Q:')) {
+      const val = trimmed.slice(2).trim();
+      if (val && !tempoText) {
+        const bpmMatch = val.match(/(?:1\/\d=\s*|\w+=\s*)?(\d+)/);
+        if (bpmMatch) {
+          tempoText = `♩ = ${bpmMatch[1]}`;
+        } else {
+          tempoText = val;
+        }
+      }
+    }
+  }
+
+  return { title, composer, key, meter, tempoText };
+}
+
 export function createDocumentFromAbc(
   name: string,
   sourceType: 'musicxml' | 'mxl' | 'xml' | 'abc',
   abcSource: string,
   title?: string
 ): FileDocument {
-
   const now = new Date().toISOString();
   const id = generateId('doc');
   const initialVersion: ScoreVersion = {
@@ -24,6 +61,8 @@ export function createDocumentFromAbc(
     reason: 'import',
   };
 
+  const parsedMeta = parseAbcMetadata(abcSource);
+
   return {
     id,
     name,
@@ -31,7 +70,11 @@ export function createDocumentFromAbc(
     abcSource,
     revision: 1,
     scoreInfo: {
-      title: title || name.replace(/\.(xml|musicxml|mxl|abc)$/i, ''),
+      title: title || parsedMeta.title || name.replace(/\.(xml|musicxml|mxl|abc)$/i, ''),
+      composer: parsedMeta.composer,
+      key: parsedMeta.key,
+      meter: parsedMeta.meter,
+      tempoText: parsedMeta.tempoText,
     },
     annotations: [],
     chats: [],
@@ -57,10 +100,20 @@ export function updateDocumentAbc(
     reason,
   };
 
+  const parsedMeta = parseAbcMetadata(newAbc);
+
   return {
     ...doc,
     abcSource: newAbc,
     revision: nextRevision,
+    scoreInfo: {
+      ...doc.scoreInfo,
+      title: parsedMeta.title || doc.scoreInfo.title,
+      composer: parsedMeta.composer || doc.scoreInfo.composer,
+      key: parsedMeta.key || doc.scoreInfo.key,
+      meter: parsedMeta.meter || doc.scoreInfo.meter,
+      tempoText: parsedMeta.tempoText || doc.scoreInfo.tempoText,
+    },
     versions: [...doc.versions, newVersion],
     updatedAt: now,
   };
@@ -77,7 +130,7 @@ export function sampleToDocument(sample: MusicSample, abcSource: string): FileDo
     ...document,
     scoreInfo: {
       ...document.scoreInfo,
-      composer: sample.composer,
+      composer: sample.composer || document.scoreInfo.composer,
     },
   };
 }
