@@ -29,6 +29,7 @@ vi.mock('abcjs', () => ({
 describe('App Integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
 
     vi.spyOn(xmlParser, 'extractMusicXml').mockResolvedValue(`<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="3.1">
@@ -114,5 +115,48 @@ describe('App Integration', () => {
 
     fireEvent.click(screen.getByTitle('Show score chat'));
     expect(screen.getByLabelText('Current sheet assistant')).toBeDefined();
+  });
+
+  it('allows deleting files from the file rail', async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sheet-svg')).toBeDefined();
+    });
+
+    const sampleBtn = screen.getAllByText('Twinkle, Twinkle, Little Star')[0];
+    fireEvent.click(sampleBtn);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Delete Twinkle, Twinkle, Little Star/)).toBeDefined();
+    });
+
+    const deleteBtn = screen.getByLabelText(/Delete Twinkle, Twinkle, Little Star/);
+    fireEvent.click(deleteBtn);
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText(/Delete Twinkle, Twinkle, Little Star/)).toBeNull();
+    });
+  });
+
+  it('restores the active file and documents from localStorage on page refresh', async () => {
+    const mockDoc = {
+      id: 'stored-doc-123',
+      name: 'Persisted Score.abc',
+      sourceType: 'abc',
+      abcSource: 'X:1\nT:Persisted Score\nK:C\nCDEF',
+      revision: 1,
+      versions: [],
+      scoreInfo: { title: 'Persisted Score', composer: 'Anon', key: 'C', meter: '4/4', tempoText: '120', measures: 4 },
+      activeAnchor: null,
+    };
+    localStorage.setItem('chorale.workspace.documents', JSON.stringify([mockDoc]));
+    localStorage.setItem('chorale.workspace.activeFileId', 'stored-doc-123');
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Persisted Score').length).toBeGreaterThan(0);
+    });
   });
 });

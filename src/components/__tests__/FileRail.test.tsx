@@ -52,4 +52,27 @@ describe('FileRail Component', () => {
 
     expect(defaultProps.onSampleSelected).toHaveBeenCalledWith(PRESET_SAMPLES[0]);
   });
+
+  it('calls onDeleteDocument when delete button is clicked', () => {
+    const onDeleteDocument = vi.fn();
+    render(<FileRail {...defaultProps} onDeleteDocument={onDeleteDocument} />);
+
+    const deleteBtn = screen.getByLabelText(`Delete ${doc1.name}`);
+    fireEvent.click(deleteBtn);
+
+    expect(onDeleteDocument).toHaveBeenCalledWith(doc1.id);
+  });
+
+  it('calls onMoveDocument when move buttons are clicked', () => {
+    const onMoveDocument = vi.fn();
+    render(<FileRail {...defaultProps} onMoveDocument={onMoveDocument} />);
+
+    const moveDownBtn = screen.getByLabelText(`Move ${doc1.name} down`);
+    fireEvent.click(moveDownBtn);
+    expect(onMoveDocument).toHaveBeenCalledWith(doc1.id, 'down');
+
+    const moveUpBtn = screen.getByLabelText(`Move ${doc2.name} up`);
+    fireEvent.click(moveUpBtn);
+    expect(onMoveDocument).toHaveBeenCalledWith(doc2.id, 'up');
+  });
 });

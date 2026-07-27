@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Plus, FileMusic, AlertCircle } from 'lucide-react';
+import { Plus, FileMusic, AlertCircle, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import type { FileDocument } from '../types/document';
 import type { MusicSample } from '../types/music';
 import { PRESET_SAMPLES } from '../data/samples';
@@ -10,6 +10,8 @@ interface FileRailProps {
   onSelectDocument: (fileId: string) => void;
   onSampleSelected: (sample: MusicSample) => void;
   onFileLoaded: (fileData: ArrayBuffer | string, fileName: string) => void;
+  onDeleteDocument?: (fileId: string) => void;
+  onMoveDocument?: (fileId: string, direction: 'up' | 'down') => void;
   loading?: boolean;
   error?: string | null;
 }
@@ -20,6 +22,8 @@ export const FileRail: React.FC<FileRailProps> = ({
   onSelectDocument,
   onSampleSelected,
   onFileLoaded,
+  onDeleteDocument,
+  onMoveDocument,
   loading = false,
   error = null,
 }) => {
@@ -68,16 +72,22 @@ export const FileRail: React.FC<FileRailProps> = ({
       <div className="file-rail-section">
         <div className="rail-section-title">FILES</div>
         <div className="file-list">
-          {documents.map((doc) => {
+          {documents.map((doc, index) => {
             const isActive = doc.id === activeFileId;
             const lastReason = doc.versions[doc.versions.length - 1]?.reason;
             const fileState = lastReason === 'manual-edit' ? 'draft' : 'edited';
             return (
-              <button
+              <div
                 key={doc.id}
-                type="button"
                 className={`file-item ${isActive ? 'active' : ''}`}
                 onClick={() => onSelectDocument(doc.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    onSelectDocument(doc.id);
+                  }
+                }}
               >
                 <span className="file-icon"><FileMusic size={15} /></span>
                 <span className="file-item-info">
@@ -86,7 +96,53 @@ export const FileRail: React.FC<FileRailProps> = ({
                     {doc.sourceType === 'mxl' ? 'MXL' : doc.sourceType === 'abc' ? 'ABC' : 'MusicXML'} · {fileState}
                   </span>
                 </span>
-              </button>
+                <div className="file-item-actions" onClick={(e) => e.stopPropagation()}>
+                  {onMoveDocument && (
+                    <>
+                      <button
+                        type="button"
+                        className="file-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMoveDocument(doc.id, 'up');
+                        }}
+                        disabled={index === 0}
+                        title="Move file up"
+                        aria-label={`Move ${doc.name} up`}
+                      >
+                        <ChevronUp size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        className="file-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMoveDocument(doc.id, 'down');
+                        }}
+                        disabled={index === documents.length - 1}
+                        title="Move file down"
+                        aria-label={`Move ${doc.name} down`}
+                      >
+                        <ChevronDown size={13} />
+                      </button>
+                    </>
+                  )}
+                  {onDeleteDocument && (
+                    <button
+                      type="button"
+                      className="file-action-btn delete-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteDocument(doc.id);
+                      }}
+                      title="Delete file"
+                      aria-label={`Delete ${doc.name}`}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
+              </div>
             );
           })}
           {PRESET_SAMPLES
