@@ -2603,24 +2603,50 @@ textarea {
 .agent-history-control {
   position: relative;
   display: flex;
-  min-width: 100px;
-  height: 38px;
+  min-width: 110px;
+  max-width: 160px;
+  height: 32px;
   align-items: center;
   gap: 6px;
-  padding: 0 9px;
+  padding: 0 8px;
   border: 1px solid var(--figma-border);
-  border-radius: 10px;
-  background: #fff;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--figma-ink);
 }
 
 .agent-history-control select {
-  width: 72px;
+  flex: 1;
+  width: 100%;
   border: 0;
   outline: 0;
   background: transparent;
   color: var(--figma-ink);
   font-size: 12px;
   font-weight: 500;
+  cursor: pointer;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 14px;
+}
+
+.agent-history-control::after {
+  content: "";
+  position: absolute;
+  right: 8px;
+  pointer-events: none;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--figma-muted, #64748b);
+}
+
+.agent-history-control select option {
+  background: #ffffff;
+  color: #0f172a;
+  padding: 4px 8px;
 }
 
 .agent-history-control:focus-within {

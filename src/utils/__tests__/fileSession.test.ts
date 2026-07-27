@@ -1,8 +1,19 @@
 import { describe, it, expect } from 'vitest';
-import { createDocumentFromAbc, updateDocumentAbc, sampleToDocument } from '../fileSession';
+import { createDocumentFromAbc, updateDocumentAbc, sampleToDocument, parseAbcMetadata } from '../fileSession';
 import type { MusicSample } from '../../types/music';
 
 describe('fileSession Utilities', () => {
+  it('parseAbcMetadata parses title, composer, key, meter, and tempo from ABC header lines', () => {
+    const abc = 'X:1\nT:Minuet in G\nC:J.S. Bach\nM:3/4\nQ:1/4=116\nK:G\nGAB|';
+    const meta = parseAbcMetadata(abc);
+
+    expect(meta.title).toBe('Minuet in G');
+    expect(meta.composer).toBe('J.S. Bach');
+    expect(meta.key).toBe('G');
+    expect(meta.meter).toBe('3/4');
+    expect(meta.tempoText).toBe('♩ = 116');
+  });
+
   it('createDocumentFromAbc creates a valid FileDocument with initial version', () => {
     const doc = createDocumentFromAbc('Test Song.xml', 'musicxml', 'X:1\nT:Test Song\nK:C\nCDEFG', 'Test Song');
 
