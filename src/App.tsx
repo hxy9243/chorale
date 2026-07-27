@@ -19,6 +19,7 @@ import {
   updateDocumentAbc,
 } from './utils/fileSession';
 import { formatAnchorLabel } from './utils/anchor';
+import type { PlaybackPosition } from './utils/repeatPlayback';
 
 const EDITOR_VISIBLE_KEY = 'chorale.workspace.editorVisible';
 const EDITOR_WIDTH_KEY = 'chorale.workspace.editorWidth';
@@ -83,6 +84,10 @@ export const App: React.FC = () => {
   const [activeFileId, setActiveFileId] = useState<string>(() => readStoredActiveFileId());
   const [activeAnchor, setActiveAnchor] = useState<ScoreAnchor | null>(null);
   const [tunes, setTunes] = useState<abcjs.TuneObject[] | null>(null);
+  const playbackPositionRef = useRef<PlaybackPosition>({
+    currentSeconds: 0,
+    isPlaying: false,
+  });
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState<boolean>(true);
@@ -128,6 +133,12 @@ export const App: React.FC = () => {
 
   const handleSelectAnchor = useCallback((anchor: ScoreAnchor | null) => {
     setActiveAnchor(anchor);
+  }, []);
+
+  const getPlaybackPosition = useCallback(() => playbackPositionRef.current, []);
+
+  const handlePlaybackPositionChange = useCallback((position: PlaybackPosition) => {
+    playbackPositionRef.current = position;
   }, []);
 
   useEffect(() => {
@@ -496,6 +507,7 @@ export const App: React.FC = () => {
                       activeAnchor={activeAnchor}
                       onSelectAnchor={handleSelectAnchor}
                       onTuneRendered={handleTuneRendered}
+                      getPlaybackPosition={getPlaybackPosition}
                       zoom={zoom}
                       onZoomChange={(newZoom) => setZoom(Math.max(50, Math.min(200, newZoom)))}
                     />
@@ -537,7 +549,11 @@ export const App: React.FC = () => {
             )}
 
             <div className="playback-dock-container">
-              <AudioPlayer tunes={canRenderScore ? tunes : null} activeAnchor={activeAnchor} />
+              <AudioPlayer
+                tunes={canRenderScore ? tunes : null}
+                activeAnchor={activeAnchor}
+                onPlaybackPositionChange={handlePlaybackPositionChange}
+              />
             </div>
           </div>
         </main>

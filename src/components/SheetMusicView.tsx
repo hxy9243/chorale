@@ -3,8 +3,78 @@ import abcjs from 'abcjs';
 import { ZoomIn, ZoomOut, RotateCcw, SlidersHorizontal, Tag, X } from 'lucide-react';
 import type { ScoreAnchor } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
+import {
+  buildMeasureOccurrences,
+  selectMeasureWithRepeats,
+  type MeasureOccurrence,
+  type PlaybackPosition,
+} from '../utils/repeatPlayback';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+
+type SvgBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+const measureHighlightBounds = (
+  container: HTMLDivElement,
+  measureIndex: number,
+  elements: SVGGraphicsElement[],
+): SvgBounds => {
+  const contentBoxes = elements.map((element) => element.getBBox());
+  const contentLeft = Math.min(...contentBoxes.map((box) => box.x));
+  const contentTop = Math.min(...contentBoxes.map((box) => box.y));
+  const contentRight = Math.max(...contentBoxes.map((box) => box.x + box.width));
+  const contentBottom = Math.max(...contentBoxes.map((box) => box.y + box.height));
+  const lineClass = elements
+    .flatMap((element) => Array.from(element.classList))
+    .find((className) => /^abcjs-l\d+$/.test(className));
+  const endBarBoxes = elements
+    .filter((element) => element.classList.contains('abcjs-bar'))
+    .map((element) => element.getBBox());
+  const staffBoxes = lineClass
+    ? Array.from(container.querySelectorAll<SVGGraphicsElement>(`.abcjs-staff.${lineClass}`))
+      .filter((element) => typeof element.getBBox === 'function')
+      .map((element) => element.getBBox())
+    : [];
+  const previousBarBoxes = measureIndex > 0 && lineClass
+    ? Array.from(container.querySelectorAll<SVGGraphicsElement>(
+      `.abcjs-mm${measureIndex - 1}.abcjs-bar.${lineClass}`,
+    ))
+      .filter((element) => typeof element.getBBox === 'function')
+      .map((element) => element.getBBox())
+    : [];
+
+  const left = previousBarBoxes.length > 0
+    ? Math.max(...previousBarBoxes.map((box) => box.x + box.width))
+    : staffBoxes.length > 0
+      ? Math.min(...staffBoxes.map((box) => box.x))
+      : contentLeft;
+  const right = endBarBoxes.length > 0
+    ? Math.min(...endBarBoxes.map((box) => box.x))
+    : contentRight;
+  const verticalBoxes = endBarBoxes.length > 0
+    ? endBarBoxes
+    : staffBoxes.length > 0
+      ? staffBoxes
+      : contentBoxes;
+  const top = Math.min(...verticalBoxes.map((box) => box.y));
+  const bottom = Math.max(...verticalBoxes.map((box) => box.y + box.height));
+
+  if (right <= left || bottom <= top) {
+    return {
+      x: contentLeft,
+      y: contentTop,
+      width: contentRight - contentLeft,
+      height: contentBottom - contentTop,
+    };
+  }
+
+  return { x: left, y: top, width: right - left, height: bottom - top };
+};
 
 const resolveClickedMeasure = (
   abcElem: { measureNumber?: number } | null | undefined,
@@ -27,21 +97,17 @@ const highlightMeasure = (container: HTMLDivElement, anchor: ScoreAnchor | null)
   )).filter((element) => typeof element.getBBox === 'function');
   if (elements.length === 0) return;
 
-  const boxes = elements.map((element) => element.getBBox());
-  const left = Math.min(...boxes.map((box) => box.x));
-  const top = Math.min(...boxes.map((box) => box.y));
-  const right = Math.max(...boxes.map((box) => box.x + box.width));
-  const bottom = Math.max(...boxes.map((box) => box.y + box.height));
+  const bounds = measureHighlightBounds(container, Math.max(0, anchor.measure - 1), elements);
   const svg = elements[0].ownerSVGElement;
   if (!svg) return;
 
   const highlight = document.createElementNS(SVG_NAMESPACE, 'rect');
   highlight.classList.add('abcjs-measure-highlight');
-  highlight.setAttribute('x', String(left - 6));
-  highlight.setAttribute('y', String(top - 8));
-  highlight.setAttribute('width', String(right - left + 12));
-  highlight.setAttribute('height', String(bottom - top + 16));
-  highlight.setAttribute('rx', '5');
+  highlight.setAttribute('x', String(bounds.x));
+  highlight.setAttribute('y', String(bounds.y));
+  highlight.setAttribute('width', String(bounds.width));
+  highlight.setAttribute('height', String(bounds.height));
+  highlight.setAttribute('rx', '2');
   highlight.setAttribute('aria-hidden', 'true');
   svg.insertBefore(highlight, svg.firstChild);
 };
@@ -106,6 +172,7 @@ interface SheetMusicViewProps {
   activeAnchor?: ScoreAnchor | null;
   onSelectAnchor?: (anchor: ScoreAnchor | null) => void;
   onTuneRendered?: (tune: abcjs.TuneObject[] | null) => void;
+  getPlaybackPosition?: () => PlaybackPosition;
   zoom?: number;
   onZoomChange?: (newZoom: number) => void;
 }
@@ -115,6 +182,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   activeAnchor = null,
   onSelectAnchor,
   onTuneRendered,
+  getPlaybackPosition,
   zoom = 100,
   onZoomChange,
 }) => {
@@ -152,6 +220,8 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     };
   }, [currentZoom, handleZoomChange]);
 
+  const measureOccurrencesRef = useRef<MeasureOccurrence[]>([]);
+
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -159,6 +229,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       containerRef.current.innerHTML = '';
       setRenderError(null);
       onTuneRendered?.(null);
+      measureOccurrencesRef.current = [];
       return;
     }
 
@@ -167,13 +238,24 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       containerRef.current.innerHTML = '';
       let renderedTune: abcjs.TuneObject | null = null;
       const selectMeasure = (measure: number, abcOffset?: number) => {
+        const occurrences = measureOccurrencesRef.current;
+        const selected = selectMeasureWithRepeats(
+          measure,
+          occurrences,
+          getPlaybackPosition?.().currentSeconds || 0,
+        );
+
         const measureCount = getRenderedMeasureCount(containerRef.current!);
-        const playbackFraction = Math.max(0, Math.min(1, (measure - 1) / measureCount));
+        const fallbackFraction = Math.max(0, Math.min(1, (measure - 1) / measureCount));
         renderedTune?.setTiming?.(renderedTune.getBpm?.());
         const totalTime = renderedTune?.getTotalTime?.();
-        const playbackSeconds = Number.isFinite(totalTime) && totalTime! > 0
-          ? totalTime! * playbackFraction
-          : undefined;
+        const playbackSeconds = selected?.startTimeSec ?? (
+          Number.isFinite(totalTime) && totalTime! > 0
+            ? totalTime! * fallbackFraction
+            : undefined
+        );
+        const playbackFraction = selected?.playbackFraction ?? fallbackFraction;
+
         const newAnchor: ScoreAnchor = {
           measure,
           abcOffset,
@@ -208,6 +290,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         paddingright: 15,
       });
       renderedTune = tunes?.[0] || null;
+      measureOccurrencesRef.current = renderedTune ? buildMeasureOccurrences(renderedTune) : [];
       installMeasureHitAreas(containerRef.current, (measure) => selectMeasure(measure));
 
       if (tunes && tunes.length > 0 && onTuneRendered) {
@@ -219,9 +302,10 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       console.error('abcjs render error:', err);
       containerRef.current.innerHTML = '';
       onTuneRendered?.(null);
+      measureOccurrencesRef.current = [];
       setRenderError(err?.message || 'Failed to render sheet music SVG.');
     }
-  }, [abcCode, onSelectAnchor, onTuneRendered, transpose]);
+  }, [abcCode, getPlaybackPosition, onSelectAnchor, onTuneRendered, transpose]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -313,8 +397,8 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
           className="sheet-zoom-wrapper"
           style={{
             zoom: currentZoom / 100,
-            transformOrigin: 'top center',
-            width: '100%',
+            width: `${currentZoom}%`,
+            marginInline: 'auto',
           }}
         >
           <div ref={containerRef} id="paper" className="abcjs-paper-container" />

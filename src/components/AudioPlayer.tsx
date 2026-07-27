@@ -4,13 +4,63 @@ import { Play, Pause, Square, Volume2, VolumeX, Music2 } from 'lucide-react';
 
 import type { ScoreAnchor } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
+import type { PlaybackPosition } from '../utils/repeatPlayback';
+
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+const PLAYBACK_CURSOR_SELECTOR = '.abcjs-playback-cursor';
+
+const isFiniteNumber = (value: unknown): value is number => (
+  typeof value === 'number' && Number.isFinite(value)
+);
+
+const removePlaybackCursor = () => {
+  document.querySelectorAll(PLAYBACK_CURSOR_SELECTOR).forEach((element) => element.remove());
+  document.querySelectorAll('.abcjs-highlight').forEach((element) => {
+    element.classList.remove('abcjs-highlight');
+  });
+};
+
+const updatePlaybackCursor = (event: abcjs.NoteTimingEvent) => {
+  const eventElements = event.elements?.flat() || [];
+  const scoreElement = eventElements.find((element) => (
+    Boolean((element as unknown as SVGElement).ownerSVGElement)
+  )) as unknown as SVGElement | undefined;
+  const svg = scoreElement?.ownerSVGElement
+    || document.querySelector<SVGSVGElement>('#paper svg');
+  if (!svg || !isFiniteNumber(event.left) || !isFiniteNumber(event.top) || !isFiniteNumber(event.height)) {
+    return;
+  }
+
+  document.querySelectorAll('.abcjs-highlight').forEach((element) => {
+    element.classList.remove('abcjs-highlight');
+  });
+
+  let cursor = svg.querySelector<SVGLineElement>(PLAYBACK_CURSOR_SELECTOR);
+  if (!cursor) {
+    removePlaybackCursor();
+    cursor = document.createElementNS(SVG_NAMESPACE, 'line');
+    cursor.classList.add('abcjs-playback-cursor');
+    cursor.setAttribute('aria-hidden', 'true');
+    svg.appendChild(cursor);
+  }
+
+  cursor.setAttribute('x1', String(event.left));
+  cursor.setAttribute('x2', String(event.left));
+  cursor.setAttribute('y1', String(event.top));
+  cursor.setAttribute('y2', String(event.top + event.height));
+};
 
 interface AudioPlayerProps {
   tunes: abcjs.TuneObject[] | null;
   activeAnchor?: ScoreAnchor | null;
+  onPlaybackPositionChange?: (position: PlaybackPosition) => void;
 }
 
-export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor }) => {
+export const AudioPlayer: React.FC<AudioPlayerProps> = ({
+  tunes,
+  activeAnchor,
+  onPlaybackPositionChange,
+}) => {
 
   const soundFontBaseVolume = 0.4;
   const synthControllerRef = useRef<any>(null);
@@ -21,10 +71,34 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
   const [audioError, setAudioError] = useState<string | null>(null);
   const [playbackProgress, setPlaybackProgress] = useState(0);
   const [totalDurationMs, setTotalDurationMs] = useState(0);
+  const playbackProgressRef = useRef(0);
+  const totalDurationMsRef = useRef(0);
+  const isPlayingRef = useRef(false);
 
   const audioContainerRef = useRef<HTMLDivElement>(null);
   const masterGainRef = useRef<GainNode | null>(null);
   const effectiveVolume = isMuted ? 0 : volume;
+
+  const updatePlaybackPosition = React.useCallback((next: {
+    progress?: number;
+    durationMs?: number;
+    playing?: boolean;
+  }) => {
+    const progress = next.progress ?? playbackProgressRef.current;
+    const durationMs = next.durationMs ?? totalDurationMsRef.current;
+    const playing = next.playing ?? isPlayingRef.current;
+
+    playbackProgressRef.current = progress;
+    totalDurationMsRef.current = durationMs;
+    isPlayingRef.current = playing;
+    setPlaybackProgress(progress);
+    setTotalDurationMs(durationMs);
+    setIsPlaying(playing);
+    onPlaybackPositionChange?.({
+      currentSeconds: durationMs > 0 ? progress * durationMs / 1000 : 0,
+      isPlaying: playing,
+    });
+  }, [onPlaybackPositionChange]);
 
   // Master volume control using WebAudio GainNode
   useEffect(() => {
@@ -61,11 +135,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
   // Primary synth initialization on tune change
   useEffect(() => {
     const currentTune = tunes?.[0] || null;
+    removePlaybackCursor();
     if (!currentTune) {
       setIsReady(false);
-      setIsPlaying(false);
-      setPlaybackProgress(0);
-      setTotalDurationMs(0);
+      updatePlaybackPosition({ progress: 0, durationMs: 0, playing: false });
       lastInitTuneRef.current = null;
       return;
     }
@@ -98,26 +171,21 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
           synthControl.load(
             audioContainerRef.current,
             {
-              onEvent: (event: any) => {
-                if (event && event.elements) {
-                  // Highlight active note elements in SVG score
-                  document.querySelectorAll('.abcjs-highlight').forEach((el) => el.classList.remove('abcjs-highlight'));
-                  event.elements.forEach((group: any[]) => {
-                    group.forEach((el: Element) => el.classList.add('abcjs-highlight'));
-                  });
-                }
+              onEvent: (event: abcjs.NoteTimingEvent) => {
+                if (event) updatePlaybackCursor(event);
               },
               onBeat: (beatNumber: number, totalBeats: number, totalTime: number) => {
-                setPlaybackProgress(totalBeats > 0 ? beatNumber / totalBeats : 0);
-                setTotalDurationMs(totalTime);
+                updatePlaybackPosition({
+                  progress: totalBeats > 0 ? beatNumber / totalBeats : 0,
+                  durationMs: totalTime,
+                });
               },
               onFinished: () => {
-                setIsPlaying(false);
-                setPlaybackProgress(0);
+                updatePlaybackPosition({ progress: 0, playing: false });
                 if (synthControllerRef.current) {
                   synthControllerRef.current.isStarted = false;
                 }
-                document.querySelectorAll('.abcjs-highlight').forEach((el) => el.classList.remove('abcjs-highlight'));
+                removePlaybackCursor();
               },
             },
             {
@@ -169,7 +237,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
         if (cancelled) return;
         const totalTime = currentTune.getTotalTime?.();
         if (Number.isFinite(totalTime) && totalTime > 0) {
-          setTotalDurationMs(totalTime * 1000);
+          updatePlaybackPosition({ durationMs: totalTime * 1000 });
         }
         setIsReady(true);
       } catch (err: any) {
@@ -192,8 +260,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
       if (synthControllerRef.current === synthControl) {
         synthControllerRef.current = null;
       }
+      removePlaybackCursor();
     };
-  }, [tunes]);
+  }, [tunes, updatePlaybackPosition]);
 
   const applyAnchorSeek = React.useCallback((anchor: ScoreAnchor) => {
     const tune = tunes?.[0];
@@ -203,7 +272,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
       synthControllerRef.current.seek?.(anchor.playbackSeconds, 'seconds');
       const totalTime = tune.getTotalTime?.() || 0;
       if (totalTime > 0) {
-        setPlaybackProgress(Math.max(0, Math.min(1, anchor.playbackSeconds / totalTime)));
+        updatePlaybackPosition({
+          progress: Math.max(0, Math.min(1, anchor.playbackSeconds / totalTime)),
+        });
       }
       return;
     }
@@ -211,7 +282,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
     if (anchor.playbackFraction !== undefined) {
       const percent = Math.max(0, Math.min(1, anchor.playbackFraction));
       synthControllerRef.current.seek?.(percent);
-      setPlaybackProgress(percent);
+      updatePlaybackPosition({ progress: percent });
       return;
     }
 
@@ -221,9 +292,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
       const selectedBeat = Math.max(0, (anchor.measure - 1) * beatsPerMeasure + (anchor.beat || 1) - 1);
       const percent = Math.max(0, Math.min(1, selectedBeat / totalBeats));
       synthControllerRef.current.seek?.(percent);
-      setPlaybackProgress(percent);
+      updatePlaybackPosition({ progress: percent });
     }
-  }, [tunes]);
+  }, [tunes, updatePlaybackPosition]);
 
   useEffect(() => {
     if (!isReady || !activeAnchor) return;
@@ -247,12 +318,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
     if (isPlaying) {
       synthControl.pause();
       synthControl.isStarted = false;
-      setIsPlaying(false);
+      updatePlaybackPosition({ playing: false });
     } else {
       const currentAnchor = activeAnchor;
       const currentProgress = playbackProgress;
 
-      setIsPlaying(true);
+      updatePlaybackPosition({ playing: true });
       const playPromise = synthControl.play();
       if (playPromise && typeof playPromise.then === 'function') {
         await playPromise;
@@ -272,9 +343,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
     synthControllerRef.current.restart?.();
     synthControllerRef.current.isStarted = false;
     synthControllerRef.current.seek?.(0);
-    setIsPlaying(false);
-    setPlaybackProgress(0);
-    document.querySelectorAll('.abcjs-highlight').forEach((el) => el.classList.remove('abcjs-highlight'));
+    updatePlaybackPosition({ progress: 0, playing: false });
+    removePlaybackCursor();
   };
 
   const handleSeekTrackClick = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -283,7 +353,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
     if (rect.width <= 0) return;
     const clickRatio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
 
-    setPlaybackProgress(clickRatio);
+    updatePlaybackPosition({ progress: clickRatio });
     synthControllerRef.current.seek?.(clickRatio);
   };
 
