@@ -203,6 +203,16 @@ describe('SheetMusicView Component', () => {
     });
   });
 
+  it('uses layout-aware zoom so enlarged scores reserve scrollable space', () => {
+    const { container } = render(
+      <SheetMusicView abcCode={sampleAbc} zoom={150} onZoomChange={vi.fn()} />
+    );
+
+    const wrapper = container.querySelector<HTMLElement>('.sheet-zoom-wrapper')!;
+    expect(wrapper.style.zoom).toBe('1.5');
+    expect(wrapper.style.transform).toBe('');
+  });
+
   it('triggers onZoomChange on ctrl+wheel scroll gesture without page zoom', () => {
     const onZoomChange = vi.fn();
     const { container } = render(
