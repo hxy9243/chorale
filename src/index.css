@@ -2083,15 +2083,21 @@ textarea {
 }
 
 .central-workspace {
-  display: block;
+  position: relative;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+  height: 100%;
+  min-height: 0;
   padding: 0;
   overflow: hidden;
   background: var(--figma-workspace);
 }
 
 .score-editor-shell {
+  position: relative;
   display: flex;
+  flex: 1;
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -2106,6 +2112,7 @@ textarea {
 }
 
 .score-workspace-card {
+  position: relative;
   display: flex;
   min-width: 0;
   flex: 1;
