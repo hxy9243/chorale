@@ -136,25 +136,45 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
           );
         }
 
+        const defaultBpm = typeof tunes[0].getBpm === 'function' ? tunes[0].getBpm() || 120 : 120;
         const createSynth = new synthApi.CreateSynth();
-        await createSynth.init({
-          visualObj: tunes[0],
-          options: {
-            soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/',
-            soundFontVolumeMultiplier: soundFontBaseVolume,
-            pan: [0],
-          },
-        });
+        try {
+          await createSynth.init({
+            visualObj: tunes[0],
+            options: {
+              soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/',
+              soundFontVolumeMultiplier: soundFontBaseVolume,
+              pan: [0],
+            },
+          });
+        } catch (sfErr) {
+          console.warn('SoundFont remote init failed, using built-in synth:', sfErr);
+          await createSynth.init({
+            visualObj: tunes[0],
+            options: {
+              soundFontVolumeMultiplier: soundFontBaseVolume,
+            },
+          });
+        }
 
         if (cancelled) return;
 
-        const defaultBpm = typeof tunes[0].getBpm === 'function' ? tunes[0].getBpm() || 120 : 120;
-        await synthControl.setTune(tunes[0], false, {
-          chordsOff: false,
-          qpm: Math.round(defaultBpm * (tempoRef.current / 100)),
-          soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/',
-          soundFontVolumeMultiplier: soundFontBaseVolume,
-        });
+        try {
+          await synthControl.setTune(tunes[0], false, {
+            chordsOff: false,
+            qpm: Math.round(defaultBpm * (tempoRef.current / 100)),
+            soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/',
+            soundFontVolumeMultiplier: soundFontBaseVolume,
+          });
+        } catch (sfErr) {
+          console.warn('SoundFont setTune failed, using built-in synth:', sfErr);
+          await synthControl.setTune(tunes[0], false, {
+            chordsOff: false,
+            qpm: Math.round(defaultBpm * (tempoRef.current / 100)),
+            soundFontVolumeMultiplier: soundFontBaseVolume,
+          });
+        }
+
         tunes[0].setTiming?.(Math.round(defaultBpm * (tempoRef.current / 100)));
 
         if (cancelled) return;
@@ -221,8 +241,18 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
     applyAnchorSeek(activeAnchor);
   }, [activeAnchor, applyAnchorSeek, isReady]);
 
-  const handlePlayToggle = () => {
+  const handlePlayToggle = async () => {
     if (!synthControllerRef.current) return;
+    const synthApi = (abcjs as any).synth;
+    if (synthApi && typeof synthApi.activeAudioContext === 'function') {
+      try {
+        const audioCtx = synthApi.activeAudioContext();
+        if (audioCtx && audioCtx.state === 'suspended') {
+          await audioCtx.resume();
+        }
+      } catch {}
+    }
+
     if (isPlaying) {
       synthControllerRef.current.pause();
       synthControllerRef.current.isStarted = false;
