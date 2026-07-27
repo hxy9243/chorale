@@ -45,10 +45,10 @@ describe('fileSession Utilities', () => {
 
   it('bounds full-score history during sustained editing while retaining import and latest revisions', () => {
     const original = createDocumentFromAbc('Test.xml', 'musicxml', 'X:1\nK:C\nC', 'Test');
-    const updated = Array.from({ length: MAX_SCORE_VERSIONS * 3 }).reduce(
-      (doc, _, index) => updateDocumentAbc(doc, `X:1\nK:C\nC % edit ${index + 1}`),
-      original,
-    );
+    let updated = original;
+    for (let index = 0; index < MAX_SCORE_VERSIONS * 3; index += 1) {
+      updated = updateDocumentAbc(updated, `X:1\nK:C\nC % edit ${index + 1}`);
+    }
 
     expect(updated.versions).toHaveLength(MAX_SCORE_VERSIONS);
     expect(updated.versions[0]).toEqual(original.versions[0]);

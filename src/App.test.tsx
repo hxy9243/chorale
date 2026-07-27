@@ -211,7 +211,11 @@ describe('App Integration', () => {
     localStorage.setItem('chorale.workspace.activeFileId', 'stored-doc-123');
 
     const originalSetItem = Storage.prototype.setItem;
-    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (key, value) {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
+      this: Storage,
+      key,
+      value,
+    ) {
       if (key === 'chorale.workspace.documents') {
         throw new DOMException('Storage quota exceeded', 'QuotaExceededError');
       }
