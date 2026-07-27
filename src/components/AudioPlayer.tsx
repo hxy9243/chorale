@@ -4,13 +4,19 @@ import { Play, Pause, Square, Volume2, VolumeX, Music2 } from 'lucide-react';
 
 import type { ScoreAnchor } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
+import type { PlaybackPosition } from '../utils/repeatPlayback';
 
 interface AudioPlayerProps {
   tunes: abcjs.TuneObject[] | null;
   activeAnchor?: ScoreAnchor | null;
+  onPlaybackPositionChange?: (position: PlaybackPosition) => void;
 }
 
-export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor }) => {
+export const AudioPlayer: React.FC<AudioPlayerProps> = ({
+  tunes,
+  activeAnchor,
+  onPlaybackPositionChange,
+}) => {
 
   const soundFontBaseVolume = 0.4;
   const synthControllerRef = useRef<any>(null);
@@ -21,10 +27,34 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
   const [audioError, setAudioError] = useState<string | null>(null);
   const [playbackProgress, setPlaybackProgress] = useState(0);
   const [totalDurationMs, setTotalDurationMs] = useState(0);
+  const playbackProgressRef = useRef(0);
+  const totalDurationMsRef = useRef(0);
+  const isPlayingRef = useRef(false);
 
   const audioContainerRef = useRef<HTMLDivElement>(null);
   const masterGainRef = useRef<GainNode | null>(null);
   const effectiveVolume = isMuted ? 0 : volume;
+
+  const updatePlaybackPosition = React.useCallback((next: {
+    progress?: number;
+    durationMs?: number;
+    playing?: boolean;
+  }) => {
+    const progress = next.progress ?? playbackProgressRef.current;
+    const durationMs = next.durationMs ?? totalDurationMsRef.current;
+    const playing = next.playing ?? isPlayingRef.current;
+
+    playbackProgressRef.current = progress;
+    totalDurationMsRef.current = durationMs;
+    isPlayingRef.current = playing;
+    setPlaybackProgress(progress);
+    setTotalDurationMs(durationMs);
+    setIsPlaying(playing);
+    onPlaybackPositionChange?.({
+      currentSeconds: durationMs > 0 ? progress * durationMs / 1000 : 0,
+      isPlaying: playing,
+    });
+  }, [onPlaybackPositionChange]);
 
   // Master volume control using WebAudio GainNode
   useEffect(() => {
@@ -63,9 +93,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
     const currentTune = tunes?.[0] || null;
     if (!currentTune) {
       setIsReady(false);
-      setIsPlaying(false);
-      setPlaybackProgress(0);
-      setTotalDurationMs(0);
+      updatePlaybackPosition({ progress: 0, durationMs: 0, playing: false });
       lastInitTuneRef.current = null;
       return;
     }
@@ -108,12 +136,13 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
                 }
               },
               onBeat: (beatNumber: number, totalBeats: number, totalTime: number) => {
-                setPlaybackProgress(totalBeats > 0 ? beatNumber / totalBeats : 0);
-                setTotalDurationMs(totalTime);
+                updatePlaybackPosition({
+                  progress: totalBeats > 0 ? beatNumber / totalBeats : 0,
+                  durationMs: totalTime,
+                });
               },
               onFinished: () => {
-                setIsPlaying(false);
-                setPlaybackProgress(0);
+                updatePlaybackPosition({ progress: 0, playing: false });
                 if (synthControllerRef.current) {
                   synthControllerRef.current.isStarted = false;
                 }
@@ -169,7 +198,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
         if (cancelled) return;
         const totalTime = currentTune.getTotalTime?.();
         if (Number.isFinite(totalTime) && totalTime > 0) {
-          setTotalDurationMs(totalTime * 1000);
+          updatePlaybackPosition({ durationMs: totalTime * 1000 });
         }
         setIsReady(true);
       } catch (err: any) {
@@ -193,7 +222,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
         synthControllerRef.current = null;
       }
     };
-  }, [tunes]);
+  }, [tunes, updatePlaybackPosition]);
 
   const applyAnchorSeek = React.useCallback((anchor: ScoreAnchor) => {
     const tune = tunes?.[0];
@@ -203,7 +232,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
       synthControllerRef.current.seek?.(anchor.playbackSeconds, 'seconds');
       const totalTime = tune.getTotalTime?.() || 0;
       if (totalTime > 0) {
-        setPlaybackProgress(Math.max(0, Math.min(1, anchor.playbackSeconds / totalTime)));
+        updatePlaybackPosition({
+          progress: Math.max(0, Math.min(1, anchor.playbackSeconds / totalTime)),
+        });
       }
       return;
     }
@@ -211,7 +242,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
     if (anchor.playbackFraction !== undefined) {
       const percent = Math.max(0, Math.min(1, anchor.playbackFraction));
       synthControllerRef.current.seek?.(percent);
-      setPlaybackProgress(percent);
+      updatePlaybackPosition({ progress: percent });
       return;
     }
 
@@ -221,9 +252,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
       const selectedBeat = Math.max(0, (anchor.measure - 1) * beatsPerMeasure + (anchor.beat || 1) - 1);
       const percent = Math.max(0, Math.min(1, selectedBeat / totalBeats));
       synthControllerRef.current.seek?.(percent);
-      setPlaybackProgress(percent);
+      updatePlaybackPosition({ progress: percent });
     }
-  }, [tunes]);
+  }, [tunes, updatePlaybackPosition]);
 
   useEffect(() => {
     if (!isReady || !activeAnchor) return;
@@ -247,12 +278,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
     if (isPlaying) {
       synthControl.pause();
       synthControl.isStarted = false;
-      setIsPlaying(false);
+      updatePlaybackPosition({ playing: false });
     } else {
       const currentAnchor = activeAnchor;
       const currentProgress = playbackProgress;
 
-      setIsPlaying(true);
+      updatePlaybackPosition({ playing: true });
       const playPromise = synthControl.play();
       if (playPromise && typeof playPromise.then === 'function') {
         await playPromise;
@@ -272,8 +303,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
     synthControllerRef.current.restart?.();
     synthControllerRef.current.isStarted = false;
     synthControllerRef.current.seek?.(0);
-    setIsPlaying(false);
-    setPlaybackProgress(0);
+    updatePlaybackPosition({ progress: 0, playing: false });
     document.querySelectorAll('.abcjs-highlight').forEach((el) => el.classList.remove('abcjs-highlight'));
   };
 
@@ -283,7 +313,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
     if (rect.width <= 0) return;
     const clickRatio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
 
-    setPlaybackProgress(clickRatio);
+    updatePlaybackPosition({ progress: clickRatio });
     synthControllerRef.current.seek?.(clickRatio);
   };
 

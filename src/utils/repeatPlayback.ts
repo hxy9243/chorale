@@ -1,9 +1,19 @@
 import abcjs from 'abcjs';
 
+type TimedTune = abcjs.TuneObject & {
+  noteTimings?: abcjs.NoteTimingEvent[];
+};
+
 export interface MeasureOccurrence {
   measure: number;
   startTimeSec: number;
   playbackFraction: number;
+  playbackPass: number;
+}
+
+export interface PlaybackPosition {
+  currentSeconds: number;
+  isPlaying: boolean;
 }
 
 /**
@@ -21,60 +31,57 @@ export function buildMeasureOccurrences(tune: abcjs.TuneObject): MeasureOccurren
     return [];
   }
 
-  const charToMeasure = new Map<number, number>();
-  tune.noteTimings?.forEach((ev) => {
-    if (typeof ev.startChar === 'number' && typeof ev.measureNumber === 'number') {
-      charToMeasure.set(ev.startChar, ev.measureNumber + 1); // 1-based measure
-    }
-  });
-
-  const audioData = tune.setUpAudio?.({ qpm: bpm });
-  const totalDuration = audioData?.totalDuration || 0;
-  const events = audioData?.tracks?.[0] || [];
+  // setTiming produces the same unrolled event sequence used by SynthController,
+  // with timestamps already expressed in real milliseconds. Using setUpAudio track
+  // units here would make selection drift whenever tempo or repeats are involved.
+  const events = (tune as TimedTune).noteTimings?.filter((event) => (
+    event.type === 'event'
+      && typeof event.measureNumber === 'number'
+      && Number.isFinite(event.milliseconds)
+  )) || [];
+  const totalDuration = tune.getTotalTime?.() || 0;
 
   if (totalDuration <= 0 || events.length === 0) return [];
 
-  let maxStart = 0;
-  events.forEach((ev: any) => {
-    if (typeof ev.start === 'number') {
-      const end = ev.start + (ev.duration || 0);
-      if (end > maxStart) maxStart = end;
-    }
-  });
-  if (maxStart <= 0) maxStart = 1;
-
   const occurrences: MeasureOccurrence[] = [];
-  let lastMeasure = -1;
+  let lastTimingMeasure = -1;
+  let playbackPass = 0;
 
-  events.forEach((ev: any) => {
-    if (typeof ev.startChar === 'number') {
-      const measure = charToMeasure.get(ev.startChar);
-      if (measure !== undefined && measure !== lastMeasure) {
-        const startTimeSec = (ev.start / maxStart) * totalDuration;
-        const playbackFraction = Math.max(0, Math.min(1, startTimeSec / totalDuration));
-        occurrences.push({
-          measure,
-          startTimeSec,
-          playbackFraction,
-        });
-        lastMeasure = measure;
-      }
+  events.forEach((event) => {
+    const measure = event.measureNumber! + 1;
+    const startsMeasure = event.measureStart === true || measure !== lastTimingMeasure;
+    lastTimingMeasure = measure;
+    if (!startsMeasure) return;
+
+    const previous = occurrences[occurrences.length - 1];
+    const startTimeSec = event.milliseconds / 1000;
+    if (previous?.measure === measure && previous.startTimeSec === startTimeSec) return;
+
+    // A repeat (including a one-measure repeat) rewinds the visual measure number.
+    // Keeping that rewind count lets selection stay in the playhead's current pass.
+    if (previous && measure <= previous.measure) {
+      playbackPass += 1;
     }
+
+    occurrences.push({
+      measure,
+      startTimeSec,
+      playbackFraction: Math.max(0, Math.min(1, startTimeSec / totalDuration)),
+      playbackPass,
+    });
   });
 
   return occurrences;
 }
 
 /**
- * Selects the measure occurrence that best matches current playback state.
- * If audio is playing at `currentPlaybackSeconds`, selects the occurrence corresponding
- * to the current or next repeat pass. If stopped/not playing, selects the first pass occurrence.
+ * Selects the target measure in the same unrolled repeat pass as the playhead.
+ * A zero playhead selects the first pass. A paused playhead keeps its current pass.
  */
 export function selectMeasureWithRepeats(
   targetMeasure: number,
   occurrences: MeasureOccurrence[],
   currentPlaybackSeconds: number = 0,
-  isPlaying: boolean = false,
 ): MeasureOccurrence | null {
   if (!occurrences || occurrences.length === 0) return null;
 
@@ -82,22 +89,28 @@ export function selectMeasureWithRepeats(
   if (matching.length === 0) return null;
   if (matching.length === 1) return matching[0];
 
-  // If audio is not actively playing, always default to the first occurrence (Pass 1).
-  // This prevents cascading jumps into higher repeat passes when user clicks around the score.
-  if (!isPlaying || currentPlaybackSeconds <= 0) {
+  if (currentPlaybackSeconds <= 0) {
     return matching[0];
   }
 
-  let chosen = matching[0];
-  let minDiff = Infinity;
+  let currentOccurrence = occurrences[0];
+  for (const occurrence of occurrences) {
+    if (occurrence.startTimeSec > currentPlaybackSeconds) break;
+    currentOccurrence = occurrence;
+  }
 
-  for (const occ of matching) {
-    const diff = Math.abs(occ.startTimeSec - currentPlaybackSeconds);
-    if (diff < minDiff) {
-      minDiff = diff;
-      chosen = occ;
+  const samePass = matching.find(
+    (occurrence) => occurrence.playbackPass === currentOccurrence.playbackPass,
+  );
+  if (samePass) return samePass;
+
+  // Alternate endings do not necessarily contain every visual measure. In that
+  // case use the most recent pass in which the requested measure exists.
+  for (let index = matching.length - 1; index >= 0; index -= 1) {
+    if (matching[index].playbackPass < currentOccurrence.playbackPass) {
+      return matching[index];
     }
   }
 
-  return chosen;
+  return matching[0];
 }

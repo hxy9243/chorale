@@ -95,7 +95,13 @@ describe('AudioPlayer Component', () => {
   });
 
   it('shows live abcjs timing and seeks from the progress track', async () => {
-    render(<AudioPlayer tunes={[mockTune]} />);
+    const onPlaybackPositionChange = vi.fn();
+    render(
+      <AudioPlayer
+        tunes={[mockTune]}
+        onPlaybackPositionChange={onPlaybackPositionChange}
+      />,
+    );
 
     await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
     const cursorControl = mockSynthControl.load.mock.calls.at(-1)?.[1];
@@ -104,6 +110,10 @@ describe('AudioPlayer Component', () => {
 
     expect(screen.getByText('0:30')).toBeDefined();
     expect(screen.getByText('/ 2:00')).toBeDefined();
+    expect(onPlaybackPositionChange).toHaveBeenLastCalledWith({
+      currentSeconds: 30,
+      isPlaying: true,
+    });
 
     const progress = screen.getByRole('button', { name: 'Seek playback' });
     vi.spyOn(progress, 'getBoundingClientRect').mockReturnValue({
@@ -113,6 +123,10 @@ describe('AudioPlayer Component', () => {
     fireEvent.click(progress, { clientX: 100 });
 
     expect(mockSynthControl.seek).toHaveBeenCalledWith(0.5);
+    expect(onPlaybackPositionChange).toHaveBeenLastCalledWith({
+      currentSeconds: 60,
+      isPlaying: true,
+    });
   });
 
   it('seeks playback to the selected measure and beat', async () => {

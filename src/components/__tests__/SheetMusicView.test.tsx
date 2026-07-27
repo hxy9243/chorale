@@ -232,11 +232,29 @@ describe('SheetMusicView Component', () => {
     expect(wheelEvent.defaultPrevented).toBe(true);
   });
 
-  it('selects measure using repeat-aware timestamp when score contains repeats', () => {
+  it('selects the measure occurrence in the playhead current repeat pass', () => {
     const onSelectAnchor = vi.fn();
     const repeatedAbc = 'X:1\nT:Repeats\nM:4/4\nL:1/4\nK:C\n|: C D E F | G A B c :|';
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce(() => [{
+      getBpm: () => 120,
+      getTotalTime: () => 8,
+      setTiming: vi.fn(),
+      noteTimings: [
+        { type: 'event', milliseconds: 0, measureNumber: 0, measureStart: true },
+        { type: 'event', milliseconds: 2_000, measureNumber: 1, measureStart: true },
+        { type: 'event', milliseconds: 4_000, measureNumber: 0, measureStart: true },
+        { type: 'event', milliseconds: 6_000, measureNumber: 1, measureStart: true },
+        { type: 'end', milliseconds: 8_000 },
+      ],
+    }] as any);
 
-    render(<SheetMusicView abcCode={repeatedAbc} onSelectAnchor={onSelectAnchor} />);
+    render(
+      <SheetMusicView
+        abcCode={repeatedAbc}
+        onSelectAnchor={onSelectAnchor}
+        getPlaybackPosition={() => ({ currentSeconds: 6.1, isPlaying: true })}
+      />,
+    );
 
     // Trigger clickListener on measure 2 (abcjs-mm1)
     const options = vi.mocked(abcjs.renderAbc).mock.calls.slice(-1)[0][2] as any;
@@ -252,6 +270,8 @@ describe('SheetMusicView Component', () => {
         measure: 2,
         abcOffset: 37,
         label: 'm. 2',
+        playbackSeconds: 6,
+        playbackFraction: 0.75,
       }),
     );
   });

@@ -3,7 +3,12 @@ import abcjs from 'abcjs';
 import { ZoomIn, ZoomOut, RotateCcw, SlidersHorizontal, Tag, X } from 'lucide-react';
 import type { ScoreAnchor } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
-import { buildMeasureOccurrences, selectMeasureWithRepeats, type MeasureOccurrence } from '../utils/repeatPlayback';
+import {
+  buildMeasureOccurrences,
+  selectMeasureWithRepeats,
+  type MeasureOccurrence,
+  type PlaybackPosition,
+} from '../utils/repeatPlayback';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
@@ -107,6 +112,7 @@ interface SheetMusicViewProps {
   activeAnchor?: ScoreAnchor | null;
   onSelectAnchor?: (anchor: ScoreAnchor | null) => void;
   onTuneRendered?: (tune: abcjs.TuneObject[] | null) => void;
+  getPlaybackPosition?: () => PlaybackPosition;
   zoom?: number;
   onZoomChange?: (newZoom: number) => void;
 }
@@ -116,6 +122,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   activeAnchor = null,
   onSelectAnchor,
   onTuneRendered,
+  getPlaybackPosition,
   zoom = 100,
   onZoomChange,
 }) => {
@@ -175,8 +182,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         const selected = selectMeasureWithRepeats(
           measure,
           occurrences,
-          0,
-          false,
+          getPlaybackPosition?.().currentSeconds || 0,
         );
 
         const measureCount = getRenderedMeasureCount(containerRef.current!);
@@ -239,7 +245,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       measureOccurrencesRef.current = [];
       setRenderError(err?.message || 'Failed to render sheet music SVG.');
     }
-  }, [abcCode, onSelectAnchor, onTuneRendered, transpose]);
+  }, [abcCode, getPlaybackPosition, onSelectAnchor, onTuneRendered, transpose]);
 
   useEffect(() => {
     if (!containerRef.current) return;
