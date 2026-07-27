@@ -26,11 +26,10 @@ describe('ScoreCardHeader Component', () => {
     expect(screen.getByText('Test Symphony No. 5')).toBeDefined();
     expect(screen.getByText('Score')).toBeDefined();
     expect(screen.getByText('ABC code')).toBeDefined();
-    expect(screen.getByText('Annotate')).toBeDefined();
+    expect(screen.queryByText('Annotate')).toBeNull();
     expect(screen.getByText('100%')).toBeDefined();
     expect(screen.getByText('m. 1-4')).toBeDefined();
   });
-
 
   it('handles zoom and editor controls', () => {
     render(<ScoreCardHeader {...defaultProps} />);
@@ -38,6 +37,10 @@ describe('ScoreCardHeader Component', () => {
     const zoomOutBtn = screen.getByTitle('Zoom out');
     fireEvent.click(zoomOutBtn);
     expect(defaultProps.onZoomOut).toHaveBeenCalledTimes(1);
+
+    const zoomInBtn = screen.getByTitle('Zoom in');
+    fireEvent.click(zoomInBtn);
+    expect(defaultProps.onZoomIn).toHaveBeenCalledTimes(1);
 
     const resetZoomBtn = screen.getByText('Fit');
     fireEvent.click(resetZoomBtn);
