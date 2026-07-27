@@ -16,6 +16,8 @@ import { formatAnchorLabel } from './utils/anchor';
 
 const EDITOR_VISIBLE_KEY = 'chorale.workspace.editorVisible';
 const EDITOR_WIDTH_KEY = 'chorale.workspace.editorWidth';
+const DOCUMENTS_STORAGE_KEY = 'chorale.workspace.documents';
+const ACTIVE_FILE_KEY = 'chorale.workspace.activeFileId';
 const DEFAULT_EDITOR_WIDTH = 420;
 const MIN_EDITOR_WIDTH = 320;
 const MAX_EDITOR_WIDTH = 720;
@@ -36,11 +38,26 @@ const readStoredNumber = (key: string, fallback: number) => {
   return Number.isFinite(value) ? clampEditorWidth(value) : fallback;
 };
 
+const readStoredDocuments = (): FileDocument[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(DOCUMENTS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const readStoredActiveFileId = (): string => {
+  if (typeof window === 'undefined') return '';
+  return window.localStorage.getItem(ACTIVE_FILE_KEY) || '';
+};
+
 const deriveSaveState = (document?: FileDocument) => {
   if (!document) return 'No file';
-  const lastVersion = document.versions[document.versions.length - 1];
-  if (!lastVersion) return 'Imported';
-  return lastVersion.reason === 'manual-edit' ? 'Draft' : 'Imported';
+  return 'Auto-saved';
 };
 
 const buildValidationMessage = (status: BuildStatus, buildResult: BuildResult | null) => {
@@ -53,8 +70,8 @@ const buildValidationMessage = (status: BuildStatus, buildResult: BuildResult | 
 };
 
 export const App: React.FC = () => {
-  const [documents, setDocuments] = useState<FileDocument[]>([]);
-  const [activeFileId, setActiveFileId] = useState<string>('');
+  const [documents, setDocuments] = useState<FileDocument[]>(() => readStoredDocuments());
+  const [activeFileId, setActiveFileId] = useState<string>(() => readStoredActiveFileId());
   const [activeAnchor, setActiveAnchor] = useState<ScoreAnchor | null>(null);
   const [tunes, setTunes] = useState<abcjs.TuneObject[] | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -84,8 +101,10 @@ export const App: React.FC = () => {
   const measureCount = activeDocument?.scoreInfo.measures || 16;
 
   useEffect(() => {
-    if (PRESET_SAMPLES.length > 0) {
+    if (documents.length === 0 && PRESET_SAMPLES.length > 0) {
       void loadSample(PRESET_SAMPLES[0]);
+    } else if (!activeFileId && documents.length > 0) {
+      setActiveFileId(documents[0].id);
     }
   }, []);
 
@@ -96,6 +115,22 @@ export const App: React.FC = () => {
   useEffect(() => {
     window.localStorage.setItem(EDITOR_WIDTH_KEY, String(editorWidth));
   }, [editorWidth]);
+
+  useEffect(() => {
+    if (documents.length > 0) {
+      try {
+        window.localStorage.setItem(DOCUMENTS_STORAGE_KEY, JSON.stringify(documents));
+      } catch (e) {
+        console.error('Failed to auto-save documents:', e);
+      }
+    }
+  }, [documents]);
+
+  useEffect(() => {
+    if (activeFileId) {
+      window.localStorage.setItem(ACTIVE_FILE_KEY, activeFileId);
+    }
+  }, [activeFileId]);
 
   useEffect(() => {
     if (!activeDocument || !abcCode.trim()) {
@@ -237,6 +272,31 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleDeleteDocument = (fileId: string) => {
+    setDocuments((prevDocs) => {
+      const nextDocs = prevDocs.filter((doc) => doc.id !== fileId);
+      if (activeFileId === fileId) {
+        const remaining = nextDocs[0]?.id || '';
+        setActiveFileId(remaining);
+        setActiveAnchor(null);
+      }
+      return nextDocs;
+    });
+  };
+
+  const handleMoveDocument = (fileId: string, direction: 'up' | 'down') => {
+    setDocuments((prevDocs) => {
+      const index = prevDocs.findIndex((doc) => doc.id === fileId);
+      if (index === -1) return prevDocs;
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= prevDocs.length) return prevDocs;
+      const nextDocs = [...prevDocs];
+      const [moved] = nextDocs.splice(index, 1);
+      nextDocs.splice(targetIndex, 0, moved);
+      return nextDocs;
+    });
+  };
+
   const beginEditorResize = (event: React.PointerEvent<HTMLButtonElement>) => {
     dragStateRef.current = {
       startX: event.clientX,
@@ -283,6 +343,8 @@ export const App: React.FC = () => {
           onSelectDocument={handleSelectFile}
           onFileLoaded={handleProcessMusicXml}
           onSampleSelected={loadSample}
+          onDeleteDocument={handleDeleteDocument}
+          onMoveDocument={handleMoveDocument}
           loading={loading}
           error={error}
         />

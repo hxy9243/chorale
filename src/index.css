@@ -2037,6 +2037,47 @@ textarea {
   background: var(--figma-coral);
 }
 
+.file-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  opacity: 0.7;
+}
+
+.file-item:hover .file-item-actions {
+  opacity: 1;
+}
+
+.file-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #9299a5;
+  cursor: pointer;
+}
+
+.file-action-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.file-action-btn.delete-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.file-action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
 .file-rail-error {
   margin-top: auto;
 }
