@@ -186,7 +186,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
     };
   }, [tunes]);
 
-  const applyAnchorSeek = (anchor: ScoreAnchor) => {
+  const applyAnchorSeek = React.useCallback((anchor: ScoreAnchor) => {
     const tune = tunes?.[0];
     if (!synthControllerRef.current || !tune) return;
 
@@ -214,12 +214,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
       synthControllerRef.current.seek?.(percent);
       setPlaybackProgress(percent);
     }
-  };
+  }, [tunes]);
 
   useEffect(() => {
     if (!isReady || !activeAnchor) return;
     applyAnchorSeek(activeAnchor);
-  }, [activeAnchor, isReady, tunes]);
+  }, [activeAnchor, applyAnchorSeek, isReady]);
 
   const handlePlayToggle = () => {
     if (!synthControllerRef.current) return;

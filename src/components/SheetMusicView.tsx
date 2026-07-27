@@ -126,14 +126,14 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   const [transpose, setTranspose] = useState<number>(0);
   const [renderError, setRenderError] = useState<string | null>(null);
 
-  const handleZoomChange = (newZoom: number) => {
+  const handleZoomChange = React.useCallback((newZoom: number) => {
     const clamped = Math.max(50, Math.min(200, newZoom));
     if (onZoomChange) {
       onZoomChange(clamped);
     } else {
       setInternalZoom(clamped);
     }
-  };
+  }, [onZoomChange]);
 
   useEffect(() => {
     const element = cardRef.current;
@@ -151,7 +151,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     return () => {
       element.removeEventListener('wheel', handleWheel);
     };
-  }, [currentZoom, onZoomChange]);
+  }, [currentZoom, handleZoomChange]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -222,7 +222,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       onTuneRendered?.(null);
       setRenderError(err?.message || 'Failed to render sheet music SVG.');
     }
-  }, [abcCode, scale, transpose]);
+  }, [abcCode, onSelectAnchor, onTuneRendered, scale, transpose]);
 
   useEffect(() => {
     if (!containerRef.current) return;
