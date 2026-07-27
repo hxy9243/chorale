@@ -52,23 +52,11 @@ describe('AudioPlayer Component', () => {
     expect(screen.getByText('Buffering Audio...')).toBeDefined();
   });
 
-  it('renders tempo and volume controls', () => {
+  it('renders volume controls', () => {
     render(<AudioPlayer tunes={null} />);
 
-    expect(screen.getByText('Tempo:')).toBeDefined();
-    expect(screen.getByText('100%')).toBeDefined();
     expect(screen.getByText('80%')).toBeDefined();
     expect(screen.getByText('/ --:--')).toBeDefined();
-  });
-
-  it('updates tempo slider state on change', () => {
-    render(<AudioPlayer tunes={null} />);
-
-    const sliders = screen.getAllByRole('slider') as HTMLInputElement[];
-    const tempoSlider = sliders[0];
-
-    fireEvent.change(tempoSlider, { target: { value: '140' } });
-    expect(screen.getByText('140%')).toBeDefined();
   });
 
   it('toggles mute state when mute button is clicked', () => {
@@ -81,10 +69,9 @@ describe('AudioPlayer Component', () => {
     expect(screen.getByText('0%')).toBeDefined();
   });
 
-  it('initializes synth with base volume and calls setWarp on tempo changes', async () => {
+  it('initializes synth with base volume', async () => {
     const instanceControl = {
       ...mockSynthControl,
-      setWarp: vi.fn(),
     };
     const synthApi = (abcjs as any).synth;
     vi.mocked(synthApi.SynthController).mockImplementationOnce(function () { return instanceControl; });
@@ -94,14 +81,6 @@ describe('AudioPlayer Component', () => {
     await waitFor(() => {
       expect(instanceControl.setTune).toHaveBeenLastCalledWith(mockTune, false, expect.any(Object));
       expect(instanceControl.setTune.mock.lastCall?.[2].soundFontVolumeMultiplier).toBeCloseTo(0.4);
-      expect(mockTune.setTiming).toHaveBeenCalledWith(120);
-    });
-
-    const tempoSlider = screen.getAllByRole('slider')[0];
-    fireEvent.change(tempoSlider, { target: { value: '140' } });
-
-    await waitFor(() => {
-      expect(instanceControl.setWarp).toHaveBeenCalledWith(140);
     });
   });
 

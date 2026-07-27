@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import abcjs from 'abcjs';
-import { Play, Pause, Square, Volume2, VolumeX, Gauge, Music2 } from 'lucide-react';
+import { Play, Pause, Square, Volume2, VolumeX, Music2 } from 'lucide-react';
 
 import type { ScoreAnchor } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
@@ -17,7 +17,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isReady, setIsReady] = useState<boolean>(false);
   const [volume, setVolume] = useState<number>(0.8);
-  const [tempo, setTempo] = useState<number>(100); // % of default tempo
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [playbackProgress, setPlaybackProgress] = useState(0);
@@ -25,9 +24,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
 
   const audioContainerRef = useRef<HTMLDivElement>(null);
   const masterGainRef = useRef<GainNode | null>(null);
-  const isTempoInitialMount = useRef<boolean>(true);
-  const tempoRef = useRef<number>(tempo);
-  tempoRef.current = tempo;
   const effectiveVolume = isMuted ? 0 : volume;
 
   // Master volume control using WebAudio GainNode
@@ -59,17 +55,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
       console.error('Error setting master volume gain:', err);
     }
   }, [effectiveVolume]);
-
-  // Tempo adjustment using setWarp
-  useEffect(() => {
-    if (isTempoInitialMount.current) {
-      isTempoInitialMount.current = false;
-      return;
-    }
-    if (synthControllerRef.current && typeof synthControllerRef.current.setWarp === 'function') {
-      synthControllerRef.current.setWarp(tempo);
-    }
-  }, [tempo]);
 
   const lastInitTuneRef = useRef<abcjs.TuneObject | null>(null);
 
@@ -140,12 +125,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
               displayRestart: true,
               displayPlay: true,
               displayProgress: true,
-              displayWarp: true,
+              displayWarp: false,
             }
           );
         }
 
-        const defaultBpm = typeof currentTune.getBpm === 'function' ? currentTune.getBpm() || 120 : 120;
         const createSynth = new synthApi.CreateSynth();
         try {
           await createSynth.init({
@@ -171,7 +155,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
         try {
           await synthControl.setTune(currentTune, false, {
             chordsOff: false,
-            qpm: Math.round(defaultBpm * (tempoRef.current / 100)),
             soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/',
             soundFontVolumeMultiplier: soundFontBaseVolume,
           });
@@ -179,12 +162,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
           console.warn('SoundFont setTune failed, using built-in synth:', sfErr);
           await synthControl.setTune(currentTune, false, {
             chordsOff: false,
-            qpm: Math.round(defaultBpm * (tempoRef.current / 100)),
             soundFontVolumeMultiplier: soundFontBaseVolume,
           });
         }
-
-        currentTune.setTiming?.(Math.round(defaultBpm * (tempoRef.current / 100)));
 
         if (cancelled) return;
         const totalTime = currentTune.getTotalTime?.();
@@ -289,25 +269,33 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
   const handleStop = () => {
     if (!synthControllerRef.current) return;
     synthControllerRef.current.pause();
-    synthControllerRef.current.restart();
+    synthControllerRef.current.restart?.();
     synthControllerRef.current.isStarted = false;
+    synthControllerRef.current.seek?.(0);
     setIsPlaying(false);
     setPlaybackProgress(0);
     document.querySelectorAll('.abcjs-highlight').forEach((el) => el.classList.remove('abcjs-highlight'));
   };
 
-  const handleSeek = (event: React.MouseEvent<HTMLButtonElement>) => {
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const percent = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
-    synthControllerRef.current?.seek?.(percent);
-    setPlaybackProgress(percent);
+  const handleSeekTrackClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (!synthControllerRef.current || !isReady) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const clickRatio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+
+    setPlaybackProgress(clickRatio);
+    synthControllerRef.current.seek?.(clickRatio);
   };
 
-  const formatTime = (milliseconds: number) => {
-    const totalSeconds = Math.max(0, Math.round(milliseconds / 1000));
-    const minutes = Math.floor(totalSeconds / 60);
-    return `${minutes}:${String(totalSeconds % 60).padStart(2, '0')}`;
+  const formatTime = (ms: number) => {
+    if (!Number.isFinite(ms) || ms <= 0) return '0:00';
+    const totalSeconds = Math.floor(ms / 1000);
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  const currentMs = playbackProgress * totalDurationMs;
 
   return (
     <div className="audio-player-card glass-panel">
@@ -316,47 +304,52 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
           <Music2 className="w-4 h-4 inline mr-2 text-emerald-400" />
           Piano Audio Synthesizer
         </h3>
-        <span className={`status-pill ${isReady ? 'ready' : 'loading'}`}>
-          {isReady ? 'Synth Ready' : tunes ? 'Buffering Audio...' : 'No Score Loaded'}
-        </span>
+        {audioError ? (
+          <span className="status-pill error">{audioError}</span>
+        ) : !tunes ? (
+          <span className="status-pill loading">No Score Loaded</span>
+        ) : !isReady ? (
+          <span className="status-pill loading">Buffering Audio...</span>
+        ) : (
+          <span className="status-pill ready">Synth Ready</span>
+        )}
       </div>
 
-      {audioError && (
-        <div className="error-banner">
-          <span>{audioError}</span>
-        </div>
-      )}
-
-      {/* Hidden container for standard abcjs synth UI fallback */}
       <div ref={audioContainerRef} className="abcjs-synth-container hidden-synth" />
 
       <div className="player-controls-bar">
         <div className="main-play-buttons">
           <button
-            className={`btn btn-primary btn-circle ${isPlaying ? 'playing' : ''}`}
+            className={`btn btn-primary btn-circle ${!isReady ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={handlePlayToggle}
             disabled={!isReady}
             title={isPlaying ? 'Pause Audio' : 'Play Piano Synthesizer'}
           >
-            {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
+            {isPlaying ? (
+              <Pause className="w-5 h-5 fill-current" />
+            ) : (
+              <Play className="w-5 h-5 fill-current ml-0.5" />
+            )}
           </button>
+
           <button
             className="btn btn-secondary btn-circle"
             onClick={handleStop}
-            disabled={!isReady}
+            disabled={!isReady && !isPlaying}
             title="Stop & Reset"
           >
             <Square className="w-4 h-4 fill-current" />
           </button>
+
           <div className="playback-progress" aria-label="Playback position">
             <div>
-              <strong>{formatTime(totalDurationMs * playbackProgress)}</strong>
+              <strong>{formatTime(currentMs)}</strong>
               <span>/ {totalDurationMs > 0 ? formatTime(totalDurationMs) : '--:--'}</span>
             </div>
             <button
               type="button"
               className="playback-progress-track"
-              onClick={handleSeek}
+              onClick={handleSeekTrackClick}
               aria-label="Seek playback"
               disabled={!isReady}
             >
@@ -368,21 +361,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
               <span>Selected {formatAnchorLabel(activeAnchor)}</span>
             </div>
           )}
-        </div>
-
-
-        <div className="control-slider-group">
-          <Gauge className="w-4 h-4 text-emerald-400" />
-          <span className="slider-label">Tempo:</span>
-          <input
-            type="range"
-            min="50"
-            max="180"
-            value={tempo}
-            onChange={(e) => setTempo(Number(e.target.value))}
-            className="audio-slider"
-          />
-          <span className="slider-value">{tempo}%</span>
         </div>
 
         <div className="control-slider-group">
