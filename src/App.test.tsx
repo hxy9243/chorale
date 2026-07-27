@@ -66,29 +66,37 @@ describe('App Integration', () => {
     expect(screen.getByPlaceholderText(/Parsed ABC code will appear here/)).toBeDefined();
   });
 
-  it('allows selecting preset samples from the file rail', async () => {
-    render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getByTestId('sheet-svg')).toBeDefined();
-    });
-
-    const sampleButton = screen.getAllByText('Twinkle, Twinkle, Little Star')[0];
-    fireEvent.click(sampleButton);
-
-    await waitFor(() => {
-      expect(screen.getAllByText(/Twinkle, Twinkle, Little Star/).length).toBeGreaterThan(0);
-    });
-  });
 
   it('supports active file switching in the session model', async () => {
+    const doc1 = {
+      id: 'doc-1',
+      name: 'Twinkle, Twinkle, Little Star.xml',
+      sourceType: 'musicxml',
+      abcSource: 'X:1\nT:Twinkle, Twinkle, Little Star\nK:C\nCCGG',
+      revision: 1,
+      versions: [],
+      scoreInfo: { title: 'Twinkle, Twinkle, Little Star', composer: 'Traditional' },
+    };
+    const doc2 = {
+      id: 'doc-2',
+      name: 'Moonlight Sonata.xml',
+      sourceType: 'musicxml',
+      abcSource: 'X:1\nT:Moonlight Sonata\nK:C#m\nCDEF',
+      revision: 1,
+      versions: [],
+      scoreInfo: { title: 'Moonlight Sonata', composer: 'Beethoven' },
+    };
+    localStorage.setItem('chorale.workspace.documents', JSON.stringify([doc1, doc2]));
+    localStorage.setItem('chorale.workspace.activeFileId', 'doc-1');
+
     render(<App />);
 
     await waitFor(() => {
       expect(screen.getByTestId('sheet-svg')).toBeDefined();
     });
 
-    const sample2 = screen.getAllByText('Moonlight Sonata (MusicXML)')[0];
+    const sample2 = screen.getAllByText('Moonlight Sonata')[0];
     fireEvent.click(sample2);
 
     await waitFor(() => {
@@ -118,24 +126,38 @@ describe('App Integration', () => {
   });
 
   it('allows deleting files from the file rail', async () => {
+    const doc1 = {
+      id: 'doc-1',
+      name: 'Twinkle, Twinkle, Little Star.xml',
+      sourceType: 'musicxml',
+      abcSource: 'X:1\nT:Twinkle, Twinkle, Little Star\nK:C\nCCGG',
+      revision: 1,
+      versions: [],
+      scoreInfo: { title: 'Twinkle, Twinkle, Little Star', composer: 'Traditional' },
+    };
+    const doc2 = {
+      id: 'doc-2',
+      name: 'Moonlight Sonata.xml',
+      sourceType: 'musicxml',
+      abcSource: 'X:1\nT:Moonlight Sonata\nK:C#m\nCDEF',
+      revision: 1,
+      versions: [],
+      scoreInfo: { title: 'Moonlight Sonata', composer: 'Beethoven' },
+    };
+    localStorage.setItem('chorale.workspace.documents', JSON.stringify([doc1, doc2]));
+    localStorage.setItem('chorale.workspace.activeFileId', 'doc-1');
+
     render(<App />);
 
     await waitFor(() => {
       expect(screen.getByTestId('sheet-svg')).toBeDefined();
     });
 
-    const sampleBtn = screen.getAllByText('Twinkle, Twinkle, Little Star')[0];
-    fireEvent.click(sampleBtn);
-
-    await waitFor(() => {
-      expect(screen.getByLabelText(/Delete Twinkle, Twinkle, Little Star/)).toBeDefined();
-    });
-
-    const deleteBtn = screen.getByLabelText(/Delete Twinkle, Twinkle, Little Star/);
+    const deleteBtn = screen.getByLabelText(/Delete Twinkle, Twinkle, Little Star.xml/);
     fireEvent.click(deleteBtn);
 
     await waitFor(() => {
-      expect(screen.queryByLabelText(/Delete Twinkle, Twinkle, Little Star/)).toBeNull();
+      expect(screen.queryByLabelText(/Delete Twinkle, Twinkle, Little Star.xml/)).toBeNull();
     });
   });
 

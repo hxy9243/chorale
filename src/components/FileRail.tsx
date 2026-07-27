@@ -1,14 +1,11 @@
 import React, { useRef } from 'react';
 import { Plus, FileMusic, AlertCircle, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import type { FileDocument } from '../types/document';
-import type { MusicSample } from '../types/music';
-import { PRESET_SAMPLES } from '../data/samples';
 
 interface FileRailProps {
   documents: FileDocument[];
   activeFileId: string;
   onSelectDocument: (fileId: string) => void;
-  onSampleSelected: (sample: MusicSample) => void;
   onFileLoaded: (fileData: ArrayBuffer | string, fileName: string) => void;
   onDeleteDocument?: (fileId: string) => void;
   onMoveDocument?: (fileId: string, direction: 'up' | 'down') => void;
@@ -22,7 +19,6 @@ export const FileRail: React.FC<FileRailProps> = ({
   documents,
   activeFileId,
   onSelectDocument,
-  onSampleSelected,
   onFileLoaded,
   onDeleteDocument,
   onMoveDocument,
@@ -80,8 +76,8 @@ export const FileRail: React.FC<FileRailProps> = ({
         <div className="file-list">
           {documents.map((doc, index) => {
             const isActive = doc.id === activeFileId;
-            const lastReason = doc.versions[doc.versions.length - 1]?.reason;
-            const fileState = lastReason === 'manual-edit' ? 'draft' : 'edited';
+            const lastReason = doc.versions?.[doc.versions.length - 1]?.reason;
+            const fileState = lastReason === 'manual-edit' ? 'edited' : 'original';
             return (
               <div
                 key={doc.id}
@@ -153,29 +149,6 @@ export const FileRail: React.FC<FileRailProps> = ({
               </div>
             );
           })}
-        </div>
-      </div>
-
-      <div className="file-rail-section">
-        <p className="rail-section-title">SAMPLE LIBRARY</p>
-        <div className="file-list">
-          {PRESET_SAMPLES
-            .filter((sample) => !documents.some((doc) => doc.name.startsWith(sample.title)))
-            .slice(0, Math.max(0, 3 - documents.length))
-            .map((sample) => (
-            <button
-              key={sample.id}
-              type="button"
-              className="file-item"
-              onClick={() => onSampleSelected(sample)}
-            >
-              <div className="file-icon"><FileMusic size={16} /></div>
-              <span className="file-item-info">
-                <span className="file-item-name">{sample.title}</span>
-                <span className="file-item-meta">{sample.type.toUpperCase()} · imported</span>
-              </span>
-            </button>
-          ))}
         </div>
       </div>
 
