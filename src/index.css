@@ -1792,6 +1792,11 @@ textarea {
   color: #a75d13;
 }
 
+.header-save-pill.error {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
 .figma-button {
   display: inline-flex;
   min-height: 38px;

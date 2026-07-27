@@ -23,6 +23,13 @@ describe('Header Component', () => {
     expect(screen.getByTitle('Show score chat')).toBeDefined();
   });
 
+  it('surfaces autosave failures instead of reporting success', () => {
+    render(<Header activeFileName="Test.xml" saveState="Error" />);
+
+    expect(screen.getByRole('status').textContent).toBe('Save failed');
+    expect(screen.getByRole('status').className).toContain('error');
+  });
+
   it('triggers onToggleRail when sidebar toggle button is clicked', () => {
     const onToggleRail = vi.fn();
     render(<Header activeFileName="Test.xml" onToggleRail={onToggleRail} />);

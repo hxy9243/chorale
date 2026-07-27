@@ -18,6 +18,19 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleRail,
   saveState = 'Saved',
 }) => {
+  const saveLabel = saveState === 'Saved' || saveState === 'Auto-saved'
+    ? 'Auto-saved'
+    : saveState === 'Saving'
+      ? 'Saving…'
+      : saveState === 'Error'
+        ? 'Save failed'
+        : saveState;
+  const saveClassName = saveState === 'Saving'
+    ? 'draft'
+    : saveState === 'Error'
+      ? 'error'
+      : '';
+
   return (
     <header className="app-header">
       <div className="header-brand">
@@ -39,8 +52,13 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="header-right">
-        <span className={`header-save-pill ${saveState === 'Draft' ? 'draft' : ''}`}>
-          {saveState === 'Draft' ? 'Draft changes' : saveState === 'Auto-saved' || saveState === 'Saved' ? 'Auto-saved' : 'Saved just now'}
+        <span
+          className={`header-save-pill ${saveClassName}`}
+          role="status"
+          aria-live="polite"
+          title={saveState === 'Error' ? 'Changes could not be saved in this browser.' : undefined}
+        >
+          {saveLabel}
         </span>
         <button
           type="button"
