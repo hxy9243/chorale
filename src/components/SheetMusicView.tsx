@@ -106,6 +106,8 @@ interface SheetMusicViewProps {
   activeAnchor?: ScoreAnchor | null;
   onSelectAnchor?: (anchor: ScoreAnchor | null) => void;
   onTuneRendered?: (tune: abcjs.TuneObject[] | null) => void;
+  zoom?: number;
+  onZoomChange?: (newZoom: number) => void;
 }
 
 export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
@@ -113,11 +115,43 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   activeAnchor = null,
   onSelectAnchor,
   onTuneRendered,
+  zoom = 100,
+  onZoomChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState<number>(1.0);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [internalZoom, setInternalZoom] = useState<number>(zoom);
+  const currentZoom = onZoomChange !== undefined ? zoom : internalZoom;
+  const scale = currentZoom / 100;
   const [transpose, setTranspose] = useState<number>(0);
   const [renderError, setRenderError] = useState<string | null>(null);
+
+  const handleZoomChange = (newZoom: number) => {
+    const clamped = Math.max(50, Math.min(200, newZoom));
+    if (onZoomChange) {
+      onZoomChange(clamped);
+    } else {
+      setInternalZoom(clamped);
+    }
+  };
+
+  useEffect(() => {
+    const element = cardRef.current;
+    if (!element) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 10 : -10;
+        handleZoomChange(currentZoom + delta);
+      }
+    };
+
+    element.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      element.removeEventListener('wheel', handleWheel);
+    };
+  }, [currentZoom, onZoomChange]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -198,7 +232,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   const anchorLabel = formatAnchorLabel(activeAnchor);
 
   return (
-    <div className="sheet-music-card glass-panel">
+    <div ref={cardRef} className="sheet-music-card glass-panel">
       <div className="sheet-header">
         <div className="sheet-title-group">
           <h3 className="section-title">Interactive Sheet Music</h3>
@@ -251,15 +285,15 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
           <div className="control-group">
             <button
               className="btn btn-sm btn-icon"
-              onClick={() => setScale((s) => Math.max(0.6, +(s - 0.1).toFixed(1)))}
+              onClick={() => handleZoomChange(currentZoom - 10)}
               title="Zoom Out"
             >
               <ZoomOut className="w-4 h-4" />
             </button>
-            <span className="scale-val">{Math.round(scale * 100)}%</span>
+            <span className="scale-val">{Math.round(currentZoom)}%</span>
             <button
               className="btn btn-sm btn-icon"
-              onClick={() => setScale((s) => Math.min(1.8, +(s + 0.1).toFixed(1)))}
+              onClick={() => handleZoomChange(currentZoom + 10)}
               title="Zoom In"
             >
               <ZoomIn className="w-4 h-4" />
