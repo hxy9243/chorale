@@ -3,17 +3,18 @@ import { describe, it, expect, vi } from 'vitest';
 import { Header } from '../Header';
 
 describe('Header Component', () => {
-  it('renders brand logo title and action buttons', () => {
+  it('renders brand logo title and active file name without Baroque Studies or Share button', () => {
     const onToggleChat = vi.fn();
     const { rerender } = render(
-      <Header activeFileName="Test Score.xml" chatOpen onToggleChat={onToggleChat} />,
+      <Header activeFileName="Test Score.xml" chatOpen onToggleChat={onToggleChat} saveState="Saved" />,
     );
     expect(screen.getByText('Chorale')).toBeDefined();
     expect(screen.getByText('Test Score.xml')).toBeDefined();
-    expect(screen.getByText('Share')).toBeDefined();
+    expect(screen.queryByText('Baroque Studies')).toBeNull();
+    expect(screen.queryByText('Share')).toBeNull();
     expect(screen.getByTitle('Hide score chat')).toBeDefined();
     expect(screen.getByText('Chat')).toBeDefined();
-    expect(screen.getByText('Saved just now')).toBeDefined();
+    expect(screen.getByText('Auto-saved')).toBeDefined();
 
     fireEvent.click(screen.getByTitle('Hide score chat'));
     expect(onToggleChat).toHaveBeenCalledOnce();

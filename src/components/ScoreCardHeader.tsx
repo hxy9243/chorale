@@ -1,5 +1,5 @@
 import React from 'react';
-import { Braces, Maximize2, Music2, Pencil, Tag } from 'lucide-react';
+import { Braces, Maximize2, Music2, Tag } from 'lucide-react';
 
 interface ScoreCardHeaderProps {
   title: string;
@@ -17,6 +17,7 @@ interface ScoreCardHeaderProps {
 export const ScoreCardHeader: React.FC<ScoreCardHeaderProps> = ({
   title,
   zoom = 100,
+  onZoomIn,
   onZoomOut,
   onResetZoom,
   anchorContext,
@@ -49,19 +50,19 @@ export const ScoreCardHeader: React.FC<ScoreCardHeaderProps> = ({
           </div>
         )}
 
-        <button type="button" className="figma-button">
-          <Pencil size={14} />
-          Annotate
-        </button>
-
-        <button type="button" className="figma-button zoom-button" onClick={onZoomOut} title="Zoom out">
-          <span aria-hidden="true">−</span>
-          {zoom}%
-        </button>
-        <button type="button" className="figma-button" onClick={onResetZoom}>
-          <Maximize2 size={14} />
-          Fit
-        </button>
+        <div className="zoom-controls-group" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+          <button type="button" className="figma-button zoom-button" onClick={onZoomOut} title="Zoom out" aria-label="Zoom out">
+            <span aria-hidden="true">−</span>
+          </button>
+          <span className="zoom-level-text" style={{ fontSize: '12px', padding: '0 4px', minWidth: '40px', textAlign: 'center' }}>{zoom}%</span>
+          <button type="button" className="figma-button zoom-button" onClick={onZoomIn} title="Zoom in" aria-label="Zoom in">
+            <span aria-hidden="true">+</span>
+          </button>
+          <button type="button" className="figma-button" onClick={onResetZoom} title="Reset zoom to fit">
+            <Maximize2 size={14} />
+            Fit
+          </button>
+        </div>
       </div>
     </div>
   );
