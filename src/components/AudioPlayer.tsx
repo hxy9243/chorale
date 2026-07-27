@@ -71,15 +71,24 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
     }
   }, [tempo]);
 
+  const lastInitTuneRef = useRef<abcjs.TuneObject | null>(null);
+
   // Primary synth initialization on tune change
   useEffect(() => {
-    if (!tunes || tunes.length === 0) {
+    const currentTune = tunes?.[0] || null;
+    if (!currentTune) {
       setIsReady(false);
       setIsPlaying(false);
       setPlaybackProgress(0);
       setTotalDurationMs(0);
+      lastInitTuneRef.current = null;
       return;
     }
+
+    if (lastInitTuneRef.current === currentTune) {
+      return;
+    }
+    lastInitTuneRef.current = currentTune;
 
     const synthApi = (abcjs as any).synth;
     if (!synthApi || (synthApi.isSupported && !synthApi.isSupported())) {
@@ -136,11 +145,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
           );
         }
 
-        const defaultBpm = typeof tunes[0].getBpm === 'function' ? tunes[0].getBpm() || 120 : 120;
+        const defaultBpm = typeof currentTune.getBpm === 'function' ? currentTune.getBpm() || 120 : 120;
         const createSynth = new synthApi.CreateSynth();
         try {
           await createSynth.init({
-            visualObj: tunes[0],
+            visualObj: currentTune,
             options: {
               soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/',
               soundFontVolumeMultiplier: soundFontBaseVolume,
@@ -150,7 +159,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
         } catch (sfErr) {
           console.warn('SoundFont remote init failed, using built-in synth:', sfErr);
           await createSynth.init({
-            visualObj: tunes[0],
+            visualObj: currentTune,
             options: {
               soundFontVolumeMultiplier: soundFontBaseVolume,
             },
@@ -160,7 +169,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
         if (cancelled) return;
 
         try {
-          await synthControl.setTune(tunes[0], false, {
+          await synthControl.setTune(currentTune, false, {
             chordsOff: false,
             qpm: Math.round(defaultBpm * (tempoRef.current / 100)),
             soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/',
@@ -168,17 +177,17 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
           });
         } catch (sfErr) {
           console.warn('SoundFont setTune failed, using built-in synth:', sfErr);
-          await synthControl.setTune(tunes[0], false, {
+          await synthControl.setTune(currentTune, false, {
             chordsOff: false,
             qpm: Math.round(defaultBpm * (tempoRef.current / 100)),
             soundFontVolumeMultiplier: soundFontBaseVolume,
           });
         }
 
-        tunes[0].setTiming?.(Math.round(defaultBpm * (tempoRef.current / 100)));
+        currentTune.setTiming?.(Math.round(defaultBpm * (tempoRef.current / 100)));
 
         if (cancelled) return;
-        const totalTime = tunes[0].getTotalTime?.();
+        const totalTime = currentTune.getTotalTime?.();
         if (Number.isFinite(totalTime) && totalTime > 0) {
           setTotalDurationMs(totalTime * 1000);
         }
