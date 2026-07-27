@@ -367,6 +367,35 @@ export const App: React.FC = () => {
     window.addEventListener('pointerup', handlePointerUp, { once: true });
   };
 
+  const [chatWidth, setChatWidth] = useState<number>(392);
+  const chatDragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  const beginChatResize = (event: React.PointerEvent<HTMLButtonElement>) => {
+    chatDragStateRef.current = {
+      startX: event.clientX,
+      startWidth: chatWidth,
+    };
+    const nextTarget = event.currentTarget;
+    nextTarget.setPointerCapture(event.pointerId);
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const dragState = chatDragStateRef.current;
+      if (!dragState) return;
+      const delta = dragState.startX - moveEvent.clientX;
+      const newWidth = Math.max(280, Math.min(680, dragState.startWidth + delta));
+      setChatWidth(newWidth);
+    };
+
+    const handlePointerUp = () => {
+      chatDragStateRef.current = null;
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp, { once: true });
+  };
+
   const workspaceMessage = useMemo(
     () => buildValidationMessage(buildStatus, buildResult),
     [buildResult, buildStatus],
@@ -386,7 +415,7 @@ export const App: React.FC = () => {
       <div
         className={`workspace-body ${chatOpen ? 'chat-open' : ''} ${railCollapsed ? 'rail-collapsed' : ''}`}
         style={{
-          gridTemplateColumns: `${railCollapsed ? 0 : railWidth}px minmax(0, 1fr) ${chatOpen ? '392px' : ''}`,
+          gridTemplateColumns: `${railCollapsed ? 0 : railWidth}px minmax(0, 1fr) ${chatOpen ? `${chatWidth}px` : ''}`,
         }}
       >
         <FileRail
@@ -488,6 +517,15 @@ export const App: React.FC = () => {
         </main>
 
         <div id="current-sheet-agent" className="right-panel">
+          {chatOpen && (
+            <button
+              type="button"
+              className="chat-rail-resize-handle"
+              onPointerDown={beginChatResize}
+              title="Drag to resize chat sidebar width"
+              aria-label="Resize chat sidebar"
+            />
+          )}
           <AgentChatPanel
             open={chatOpen}
             onClose={() => setChatOpen(false)}

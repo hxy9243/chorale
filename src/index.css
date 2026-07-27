@@ -1866,11 +1866,32 @@ textarea {
 }
 
 .right-panel {
+  position: relative;
   display: none;
+  height: 100%;
 }
 
 .workspace-body.chat-open .right-panel {
   display: block;
+}
+
+.chat-rail-resize-handle {
+  position: absolute;
+  top: 0;
+  left: -3px;
+  bottom: 0;
+  width: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  z-index: 10;
+  transition: background 140ms ease;
+}
+
+.chat-rail-resize-handle:hover,
+.chat-rail-resize-handle:active {
+  background: var(--figma-coral);
 }
 
 .file-rail {
