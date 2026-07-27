@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import abcjs from 'abcjs';
 import { Header } from './components/Header';
 import { FileRail } from './components/FileRail';
@@ -99,6 +99,21 @@ export const App: React.FC = () => {
   const scoreKey = liveMetadata.key || activeDocument?.scoreInfo.key || 'C';
   const scoreMeter = liveMetadata.meter || activeDocument?.scoreInfo.meter || '4/4';
   const scoreTempo = liveMetadata.tempoText || activeDocument?.scoreInfo.tempoText || (tunes?.[0]?.getBpm?.() ? `♩ = ${tunes[0].getBpm()}` : '♩ = 120');
+
+  const handleTuneRendered = useCallback((renderedTunes: abcjs.TuneObject[] | null) => {
+    setTunes((prev) => {
+      if (prev === renderedTunes) return prev;
+      if (!prev && !renderedTunes) return null;
+      if (prev && renderedTunes && prev.length === renderedTunes.length && prev[0] === renderedTunes[0]) {
+        return prev;
+      }
+      return renderedTunes;
+    });
+  }, []);
+
+  const handleSelectAnchor = useCallback((anchor: ScoreAnchor | null) => {
+    setActiveAnchor(anchor);
+  }, []);
 
   useEffect(() => {
     if (documents.length === 0 && PRESET_SAMPLES.length > 0) {
@@ -386,8 +401,8 @@ export const App: React.FC = () => {
                     <SheetMusicView
                       abcCode={canRenderScore ? abcCode : ''}
                       activeAnchor={activeAnchor}
-                      onSelectAnchor={setActiveAnchor}
-                      onTuneRendered={(renderedTunes) => setTunes(renderedTunes)}
+                      onSelectAnchor={handleSelectAnchor}
+                      onTuneRendered={handleTuneRendered}
                       zoom={zoom}
                       onZoomChange={(newZoom) => setZoom(Math.max(50, Math.min(200, newZoom)))}
                     />
