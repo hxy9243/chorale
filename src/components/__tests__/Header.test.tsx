@@ -22,4 +22,13 @@ describe('Header Component', () => {
     rerender(<Header activeFileName="Test Score.xml" chatOpen={false} onToggleChat={onToggleChat} />);
     expect(screen.getByTitle('Show score chat')).toBeDefined();
   });
+
+  it('triggers onToggleRail when sidebar toggle button is clicked', () => {
+    const onToggleRail = vi.fn();
+    render(<Header activeFileName="Test.xml" onToggleRail={onToggleRail} />);
+
+    const toggleBtn = screen.getByTitle('Collapse sidebar');
+    fireEvent.click(toggleBtn);
+    expect(onToggleRail).toHaveBeenCalledOnce();
+  });
 });

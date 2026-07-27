@@ -337,6 +337,36 @@ export const App: React.FC = () => {
     window.addEventListener('pointerup', handlePointerUp, { once: true });
   };
 
+  const [railWidth, setRailWidth] = useState<number>(236);
+  const [railCollapsed, setRailCollapsed] = useState<boolean>(false);
+  const railDragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  const beginRailResize = (event: React.PointerEvent<HTMLButtonElement>) => {
+    railDragStateRef.current = {
+      startX: event.clientX,
+      startWidth: railWidth,
+    };
+    const nextTarget = event.currentTarget;
+    nextTarget.setPointerCapture(event.pointerId);
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const dragState = railDragStateRef.current;
+      if (!dragState) return;
+      const delta = moveEvent.clientX - dragState.startX;
+      const newWidth = Math.max(160, Math.min(420, dragState.startWidth + delta));
+      setRailWidth(newWidth);
+    };
+
+    const handlePointerUp = () => {
+      railDragStateRef.current = null;
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp, { once: true });
+  };
+
   const workspaceMessage = useMemo(
     () => buildValidationMessage(buildStatus, buildResult),
     [buildResult, buildStatus],
@@ -348,10 +378,17 @@ export const App: React.FC = () => {
         activeFileName={scoreTitle}
         chatOpen={chatOpen}
         onToggleChat={() => setChatOpen((open) => !open)}
+        railCollapsed={railCollapsed}
+        onToggleRail={() => setRailCollapsed((c) => !c)}
         saveState={saveState}
       />
 
-      <div className={`workspace-body ${chatOpen ? 'chat-open' : ''}`}>
+      <div
+        className={`workspace-body ${chatOpen ? 'chat-open' : ''} ${railCollapsed ? 'rail-collapsed' : ''}`}
+        style={{
+          gridTemplateColumns: `${railCollapsed ? 0 : railWidth}px minmax(0, 1fr) ${chatOpen ? '392px' : ''}`,
+        }}
+      >
         <FileRail
           documents={documents}
           activeFileId={activeFileId}
@@ -362,6 +399,8 @@ export const App: React.FC = () => {
           onMoveDocument={handleMoveDocument}
           loading={loading}
           error={error}
+          collapsed={railCollapsed}
+          onBeginResize={beginRailResize}
         />
 
         <main className="central-workspace">
