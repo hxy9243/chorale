@@ -186,34 +186,39 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
     };
   }, [tunes]);
 
-  useEffect(() => {
+  const applyAnchorSeek = (anchor: ScoreAnchor) => {
     const tune = tunes?.[0];
-    if (!isReady || !activeAnchor || !tune) return;
+    if (!synthControllerRef.current || !tune) return;
 
-    if (activeAnchor.playbackSeconds !== undefined) {
-      synthControllerRef.current?.seek?.(activeAnchor.playbackSeconds, 'seconds');
+    if (anchor.playbackSeconds !== undefined) {
+      synthControllerRef.current.seek?.(anchor.playbackSeconds, 'seconds');
       const totalTime = tune.getTotalTime?.() || 0;
       if (totalTime > 0) {
-        setPlaybackProgress(Math.max(0, Math.min(1, activeAnchor.playbackSeconds / totalTime)));
+        setPlaybackProgress(Math.max(0, Math.min(1, anchor.playbackSeconds / totalTime)));
       }
       return;
     }
 
-    if (activeAnchor.playbackFraction !== undefined) {
-      const percent = Math.max(0, Math.min(1, activeAnchor.playbackFraction));
-      synthControllerRef.current?.seek?.(percent);
+    if (anchor.playbackFraction !== undefined) {
+      const percent = Math.max(0, Math.min(1, anchor.playbackFraction));
+      synthControllerRef.current.seek?.(percent);
       setPlaybackProgress(percent);
       return;
     }
 
     const totalBeats = tune.getTotalBeats?.() || 0;
     const beatsPerMeasure = tune.getBeatsPerMeasure?.() || 0;
-    if (totalBeats <= 0 || beatsPerMeasure <= 0) return;
+    if (totalBeats > 0 && beatsPerMeasure > 0) {
+      const selectedBeat = Math.max(0, (anchor.measure - 1) * beatsPerMeasure + (anchor.beat || 1) - 1);
+      const percent = Math.max(0, Math.min(1, selectedBeat / totalBeats));
+      synthControllerRef.current.seek?.(percent);
+      setPlaybackProgress(percent);
+    }
+  };
 
-    const selectedBeat = Math.max(0, (activeAnchor.measure - 1) * beatsPerMeasure + (activeAnchor.beat || 1) - 1);
-    const percent = Math.max(0, Math.min(1, selectedBeat / totalBeats));
-    synthControllerRef.current?.seek?.(percent);
-    setPlaybackProgress(percent);
+  useEffect(() => {
+    if (!isReady || !activeAnchor) return;
+    applyAnchorSeek(activeAnchor);
   }, [activeAnchor, isReady, tunes]);
 
   const handlePlayToggle = () => {
@@ -223,7 +228,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
       synthControllerRef.current.isStarted = false;
       setIsPlaying(false);
     } else {
-      synthControllerRef.current.isStarted = false;
+      if (activeAnchor) {
+        applyAnchorSeek(activeAnchor);
+      } else if (playbackProgress > 0) {
+        synthControllerRef.current.seek?.(playbackProgress);
+      }
       synthControllerRef.current.play();
       setIsPlaying(true);
     }

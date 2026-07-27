@@ -245,7 +245,31 @@ describe('AudioPlayer Component', () => {
 
     const replayBtn = screen.getByTitle('Play Piano Synthesizer');
     fireEvent.click(replayBtn);
-    expect(instanceControl.isStarted).toBe(false); // reset prior to call
     expect(instanceControl.play).toHaveBeenCalledTimes(2);
+  });
+
+  it('seeks to activeAnchor when play toggle is hit', async () => {
+    const instanceControl: any = {
+      ...mockSynthControl,
+      play: vi.fn(),
+      seek: vi.fn(),
+    };
+    const synthApi = (abcjs as any).synth;
+    vi.mocked(synthApi.SynthController).mockImplementationOnce(function () { return instanceControl; });
+
+    render(
+      <AudioPlayer
+        tunes={[mockTune]}
+        activeAnchor={{ measure: 3, playbackSeconds: 5, label: 'm. 3' }}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+
+    const playBtn = screen.getByTitle('Play Piano Synthesizer');
+    fireEvent.click(playBtn);
+
+    expect(instanceControl.seek).toHaveBeenCalledWith(5, 'seconds');
+    expect(instanceControl.play).toHaveBeenCalledTimes(1);
   });
 });
