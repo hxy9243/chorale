@@ -252,6 +252,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
 
   const handlePlayToggle = async () => {
     if (!synthControllerRef.current) return;
+    const synthControl = synthControllerRef.current;
+
     const synthApi = (abcjs as any).synth;
     if (synthApi && typeof synthApi.activeAudioContext === 'function') {
       try {
@@ -263,26 +265,23 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
     }
 
     if (isPlaying) {
-      synthControllerRef.current.pause();
-      synthControllerRef.current.isStarted = false;
+      synthControl.pause();
+      synthControl.isStarted = false;
       setIsPlaying(false);
     } else {
       const currentAnchor = activeAnchor;
       const currentProgress = playbackProgress;
 
-      synthControllerRef.current.play();
       setIsPlaying(true);
+      const playPromise = synthControl.play();
+      if (playPromise && typeof playPromise.then === 'function') {
+        await playPromise;
+      }
 
       if (currentAnchor) {
         applyAnchorSeek(currentAnchor);
-        requestAnimationFrame(() => {
-          applyAnchorSeek(currentAnchor);
-        });
       } else if (currentProgress > 0) {
-        synthControllerRef.current.seek?.(currentProgress);
-        requestAnimationFrame(() => {
-          synthControllerRef.current?.seek?.(currentProgress);
-        });
+        synthControl.seek?.(currentProgress);
       }
     }
   };
