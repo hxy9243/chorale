@@ -267,13 +267,23 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ tunes, activeAnchor })
       synthControllerRef.current.isStarted = false;
       setIsPlaying(false);
     } else {
-      if (activeAnchor) {
-        applyAnchorSeek(activeAnchor);
-      } else if (playbackProgress > 0) {
-        synthControllerRef.current.seek?.(playbackProgress);
-      }
+      const currentAnchor = activeAnchor;
+      const currentProgress = playbackProgress;
+
       synthControllerRef.current.play();
       setIsPlaying(true);
+
+      if (currentAnchor) {
+        applyAnchorSeek(currentAnchor);
+        requestAnimationFrame(() => {
+          applyAnchorSeek(currentAnchor);
+        });
+      } else if (currentProgress > 0) {
+        synthControllerRef.current.seek?.(currentProgress);
+        requestAnimationFrame(() => {
+          synthControllerRef.current?.seek?.(currentProgress);
+        });
+      }
     }
   };
 
