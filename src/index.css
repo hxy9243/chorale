@@ -2249,8 +2249,7 @@ textarea {
 
 .abcjs-measure-highlight {
   fill: #f8dfe5;
-  stroke: #e7a7b6;
-  stroke-width: 1;
+  stroke: none;
   opacity: 0.58;
   pointer-events: none;
 }
@@ -2263,9 +2262,8 @@ textarea {
 }
 
 .abcjs-measure-hit-area:focus {
-  stroke: var(--figma-coral);
-  stroke-width: 1.5;
-  stroke-dasharray: 4 3;
+  stroke: transparent;
+  stroke-dasharray: none;
   outline: none;
 }
 
