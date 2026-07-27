@@ -3,6 +3,7 @@ import abcjs from 'abcjs';
 import { ZoomIn, ZoomOut, RotateCcw, SlidersHorizontal, Tag, X } from 'lucide-react';
 import type { ScoreAnchor } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
+import { buildMeasureOccurrences, selectMeasureWithRepeats, type MeasureOccurrence } from '../utils/repeatPlayback';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
@@ -152,6 +153,8 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     };
   }, [currentZoom, handleZoomChange]);
 
+  const measureOccurrencesRef = useRef<MeasureOccurrence[]>([]);
+
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -159,6 +162,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       containerRef.current.innerHTML = '';
       setRenderError(null);
       onTuneRendered?.(null);
+      measureOccurrencesRef.current = [];
       return;
     }
 
@@ -167,13 +171,24 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       containerRef.current.innerHTML = '';
       let renderedTune: abcjs.TuneObject | null = null;
       const selectMeasure = (measure: number, abcOffset?: number) => {
+        const occurrences = measureOccurrencesRef.current;
+        const selected = selectMeasureWithRepeats(
+          measure,
+          occurrences,
+          activeAnchor?.playbackSeconds || 0,
+        );
+
         const measureCount = getRenderedMeasureCount(containerRef.current!);
-        const playbackFraction = Math.max(0, Math.min(1, (measure - 1) / measureCount));
+        const fallbackFraction = Math.max(0, Math.min(1, (measure - 1) / measureCount));
         renderedTune?.setTiming?.(renderedTune.getBpm?.());
         const totalTime = renderedTune?.getTotalTime?.();
-        const playbackSeconds = Number.isFinite(totalTime) && totalTime! > 0
-          ? totalTime! * playbackFraction
-          : undefined;
+        const playbackSeconds = selected?.startTimeSec ?? (
+          Number.isFinite(totalTime) && totalTime! > 0
+            ? totalTime! * fallbackFraction
+            : undefined
+        );
+        const playbackFraction = selected?.playbackFraction ?? fallbackFraction;
+
         const newAnchor: ScoreAnchor = {
           measure,
           abcOffset,
@@ -208,6 +223,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         paddingright: 15,
       });
       renderedTune = tunes?.[0] || null;
+      measureOccurrencesRef.current = renderedTune ? buildMeasureOccurrences(renderedTune) : [];
       installMeasureHitAreas(containerRef.current, (measure) => selectMeasure(measure));
 
       if (tunes && tunes.length > 0 && onTuneRendered) {
@@ -219,9 +235,10 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       console.error('abcjs render error:', err);
       containerRef.current.innerHTML = '';
       onTuneRendered?.(null);
+      measureOccurrencesRef.current = [];
       setRenderError(err?.message || 'Failed to render sheet music SVG.');
     }
-  }, [abcCode, onSelectAnchor, onTuneRendered, transpose]);
+  }, [abcCode, activeAnchor?.playbackSeconds, onSelectAnchor, onTuneRendered, transpose]);
 
   useEffect(() => {
     if (!containerRef.current) return;

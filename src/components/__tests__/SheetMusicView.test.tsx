@@ -231,4 +231,28 @@ describe('SheetMusicView Component', () => {
     expect(onZoomChange).toHaveBeenCalledWith(110);
     expect(wheelEvent.defaultPrevented).toBe(true);
   });
+
+  it('selects measure using repeat-aware timestamp when score contains repeats', () => {
+    const onSelectAnchor = vi.fn();
+    const repeatedAbc = 'X:1\nT:Repeats\nM:4/4\nL:1/4\nK:C\n|: C D E F | G A B c :|';
+
+    render(<SheetMusicView abcCode={repeatedAbc} onSelectAnchor={onSelectAnchor} />);
+
+    // Trigger clickListener on measure 2 (abcjs-mm1)
+    const options = vi.mocked(abcjs.renderAbc).mock.calls.slice(-1)[0][2] as any;
+    options.clickListener(
+      { startChar: 37 },
+      0,
+      'abcjs-note abcjs-mm1',
+      { measure: 1 },
+    );
+
+    expect(onSelectAnchor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        measure: 2,
+        abcOffset: 37,
+        label: 'm. 2',
+      }),
+    );
+  });
 });
