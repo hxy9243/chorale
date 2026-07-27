@@ -1,7 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { FileRail } from '../FileRail';
-import { PRESET_SAMPLES } from '../../data/samples';
 import { createDocumentFromAbc } from '../../utils/fileSession';
 
 describe('FileRail Component', () => {
@@ -13,7 +12,6 @@ describe('FileRail Component', () => {
     activeFileId: doc1.id,
     onSelectDocument: vi.fn(),
     onFileLoaded: vi.fn(),
-    onSampleSelected: vi.fn(),
     loading: false,
     error: null,
   };
@@ -27,12 +25,11 @@ describe('FileRail Component', () => {
     expect(screen.queryByText('PROJECTS')).toBeNull();
   });
 
-  it('renders active document names and preset sample list', () => {
+  it('renders active document names', () => {
     render(<FileRail {...defaultProps} />);
 
     expect(screen.getByText('Bach Minuet')).toBeDefined();
     expect(screen.getByText('Beethoven Ode')).toBeDefined();
-    expect(screen.getAllByText(PRESET_SAMPLES[0].title).length).toBeGreaterThan(0);
   });
 
   it('calls onSelectDocument when an active file item is clicked', () => {
@@ -42,15 +39,6 @@ describe('FileRail Component', () => {
     fireEvent.click(doc2Button);
 
     expect(defaultProps.onSelectDocument).toHaveBeenCalledWith(doc2.id);
-  });
-
-  it('calls onSampleSelected when a preset sample item is clicked', () => {
-    render(<FileRail {...defaultProps} />);
-
-    const firstSampleButton = screen.getAllByText(PRESET_SAMPLES[0].title)[0];
-    fireEvent.click(firstSampleButton);
-
-    expect(defaultProps.onSampleSelected).toHaveBeenCalledWith(PRESET_SAMPLES[0]);
   });
 
   it('calls onDeleteDocument when delete button is clicked', () => {

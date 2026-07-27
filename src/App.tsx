@@ -394,7 +394,6 @@ export const App: React.FC = () => {
           activeFileId={activeFileId}
           onSelectDocument={handleSelectFile}
           onFileLoaded={handleProcessMusicXml}
-          onSampleSelected={loadSample}
           onDeleteDocument={handleDeleteDocument}
           onMoveDocument={handleMoveDocument}
           loading={loading}
