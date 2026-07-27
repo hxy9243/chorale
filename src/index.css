@@ -1874,14 +1874,70 @@ textarea {
 }
 
 .file-rail {
+  position: relative;
   display: flex;
+  flex-direction: column;
   gap: 0;
   padding: 18px 16px 28px;
   overflow-y: auto;
+  overflow-x: hidden;
   border: 0;
   background: var(--figma-rail);
   color: #d4d7dd;
   scrollbar-width: thin;
+  transition: opacity 160ms ease, padding 160ms ease;
+}
+
+.file-rail.collapsed {
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.file-rail-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  z-index: 5;
+  transition: background 140ms ease;
+}
+
+.file-rail-resize-handle:hover,
+.file-rail-resize-handle:active {
+  background: var(--figma-coral);
+}
+
+.sidebar-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--figma-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--figma-ink);
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.sidebar-toggle-btn:hover {
+  background: #f8f7f4;
+  border-color: #cbc5bc;
+}
+
+.sidebar-toggle-btn.collapsed {
+  background: var(--figma-rail);
+  color: #fff;
+  border-color: var(--figma-rail);
 }
 
 .import-btn {
@@ -2316,9 +2372,11 @@ textarea {
 
 .playback-dock-container {
   position: absolute;
-  right: 24px;
   bottom: 0;
-  left: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 48px);
+  max-width: 800px;
   z-index: 4;
   min-height: 82px;
   flex: none;
@@ -2326,6 +2384,7 @@ textarea {
   border: 0;
   border-radius: 14px 14px 0 0;
   background: var(--figma-dock);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
 }
 
 .playback-dock-container .audio-player-card {
@@ -2465,9 +2524,11 @@ textarea {
 }
 
 .editor-open > .playback-dock-container {
-  right: 0;
-  left: 0;
-  border-radius: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 800px;
+  border-radius: 12px 12px 0 0;
 }
 
 .editor-open .score-canvas {

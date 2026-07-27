@@ -14,6 +14,8 @@ interface FileRailProps {
   onMoveDocument?: (fileId: string, direction: 'up' | 'down') => void;
   loading?: boolean;
   error?: string | null;
+  collapsed?: boolean;
+  onBeginResize?: (e: React.PointerEvent<HTMLButtonElement>) => void;
 }
 
 export const FileRail: React.FC<FileRailProps> = ({
@@ -26,6 +28,8 @@ export const FileRail: React.FC<FileRailProps> = ({
   onMoveDocument,
   loading = false,
   error = null,
+  collapsed = false,
+  onBeginResize,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -51,7 +55,7 @@ export const FileRail: React.FC<FileRailProps> = ({
   };
 
   return (
-    <aside className="file-rail" aria-label="Files">
+    <aside className={`file-rail ${collapsed ? 'collapsed' : ''}`} aria-label="Files">
       <button
         type="button"
         className="import-btn"
@@ -70,7 +74,9 @@ export const FileRail: React.FC<FileRailProps> = ({
       />
 
       <div className="file-rail-section">
-        <div className="rail-section-title">FILES</div>
+        <div className="rail-section-header">
+          <p className="rail-section-title">FILES</p>
+        </div>
         <div className="file-list">
           {documents.map((doc, index) => {
             const isActive = doc.id === activeFileId;
@@ -85,11 +91,12 @@ export const FileRail: React.FC<FileRailProps> = ({
                 tabIndex={0}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
                     onSelectDocument(doc.id);
                   }
                 }}
               >
-                <span className="file-icon"><FileMusic size={15} /></span>
+                <div className="file-icon"><FileMusic size={16} /></div>
                 <span className="file-item-info">
                   <span className="file-item-name">{doc.scoreInfo.title || doc.name}</span>
                   <span className="file-item-meta">
@@ -135,6 +142,7 @@ export const FileRail: React.FC<FileRailProps> = ({
                         e.stopPropagation();
                         onDeleteDocument(doc.id);
                       }}
+                      disabled={documents.length <= 1}
                       title="Delete file"
                       aria-label={`Delete ${doc.name}`}
                     >
@@ -145,6 +153,12 @@ export const FileRail: React.FC<FileRailProps> = ({
               </div>
             );
           })}
+        </div>
+      </div>
+
+      <div className="file-rail-section">
+        <p className="rail-section-title">SAMPLE LIBRARY</p>
+        <div className="file-list">
           {PRESET_SAMPLES
             .filter((sample) => !documents.some((doc) => doc.name.startsWith(sample.title)))
             .slice(0, Math.max(0, 3 - documents.length))
@@ -155,7 +169,7 @@ export const FileRail: React.FC<FileRailProps> = ({
               className="file-item"
               onClick={() => onSampleSelected(sample)}
             >
-              <span className="file-icon"><FileMusic size={15} /></span>
+              <div className="file-icon"><FileMusic size={16} /></div>
               <span className="file-item-info">
                 <span className="file-item-name">{sample.title}</span>
                 <span className="file-item-meta">{sample.type.toUpperCase()} · imported</span>
@@ -170,6 +184,16 @@ export const FileRail: React.FC<FileRailProps> = ({
           <AlertCircle size={14} />
           <span>{error}</span>
         </div>
+      )}
+
+      {onBeginResize && (
+        <button
+          type="button"
+          className="file-rail-resize-handle"
+          onPointerDown={onBeginResize}
+          title="Drag to resize sidebar width"
+          aria-label="Resize sidebar"
+        />
       )}
     </aside>
   );
