@@ -122,7 +122,6 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   const cardRef = useRef<HTMLDivElement>(null);
   const [internalZoom, setInternalZoom] = useState<number>(zoom);
   const currentZoom = onZoomChange !== undefined ? zoom : internalZoom;
-  const scale = currentZoom / 100;
   const [transpose, setTranspose] = useState<number>(0);
   const [renderError, setRenderError] = useState<string | null>(null);
 
@@ -188,7 +187,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       const visualTranspose = transpose;
       const tunes = abcjs.renderAbc(containerRef.current, abcCode, {
         responsive: 'resize',
-        scale: scale,
+        scale: 1,
         staffwidth: 740,
         wrap: {
           minSpacing: 1.5,
@@ -222,17 +221,18 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       onTuneRendered?.(null);
       setRenderError(err?.message || 'Failed to render sheet music SVG.');
     }
-  }, [abcCode, onSelectAnchor, onTuneRendered, scale, transpose]);
+  }, [abcCode, onSelectAnchor, onTuneRendered, transpose]);
 
   useEffect(() => {
     if (!containerRef.current) return;
     highlightMeasure(containerRef.current, activeAnchor);
-  }, [abcCode, activeAnchor, scale, transpose]);
+  }, [abcCode, activeAnchor, transpose]);
 
   const anchorLabel = formatAnchorLabel(activeAnchor);
 
   return (
     <div ref={cardRef} className="sheet-music-card glass-panel">
+      {/* ... header & controls ... */}
       <div className="sheet-header">
         <div className="sheet-title-group">
           <h3 className="section-title">Interactive Sheet Music</h3>
@@ -309,7 +309,17 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       )}
 
       <div className="sheet-viewport">
-        <div ref={containerRef} id="paper" className="abcjs-paper-container" />
+        <div
+          className="sheet-zoom-wrapper"
+          style={{
+            transform: `scale(${currentZoom / 100})`,
+            transformOrigin: 'top center',
+            transition: 'transform 0.15s ease-out',
+            width: '100%',
+          }}
+        >
+          <div ref={containerRef} id="paper" className="abcjs-paper-container" />
+        </div>
       </div>
     </div>
   );
