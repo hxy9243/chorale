@@ -45,6 +45,17 @@ M:4/4
 K:C
 !p! C !>(! D E F !>)! | G4 |`;
 
+  const abcWithSelfContainedTuplet = `X:1
+T:Self-contained tuplet timing regression
+L:1/4
+M:4/4
+K:C
+%%score { 1 | 2 }
+V:1
+C4 | D4 | E4 | F4 |
+V:2
+x2 (3:2:2A,/ (D, (3:2:1C,3/2) | B,4 | C4 | D4 |`;
+
   it('removes unsupported inline playback directives while preserving source offsets', () => {
     const prepared = prepareAbcForPlayback(abcWithMidNoteTempoChange);
     const preparedCrossStaff = prepareAbcForPlayback(abcWithInlineStaffChanges);
@@ -160,5 +171,23 @@ K:C
     expect(configuredAudio.tracks[0]
       .filter((event) => event.cmd === 'note')
       .every((event) => event.volume > 0)).toBe(true);
+  });
+
+  it('does not leak a self-contained tuplet multiplier into later measures', () => {
+    const scratch = document.createElement('div');
+    const tunes = abcjs.renderAbc(
+      scratch,
+      prepareAbcForPlayback(abcWithSelfContainedTuplet),
+      { add_classes: true },
+    );
+
+    configureAudioPlayback(abcWithSelfContainedTuplet, tunes);
+    const secondVoiceNotes = tunes[0].setUpAudio({}).tracks[1]
+      .filter((event) => event.cmd === 'note');
+
+    expect(secondVoiceNotes).toHaveLength(6);
+    expect(secondVoiceNotes.slice(3).map((event) => event.start)).toEqual([1, 2, 3]);
+    expect(secondVoiceNotes.slice(3).map((event) => event.duration)).toEqual([1, 1, 1]);
+    expect(scratch.querySelectorAll('.abcjs-triplet')).toHaveLength(2);
   });
 });

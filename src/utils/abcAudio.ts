@@ -49,6 +49,55 @@ export function prepareAbcForAudio(abc: string): string {
     .replace(HAIRPIN_DECORATION_PATTERN, (decoration) => ' '.repeat(decoration.length));
 }
 
+type ParsedTupletElement = {
+  el_type?: string;
+  duration?: number;
+  startTriplet?: number;
+  endTriplet?: boolean;
+  tripletMultiplier?: number;
+  tripletR?: number;
+};
+
+type ParsedAudioTune = abcjs.TuneObject & {
+  lines?: Array<{
+    staff?: Array<{
+      voices?: ParsedTupletElement[][];
+    }>;
+  }>;
+};
+
+/**
+ * abcjs's MIDI sequencer does not clear its active multiplier when the same
+ * note both starts and ends an extended tuplet such as `(3:2:1C,3/2)`.
+ * Applying the multiplier directly to that note and removing the tuplet state
+ * prevents later measures in the voice from being shortened.
+ */
+function resolveSelfContainedTuplets(tunes: abcjs.TuneObject[]): void {
+  for (const tune of tunes as ParsedAudioTune[]) {
+    for (const line of tune.lines ?? []) {
+      for (const staff of line.staff ?? []) {
+        for (const voice of staff.voices ?? []) {
+          for (const element of voice) {
+            if (
+              element.el_type !== 'note'
+              || !element.startTriplet
+              || !element.endTriplet
+              || element.duration === undefined
+              || element.tripletMultiplier === undefined
+            ) continue;
+
+            element.duration *= element.tripletMultiplier;
+            delete element.startTriplet;
+            delete element.endTriplet;
+            delete element.tripletMultiplier;
+            delete element.tripletR;
+          }
+        }
+      }
+    }
+  }
+}
+
 /**
  * Keeps the engraved tune as the source of cursor and timing events while
  * supplying it with an equivalent, hairpin-safe synthesis event stream.
@@ -61,6 +110,7 @@ export function configureAudioPlayback(
   if (typeof abcjs.parseOnly !== 'function') return;
 
   const audioTunes = abcjs.parseOnly(prepareAbcForAudio(originalAbc));
+  resolveSelfContainedTuplets(audioTunes);
   for (const [index, tune] of tunes.entries()) {
     const audioTune = audioTunes[index];
     if (!audioTune?.setUpAudio) continue;
