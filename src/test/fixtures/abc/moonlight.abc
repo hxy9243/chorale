@@ -1,0 +1,90 @@
+X:1
+T:Sonate No. 14, Moonlight
+T:1 st Movement Opus 27 No. 2
+T:Ludwig van Beethoven (1770–1827)
+%%score { ( 1 2 ) | ( 3 4 ) }
+L:1/4
+Q:1/4=44
+M:4/4
+I:linebreak $
+K:E
+V:1 treble nm="Piano"
+V:2 treble
+V:3 bass
+V:4 bass
+V:1
+"^Adagio sostenuto\nSi deve suonare tutto questo pezzo delicatissimamente e senza sordini"!pp!"_sempre pianissimo e senza sordini" (3G,/C/E/ (3G,/C/E/ (3G,/C/E/ (3G,/C/E/ | (3G,/C/E/ (3G,/C/E/ (3G,/C/E/ (3G,/C/E/ | (3(A,/C/E/ (3A,/C/E/) (3(A,/=D/F/ (3A,/D/F/) |$ (3(G,/^B,/F/ (3G,/C/E/ (3G,/C/^D/[I:staff +1] (3F,/[I:staff -1]B,/D/) | %4
+ z2 z!pp! G/>G/ | G3 G/>G/ |$ (G2 A2 | G2 F B) | %8
+ E z z2 | z2 z =G/>G/ |$ =G3 G/>G/ | (=G3 ^F) | %12
+ F2 =G E |$ F2 F2 | B, z z (B | =c3 ^A) |$ %16
+!pp! B3 (B | =c3 ^A) |!pp! B2 B2 |$ B2 =A2 | %20
+ =G2 F2 | C2 C C |$[I:staff +1] F,[I:staff -1] z z c/>c/ | c3 c/>c/ | %24
+"_cresc."!<(! (c2 ^B c) | d3 d!<)! |$"_dim."!mp!!>(! (e2 d c)!>)! |!p! (3^B/^B,/D/!<(! G!<)! =A F | %28
+!p! (3z/ ^B,/D/!<(![I:staff +1] (G,!<)! A, F,) |!p! (3E,/[I:staff -1]E/G/!<(! (c!<)! e c) |$!p! (3z/[I:staff +1] E,/G,/!<(! (C!<)! E C) |!p! (3(D,/A,/F,/[I:staff -1] (3^B,/A,/D/ (3B,/F/D/ (3A/F/^B/) | %32
+[I:staff +1] (3(E,/C/G,/[I:staff -1] (3E/C/G/ (3E/c/G/ (3e/c/G/) |$ (3(C/^^F/E/ (3^A/F/c/ (3A/e/c/ (3^^f/e/^a/) | (3(^F/^B/=A/ (3d/B/^f/ (3d/=a/f/ (3^b/a/d'/) | (3(^b/f/a/ (3d/f/^B/ (3d/A/B/ (3F/A/D/ |$ %36
+ (3F/^B,/D/[I:staff +1] (3A,/^B,/F,/) (3(A,/D,/F,/(3x/F,/A,/) | (3^B,,/F,/G,/ (3A,/G,/F,/ (3D,/F,/A,/ (3C,/F,/A,/ | (3^B,,/F,/G,/ (3A,/G,/F,/ (3=D,/F,/A,/ (3C,/F,/A,/ |$"_dim."!>(! (3^B,,/F,/G,/ (3A,/G,/F,/ (3C,/E,/C/ (3C,/E,/C/ | %40
+ (3D,/A,/C/ (3D,/A,/C/ (3D,/G,/^B,/ (3D,/F,/B,/!>)! |[I:staff -1] x2 x!pp! G/>G/ |$ G3 G/>G/ | (G2 A2 | %44
+ G2 F B) | E z z B/>B/ |$ B3 B/>B/ |"_cresc."!<(! (B2 ^B c)!<)! | %48
+!p! (d2 e2 | =d2 ^B2) |$ c3 (c |!<(! =d3!<)! ^B) | %52
+!p! c3 (c |!<(! =d3!<)! ^B) |$!p! c2 c2 | =B3 B | %56
+ A A G G |"_cresc." (F2 G A) |$!p! G2 G2 |[I:staff +1] (3E,/G,/C/ (3G,/[I:staff -1]C/E/[I:staff +1] (3G,/[I:staff -1]C/E/[I:staff +1] (3G,/[I:staff -1]C/E/ | %60
+[I:staff +1] (3G,/[I:staff -1]D/F/[I:staff +1] (3G,/[I:staff -1]D/F/[I:staff +1] (3G,/[I:staff -1]D/F/[I:staff +1] (3G,/[I:staff -1]D/F/ |!pp!!<(![I:staff +1] (3(G,/[I:staff -1]=E/C/ (3G/E/c/ (3G/e/c/ (3g/e/c/)!<)! |$!p!!>(! (3(^B/d/A/ (3B/F/A/ (3D/F/[I:staff +1]A,/- (3A,/G,/F,/)!>)! |!pp! (3([E,C]/[I:staff -1]E/C/ (3G/E/c/ (3G/e/c/ (3g/e/c/) | %64
+!p!!>(! (3(^B/d/A/ (3B/F/A/ (3D/F/[I:staff +1]A,/- (3A,/G,/F,/) |$"_dim." (3[E,C]/(G,/C/ (3E/C/G,/)[I:staff -1] (3z/[I:staff +1] (E,/G,/ (3C/G,/E,/) |[I:staff -1] (3z/[I:staff +1] (C,/E,/ (3G,/E,/C,/)[I:staff -1] z2!>)! | z2!pp! C2 | %68
+ !fermata!C4 |] %69
+V:2
+ x4 | x4 | x4 |$ x4 | %4
+[I:staff +1] (3(E,/G,/C/) (3(G,/[I:staff -1]C/E/)[I:staff +1] (3(G,/[I:staff -1]C/E/)[I:staff +1] (3G,/[I:staff -1]C/E/ |[I:staff +1] (3G,/[I:staff -1]D/F/[I:staff +1] (3G,/[I:staff -1]D/F/[I:staff +1] (3G,/[I:staff -1]D/F/[I:staff +1] (3G,/[I:staff -1]D/F/ |$[I:staff +1] (3G,/[I:staff -1]C/E/[I:staff +1] (3G,/[I:staff -1]C/E/[I:staff +1] (3A,/[I:staff -1]C/F/[I:staff +1] (3A,/[I:staff -1]C/F/ |[I:staff +1] (3G,/B,/[I:staff -1]E/[I:staff +1] (3G,/B,/[I:staff -1]E/[I:staff +1] (3A,/B,/[I:staff -1]D/[I:staff +1] (3A,/B,/[I:staff -1]D/ | %8
+[I:staff +1] (3G,/B,/[I:staff -1]E/[I:staff +1] (3G,/B,/[I:staff -1]E/[I:staff +1] (3G,/B,/[I:staff -1]E/[I:staff +1] (3G,/B,/[I:staff -1]E/ |[I:staff +1] (3=G,/B,/[I:staff -1]E/[I:staff +1] (3G,/B,/[I:staff -1]E/[I:staff +1] (3G,/B,/[I:staff -1]E/[I:staff +1] (3G,/B,/[I:staff -1]E/ |$[I:staff +1] (3=G,/B,/[I:staff -1]=F/[I:staff +1] (3G,/B,/[I:staff -1]F/[I:staff +1] (3G,/B,/[I:staff -1]F/[I:staff +1] (3G,/B,/[I:staff -1]F/ |[I:staff +1] (3=G,/=C/[I:staff -1]E/[I:staff +1] (3G,/B,/[I:staff -1]E/[I:staff +1] (3G,/^C/[I:staff -1]E/[I:staff +1] (3^F,/^C/E/ | %12
+ (3F,/B,/=D/ (3F,/B,/D/ (3=G,/B,/C/ (3E,/B,/C/ |$ (3F,/B,/=D/ (3F,/B,/D/ (3F,/^A,/C/ (3F,/A,/C/ |[I:staff -1] (3B,/=D/F/ (3B,/D/F/ (3B,/^D/F/ (3B,/D/F/ | (3B,/E/=G/ (3B,/E/G/!p! (3B,/E/G/ (3B,/E/G/ |$ %16
+ (3B,/^D/F/ (3B,/D/F/ (3B,/D/F/ (3B,/D/F/ | (3B,/E/=G/ (3B,/E/G/!p! (3B,/E/G/ (3B,/E/G/ | (3B,/D/F/ (3B,/D/F/ (3B,/=D/^E/ (3B,/D/E/ |$ (3B,/C/^G/ (3B,/C/G/ (3=A,/C/F/ (3A,/C/F/ | %20
+[I:staff +1] (3=G,/B,/=D/ (3G,/B,/D/ (3F,/A,/^D/ (3F,/A,/D/ | (3C,/F,/A,/ (3C,/F,/A,/ (3C,/F,/G,/ (3C,/^E,/G,/ |$ (3F,/A,/C/ (3A,/C/[I:staff -1]F/ (3C/F/A/ (3C/F/A/ | (3C/G/B/ (3C/G/B/ (3C/G/B/ (3C/G/B/ | %24
+ (3C/F/A/ (3C/F/A/ (3^B,/F/A/ (3C/F/A/ | (3D/F/G/ (3D/F/G/ (3D/F/G/ (3D/F/G/ |$ (3E/G/c/ (3E/G/c/ (3D/F/A/ (3C/E/^A/ | x (3G/^B,/D/ (3A/!>(!B,/D/ (3F/B,/!>)!D/ | %28
+ x[I:staff +1] (3G,/[I:staff -1]^B,/D/[I:staff +1] (3A,/!>(![I:staff -1]B,/D/[I:staff +1] (3F,/[I:staff -1]B,/!>)!D/ | x (3c/E/G/ (3e/!>(!E/G/ (3c/E/!>)!G/ |$ x[I:staff +1] (3C/E,/G,/ (3E/!>(!E,/G,/ (3C/E,/!>)!G,/ | x4 | %32
+ x4 |$ x4 | x4 | x4 |$ %36
+ x2 (3:2:2A,/ (D, (3:2:1C,3/2) | ^B,,2 (D, C,) | ^B,,2 (=D, C,) |$ ^B,,2 x2 | %40
+ x4 | (3E,/G,/C/ (3G,/C/E/ (3G,/[I:staff -1]C/E/[I:staff +1] (3G,/[I:staff -1]C/E/ |$[I:staff +1] (3G,/[I:staff -1]D/F/[I:staff +1] (3G,/[I:staff -1]D/F/[I:staff +1] (3G,/[I:staff -1]D/F/[I:staff +1] (3G,/[I:staff -1]D/F/ |[I:staff +1] (3G,/[I:staff -1]C/E/[I:staff +1] (3G,/[I:staff -1]C/E/[I:staff +1] (3A,/[I:staff -1]C/F/[I:staff +1] (3A,/[I:staff -1]C/F/ | %44
+[I:staff +1] (3G,/[I:staff -1]B,/E/[I:staff +1] (3G,/[I:staff -1]B,/E/[I:staff +1] (3A,/[I:staff -1]B,/D/[I:staff +1] (3A,/[I:staff -1]B,/D/ |[I:staff +1] (3G,/[I:staff -1]B,/E/ (3B,/E/G/ (3B,/E/G/ (3B,/E/G/ |$ (3B,/F/A/ (3B,/F/A/ (3B,/F/A/ (3B,/F/A/ | (3B,/E/G/ (3B,/E/G/ (3^B,/F/G/ (3C/E/G/ | %48
+ (3D/F/G/ (3D/F/G/ (3E/G/c/ (3E/G/c/ | (3=D/F/A/ (3D/F/A/ (3^B,/F/G/ (3B,/F/G/ |$ (3C/E/G/ (3C/E/G/ (3C/^E/G/ (3C/E/G/ | (3C/F/A/ (3C/F/A/!p! (3C/!>(!F/A/ (3C/F/A/!>)! | %52
+ (3C/^E/G/ (3C/E/G/ (3C/E/G/ (3C/E/G/ | (3C/F/A/ (3C/F/A/!p! (3C/!>(!F/A/ (3C/F/A/!>)! |$ (3C/^E/G/ (3C/E/G/ (3C/F/A/ (3C/F/A/ | (3=B,/F/A/ (3B,/F/A/ (3B,/F/A/ (3B,/E/G/ | %56
+ (3A,/E/G/ (3A,/D/F/ (3G,/D/F/ (3G,/C/E/ |[I:staff +1] (3F,/C/D/ (3F,/C/D/ (3G,/C/D/ (3A,/C/D/ |$ (3G,/C/E/ (3G,/C/E/ (3F,/^B,/D/ (3F,/B,/D/ |[I:staff -1] C x3 | %60
+ x4 | x4 |$ x3[I:staff +1] ^B, | x4 | %64
+ x3 ^B, |$ x4 | x4 | x2 [E,G,]2 | %68
+ [E,G,]4 |] %69
+V:3
+ [C,,C,]4 | [B,,,B,,]4 | [A,,,A,,]2 [F,,,F,,]2 |$ [G,,,G,,]2 [G,,,G,,]2 | %4
+ [C,,G,,C,]4 | [^B,,,G,,^B,,]4 |$ ([C,,C,]2 [F,,,F,,]2) | [B,,,B,,]2 [B,,,B,,]2 | %8
+ [E,,E,]4 | [E,,E,]4 |$ [=D,,=D,]4 | ([=C,,=C,] [B,,,B,,] [^A,,,^A,,]2) | %12
+ ([B,,,B,,]2 E,, =G,,) |$ F,,2 [F,,,F,,]2 | [B,,,B,,]4- |!<(! ([B,,,B,,] [E,,E,]!<)!!>(! [=G,,=G,] [E,,E,])!>)! |$ %16
+ [B,,,B,,]4- |!<(! ([B,,,B,,] [E,,E,]!<)!!>(! [=G,,=G,] [E,,E,])!>)! | [B,,,B,,]2 [^G,,,^G,,]2 |$ [^E,,,^E,,]2 [F,,,F,,]2 | %20
+ [B,,,B,,]2 [^B,,,^B,,]2 | C,,2 C,,2 |$ [F,,,C,,F,,]4 | [^E,,C,^E,]4 | %24
+ ([F,,F,]2 [D,,D,] [C,,C,]) | [^B,,,G,,^B,,]3 [B,,,G,,B,,] |$ [C,,G,,C,]2 ([F,,,F,,] [^^F,,,^^F,,]) | [G,,,G,,]4 | %28
+ [G,,,G,,]4 | [G,,,G,,]4 |$ [G,,,G,,]4 | [G,,,G,,]4 | %32
+ [G,,,G,,]4 |$ [G,,,G,,]4 | [G,,,G,,]4- | [G,,,G,,]4- |$ %36
+ [G,,,G,,]4 | [G,,,G,,]4 | [G,,,G,,]4 |$ [G,,,G,,]2 [A,,,A,,]2 | %40
+ [F,,,F,,]2 [G,,,G,,]2 |!pp! [C,,G,,C,]4 |$ [^B,,,G,,^B,,]4 | ([C,,C,]2 [F,,,F,,]2) | %44
+ [B,,,B,,]2 [B,,,B,,]2 | [E,,E,]4 |$ [D,,D,]4 | [E,,E,]2 [D,,D,] [C,,C,] | %48
+ ([^B,,,G,,^B,,]2 [C,,G,,C,]2) | ([F,,,F,,]2 [G,,,G,,]2) |$ [C,,C,]4- | ([C,,C,] [F,,F,] [A,,A,] [F,,F,]) | %52
+ [C,,C,]4- | ([C,,C,] [F,,F,] [A,,A,] [F,,F,]) |$ [C,,C,]2 (([F,,,F,,]2 | [D,,D,]3)) [E,,E,] | %56
+ ([C,,C,] [D,,D,] [^B,,,^B,,] [C,,C,]) | ([A,,,A,,]2 [G,,,G,,] [F,,,F,,]) |$ [G,,,G,,]2 [G,,,G,,]2 |!pp! G,,3 G,,/>G,,/ | %60
+ G,,3 G,,/>G,,/ | G,,3 G,,/>G,,/ |$ G,,3 G,,/>G,,/ |!<(! G,,3 G,,/>G,,/!<)! | %64
+!>(! G,,3 G,,/>G,,/!>)! |$ G,,2 C,2 | G,,2 (3(G,,/C,/G,,/ (3E,,/G,,/E,,/) |!pp! C,,2 [C,,G,,C,]2 | %68
+"_Attacca subito il seguente" !fermata![C,,G,,C,]4 |] %69
+V:4
+ x4 | x4 | x4 |$ x4 | %4
+ x4 | x4 |$ x4 | x4 | %8
+ x4 | x4 |$ x4 | x4 | %12
+ x4 |$ x4 | x4 | x4 |$ %16
+ x4 | x4 | x4 |$ x4 | %20
+ x4 | x4 |$ x4 | x4 | %24
+ x4 | x4 |$ x4 | x4 | %28
+ x4 | x4 |$ x4 | x4 | %32
+ x4 |$ x4 | x4 | x4 |$ %36
+ x4 | x4 | x4 |$ x4 | %40
+ x4 | x4 |$ x4 | x4 | %44
+ x4 | x4 |$ x4 | x4 | %48
+ x4 | x4 |$ x4 | x4 | %52
+ x4 | x4 |$ x4 | x4 | %56
+ x4 | x4 |$ x4 | C,,4 | %60
+ ^B,,,4 | C,,4 |$ G,,,4 | C,,4 | %64
+ G,,,4 |$ C,,4- | C,,2 x2 | x4 | %68
+ x4 |] %69

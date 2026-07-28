@@ -1,5 +1,6 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import abcjs from 'abcjs';
 import App from './App';
 import * as xmlParser from './utils/xmlParser';
 
@@ -64,6 +65,31 @@ describe('App Integration', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
     expect(screen.getByPlaceholderText(/Parsed ABC code will appear here/)).toBeDefined();
+  });
+
+  it('normalizes unsupported ABC before both visible and validation rendering', async () => {
+    const abcSource = 'X:1\nT:Tuplet rest\nL:1/4\nM:2/4\nK:C\n(3x/C/E/ C |';
+    localStorage.setItem('chorale.workspace.documents', JSON.stringify([{
+      id: 'tuplet-rest',
+      name: 'tuplet-rest.abc',
+      sourceType: 'abc',
+      abcSource,
+      revision: 1,
+      versions: [],
+      scoreInfo: { title: 'Tuplet rest' },
+    }]));
+    localStorage.setItem('chorale.workspace.activeFileId', 'tuplet-rest');
+
+    render(<App />);
+
+    await waitFor(() => {
+      const renderedSources = vi.mocked(abcjs.renderAbc).mock.calls
+        .map((call) => call[1] as string)
+        .filter((source) => source.includes('T:Tuplet rest'));
+      expect(renderedSources).toHaveLength(2);
+      expect(renderedSources.every((source) => source.includes('(3z/C/E/'))).toBe(true);
+      expect(renderedSources.every((source) => !source.includes('(3x/C/E/'))).toBe(true);
+    });
   });
 
 

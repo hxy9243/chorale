@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import abcjs from 'abcjs';
-import { prepareAbcForPlayback } from '../abcAudio';
+import { hideSyntheticTupletRests, prepareAbcForPlayback } from '../abcAudio';
 
 describe('abcAudio utilities', () => {
   const abcWithMidNoteTempoChange = `X:1
@@ -26,6 +26,13 @@ C2 | C2 |
 V:2
 !f![I:staff -1] C/[I:staff +1] D/ E/ F/ | C2 |`;
 
+  const abcWithInvisibleTupletRest = `X:1
+T:Invisible tuplet rest regression
+L:1/4
+M:2/4
+K:C
+(3x/C/E/ C |`;
+
   it('removes unsupported inline playback directives while preserving source offsets', () => {
     const prepared = prepareAbcForPlayback(abcWithMidNoteTempoChange);
     const preparedCrossStaff = prepareAbcForPlayback(abcWithInlineStaffChanges);
@@ -39,6 +46,11 @@ V:2
     expect(preparedCrossStaff).toHaveLength(abcWithInlineStaffChanges.length);
     expect(preparedCrossStaff.indexOf('D/ E/ F/'))
       .toBe(abcWithInlineStaffChanges.indexOf('D/ E/ F/'));
+
+    const preparedTuplet = prepareAbcForPlayback(abcWithInvisibleTupletRest);
+    expect(preparedTuplet).toContain('(3z/C/E/');
+    expect(preparedTuplet).toHaveLength(abcWithInvisibleTupletRest.length);
+    expect(preparedTuplet.indexOf('C/E/')).toBe(abcWithInvisibleTupletRest.indexOf('C/E/'));
   });
 
   it('keeps voices aligned when another voice sustains through a tempo change', () => {
@@ -90,5 +102,24 @@ V:2
     expect(barXs(abcWithInlineStaffChanges)).toHaveLength(1);
     expect(preparedBarXs).toHaveLength(2);
     expect(new Set(preparedBarXs)).toHaveLength(1);
+  });
+
+  it('anchors an invisible-rest triplet without displaying the synthetic rest', () => {
+    const scratch = document.createElement('div');
+    const prepared = prepareAbcForPlayback(abcWithInvisibleTupletRest);
+    const tunes = abcjs.renderAbc(scratch, prepared, { add_classes: true });
+
+    hideSyntheticTupletRests(abcWithInvisibleTupletRest, tunes);
+
+    const hiddenRests = scratch.querySelectorAll<SVGGElement>(
+      '.abcjs-rest[visibility="hidden"][aria-hidden="true"]',
+    );
+    expect(hiddenRests).toHaveLength(1);
+    expect(hiddenRests[0].getAttribute('pointer-events')).toBe('none');
+    expect(scratch.querySelector('.abcjs-triplet')).not.toBeNull();
+
+    const originalAudio = abcjs.parseOnly(abcWithInvisibleTupletRest)[0].setUpAudio({});
+    const preparedAudio = tunes[0].setUpAudio({});
+    expect(preparedAudio.totalDuration).toBe(originalAudio.totalDuration);
   });
 });
