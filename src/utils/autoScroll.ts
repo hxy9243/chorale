@@ -9,13 +9,14 @@ export const easeInOutQuad = (t: number): number => (
 export const calculateCenterScrollTop = (
   container: HTMLElement,
   cursorEl: Element,
+  targetRatio = 0.33,
 ): number => {
   const cursorRect = cursorEl.getBoundingClientRect();
   const containerRect = container.getBoundingClientRect();
 
   const lineCenterY = cursorRect.top + cursorRect.height / 2;
-  const containerCenterY = containerRect.top + containerRect.height / 2;
-  const deltaY = lineCenterY - containerCenterY;
+  const containerFocusY = containerRect.top + containerRect.height * targetRatio;
+  const deltaY = lineCenterY - containerFocusY;
 
   const targetScrollTop = container.scrollTop + deltaY;
   const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);

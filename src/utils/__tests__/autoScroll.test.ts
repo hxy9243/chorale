@@ -33,11 +33,11 @@ describe('autoScroll utils', () => {
       } as unknown as Element;
 
       // Line center Y: 400 + 20 = 420
-      // Container center Y: 100 + 200 = 300
-      // Delta: 420 - 300 = +120
-      // Target: 100 + 120 = 220
+      // Container focus Y (0.33): 100 + 400 * 0.33 = 232
+      // Delta: 420 - 232 = +188
+      // Target: 100 + 188 = 288
       const target = calculateCenterScrollTop(container, cursorEl);
-      expect(target).toBe(220);
+      expect(target).toBe(288);
     });
 
     it('clamps target scroll top within 0 and max scroll height', () => {

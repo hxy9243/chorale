@@ -321,6 +321,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   const isUserPausedRef = useRef<boolean>(false);
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const smoothScrollControllerRef = useRef<SmoothScrollController | null>(null);
+  const lastLineTopRef = useRef<number | null>(null);
 
   const performAutoCenter = React.useCallback((smoothDurationMs?: number) => {
     if (!containerRef.current) return;
@@ -331,7 +332,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     const cursorEl = containerRef.current.querySelector('.abcjs-playback-cursor');
     if (!cursorEl) return;
 
-    const targetScrollTop = calculateCenterScrollTop(scrollContainer, cursorEl);
+    const targetScrollTop = calculateCenterScrollTop(scrollContainer, cursorEl, 0.33);
 
     if (smoothDurationMs && smoothDurationMs > 0) {
       smoothScrollControllerRef.current?.cancel();
@@ -404,8 +405,21 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   useEffect(() => {
     const handleCursorMove = () => {
       const playing = getPlaybackPosition?.().isPlaying || isPlayingRef.current;
-      if (playing && !isUserPausedRef.current) {
-        performAutoCenter();
+      if (!playing || isUserPausedRef.current) return;
+
+      if (!containerRef.current) return;
+      const cursorEl = containerRef.current.querySelector('.abcjs-playback-cursor');
+      if (!cursorEl) return;
+
+      const cursorRect = cursorEl.getBoundingClientRect();
+      const currentLineTop = cursorRect.top;
+
+      if (lastLineTopRef.current === null) {
+        lastLineTopRef.current = currentLineTop;
+        performAutoCenter(400);
+      } else if (Math.abs(currentLineTop - lastLineTopRef.current) > 8) {
+        lastLineTopRef.current = currentLineTop;
+        performAutoCenter(400);
       }
     };
 
@@ -415,6 +429,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       isPlayingRef.current = playing;
       if (!playing) {
         isUserPausedRef.current = false;
+        lastLineTopRef.current = null;
         if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
         smoothScrollControllerRef.current?.cancel();
       }

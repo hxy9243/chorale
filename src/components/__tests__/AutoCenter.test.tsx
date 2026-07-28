@@ -29,8 +29,14 @@ describe('Auto-Centering Playing Line with User Scroll Override', () => {
     vi.restoreAllMocks();
   });
 
-  it('re-centers container when playback cursor moves', () => {
+  it('re-centers container to top 33% focus area when playback cursor moves', () => {
     const getPlaybackPosition = () => ({ currentSeconds: 5, isPlaying: true });
+
+    let rafCallback: FrameRequestCallback | null = null;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
+      rafCallback = cb;
+      return 1;
+    });
 
     const { container } = render(
       <div className="score-canvas" style={{ height: 400, overflowY: 'auto' }}>
@@ -44,7 +50,6 @@ describe('Auto-Centering Playing Line with User Scroll Override', () => {
     expect(scoreCanvas).toBeTruthy();
     expect(cursor).toBeTruthy();
 
-    // Mock getBoundingClientRect
     Object.defineProperty(scoreCanvas, 'scrollHeight', { value: 1000, writable: true });
     scoreCanvas.getBoundingClientRect = () => ({ top: 100, bottom: 500, height: 400 } as DOMRect);
     cursor.getBoundingClientRect = () => ({ top: 500, bottom: 540, height: 40 } as DOMRect);
@@ -55,12 +60,24 @@ describe('Auto-Centering Playing Line with User Scroll Override', () => {
       window.dispatchEvent(new CustomEvent('chorale-playback-cursor', { detail: {} }));
     });
 
-    // Line center: 520, Container center: 300, Delta: 220 -> scrollTop set to 220
-    expect(scoreCanvas.scrollTop).toBe(220);
+    // Advance animation frame for 400ms smooth scroll to new line position
+    act(() => {
+      vi.advanceTimersByTime(400);
+      if (rafCallback) (rafCallback as (t: number) => void)(performance.now());
+    });
+
+    // Line center: 520, Focus Y: 232, Delta: 288 -> target scrollTop set to 288
+    expect(scoreCanvas.scrollTop).toBe(288);
   });
 
-  it('pauses auto-centering for 2s on user scroll, then smoothly scrolls back to center in 500ms', () => {
+  it('pauses auto-centering for 2s on user scroll, then smoothly scrolls back to line in 500ms', () => {
     const getPlaybackPosition = () => ({ currentSeconds: 5, isPlaying: true });
+
+    let rafCallback: FrameRequestCallback | null = null;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
+      rafCallback = cb;
+      return 1;
+    });
 
     const { container } = render(
       <div className="score-canvas" style={{ height: 400, overflowY: 'auto' }}>
@@ -78,16 +95,18 @@ describe('Auto-Centering Playing Line with User Scroll Override', () => {
     act(() => {
       window.dispatchEvent(new CustomEvent('chorale-playback-state', { detail: { isPlaying: true } }));
       window.dispatchEvent(new CustomEvent('chorale-playback-cursor', { detail: {} }));
+      vi.advanceTimersByTime(400);
+      if (rafCallback) (rafCallback as (t: number) => void)(performance.now());
     });
 
-    expect(scoreCanvas.scrollTop).toBe(220);
+    expect(scoreCanvas.scrollTop).toBe(288);
 
     // Simulate user scroll event (wheel)
     act(() => {
       fireEvent.wheel(scoreCanvas, { deltaY: -100 });
     });
 
-    // Change cursor location to a new line (Line center: 620, Delta: 320)
+    // Change cursor location to a new line (Line center: 620, Delta: 620 - 232 = 388)
     cursor.getBoundingClientRect = () => ({ top: 600, bottom: 640, height: 40 } as DOMRect);
 
     // Fire cursor move event while user scroll pause is active
@@ -96,20 +115,13 @@ describe('Auto-Centering Playing Line with User Scroll Override', () => {
     });
 
     // Should NOT have jumped immediately during the 2s pause
-    expect(scoreCanvas.scrollTop).toBe(220);
+    expect(scoreCanvas.scrollTop).toBe(288);
 
-    let rafCallback: FrameRequestCallback | null = null;
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
-      rafCallback = cb;
-      return 1;
-    });
-
-    // Advance timer by 2000ms
+    // Advance timer by 2000ms pause
     act(() => {
       vi.advanceTimersByTime(2000);
     });
 
-    // requestAnimationFrame for 500ms smooth scroll should now be scheduled
     expect(window.requestAnimationFrame).toHaveBeenCalled();
 
     // Fast-forward animation frame by advancing timer by 500ms
@@ -118,7 +130,7 @@ describe('Auto-Centering Playing Line with User Scroll Override', () => {
       if (rafCallback) (rafCallback as (t: number) => void)(performance.now());
     });
 
-    // target is 540 (initial 220 + delta 320) after smooth scroll finishes
-    expect(scoreCanvas.scrollTop).toBe(540);
+    // target is 676 (initial 288 + delta 388) after smooth scroll finishes
+    expect(scoreCanvas.scrollTop).toBe(676);
   });
 });
