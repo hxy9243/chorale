@@ -9,6 +9,11 @@ import {
   type MeasureOccurrence,
   type PlaybackPosition,
 } from '../utils/repeatPlayback';
+import {
+  calculateCenterScrollTop,
+  animateScrollTo,
+  type SmoothScrollController,
+} from '../utils/autoScroll';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
@@ -311,6 +316,133 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     if (!containerRef.current) return;
     highlightMeasure(containerRef.current, activeAnchor);
   }, [abcCode, activeAnchor, transpose]);
+
+  const isPlayingRef = useRef<boolean>(false);
+  const isUserPausedRef = useRef<boolean>(false);
+  const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const smoothScrollControllerRef = useRef<SmoothScrollController | null>(null);
+  const lastLineTopRef = useRef<number | null>(null);
+
+  const performAutoCenter = React.useCallback((smoothDurationMs?: number) => {
+    if (!containerRef.current) return;
+    const scrollContainer = containerRef.current.closest<HTMLElement>('.score-canvas')
+      || document.querySelector<HTMLElement>('.score-canvas');
+    if (!scrollContainer) return;
+
+    const cursorEl = containerRef.current.querySelector('.abcjs-playback-cursor');
+    if (!cursorEl) return;
+
+    const targetScrollTop = calculateCenterScrollTop(scrollContainer, cursorEl, 0.33);
+
+    if (smoothDurationMs && smoothDurationMs > 0) {
+      smoothScrollControllerRef.current?.cancel();
+      smoothScrollControllerRef.current = animateScrollTo(
+        scrollContainer,
+        targetScrollTop,
+        smoothDurationMs,
+      );
+    } else {
+      scrollContainer.scrollTop = targetScrollTop;
+    }
+  }, []);
+
+  useEffect(() => {
+    const scrollContainer = containerRef.current?.closest<HTMLElement>('.score-canvas')
+      || document.querySelector<HTMLElement>('.score-canvas');
+    if (!scrollContainer) return;
+
+    const handleUserScroll = () => {
+      const playing = getPlaybackPosition?.().isPlaying || isPlayingRef.current;
+      if (!playing) return;
+
+      smoothScrollControllerRef.current?.cancel();
+      isUserPausedRef.current = true;
+
+      if (pauseTimerRef.current) {
+        clearTimeout(pauseTimerRef.current);
+      }
+
+      pauseTimerRef.current = setTimeout(() => {
+        isUserPausedRef.current = false;
+        const currentPlaying = getPlaybackPosition?.().isPlaying || isPlayingRef.current;
+        if (currentPlaying) {
+          performAutoCenter(500);
+        }
+      }, 2000);
+    };
+
+    const handleWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) {
+        handleUserScroll();
+      }
+    };
+
+    const handleTouchMove = () => {
+      handleUserScroll();
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Space', 'Home', 'End'].includes(e.key)) {
+        handleUserScroll();
+      }
+    };
+
+    scrollContainer.addEventListener('wheel', handleWheel, { passive: true });
+    scrollContainer.addEventListener('touchmove', handleTouchMove, { passive: true });
+    scrollContainer.addEventListener('keydown', handleKeyDown, { passive: true });
+
+    return () => {
+      scrollContainer.removeEventListener('wheel', handleWheel);
+      scrollContainer.removeEventListener('touchmove', handleTouchMove);
+      scrollContainer.removeEventListener('keydown', handleKeyDown);
+      if (pauseTimerRef.current) {
+        clearTimeout(pauseTimerRef.current);
+      }
+      smoothScrollControllerRef.current?.cancel();
+    };
+  }, [getPlaybackPosition, performAutoCenter]);
+
+  useEffect(() => {
+    const handleCursorMove = () => {
+      const playing = getPlaybackPosition?.().isPlaying || isPlayingRef.current;
+      if (!playing || isUserPausedRef.current) return;
+
+      if (!containerRef.current) return;
+      const cursorEl = containerRef.current.querySelector('.abcjs-playback-cursor');
+      if (!cursorEl) return;
+
+      const cursorRect = cursorEl.getBoundingClientRect();
+      const currentLineTop = cursorRect.top;
+
+      if (lastLineTopRef.current === null) {
+        lastLineTopRef.current = currentLineTop;
+        performAutoCenter(400);
+      } else if (Math.abs(currentLineTop - lastLineTopRef.current) > 8) {
+        lastLineTopRef.current = currentLineTop;
+        performAutoCenter(400);
+      }
+    };
+
+    const handlePlaybackState = (e: Event) => {
+      const customEv = e as CustomEvent<{ isPlaying: boolean }>;
+      const playing = Boolean(customEv.detail?.isPlaying);
+      isPlayingRef.current = playing;
+      if (!playing) {
+        isUserPausedRef.current = false;
+        lastLineTopRef.current = null;
+        if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
+        smoothScrollControllerRef.current?.cancel();
+      }
+    };
+
+    window.addEventListener('chorale-playback-cursor', handleCursorMove);
+    window.addEventListener('chorale-playback-state', handlePlaybackState);
+
+    return () => {
+      window.removeEventListener('chorale-playback-cursor', handleCursorMove);
+      window.removeEventListener('chorale-playback-state', handlePlaybackState);
+    };
+  }, [getPlaybackPosition, performAutoCenter]);
 
   const anchorLabel = formatAnchorLabel(activeAnchor);
 

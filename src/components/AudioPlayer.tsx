@@ -48,6 +48,10 @@ const updatePlaybackCursor = (event: abcjs.NoteTimingEvent) => {
   cursor.setAttribute('x2', String(event.left));
   cursor.setAttribute('y1', String(event.top));
   cursor.setAttribute('y2', String(event.top + event.height));
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('chorale-playback-cursor', { detail: event }));
+  }
 };
 
 interface AudioPlayerProps {
@@ -98,6 +102,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       currentSeconds: durationMs > 0 ? progress * durationMs / 1000 : 0,
       isPlaying: playing,
     });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('chorale-playback-state', { detail: { isPlaying: playing } }));
+    }
   }, [onPlaybackPositionChange]);
 
   // Master volume control using WebAudio GainNode
