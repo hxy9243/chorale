@@ -18,6 +18,13 @@ const mockCreateSynth = {
 
 vi.mock('abcjs', () => ({
   default: {
+    parseOnly: vi.fn().mockImplementation((_abc: string) => [{
+      getBpm: () => 120,
+      getTotalBeats: () => 16,
+      getBeatsPerMeasure: () => 4,
+      getTotalTime: () => 8,
+      setTiming: () => {},
+    }]),
     synth: {
       isSupported: vi.fn().mockReturnValue(true),
       SynthController: vi.fn(function () { return mockSynthControl; }),
