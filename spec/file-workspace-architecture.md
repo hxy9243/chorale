@@ -1,102 +1,92 @@
 # File Workspace Architecture
 
-Date: 2026-07-25  
+Date: 2026-07-28  
 Source: Figma frame `Chorale / Functional implementation overview`
 
 ## 1. Goal
 
-Define the implementation architecture implied by the current Figma design so frontend work can proceed with explicit contracts instead of letting state shape emerge from React components.
+Define the implementation architecture for Chorale's frontend workspace state, persistence boundaries, and rendering pipelines.
 
 ## 2. Runtime architecture
 
-The design board breaks the system into six cooperating layers.
+The system is structured into six cooperating layers:
 
 ### UI layer
 
 Owns visible workspace composition:
 
-- files rail
-- score and ABC split
-- playback dock
-- chat panel
+- files rail (collapsible, drag-resizable 160px–420px)
+- score and ABC split (drag-resizable 320px–720px)
+- playback dock (max-width 800px)
+- chat panel (drag-resizable 280px–680px)
 
-The UI layer should render from domain state, not own the canonical file model itself.
+The UI layer renders from domain document state.
 
-### FileSessionController
+### FileSessionController & Utilities (`utils/fileSession.ts`)
 
-Owns volatile session concerns for the currently open file:
+Owns session state and document helper operations for the open file:
 
 - active file identity
-- current revision
+- current revision counter
 - active score anchor
-- in-flight rebuild cancellation
-- view preferences such as divider position and visible panes
-
-This controller is the handoff point between user interactions and asynchronous score rebuild work.
+- document version limiting (`limitScoreVersions`, max 10 revisions)
+- view preferences (pane widths and visibility states)
 
 ### FileDocument store
 
-Owns durable file content and durable objects:
+Owns file content and durable objects:
 
-- source ABC
-- score info
+- source ABC text
+- score metadata (`title`, `composer`, `key`, `meter`, `tempoText`)
 - annotations
 - chat threads
-- stored revisions
+- stored revisions (`ScoreVersion[]`)
 
-This is the product boundary for persistence. Chat must read from here rather than invent shadow copies of durable state.
-
-### ABC render and audio pipeline
+### ABC render and audio pipeline (`utils/abcAudio.ts`, `utils/repeatPlayback.ts`)
 
 Owns revision-based derived outputs:
 
-- ABC validation
-- rendered score output
-- playback-ready audio state
+- ABC syntax validation (debounced 140ms)
+- rendered SVG score output (`abcjs.renderAbc`)
+- WebAudio synth preparation and audio timing fixes
+- repeat occurrence indexing and score cursor tracking
 
-The pipeline should publish results tagged with the source revision they were built from. The UI must ignore stale results.
+### Chat orchestrator and score tools (`components/AgentChatPanel.tsx`)
 
-### Chat orchestrator and score tools
+Owns AI conversation and score interaction:
 
-Owns AI-adjacent orchestration:
+- reading active file context and active `ScoreAnchor`
+- proposing score metadata, annotation, or ABC edits
+- per-file chat message history persistence
 
-- reading active file context
-- reading the active score anchor
-- proposing metadata, annotation, or ABC mutations
-- applying approved changes through durable file contracts
+### Local Storage Repository
 
-This layer should not mutate React state directly. It should produce proposals or invoke document-level commands.
+Owns workspace persistence:
 
-### IndexedDB repository
-
-Owns local persistence for file documents:
-
-- file snapshots
-- annotations
-- chat threads
-- restorable revisions
-
-The design implies browser persistence stronger than the prototype's single localStorage transcript.
+- file document snapshots (`chorale.workspace.documents`)
+- active file ID (`chorale.workspace.activeFileId`)
+- editor preferences (`chorale.workspace.editorVisible`, `chorale.workspace.editorWidth`)
+- debounced autosave (400ms delay)
 
 ## 3. Core invariants
 
 ### Shared-anchor invariant
 
-Playback, chat, and annotations must reference the same `ScoreAnchor` object. Chorale should not maintain one selection model for playback and another for chat.
+Playback, chat, and score selection reference the same `ScoreAnchor` object.
 
 ### Revision invariant
 
-Rendered score, validation state, and synth state must always correspond to the same committed source revision.
+Rendered score, validation state, and synth state correspond to the same committed source revision.
 
-### Durability invariant
+### Durability & History invariant
 
-Chat threads are disposable. File annotations and score metadata are durable file objects and must outlive any single chat thread.
+Document revisions are capped at 10 versions per document to prevent storage exhaustion while preserving undo capability.
 
-### Proposal invariant
+### User Scroll Pause invariant
 
-AI-driven edits should be reviewable before they become durable. Tool execution should not silently rewrite file content.
+Auto-centering score scroll pauses for 2 seconds whenever manual user scrolling is detected.
 
-## 4. Suggested TypeScript contracts
+## 4. TypeScript contracts (`src/types/document.ts`)
 
 ```ts
 type FileId = string;
@@ -111,6 +101,7 @@ type ScoreAnchor = {
   abcOffset?: number;
   playbackSeconds?: number;
   playbackFraction?: number;
+  label?: string;
 };
 
 type ScoreInfo = {
@@ -153,13 +144,6 @@ type FileDocument = {
   versions: ScoreVersion[];
 };
 
-type ChatThreadSummary = {
-  id: ChatThreadId;
-  title: string;
-  messageCount: number;
-  updatedAt: string;
-};
-
 type BuildResult = {
   fileId: FileId;
   revision: RevisionNumber;
@@ -170,59 +154,14 @@ type BuildResult = {
 };
 ```
 
-These are not final, but they match the shape implied by the Figma implementation board and are a better boundary than ad hoc component state.
+## 5. Persistence guidance
 
-## 5. Event flows
+Current local storage layout:
 
-### Flow A: score click to seek
+- `chorale.workspace.documents`: JSON array of `FileDocument` snapshots
+- `chorale.workspace.activeFileId`: string ID of active document
+- `chorale.workspace.editorVisible`: boolean pane toggle
+- `chorale.workspace.editorWidth`: clamped width in pixels (320–720)
+- `chorale.chat.threads.${fileId}`: per-file chat transcript history
 
-1. Score surface resolves the clicked note or system hit.
-2. The app constructs a `ScoreAnchor`.
-3. `FileSessionController` sets the active anchor.
-4. Playback seeks to the resolved musical location.
-5. Chat composer and annotation affordances attach the same anchor.
-
-### Flow B: ABC edit to atomic rebuild
-
-1. Editor updates draft ABC immediately.
-2. Validation is debounced.
-3. A new revision number invalidates older async work.
-4. Validation, score render, and synth preparation run in parallel.
-5. Only the latest completed revision may commit its outputs.
-
-### Flow C: chat tool to durable mutation
-
-1. Chat tool reads `FileDocument` plus the active `ScoreAnchor`.
-2. Tool creates a proposal or mutation command.
-3. Approved mutation updates the durable document.
-4. Mutation produces a new file revision when source changes.
-5. The chat thread records the action, but the durable object lives on the file.
-
-## 6. Storage guidance
-
-Use local persistence appropriate for structured file objects.
-
-Recommended split:
-
-- IndexedDB for `FileDocument`, annotations, versions, and thread summaries
-- local UI preferences for pane visibility or divider state
-- no durable file content in ephemeral chat-only storage
-
-The current localStorage conversation store can remain during migration, but it should not stay the long-term persistence boundary.
-
-## 7. Migration note
-
-The current prototype already proved:
-
-- unsaved ABC can be captured for chat
-- Pi integration can stream through a narrow adapter
-- local transcript persistence works
-
-It did not prove:
-
-- file-owned persistence
-- anchor unification across score, playback, and chat
-- reviewable score mutations
-- revision-gated rebuild correctness
-
-Implementation should preserve the proven chat adapter boundary while replacing the surrounding state model.
+Document changes auto-save with a 400ms debounce. Revision history is trimmed to 10 entries per document.
