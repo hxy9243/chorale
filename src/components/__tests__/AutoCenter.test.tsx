@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react';
 import { SheetMusicView } from '../SheetMusicView';
 
