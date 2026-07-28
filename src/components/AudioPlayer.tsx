@@ -5,6 +5,7 @@ import { Play, Pause, Square, Volume2, VolumeX, Music2 } from 'lucide-react';
 import type { ScoreAnchor } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
 import type { PlaybackPosition } from '../utils/repeatPlayback';
+import { prepareAbcForPlayback } from '../utils/abcAudio';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const PLAYBACK_CURSOR_SELECTOR = '.abcjs-playback-cursor';
@@ -52,12 +53,14 @@ const updatePlaybackCursor = (event: abcjs.NoteTimingEvent) => {
 
 interface AudioPlayerProps {
   tunes: abcjs.TuneObject[] | null;
+  abcCode?: string;
   activeAnchor?: ScoreAnchor | null;
   onPlaybackPositionChange?: (position: PlaybackPosition) => void;
 }
 
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   tunes,
+  abcCode,
   activeAnchor,
   onPlaybackPositionChange,
 }) => {
@@ -78,6 +81,28 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const audioContainerRef = useRef<HTMLDivElement>(null);
   const masterGainRef = useRef<GainNode | null>(null);
   const effectiveVolume = isMuted ? 0 : volume;
+
+  const audioTune = React.useMemo(() => {
+    const visualTune = tunes?.[0] || null;
+    if (!visualTune) return null;
+
+    if (abcCode && abcCode.trim()) {
+      try {
+        const parseFn = (abcjs as any).parseOnly || (abcjs as any).default?.parseOnly;
+        if (typeof parseFn === 'function') {
+          const preparedAbc = prepareAbcForPlayback(abcCode);
+          const parsed = parseFn(preparedAbc);
+          if (parsed && parsed.length > 0 && parsed[0]) {
+            return parsed[0];
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to prepare synchronized audio tune from abcCode:', err);
+      }
+    }
+
+    return visualTune;
+  }, [tunes, abcCode]);
 
   const updatePlaybackPosition = React.useCallback((next: {
     progress?: number;
@@ -134,7 +159,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   // Primary synth initialization on tune change
   useEffect(() => {
-    const currentTune = tunes?.[0] || null;
+    const currentTune = audioTune;
     removePlaybackCursor();
     if (!currentTune) {
       setIsReady(false);
@@ -262,7 +287,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       }
       removePlaybackCursor();
     };
-  }, [tunes, updatePlaybackPosition]);
+  }, [audioTune, updatePlaybackPosition]);
 
   const applyAnchorSeek = React.useCallback((anchor: ScoreAnchor) => {
     const tune = tunes?.[0];
