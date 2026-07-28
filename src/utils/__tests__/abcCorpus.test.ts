@@ -2,7 +2,11 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import abcjs from 'abcjs';
-import { hideSyntheticTupletRests, prepareAbcForPlayback } from '../abcAudio';
+import {
+  configureAudioPlayback,
+  hideSyntheticTupletRests,
+  prepareAbcForPlayback,
+} from '../abcAudio';
 
 const fixtureDirectory = resolve(process.cwd(), 'src/test/fixtures/abc');
 const corpus = readdirSync(fixtureDirectory)
@@ -19,6 +23,7 @@ const render = (originalAbc: string) => {
     add_classes: true,
   });
   hideSyntheticTupletRests(originalAbc, tunes);
+  configureAudioPlayback(originalAbc, tunes);
   return { scratch, tunes };
 };
 
@@ -44,5 +49,22 @@ describe('ABC corpus', () => {
       expect(() => tune.setTiming?.(tune.getBpm?.())).not.toThrow();
       expect(() => tune.setUpAudio({})).not.toThrow();
     }
+  });
+
+  it('keeps every Moonlight triplet audible in measures 41 and 42', () => {
+    const moonlight = corpus.find(({ filename }) => filename === 'moonlight.abc');
+    expect(moonlight).toBeDefined();
+
+    const { tunes } = render(moonlight!.source);
+    const secondTrebleVoice = tunes[0].setUpAudio({}).tracks[1]
+      .filter((event) => (
+        event.cmd === 'note'
+        && event.start >= 40
+        && event.start < 42
+    ));
+
+    expect(secondTrebleVoice).toHaveLength(24);
+    expect(secondTrebleVoice.every((event) => event.cmd === 'note' && event.volume > 0))
+      .toBe(true);
   });
 });

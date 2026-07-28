@@ -1,7 +1,7 @@
-import type abcjs from 'abcjs';
+import abcjs from 'abcjs';
 
 /**
- * Produces the ABC used by both engraving and synthesis.
+ * Produces structurally safe ABC while preserving source offsets.
  *
  * abcjs cannot apply a tempo change in one voice halfway through a sustained
  * note or rest in another voice. Removing body-level tempo changes keeps every
@@ -19,11 +19,11 @@ import type abcjs from 'abcjs';
  * duration and does create an anchor, so use one during engraving and hide that
  * synthetic glyph after rendering.
  *
- * Because this same ABC is rendered, engraving, audio, seeking, duration, and
- * cursor callbacks all share one timing model.
- * Whitespace preserves source offsets used by score selection.
+ * This ABC is the common timing model for engraving and synthesis. Whitespace
+ * preserves source offsets used by score selection.
  */
 const TUPLET_INVISIBLE_REST_PATTERN = /(\(\d(?::\d*){0,2}[ \t]*)x/g;
+const HAIRPIN_DECORATION_PATTERN = /![<>][()]!/g;
 
 export function prepareAbcForPlayback(abc: string): string {
   if (!abc) return '';
@@ -33,6 +33,39 @@ export function prepareAbcForPlayback(abc: string): string {
       (directive) => ' '.repeat(directive.length),
     )
     .replace(TUPLET_INVISIBLE_REST_PATTERN, '$1z');
+}
+
+/**
+ * Removes hairpins only from synthesis.
+ *
+ * abcjs applies a fixed crescendo/diminuendo delta to each beat-accent volume.
+ * A short diminuendo can therefore make weaker notes negative; the flattener
+ * clamps those notes to volume zero and leaves later notes silent. Explicit
+ * dynamics such as `!pp!` remain intact, and replacing only the hairpin tokens
+ * with whitespace leaves notes, durations, and source offsets unchanged.
+ */
+export function prepareAbcForAudio(abc: string): string {
+  return prepareAbcForPlayback(abc)
+    .replace(HAIRPIN_DECORATION_PATTERN, (decoration) => ' '.repeat(decoration.length));
+}
+
+/**
+ * Keeps the engraved tune as the source of cursor and timing events while
+ * supplying it with an equivalent, hairpin-safe synthesis event stream.
+ */
+export function configureAudioPlayback(
+  originalAbc: string,
+  tunes: abcjs.TuneObject[] | null | undefined,
+): void {
+  if (!originalAbc || !tunes?.length) return;
+  if (typeof abcjs.parseOnly !== 'function') return;
+
+  const audioTunes = abcjs.parseOnly(prepareAbcForAudio(originalAbc));
+  for (const [index, tune] of tunes.entries()) {
+    const audioTune = audioTunes[index];
+    if (!audioTune?.setUpAudio) continue;
+    tune.setUpAudio = audioTune.setUpAudio.bind(audioTune);
+  }
 }
 
 type EngravedSelectable = {
