@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import abcjs from 'abcjs';
-import { hideSyntheticTupletRests, prepareAbcForPlayback } from '../abcAudio';
+import {
+  configureAudioPlayback,
+  hideSyntheticTupletRests,
+  prepareAbcForAudio,
+  prepareAbcForPlayback,
+} from '../abcAudio';
 
 describe('abcAudio utilities', () => {
   const abcWithMidNoteTempoChange = `X:1
@@ -33,6 +38,13 @@ M:2/4
 K:C
 (3x/C/E/ C |`;
 
+  const abcWithHairpin = `X:1
+T:Hairpin synthesis regression
+L:1/4
+M:4/4
+K:C
+!p! C !>(! D E F !>)! | G4 |`;
+
   it('removes unsupported inline playback directives while preserving source offsets', () => {
     const prepared = prepareAbcForPlayback(abcWithMidNoteTempoChange);
     const preparedCrossStaff = prepareAbcForPlayback(abcWithInlineStaffChanges);
@@ -51,6 +63,14 @@ K:C
     expect(preparedTuplet).toContain('(3z/C/E/');
     expect(preparedTuplet).toHaveLength(abcWithInvisibleTupletRest.length);
     expect(preparedTuplet.indexOf('C/E/')).toBe(abcWithInvisibleTupletRest.indexOf('C/E/'));
+
+    const preparedHairpinAudio = prepareAbcForAudio(abcWithHairpin);
+    expect(prepareAbcForPlayback(abcWithHairpin)).toContain('!>(!');
+    expect(preparedHairpinAudio).not.toContain('!>(!');
+    expect(preparedHairpinAudio).not.toContain('!>)!');
+    expect(preparedHairpinAudio).toContain('!p!');
+    expect(preparedHairpinAudio).toHaveLength(abcWithHairpin.length);
+    expect(preparedHairpinAudio.indexOf('G4')).toBe(abcWithHairpin.indexOf('G4'));
   });
 
   it('keeps voices aligned when another voice sustains through a tempo change', () => {
@@ -121,5 +141,24 @@ K:C
     const originalAudio = abcjs.parseOnly(abcWithInvisibleTupletRest)[0].setUpAudio({});
     const preparedAudio = tunes[0].setUpAudio({});
     expect(preparedAudio.totalDuration).toBe(originalAudio.totalDuration);
+  });
+
+  it('uses hairpin-safe audio without removing the engraved decorations', () => {
+    const scratch = document.createElement('div');
+    const tunes = abcjs.renderAbc(scratch, prepareAbcForPlayback(abcWithHairpin), {
+      add_classes: true,
+    });
+    const originalAudio = tunes[0].setUpAudio({});
+
+    configureAudioPlayback(abcWithHairpin, tunes);
+    const configuredAudio = tunes[0].setUpAudio({});
+
+    expect(scratch.querySelector('.abcjs-dynamics[data-name="dynamics"]')).not.toBeNull();
+    expect(configuredAudio.totalDuration).toBe(originalAudio.totalDuration);
+    expect(configuredAudio.tracks[0].filter((event) => event.cmd === 'note'))
+      .toHaveLength(originalAudio.tracks[0].filter((event) => event.cmd === 'note').length);
+    expect(configuredAudio.tracks[0]
+      .filter((event) => event.cmd === 'note')
+      .every((event) => event.volume > 0)).toBe(true);
   });
 });

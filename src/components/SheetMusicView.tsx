@@ -3,7 +3,11 @@ import abcjs from 'abcjs';
 import { ZoomIn, ZoomOut, RotateCcw, SlidersHorizontal, Tag, X } from 'lucide-react';
 import type { ScoreAnchor } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
-import { hideSyntheticTupletRests, prepareAbcForPlayback } from '../utils/abcAudio';
+import {
+  configureAudioPlayback,
+  hideSyntheticTupletRests,
+  prepareAbcForPlayback,
+} from '../utils/abcAudio';
 import {
   buildMeasureOccurrences,
   selectMeasureWithRepeats,
@@ -297,6 +301,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       });
       renderedTune = tunes?.[0] || null;
       hideSyntheticTupletRests(abcCode, tunes);
+      configureAudioPlayback(abcCode, tunes);
       measureOccurrencesRef.current = renderedTune ? buildMeasureOccurrences(renderedTune) : [];
       installMeasureHitAreas(containerRef.current, (measure) => selectMeasure(measure));
 
