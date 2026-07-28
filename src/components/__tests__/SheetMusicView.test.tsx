@@ -29,6 +29,17 @@ describe('SheetMusicView Component', () => {
     expect(abcjs.renderAbc).toHaveBeenCalled();
   });
 
+  it('renders from ABC without inline tempo changes so visual timing and audio stay aligned', () => {
+    const abcWithTempoChange = sampleAbc.replace('C D', 'C [Q:1/4=60] D');
+
+    render(<SheetMusicView abcCode={abcWithTempoChange} />);
+
+    const renderedAbc = vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[1] as string;
+    expect(renderedAbc).not.toContain('[Q:1/4=60]');
+    expect(renderedAbc).toHaveLength(abcWithTempoChange.length);
+    expect(renderedAbc.indexOf('D E F')).toBe(abcWithTempoChange.indexOf('D E F'));
+  });
+
   it('handles transpose controls (+1, -1, reset)', () => {
     const { container } = render(<SheetMusicView abcCode={sampleAbc} />);
 

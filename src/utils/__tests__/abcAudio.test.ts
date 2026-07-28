@@ -1,58 +1,43 @@
 import { describe, expect, it } from 'vitest';
 import abcjs from 'abcjs';
-import fs from 'fs';
-import path from 'path';
-import {
-  prepareAbcForPlayback,
-  sanitizeAbcForAudio,
-  syncAbcTempoAcrossVoices,
-} from '../abcAudio';
+import { prepareAbcForPlayback } from '../abcAudio';
 
 describe('abcAudio utilities', () => {
-  const beethovenAbcPath = path.resolve(__dirname, '../../../beethoven.abc');
-  const beethovenAbc = fs.readFileSync(beethovenAbcPath, 'utf-8');
+  const abcWithMidNoteTempoChange = `X:1
+T:Tempo synchronization regression
+L:1/4
+Q:1/4=60
+M:4/4
+K:C
+V:1
+C [Q:1/4=30] D E F | G4 |
+V:2
+C4 | C4 |`;
 
-  it('sanitizeAbcForAudio removes inline [Q:] markings while preserving header Q:', () => {
-    const sanitized = sanitizeAbcForAudio(beethovenAbc);
-    expect(sanitized).toContain('Q:1/4=68');
-    expect(sanitized).not.toContain('[Q:1/4=66]');
-    expect(sanitized).not.toContain('[Q:1/4=60]');
+  it('removes inline tempo changes but preserves the header tempo', () => {
+    const prepared = prepareAbcForPlayback(abcWithMidNoteTempoChange);
+
+    expect(prepared).toContain('\nQ:1/4=60\n');
+    expect(prepared).not.toContain('[Q:1/4=30]');
+    expect(prepared).toHaveLength(abcWithMidNoteTempoChange.length);
+    expect(prepared.indexOf('D E F')).toBe(abcWithMidNoteTempoChange.indexOf('D E F'));
   });
 
-  it('syncAbcTempoAcrossVoices propagates inline tempos to all voices', () => {
-    const synced = syncAbcTempoAcrossVoices(beethovenAbc);
-    // V:2 should now contain inline tempos matching V:1 measures
-    expect(synced).toContain('[Q:1/4=66]');
-    
-    // Test with abcjs parse & setupAudio
-    const tunes = abcjs.parseOnly(synced);
-    expect(tunes).toBeDefined();
-    expect(tunes.length).toBeGreaterThan(0);
-    const audioEvents = tunes[0].setUpAudio({} as any);
-    expect(audioEvents.tracks.length).toBe(2);
+  it('keeps voices aligned when another voice sustains through a tempo change', () => {
+    const originalAudio = abcjs.parseOnly(abcWithMidNoteTempoChange)[0].setUpAudio({});
+    const preparedAudio = abcjs
+      .parseOnly(prepareAbcForPlayback(abcWithMidNoteTempoChange))[0]
+      .setUpAudio({});
+    const trackEnd = (track: typeof preparedAudio.tracks[number]) => Math.max(
+      ...track
+        .filter((event) => event.cmd === 'note')
+        .map((event) => event.start + event.duration),
+    );
 
-    const tr0Notes = audioEvents.tracks[0].filter((e: any) => e.cmd === 'note');
-    const tr1Notes = audioEvents.tracks[1].filter((e: any) => e.cmd === 'note');
-
-    const lastTr0: any = tr0Notes[tr0Notes.length - 1];
-    const lastTr1: any = tr1Notes[tr1Notes.length - 1];
-
-    // Final note start times should align within 1ms
-    const timeDiffSec = Math.abs(lastTr0.start - lastTr1.start);
-    expect(timeDiffSec).toBeLessThan(0.001);
-  });
-
-  it('prepareAbcForPlayback generates fully synchronized audio tracks', () => {
-    const prepared = prepareAbcForPlayback(beethovenAbc, 'sync');
-    const tunes = abcjs.parseOnly(prepared);
-    const audioEvents = tunes[0].setUpAudio({} as any);
-
-    const tr0Notes = audioEvents.tracks[0].filter((e: any) => e.cmd === 'note');
-    const tr1Notes = audioEvents.tracks[1].filter((e: any) => e.cmd === 'note');
-
-    const lastTr0: any = tr0Notes[tr0Notes.length - 1];
-    const lastTr1: any = tr1Notes[tr1Notes.length - 1];
-
-    expect(Math.abs(lastTr0.start - lastTr1.start)).toBeLessThan(0.001);
+    expect(Math.abs(trackEnd(originalAudio.tracks[0]) - trackEnd(originalAudio.tracks[1])))
+      .toBeGreaterThan(1);
+    expect(trackEnd(preparedAudio.tracks[0])).toBe(trackEnd(preparedAudio.tracks[1]));
+    expect(preparedAudio.tracks.map((track) => track.filter((event) => event.cmd === 'note').length))
+      .toEqual(originalAudio.tracks.map((track) => track.filter((event) => event.cmd === 'note').length));
   });
 });

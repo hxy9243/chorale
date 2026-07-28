@@ -551,7 +551,6 @@ export const App: React.FC = () => {
             <div className="playback-dock-container">
               <AudioPlayer
                 tunes={canRenderScore ? tunes : null}
-                abcCode={canRenderScore ? abcCode : undefined}
                 activeAnchor={activeAnchor}
                 onPlaybackPositionChange={handlePlaybackPositionChange}
               />

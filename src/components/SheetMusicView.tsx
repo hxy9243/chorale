@@ -3,6 +3,7 @@ import abcjs from 'abcjs';
 import { ZoomIn, ZoomOut, RotateCcw, SlidersHorizontal, Tag, X } from 'lucide-react';
 import type { ScoreAnchor } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
+import { prepareAbcForPlayback } from '../utils/abcAudio';
 import {
   buildMeasureOccurrences,
   selectMeasureWithRepeats,
@@ -267,7 +268,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       };
 
       const visualTranspose = transpose;
-      const tunes = abcjs.renderAbc(containerRef.current, abcCode, {
+      const tunes = abcjs.renderAbc(containerRef.current, prepareAbcForPlayback(abcCode), {
         responsive: 'resize',
         scale: 1,
         staffwidth: 740,
