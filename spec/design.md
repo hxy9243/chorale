@@ -1,42 +1,46 @@
 # Chorale Design Spec Index
 
-Date: 2026-07-25  
+Date: 2026-07-28  
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
-This directory now splits the design into category-specific specs instead of keeping the entire workspace design in one file.
+This directory splits the design into category-specific specs instead of keeping the entire workspace design in one file.
 
 ## Core design specs
 
-- [workspace-layout.md](./workspace-layout.md): top-level workspace structure, header, file rail, and central layout
-- [score-surface.md](./score-surface.md): rendered score behavior, selection, annotation overlays, and score-specific UI
-- [interaction-model.md](./interaction-model.md): shared `ScoreAnchor` model and cross-surface interaction flows
-- [abc-editor.md](./abc-editor.md): split-pane editor behavior, validation state, and synchronization requirements
-- [playback-dock.md](./playback-dock.md): playback UI, seek behavior, and score-cursor alignment
-- [pi-agent-chat.md](./pi-agent-chat.md): chat panel, thread model, context envelope, and tool-facing product rules
-- [file-workspace-architecture.md](./file-workspace-architecture.md): runtime architecture, persistence boundaries, contracts, and invariants
+- [workspace-layout.md](./workspace-layout.md): top-level workspace structure, header, file rail, resizable sidebars, and central layout
+- [score-surface.md](./score-surface.md): rendered score behavior, repeat-aware measure selection, auto-centering playback, and score UI
+- [interaction-model.md](./interaction-model.md): shared `ScoreAnchor` model, repeat-pass resolution, user scroll-pause, and cross-surface interaction flows
+- [abc-editor.md](./abc-editor.md): split-pane editor behavior, draggable divider, validation state, and synchronization requirements
+- [playback-dock.md](./playback-dock.md): playback UI, WebAudio volume/mute controls, seek behavior, and score-cursor alignment
+- [pi-agent-chat.md](./pi-agent-chat.md): resizable chat panel, per-file thread model, context envelope, and tool-facing product rules
+- [file-workspace-architecture.md](./file-workspace-architecture.md): runtime architecture, debounced persistence boundaries, contracts, and invariants
 
-## Existing supporting specs
+## Supporting specs
 
 - [pi-agent-feasibility.md](./pi-agent-feasibility.md): prototype feasibility findings for the Pi adapter path
 
 ## Product summary
 
-The design direction is a file-owned music workspace where score viewing, ABC editing, playback, annotations, and chat operate on the same active score state. The main product-level shifts from the current prototype are:
+The design direction is a file-owned music workspace where score viewing, ABC editing, playback, annotations, and chat operate on the same active score state. Key architectural elements:
 
-- file-scoped workspace state instead of a single in-memory score
-- a shared `ScoreAnchor` used by score selection, playback, annotations, and chat
-- a split score and ABC workspace
-- durable file objects such as annotations, score info, and revisions
-- chat that is attached to the active file rather than acting as a generic side panel
+- file-scoped workspace state with debounced local storage persistence and bounded revision history
+- shared `ScoreAnchor` model linking score selection, playback seek, and chat prompt context
+- split score and ABC workspace with drag-resizable panes
+- auto-centering playback line with user scroll pause behavior
+- repeat-aware measure selection avoiding unnecessary DOM re-renders
 
-## Current implementation gaps
+## Implemented workspace features
 
-Compared with the current branch, the design still requires:
+- [x] File rail with document list, file import, reordering, deletion, collapse toggle, and drag-resizing
+- [x] Resizable right-side chat panel with toggle and per-file thread persistence
+- [x] Split ABC editor pane with draggable divider, status chrome (`Valid · r{revision}`, `Rebuilding`, `Invalid ABC`), and local storage persistence
+- [x] Shared score anchor selection and repeat-pass resolution (`selectMeasureWithRepeats`)
+- [x] WebAudio piano synth playback dock with GainNode volume slider, mute toggle, and max-width layout
+- [x] Auto-centering score playback line with smooth scrolling and 2-second user scroll pause
+- [x] Score zoom layout space reservation preventing SVG container clipping
+- [x] Debounced document autosave (400ms) with bounded version history (max 10 revisions)
 
-- file rail and file-owned state
-- shared score-anchor infrastructure
-- persistent annotations
-- split score and ABC layout
-- revision-gated rebuilds
-- per-file chat threads
-- explicit separation between ephemeral chat state and durable file mutations
+## Remaining design gaps
+
+- [ ] Inline document annotation overlay rendering on notation surface
+- [ ] Explicit proposal-and-review UI for AI-suggested ABC edits

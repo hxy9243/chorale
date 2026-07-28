@@ -1,45 +1,38 @@
 # Score Surface Spec
 
-Date: 2026-07-25  
+Date: 2026-07-28  
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 ## 1. Goal
 
-Define how the rendered score should behave as the primary reading and interaction surface.
+Define how the rendered score behaves as the primary reading and interaction surface.
 
 ## 2. Score presentation
 
-The score surface should support continuous-scroll reading rather than behaving like a single isolated render block.
+The score surface supports continuous-scroll reading with automatic playback centering.
 
 Expected presentation:
 
-- score title and metadata row at the top
-- continuous vertical staff systems
-- visible measure numbers on the left
-- toolbar-level zoom and fit controls
-- readable spacing for inline annotation affordances
-
-This is more advanced than the current `SheetMusicView`, which renders and zooms but does not model continuous document-style interaction.
+- score title, composer, key, meter, and tempo header row at the top of the score sheet
+- continuous vertical staff systems rendered via SVG (`abcjs`)
+- visible measure numbers on the left of systems
+- zoom space reservation (`zoom: currentZoom/100`, `width: ${currentZoom}%`, `marginInline: auto`) ensuring scaled score SVGs do not clip container bounds
+- auto-centering playback line: during audio playback, the score smooth-scrolls to keep the active playback line centered; manual user scroll/touch/key input pauses auto-centering for 2 seconds before resuming
 
 ## 3. Selection behavior
 
-The score must support anchored selection of a note, beat, or contiguous passage.
+The score supports anchored selection of a measure or location across repeat passes.
 
-Examples from the design:
+Selection rules:
 
-- selected note or beat
-- selected passage such as measures 5–6
-- a visible highlight region on the score
-
-Selection is not just visual emphasis. It is a reusable context handoff into playback, annotations, and chat.
-
-For a single-measure selection, Chorale should draw a faint warm highlight behind the complete measure. The highlight must not recolor notation, intercept pointer input, or depend on a particular note being selected. Selecting another measure replaces the previous highlight.
-
-Measure selection uses a transparent interaction layer above the notation so staff lines and whitespace are as reliable as noteheads. The interaction layer must support pointer and keyboard activation without changing the printed score appearance.
+- selected measure is visually emphasized with a faint warm highlight (`abcjs-measure-highlight`)
+- selecting a measure resolves the specific repeat pass occurrence based on current playback timestamp (`selectMeasureWithRepeats`), preventing cascading repeat jumps or DOM re-rendering
+- selection updates the shared `ScoreAnchor` and hands off into playback, chat, and annotations
+- measure selection uses an interactive hit layer (`abcjs-measure-hit-area`) placed above notation so clicks on staff lines or whitespace select measures reliably on first attempt
 
 ## 4. Annotation overlays
 
-The score surface should support inline annotation UI layered on top of rendered notation.
+The score surface supports inline annotation UI layered on top of rendered notation.
 
 Required elements:
 
@@ -48,34 +41,32 @@ Required elements:
 - annotation detail cards that explain the selected note or harmonic event
 - a direct handoff action from annotation detail into chat
 
-Annotations should be rendered from structured data, not inferred from ad hoc DOM state.
+Annotations are rendered from structured document state rather than ad hoc DOM inspection.
 
 ## 5. Score toolbar
 
-The toolbar should expose score-facing controls without competing with the score itself.
+The toolbar exposes score-facing controls without competing with the score itself.
 
 Expected controls:
 
-- score or ABC view switching
-- annotate action
-- zoom percentage control
-- fit control
+- key transposition controls (-1, +1 semitone, reset)
+- zoom controls (-10%, +10%, percentage readout, wheel zoom with Ctrl/Cmd)
+- active anchor badge with clear selection button
+- split editor visibility toggle button
 
-The toolbar belongs to the score workspace, not to the app header.
+The toolbar belongs to the score workspace.
 
 ## 6. Relationship to current implementation
 
-The current branch already has:
+The current implementation provides:
 
-- rendered ABC notation
-- zoom controls
-- transposition controls
-- global measure selection
-- a persistent measure highlight
-- selection handoff to chat and playback
+- rendered ABC SVG notation with responsive layout
+- zoom controls with space reservation for container bounds
+- key transposition controls
+- repeat-aware global measure selection and non-destructive measure highlights
+- auto-centering playback line with user scroll-pause behavior
+- anchor handoff to playback and chat
 
 The design still requires:
 
-- continuous-scroll composition
-- annotation overlay rendering
-- score metadata header
+- inline annotation overlay rendering
