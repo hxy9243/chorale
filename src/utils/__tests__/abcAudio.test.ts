@@ -28,14 +28,14 @@ describe('abcAudio utilities', () => {
     const tunes = abcjs.parseOnly(synced);
     expect(tunes).toBeDefined();
     expect(tunes.length).toBeGreaterThan(0);
-    const audioEvents = tunes[0].setUpAudio();
+    const audioEvents = tunes[0].setUpAudio({} as any);
     expect(audioEvents.tracks.length).toBe(2);
 
     const tr0Notes = audioEvents.tracks[0].filter((e: any) => e.cmd === 'note');
     const tr1Notes = audioEvents.tracks[1].filter((e: any) => e.cmd === 'note');
 
-    const lastTr0 = tr0Notes[tr0Notes.length - 1];
-    const lastTr1 = tr1Notes[tr1Notes.length - 1];
+    const lastTr0: any = tr0Notes[tr0Notes.length - 1];
+    const lastTr1: any = tr1Notes[tr1Notes.length - 1];
 
     // Final note start times should align within 1ms
     const timeDiffSec = Math.abs(lastTr0.start - lastTr1.start);
@@ -45,13 +45,13 @@ describe('abcAudio utilities', () => {
   it('prepareAbcForPlayback generates fully synchronized audio tracks', () => {
     const prepared = prepareAbcForPlayback(beethovenAbc, 'sync');
     const tunes = abcjs.parseOnly(prepared);
-    const audioEvents = tunes[0].setUpAudio();
+    const audioEvents = tunes[0].setUpAudio({} as any);
 
     const tr0Notes = audioEvents.tracks[0].filter((e: any) => e.cmd === 'note');
     const tr1Notes = audioEvents.tracks[1].filter((e: any) => e.cmd === 'note');
 
-    const lastTr0 = tr0Notes[tr0Notes.length - 1];
-    const lastTr1 = tr1Notes[tr1Notes.length - 1];
+    const lastTr0: any = tr0Notes[tr0Notes.length - 1];
+    const lastTr1: any = tr1Notes[tr1Notes.length - 1];
 
     expect(Math.abs(lastTr0.start - lastTr1.start)).toBeLessThan(0.001);
   });
