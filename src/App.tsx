@@ -20,6 +20,7 @@ import {
 } from './utils/fileSession';
 import { formatAnchorLabel } from './utils/anchor';
 import type { PlaybackPosition } from './utils/repeatPlayback';
+import { prepareAbcForPlayback } from './utils/abcAudio';
 
 const EDITOR_VISIBLE_KEY = 'chorale.workspace.editorVisible';
 const EDITOR_WIDTH_KEY = 'chorale.workspace.editorWidth';
@@ -197,7 +198,7 @@ export const App: React.FC = () => {
     const timeout = window.setTimeout(() => {
       try {
         const scratch = document.createElement('div');
-        const renderedTunes = abcjs.renderAbc(scratch, abcCode, {
+        const renderedTunes = abcjs.renderAbc(scratch, prepareAbcForPlayback(abcCode), {
           add_classes: false,
           responsive: 'resize',
         });

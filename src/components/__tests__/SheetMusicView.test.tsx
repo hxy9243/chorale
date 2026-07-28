@@ -32,7 +32,7 @@ describe('SheetMusicView Component', () => {
   it('renders from ABC without inline directives that shift visual and audio timing', () => {
     const abcWithTempoChange = sampleAbc.replace(
       'C D',
-      'C [Q:1/4=60] !f![I:staff -1] D[I:staff +1]',
+      'C [Q:1/4=60] !f![I:staff -1] (3x/D/E/[I:staff +1]',
     );
 
     render(<SheetMusicView abcCode={abcWithTempoChange} />);
@@ -41,8 +41,9 @@ describe('SheetMusicView Component', () => {
     expect(renderedAbc).not.toContain('[Q:1/4=60]');
     expect(renderedAbc).not.toContain('[I:staff -1]');
     expect(renderedAbc).not.toContain('[I:staff +1]');
+    expect(renderedAbc).toContain('(3z/D/E/');
     expect(renderedAbc).toHaveLength(abcWithTempoChange.length);
-    expect(renderedAbc.indexOf('D E F')).toBe(abcWithTempoChange.indexOf('D E F'));
+    expect(renderedAbc.indexOf('E F')).toBe(abcWithTempoChange.indexOf('E F'));
   });
 
   it('handles transpose controls (+1, -1, reset)', () => {
