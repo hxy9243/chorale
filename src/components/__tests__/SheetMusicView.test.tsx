@@ -29,13 +29,18 @@ describe('SheetMusicView Component', () => {
     expect(abcjs.renderAbc).toHaveBeenCalled();
   });
 
-  it('renders from ABC without inline tempo changes so visual timing and audio stay aligned', () => {
-    const abcWithTempoChange = sampleAbc.replace('C D', 'C [Q:1/4=60] D');
+  it('renders from ABC without inline directives that shift visual and audio timing', () => {
+    const abcWithTempoChange = sampleAbc.replace(
+      'C D',
+      'C [Q:1/4=60] !f![I:staff -1] D[I:staff +1]',
+    );
 
     render(<SheetMusicView abcCode={abcWithTempoChange} />);
 
     const renderedAbc = vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[1] as string;
     expect(renderedAbc).not.toContain('[Q:1/4=60]');
+    expect(renderedAbc).not.toContain('[I:staff -1]');
+    expect(renderedAbc).not.toContain('[I:staff +1]');
     expect(renderedAbc).toHaveLength(abcWithTempoChange.length);
     expect(renderedAbc.indexOf('D E F')).toBe(abcWithTempoChange.indexOf('D E F'));
   });
