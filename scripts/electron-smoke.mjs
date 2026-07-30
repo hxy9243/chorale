@@ -201,8 +201,15 @@ try {
     const settingsTitle = await waitForElement('#ai-settings-title');
     const provider = document.querySelector('.ai-add-connection select');
     const settingsTabs = document.querySelector('.ai-settings-tabs');
+    const settingsTabsDirection = settingsTabs ? getComputedStyle(settingsTabs).flexDirection : null;
     const settingsHasSubtitle = Boolean(document.querySelector('.ai-settings-header p'));
+    const composerBottom = document.querySelector('.agent-composer')?.getBoundingClientRect().bottom;
+    const panelBottom = document.querySelector('.right-panel')?.getBoundingClientRect().bottom;
     localStorage.setItem('chorale.electron-smoke', 'persisted');
+    document.querySelector('[aria-label="Close settings"]')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    document.querySelector('[aria-label="Close assistant"]')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 25));
     return {
       url: location.href,
       title: document.title,
@@ -211,7 +218,7 @@ try {
       bridgeMethods: bridge ? Object.keys(bridge).sort() : [],
       connections: bridge ? await bridge.listConnections() : null,
       settingsTitle: settingsTitle?.textContent,
-      settingsTabsDirection: settingsTabs ? getComputedStyle(settingsTabs).flexDirection : null,
+      settingsTabsDirection,
       settingsHasSubtitle,
       providerCount: provider?.querySelectorAll('option').length ?? 0,
       sheetZoomBefore,
@@ -223,6 +230,10 @@ try {
       zoomGeometry,
       interfaceZoom: document.documentElement.style.getPropertyValue('--ui-zoom'),
       computedInterfaceZoom: getComputedStyle(document.body).zoom,
+      composerBottom,
+      panelBottom,
+      storedChatOpen: localStorage.getItem('chorale.workspace.chatOpen'),
+      storedChatWidth: Number(localStorage.getItem('chorale.workspace.chatWidth')),
     };
   })()`);
   assert(shellState.url === 'app://chorale/index.html', 'Production renderer did not use app://chorale.');
@@ -234,7 +245,10 @@ try {
   assert(Array.isArray(shellState.connections), 'Connection listing did not cross the preload bridge.');
   assert(shellState.connections.length === 0, 'Electron smoke profile was not isolated.');
   assert(shellState.settingsTitle === 'Settings', 'Settings modal did not open.');
-  assert(shellState.settingsTabsDirection === 'column', 'Settings tabs are not vertical.');
+  assert(
+    shellState.settingsTabsDirection === 'column',
+    `Settings tabs are not vertical (${shellState.settingsTabsDirection}).`,
+  );
   assert(shellState.settingsHasSubtitle === false, 'Settings header still contains a subtitle.');
   assert(shellState.providerCount === 6, 'Settings modal does not list all six provider types.');
   assert(shellState.sheetZoomBefore === '100%', `Sheet zoom did not start at 100% (${shellState.sheetZoomBefore}).`);
@@ -253,6 +267,12 @@ try {
     shellState.rightEdgeIsChat,
     `Interface zoom detached the chat panel from the visual right edge (${JSON.stringify(shellState.zoomGeometry)}).`,
   );
+  assert(
+    shellState.panelBottom - shellState.composerBottom <= 20,
+    'Chat composer is not anchored to the bottom of the panel.',
+  );
+  assert(shellState.storedChatOpen === 'false', 'Closed chat state was not persisted.');
+  assert(Number.isFinite(shellState.storedChatWidth), 'Resized chat width was not persisted.');
   await closeCleanly(first, firstCDP);
   firstCDP.socket.close();
   assert(!first.output().includes('violates the following Content Security Policy'), (
@@ -267,7 +287,20 @@ try {
       try {
         if (document.readyState !== 'loading') {
           const value = localStorage.getItem('chorale.electron-smoke');
-          if (value !== null) return value;
+          const showChat = document.querySelector('[title="Show score chat"]');
+          if (value !== null && showChat) {
+            const initiallyOpen = Boolean(document.querySelector('[aria-label="Current sheet assistant"]'));
+            showChat.click();
+            await new Promise((resolve) => setTimeout(resolve, 25));
+            return {
+              value,
+              initiallyOpen,
+              reopened: Boolean(document.querySelector('[aria-label="Current sheet assistant"]')),
+              reopenedWidth: document.querySelector('.right-panel')?.getBoundingClientRect().width,
+              storedWidth: Number(localStorage.getItem('chorale.workspace.chatWidth')),
+              interfaceZoom: Number(getComputedStyle(document.body).zoom),
+            };
+          }
         }
       } catch {
         // The app:// navigation can be visible to CDP before its origin is committed.
@@ -276,7 +309,13 @@ try {
     }
     throw new Error('Renderer storage origin was not ready after restart.');
   })()`);
-  assert(persisted === 'persisted', 'Renderer localStorage did not survive an Electron restart.');
+  assert(persisted.value === 'persisted', 'Renderer localStorage did not survive an Electron restart.');
+  assert(persisted.initiallyOpen === false, 'Chat open state did not survive restart.');
+  assert(persisted.reopened === true, 'Chat could not be reopened after restoring its closed state.');
+  assert(
+    Math.abs(persisted.reopenedWidth - persisted.storedWidth * persisted.interfaceZoom) <= 1,
+    `Reopened chat did not restore its persisted width (${persisted.reopenedWidth} vs ${persisted.storedWidth}).`,
+  );
   await closeCleanly(second, secondCDP);
   secondCDP.socket.close();
   assert(!second.output().includes('violates the following Content Security Policy'), (
