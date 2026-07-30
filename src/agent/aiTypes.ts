@@ -46,6 +46,7 @@ export type SaveAIConnectionInput = {
   baseUrl?: string;
   apiKey?: string;
   headers?: Record<string, string>;
+  clearHeaders?: boolean;
 };
 
 export type SheetAgentRequest = {

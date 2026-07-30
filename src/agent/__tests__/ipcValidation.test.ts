@@ -28,6 +28,11 @@ describe('AI IPC validation', () => {
       kind: 'custom',
       headers: { 'X-Test': 12 },
     })).toThrow('custom headers');
+    expect(validateSaveInput({
+      name: 'Custom',
+      kind: 'custom',
+      clearHeaders: true,
+    }).clearHeaders).toBe(true);
   });
 
   it('validates selections and bounded chat payloads', () => {

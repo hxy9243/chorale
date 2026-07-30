@@ -103,6 +103,7 @@ export const validateSaveInput = (value: unknown): SaveAIConnectionInput => {
     baseUrl: typeof value.baseUrl === 'string' ? value.baseUrl : undefined,
     apiKey: typeof value.apiKey === 'string' ? value.apiKey : undefined,
     headers: headers as Record<string, string> | undefined,
+    clearHeaders: value.clearHeaders === true,
   };
 };
 

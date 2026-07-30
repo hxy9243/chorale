@@ -3539,6 +3539,21 @@ textarea {
   margin-top: 16px;
 }
 
+.ai-add-connection .ai-clear-headers {
+  display: flex;
+}
+
+.ai-clear-headers span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ai-add-connection .ai-clear-headers input {
+  width: auto;
+  margin: 0;
+}
+
 .ai-primary-button {
   border-color: var(--figma-rail, #252933) !important;
   background: var(--figma-rail, #252933) !important;

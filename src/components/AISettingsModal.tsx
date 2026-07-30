@@ -67,6 +67,7 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [headers, setHeaders] = useState('');
+  const [clearHeaders, setClearHeaders] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<SettingsTab>('providers');
@@ -112,6 +113,7 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({
     setApiKey('');
     setBaseUrl(nextKind === 'custom' ? 'https://' : '');
     setHeaders('');
+    setClearHeaders(false);
     setMessage(null);
   };
 
@@ -123,6 +125,7 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({
     setBaseUrl(connection.baseUrl ?? '');
     setApiKey('');
     setHeaders('');
+    setClearHeaders(false);
     setMessage(null);
   };
 
@@ -139,6 +142,7 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({
         apiKey: apiKey || undefined,
         baseUrl: kind === 'custom' ? baseUrl : undefined,
         headers: kind === 'custom' ? parseHeaders(headers) : undefined,
+        clearHeaders: kind === 'custom' && clearHeaders,
       };
       await ai.saveConnection(input);
       resetForm(kind);
@@ -342,11 +346,30 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({
                         Secret headers (optional JSON)
                         <textarea
                           value={headers}
-                          onChange={(event) => setHeaders(event.target.value)}
+                          onChange={(event) => {
+                            setHeaders(event.target.value);
+                            if (event.target.value.trim()) setClearHeaders(false);
+                          }}
                           placeholder={'{"X-Organization": "example"}'}
                           rows={3}
+                          disabled={clearHeaders}
                         />
                       </label>
+                      {editing && (
+                        <label className="ai-clear-headers">
+                          <span>
+                            <input
+                              type="checkbox"
+                              checked={clearHeaders}
+                              onChange={(event) => {
+                                setClearHeaders(event.target.checked);
+                                if (event.target.checked) setHeaders('');
+                              }}
+                            />
+                            Remove all saved custom headers
+                          </span>
+                        </label>
+                      )}
                     </>
                   )}
                   <label>

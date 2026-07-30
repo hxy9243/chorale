@@ -262,7 +262,9 @@ export class AIConnectionStore {
         encryptedSecret: existing?.encryptedSecret,
         secret: {
           apiKey,
-          headers: input.headers ?? existing?.secret?.headers,
+          headers: input.clearHeaders
+            ? undefined
+            : input.headers ?? existing?.secret?.headers,
         },
       };
       if (!record.name) throw new Error('A connection name is required.');
