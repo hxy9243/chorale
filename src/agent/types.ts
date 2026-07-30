@@ -1,3 +1,5 @@
+import type { AIProviderKind } from './aiTypes';
+
 export type MusicAnnotation = {
   id: string;
   kind: 'chord' | 'phrase' | 'harmony' | 'fingering' | 'comment' | string;
@@ -29,6 +31,17 @@ export type ChatMessage = {
   createdAt: string;
   context?: MusicContextSnapshot;
   status?: 'streaming' | 'complete' | 'stopped' | 'error';
+  provider?: {
+    connectionId: string;
+    providerKind: AIProviderKind;
+    modelId: string;
+  };
+};
+
+// Kept for the explicitly injected faux-agent test helper. Production chat uses
+// the Electron bridge and never instantiates that helper.
+export type AgentResponseCallbacks = {
+  onDelta(delta: string): void;
 };
 
 export type ChatThread = {
@@ -46,8 +59,4 @@ export type PersistedFileConversation = {
 export type PersistedConversationStore = {
   version: 2;
   files: Record<string, PersistedFileConversation>;
-};
-
-export type AgentResponseCallbacks = {
-  onDelta: (delta: string) => void;
 };

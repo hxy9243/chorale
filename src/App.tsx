@@ -7,6 +7,9 @@ import { SheetMusicView } from './components/SheetMusicView';
 import { AudioPlayer } from './components/AudioPlayer';
 import { AbcEditor } from './components/AbcEditor';
 import { AgentChatPanel } from './components/AgentChatPanel';
+import { AISettingsModal } from './components/AISettingsModal';
+import { useAIProviders } from './agent/useAIProviders';
+import { useInterfaceZoom } from './hooks/useInterfaceZoom';
 import type { MusicSample } from './types/music';
 import type { BuildResult, FileDocument, ScoreAnchor } from './types/document';
 import { PRESET_SAMPLES } from './data/samples';
@@ -21,6 +24,7 @@ import {
 import { formatAnchorLabel } from './utils/anchor';
 import type { PlaybackPosition } from './utils/repeatPlayback';
 import { prepareAbcForPlayback } from './utils/abcAudio';
+import { clampChatPanelWidth } from './utils/workspaceSizing';
 
 const EDITOR_VISIBLE_KEY = 'chorale.workspace.editorVisible';
 const EDITOR_WIDTH_KEY = 'chorale.workspace.editorWidth';
@@ -92,6 +96,11 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState<boolean>(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const aiProviders = useAIProviders();
+  const interfaceZoom = useInterfaceZoom();
+  const openSettings = useCallback(() => setSettingsOpen(true), []);
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const [zoom, setZoom] = useState<number>(100);
   const [editorVisible, setEditorVisible] = useState<boolean>(() => readStoredBool(EDITOR_VISIBLE_KEY, false));
   const [editorWidth, setEditorWidth] = useState<number>(() => readStoredNumber(EDITOR_WIDTH_KEY, DEFAULT_EDITOR_WIDTH));
@@ -405,8 +414,23 @@ export const App: React.FC = () => {
     window.addEventListener('pointerup', handlePointerUp, { once: true });
   };
 
-  const [chatWidth, setChatWidth] = useState<number>(392);
+  const layoutViewportWidth = useCallback(
+    () => window.innerWidth * 100 / interfaceZoom.zoom,
+    [interfaceZoom.zoom],
+  );
+  const [chatWidth, setChatWidth] = useState<number>(() => (
+    clampChatPanelWidth(392, layoutViewportWidth())
+  ));
   const chatDragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setChatWidth((current) => clampChatPanelWidth(current, layoutViewportWidth()));
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [layoutViewportWidth]);
 
   const beginChatResize = (event: React.PointerEvent<HTMLButtonElement>) => {
     chatDragStateRef.current = {
@@ -420,7 +444,10 @@ export const App: React.FC = () => {
       const dragState = chatDragStateRef.current;
       if (!dragState) return;
       const delta = dragState.startX - moveEvent.clientX;
-      const newWidth = Math.max(280, Math.min(680, dragState.startWidth + delta));
+      const newWidth = clampChatPanelWidth(
+        dragState.startWidth + delta,
+        layoutViewportWidth(),
+      );
       setChatWidth(newWidth);
     };
 
@@ -448,6 +475,7 @@ export const App: React.FC = () => {
         railCollapsed={railCollapsed}
         onToggleRail={() => setRailCollapsed((c) => !c)}
         saveState={saveState}
+        onOpenSettings={openSettings}
       />
 
       <div
@@ -577,9 +605,18 @@ export const App: React.FC = () => {
             activeFileName={scoreTitle}
             revision={abcRevision}
             activeAnchor={activeAnchor}
+            ai={aiProviders}
+            onOpenSettings={openSettings}
           />
         </div>
       </div>
+      <AISettingsModal
+        open={settingsOpen}
+        onClose={closeSettings}
+        ai={aiProviders}
+        interfaceZoom={interfaceZoom.zoom}
+        onInterfaceZoomChange={interfaceZoom.setZoom}
+      />
     </div>
   );
 };

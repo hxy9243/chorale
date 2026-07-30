@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Bot, History, Plus, Send, Square, X } from 'lucide-react';
-import type { PiSheetAgent } from '../agent/PiSheetAgent';
+import { DesktopSheetAgent } from '../agent/DesktopSheetAgent';
+import type { AIProviderState } from '../agent/useAIProviders';
 import {
   loadConversation,
   makeEmptyConversation,
@@ -18,6 +19,8 @@ interface AgentChatPanelProps {
   activeFileName: string;
   revision: number;
   activeAnchor?: ScoreAnchor | null;
+  ai: AIProviderState;
+  onOpenSettings(): void;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -59,6 +62,8 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   activeFileName,
   revision,
   activeAnchor = null,
+  ai,
+  onOpenSettings,
 }) => {
   const [conversation, setConversation] = useState<PersistedFileConversation>(() => (
     fileId ? loadConversation(fileId) : makeEmptyConversation()
@@ -66,7 +71,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
-  const agentPromiseRef = useRef<Promise<PiSheetAgent> | null>(null);
+  const agentRef = useRef<DesktopSheetAgent | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
 
@@ -97,9 +102,8 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   const anchorLabel = formatAnchorLabel(activeAnchor);
 
   const getAgent = () => {
-    agentPromiseRef.current ??= import('../agent/PiSheetAgent')
-      .then(({ PiSheetAgent: SheetAgent }) => new SheetAgent());
-    return agentPromiseRef.current;
+    agentRef.current ??= new DesktopSheetAgent();
+    return agentRef.current;
   };
 
   useEffect(() => {
@@ -114,8 +118,11 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
 
   useEffect(() => () => {
     abortControllerRef.current?.abort();
-    void agentPromiseRef.current?.then((agent) => agent.abort());
   }, []);
+
+  useEffect(() => {
+    if (!open) abortControllerRef.current?.abort();
+  }, [open]);
 
   const captureContext = (): MusicContextSnapshot => ({
     id: makeId(),
@@ -145,7 +152,6 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
 
   const stop = () => {
     abortControllerRef.current?.abort();
-    void agentPromiseRef.current?.then((agent) => agent.abort());
   };
 
   const handleNewThread = () => {
@@ -163,7 +169,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   const sendMessage = async (event: React.FormEvent) => {
     event.preventDefault();
     const question = draft.trim();
-    if (!question || !abcCode.trim() || isStreaming || !activeThread) return;
+    if (!question || !abcCode.trim() || isStreaming || !activeThread || !providerReady) return;
 
     const context = captureContext();
     const userMessage: ChatMessage = {
@@ -199,12 +205,15 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     abortControllerRef.current = controller;
 
     try {
-      const agent = await getAgent();
-      await agent.send(history, question, context, {
+      const agent = getAgent();
+      await agent.send({ history, question, context }, {
         onDelta: (delta) => updateMessages(threadId, (current) => current.map((message) => (
           message.id === assistantId
             ? { ...message, content: message.content + delta }
             : message
+        ))),
+        onStart: (provider) => updateMessages(threadId, (current) => current.map((message) => (
+          message.id === assistantId ? { ...message, provider } : message
         ))),
       }, controller.signal);
       updateMessages(threadId, (current) => current.map((message) => (
@@ -231,6 +240,29 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   };
 
   if (!open) return null;
+
+  const selectedConnection = ai.connections.find(
+    (connection) => connection.id === ai.selection?.connectionId,
+  );
+  const selectedModels = selectedConnection
+    ? (ai.modelsByConnection[selectedConnection.id] ?? [])
+    : [];
+  const selectedModel = selectedModels.find((model) => model.id === ai.selection?.modelId);
+  const providerReady = (
+    ai.desktopAvailable &&
+    selectedConnection?.status === 'ready' &&
+    Boolean(selectedModel)
+  );
+
+  const chooseConnection = async (connectionId: string) => {
+    if (!connectionId) {
+      await ai.setSelection(null);
+      return;
+    }
+    const models = ai.modelsByConnection[connectionId] ?? [];
+    const firstModel = models[0] ?? (await ai.refreshModels(connectionId))[0];
+    await ai.setSelection(firstModel ? { connectionId, modelId: firstModel.id } : null);
+  };
 
   return (
     <aside className="agent-panel" aria-label="Current sheet assistant">
@@ -334,6 +366,11 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
               </div>
             )}
             <div className="agent-message-content">{message.content}</div>
+            {message.provider && (
+              <div className="agent-message-provider">
+                {message.provider.providerKind} · {message.provider.modelId}
+              </div>
+            )}
             {message.context && (
               <div className="agent-message-context">
                 {message.context.fileName} · ABC rev {message.context.revision}
@@ -346,6 +383,60 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       {error && <div className="agent-error" role="alert">{error}</div>}
 
       <form className="agent-composer" onSubmit={sendMessage}>
+        {!ai.desktopAvailable && (
+          <div className="agent-provider-required">
+            <span>AI providers require the Chorale desktop app.</span>
+          </div>
+        )}
+        {ai.desktopAvailable && (
+          <details className="agent-provider-picker">
+            <summary>
+              <span>{selectedConnection?.name || 'Select provider'}</span>
+              <strong>{selectedModel?.name || 'No model'}</strong>
+            </summary>
+            <div className="agent-provider-popover">
+              <label>
+                Provider
+                <select
+                  aria-label="AI provider"
+                  value={selectedConnection?.id ?? ''}
+                  onChange={(event) => void chooseConnection(event.target.value).catch((caught) => {
+                    setError(caught instanceof Error ? caught.message : 'Could not select provider.');
+                  })}
+                >
+                  <option value="">Select provider…</option>
+                  {ai.connections.map((connection) => (
+                    <option key={connection.id} value={connection.id}>
+                      {connection.name} ({connection.status})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Model
+                <select
+                  aria-label="AI model"
+                  value={selectedModel?.id ?? ''}
+                  disabled={!selectedConnection}
+                  onChange={(event) => {
+                    if (selectedConnection) {
+                      void ai.setSelection({
+                        connectionId: selectedConnection.id,
+                        modelId: event.target.value,
+                      });
+                    }
+                  }}
+                >
+                  <option value="">Select model…</option>
+                  {selectedModels.map((model) => (
+                    <option key={model.id} value={model.id}>{model.name}</option>
+                  ))}
+                </select>
+              </label>
+              <button type="button" onClick={onOpenSettings}>Manage providers</button>
+            </div>
+          </details>
+        )}
         {anchorLabel && (
           <div className="agent-composer-anchor">
             Attached anchor: <strong>{anchorLabel}</strong>
@@ -356,8 +447,14 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
           id="agent-question"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder={abcCode.trim() ? 'Ask about the current sheet…' : 'Load a score to start chatting'}
-          disabled={!abcCode.trim() || isStreaming}
+          placeholder={!ai.desktopAvailable
+            ? 'Open Chorale desktop to use AI'
+            : !providerReady
+              ? 'Select a provider and model'
+              : abcCode.trim()
+                ? 'Ask about the current sheet…'
+                : 'Load a score to start chatting'}
+          disabled={!abcCode.trim() || isStreaming || !providerReady}
           rows={3}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
@@ -379,7 +476,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
           <button
             className="agent-send-button"
             type="submit"
-            disabled={!draft.trim() || !abcCode.trim()}
+            disabled={!draft.trim() || !abcCode.trim() || !providerReady}
             aria-label="Send"
           >
             <Send size={16} />

@@ -1,7 +1,7 @@
 # Chat With Music Sheet & Agent Tooling
 
-Date: 2026-07-28  
-Status: design target informed by the `Chorale — Chat with Music Sheet · V1` Figma file
+Date: 2026-07-29
+Status: Electron transport and provider selection implemented; agent tools remain follow-up work
 
 ## 1. Goal
 
@@ -12,6 +12,7 @@ The product is a file-scoped analysis and editing surface attached to the same s
 ## 2. Product rules
 
 - Chat belongs to the active file, not to the app globally.
+- Provider/model selection is global across files and threads.
 - Current score anchor is first-class chat context.
 - Grounded answers reference score data, pitch structures, and harmonic annotations.
 - Durable score and annotation mutations outlive the chat thread that created them.
@@ -26,9 +27,9 @@ The panel provides four vertical zones and a left resize handle:
 
 - thread title and history selector
 - active file subtitle
-- settings button (opens AI provider credentials modal)
+- the workspace header gear opens AI provider settings
 - close action; persistent header button allows reopening chat
-- panel drag-to-resize handle on left border (width bounded 280px–680px, default 392px)
+- panel drag-to-resize handle on left border (minimum 280px, maximum one third of the viewport, default 392px when space allows)
 
 ### Conversation
 
@@ -41,14 +42,24 @@ The panel provides four vertical zones and a left resize handle:
 ### Composer
 
 - attached anchor chip
+- compact global provider/model popover
 - prompt input area
-- mode selector presets (`Analyze`, `Edit`, `Annotate`, `Compose`)
-- clear anchor action
 - send prompt action
+- stop action while a response is streaming
 
 ### Thread model
 
-Conversation history is per-file (`chorale.chat.threads.${fileId}`) in local storage. Switching files loads the corresponding chat thread automatically.
+Conversation history is per-file in versioned renderer local storage. Switching files loads the corresponding chat thread automatically. Each assistant message records:
+
+```ts
+{
+  connectionId: string;
+  providerKind: AIProviderKind;
+  modelId: string;
+}
+```
+
+This provenance is retained when the global selection later changes or the connection is deleted.
 
 ## 4. Agent Tool Suite
 
@@ -105,7 +116,7 @@ type ChatContext = {
   };
   visibleAnnotations: ExtendedAnnotation[];
   availableTools: ScoreToolName[];
-  aiProviderConfig: AIProviderConfig;
+  selection: AISelection;
 };
 ```
 
@@ -116,7 +127,27 @@ Minimum requirement:
 - assistant answers cite measure anchors
 - agent responses can issue structured tool calls
 
-## 7. Implementation status
+## 7. Electron transport contract
+
+`PiSheetAgent` runs in Electron’s main process. React sends a `SheetAgentRequest` through the typed preload bridge and receives:
+
+```ts
+type AIEvent =
+  | { type: 'chat-start'; requestId: string; connectionId: string; modelId: string; providerKind: AIProviderKind }
+  | { type: 'chat-delta'; requestId: string; text: string }
+  | { type: 'chat-done'; requestId: string }
+  | { type: 'chat-error'; requestId: string; code: AIErrorCode; message: string }
+  | { type: 'oauth-update'; flowId: string; status: string; details?: OAuthUpdateDetails };
+```
+
+- Events are matched to request or OAuth flow IDs.
+- The renderer subscribes before sending, buffers early events until it receives the request ID, and removes its listener when the request settles or the component unmounts.
+- Stop, file switch, panel unmount, reload, and window destruction abort Pi and the upstream request.
+- A missing or invalid global provider/model selection disables the composer.
+- When the preload bridge is absent, the panel displays “AI providers require the Chorale desktop app” and does not instantiate Pi or attempt a direct provider request.
+- The production implementation has no silent faux-provider fallback.
+
+## 8. Implementation status
 
 Current branch provides:
 
@@ -124,10 +155,13 @@ Current branch provides:
 - horizontal drag-to-resize functionality (280px–680px)
 - per-file transcript persistence
 - active score anchor attachment and display in composer
-- Pi adapter integration for response streaming
+- Electron IPC-backed Pi streaming and cancellation
+- six provider kinds and multiple named connections
+- global provider/model selector and cached model catalogs
+- assistant-message provider provenance
+- desktop-required browser state
 
 Planned next steps:
 
-- Settings API key & ChatGPT OAuth provider dynamic adapter
 - Tool execution handler with reviewable proposal card UI
 - Annotation tool bindings linked to score surface overlays
