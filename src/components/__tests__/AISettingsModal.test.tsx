@@ -90,7 +90,7 @@ describe('AISettingsModal', () => {
       <AISettingsModal open onClose={onClose} ai={makeAIState()} {...zoomProps} />,
     );
 
-    expect(screen.getByLabelText('Close AI settings')).toBe(document.activeElement);
+    expect(screen.getByLabelText('Close settings')).toBe(document.activeElement);
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();
     unmount();
@@ -120,5 +120,22 @@ describe('AISettingsModal', () => {
     expect(screen.getAllByText('Chorale')).toHaveLength(2);
     expect(screen.getByText('Release')).toBeDefined();
     expect(screen.getByText('v0.0.0')).toBeDefined();
+  });
+
+  it('uses vertical tabs and supports arrow-key navigation', () => {
+    render(
+      <AISettingsModal
+        open
+        onClose={() => undefined}
+        ai={makeAIState()}
+        {...zoomProps}
+      />,
+    );
+    const tablist = screen.getByRole('tablist', { name: 'Settings sections' });
+    const providers = screen.getByRole('tab', { name: 'API providers' });
+
+    expect(tablist.getAttribute('aria-orientation')).toBe('vertical');
+    fireEvent.keyDown(providers, { key: 'ArrowDown' });
+    expect(screen.getByRole('tab', { name: 'Appearance' }).getAttribute('aria-selected')).toBe('true');
   });
 });

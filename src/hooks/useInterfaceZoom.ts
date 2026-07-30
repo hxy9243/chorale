@@ -9,6 +9,10 @@ export const clampInterfaceZoom = (value: number) => (
   Math.max(MIN_INTERFACE_ZOOM, Math.min(MAX_INTERFACE_ZOOM, value))
 );
 
+export const isSheetZoomTarget = (target: EventTarget | null) => (
+  target instanceof Element && Boolean(target.closest('.sheet-music-card'))
+);
+
 const readInterfaceZoom = () => {
   if (typeof window === 'undefined') return 100;
   const stored = Number(window.localStorage.getItem(INTERFACE_ZOOM_KEY));
@@ -35,6 +39,7 @@ export const useInterfaceZoom = () => {
     };
     const handleWheel = (event: WheelEvent) => {
       if (!event.ctrlKey && !event.metaKey) return;
+      if (isSheetZoomTarget(event.target)) return;
       event.preventDefault();
       event.stopPropagation();
       changeZoom(event.deltaY < 0 ? 1 : -1);

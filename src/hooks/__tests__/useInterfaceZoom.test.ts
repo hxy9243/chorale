@@ -39,4 +39,25 @@ describe('useInterfaceZoom', () => {
     act(() => fireEvent.keyDown(window, { key: '0', ctrlKey: true }));
     expect(result.current.zoom).toBe(100);
   });
+
+  it('leaves Ctrl+wheel over the sheet for sheet-only zoom', () => {
+    const sheet = document.createElement('div');
+    const note = document.createElement('span');
+    sheet.className = 'sheet-music-card';
+    sheet.append(note);
+    document.body.append(sheet);
+    const { result } = renderHook(() => useInterfaceZoom());
+    const event = new WheelEvent('wheel', {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+      deltaY: -100,
+    });
+
+    act(() => fireEvent(note, event));
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(result.current.zoom).toBe(100);
+    sheet.remove();
+  });
 });
