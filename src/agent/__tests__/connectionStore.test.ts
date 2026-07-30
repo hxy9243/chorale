@@ -106,4 +106,26 @@ describe('AIConnectionStore', () => {
     expect(store.getSelection()).toBeNull();
     expect(store.listConnections()).toEqual([]);
   });
+
+  it('removes saved custom headers only when explicitly requested', async () => {
+    const store = new AIConnectionStore(await makeDirectory(), encryptedCipher);
+    await store.initialize();
+    const connection = await store.saveConnection({
+      name: 'Custom',
+      kind: 'custom',
+      baseUrl: 'https://api.example.com/v1',
+      apiKey: 'test-key',
+      headers: { 'X-Organization': 'chorale' },
+    });
+
+    await store.saveConnection({
+      id: connection.id,
+      name: 'Custom',
+      kind: 'custom',
+      baseUrl: 'https://api.example.com/v1',
+      clearHeaders: true,
+    });
+
+    expect(store.getSecret(connection.id)).toEqual({ apiKey: 'test-key' });
+  });
 });

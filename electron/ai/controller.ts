@@ -35,6 +35,7 @@ const sanitizeConnectionInput = (input: SaveAIConnectionInput): SaveAIConnection
     headers: input.kind === 'custom'
       ? validateCustomHeaders(input.headers)
       : undefined,
+    clearHeaders: input.kind === 'custom' && input.clearHeaders === true,
   };
 };
 
@@ -55,7 +56,41 @@ export class AIController {
   }
 
   async saveConnection(input: SaveAIConnectionInput) {
-    return this.store.saveConnection(sanitizeConnectionInput(input));
+    const sanitized = sanitizeConnectionInput(input);
+    const existing = sanitized.id
+      ? this.store.getConnection(sanitized.id)
+      : undefined;
+    if (sanitized.id && !existing) throw new Error('AI connection not found.');
+    if (existing?.kind === 'openai-codex') {
+      throw new Error('OpenAI Codex connections must be created through OAuth.');
+    }
+
+    const existingSecret = sanitized.id
+      ? this.store.getSecret(sanitized.id)
+      : undefined;
+    const apiKey = sanitized.apiKey?.trim() || existingSecret?.apiKey;
+    if (!apiKey) throw new Error('An API key is required.');
+    const headers = sanitized.clearHeaders
+      ? undefined
+      : sanitized.headers ?? existingSecret?.headers;
+    const candidate: AIConnectionPublic = {
+      id: sanitized.id ?? 'pending-connection',
+      name: sanitized.name,
+      kind: sanitized.kind,
+      baseUrl: sanitized.baseUrl,
+      authType: 'api-key',
+      persistence: existing?.persistence ?? 'session-only',
+      status: 'ready',
+      lastValidatedAt: existing?.lastValidatedAt,
+      modelsUpdatedAt: existing?.modelsUpdatedAt,
+    };
+
+    const models = await queryModels(candidate, { apiKey, headers });
+    if (models.length === 0) throw new Error('The provider returned no compatible models.');
+
+    const saved = await this.store.saveConnection(sanitized);
+    await this.store.updateModels(saved.id, models);
+    return this.store.getConnection(saved.id) ?? saved;
   }
 
   async deleteConnection(id: string) {

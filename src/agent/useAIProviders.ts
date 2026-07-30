@@ -87,14 +87,6 @@ export const useAIProviders = (): AIProviderState => {
     if (!bridge) throw new Error('AI providers require the Chorale desktop app.');
     const connection = await bridge.saveConnection(input);
     await reload();
-    try {
-      const models = await bridge.refreshModels(connection.id);
-      setModelsByConnection((current) => ({ ...current, [connection.id]: models }));
-      await reload();
-    } catch (caught) {
-      await reload();
-      throw caught;
-    }
     return connection;
   }, [bridge, reload]);
 

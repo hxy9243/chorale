@@ -76,8 +76,37 @@ describe('AISettingsModal', () => {
       apiKey: 'sk-renderer-transient',
       baseUrl: undefined,
       headers: undefined,
+      clearHeaders: false,
     }));
     expect(screen.getByText('Connection saved and model access verified.')).toBeDefined();
+  });
+
+  it('can explicitly remove all saved custom headers', async () => {
+    const connection = {
+      id: 'custom-connection',
+      name: 'Custom endpoint',
+      kind: 'custom' as const,
+      baseUrl: 'https://api.example.com/v1',
+      authType: 'api-key' as const,
+      persistence: 'encrypted' as const,
+      status: 'ready' as const,
+    };
+    const ai = makeAIState({ connections: [connection] });
+    render(<AISettingsModal open onClose={() => undefined} ai={ai} {...zoomProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.click(screen.getByLabelText('Remove all saved custom headers'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save & test' }));
+
+    await waitFor(() => expect(ai.saveConnection).toHaveBeenCalledWith({
+      id: connection.id,
+      name: connection.name,
+      kind: connection.kind,
+      apiKey: undefined,
+      baseUrl: connection.baseUrl,
+      headers: undefined,
+      clearHeaders: true,
+    }));
   });
 
   it('moves focus into the dialog, closes on Escape, and restores focus', () => {
