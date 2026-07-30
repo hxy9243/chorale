@@ -38,4 +38,13 @@ describe('Header Component', () => {
     fireEvent.click(toggleBtn);
     expect(onToggleRail).toHaveBeenCalledOnce();
   });
+
+  it('opens settings from the top-right gear', () => {
+    const onOpenSettings = vi.fn();
+    render(<Header activeFileName="Test.xml" onOpenSettings={onOpenSettings} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
+
+    expect(onOpenSettings).toHaveBeenCalledOnce();
+  });
 });

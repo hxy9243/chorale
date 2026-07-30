@@ -39,6 +39,16 @@ npm run dev
 ```
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
+The browser build supports score editing but intentionally disables AI provider setup.
+
+### Start the Electron desktop app
+
+```bash
+npm run dev:electron
+```
+
+Electron is required for AI provider credentials, model discovery, OpenAI Codex login, and provider-backed chat.
+
 ### Run Unit Test Suite
 ```bash
 npm test
@@ -48,6 +58,14 @@ npm test
 ```bash
 npm run build
 ```
+
+Launch the production build locally with:
+
+```bash
+npm run start:electron
+```
+
+Installers, signing, publishing, and auto-update are not part of this development shell.
 
 ---
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, PanelLeft } from 'lucide-react';
+import { MessageSquare, PanelLeft, Settings } from 'lucide-react';
 
 interface HeaderProps {
   activeFileName?: string;
@@ -8,6 +8,7 @@ interface HeaderProps {
   railCollapsed?: boolean;
   onToggleRail?: () => void;
   saveState?: string;
+  onOpenSettings?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   railCollapsed = false,
   onToggleRail,
   saveState = 'Saved',
+  onOpenSettings,
 }) => {
   const saveLabel = saveState === 'Saved' || saveState === 'Auto-saved'
     ? 'Auto-saved'
@@ -70,6 +72,15 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <MessageSquare size={15} aria-hidden="true" />
           <span>Chat</span>
+        </button>
+        <button
+          type="button"
+          className="header-icon-btn"
+          onClick={onOpenSettings}
+          title="Settings"
+          aria-label="Open settings"
+        >
+          <Settings size={17} aria-hidden="true" />
         </button>
       </div>
     </header>

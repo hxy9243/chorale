@@ -1,0 +1,255 @@
+import { spawn } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
+import net from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
+import process from 'node:process';
+
+const projectDirectory = path.resolve(import.meta.dirname, '..');
+const electronBinary = path.join(
+  projectDirectory,
+  'node_modules',
+  'electron',
+  'dist',
+  process.platform === 'win32' ? 'electron.exe' : 'electron',
+);
+const mainEntry = path.join(projectDirectory, 'dist-electron', 'main.js');
+const launchedChildren = new Set();
+
+const assert = (condition, message) => {
+  if (!condition) throw new Error(message);
+};
+
+const availablePort = () => new Promise((resolve, reject) => {
+  const server = net.createServer();
+  server.once('error', reject);
+  server.listen(0, '127.0.0.1', () => {
+    const address = server.address();
+    server.close(() => resolve(address.port));
+  });
+});
+
+const waitForTarget = async (port) => {
+  const deadline = Date.now() + 12_000;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/json/list`);
+      const targets = await response.json();
+      const target = targets.find((candidate) => candidate.url === 'app://chorale/index.html');
+      if (target?.webSocketDebuggerUrl) return target;
+    } catch {
+      // Electron has not opened its debugging socket yet.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error('Timed out waiting for the Electron renderer.');
+};
+
+const connectCDP = async (url) => {
+  const socket = new WebSocket(url);
+  await new Promise((resolve, reject) => {
+    socket.addEventListener('open', resolve, { once: true });
+    socket.addEventListener('error', reject, { once: true });
+  });
+  let id = 0;
+  const pending = new Map();
+  socket.addEventListener('message', (event) => {
+    const message = JSON.parse(String(event.data));
+    const request = pending.get(message.id);
+    if (!request) return;
+    pending.delete(message.id);
+    if (message.error) request.reject(new Error(message.error.message));
+    else request.resolve(message.result);
+  });
+  const call = (method, params = {}) => new Promise((resolve, reject) => {
+    const requestId = ++id;
+    pending.set(requestId, { resolve, reject });
+    socket.send(JSON.stringify({ id: requestId, method, params }));
+  });
+  const evaluate = async (expression) => {
+    const deadline = Date.now() + 5_000;
+    while (Date.now() < deadline) {
+      try {
+        const result = await call('Runtime.evaluate', {
+          expression,
+          awaitPromise: true,
+          returnByValue: true,
+        });
+        if (result.exceptionDetails) {
+          throw new Error(result.exceptionDetails.exception?.description ?? 'Renderer evaluation failed.');
+        }
+        return result.result.value;
+      } catch (error) {
+        if (!String(error).includes('Execution context was destroyed')) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+    }
+    throw new Error('Electron renderer did not finish committing its navigation.');
+  };
+  return { socket, call, evaluate };
+};
+
+const launch = async (profileDirectory) => {
+  const port = await availablePort();
+  const environment = { ...process.env, ELECTRON_ENABLE_LOGGING: '1' };
+  delete environment.ELECTRON_RUN_AS_NODE;
+  const args = [
+    '--disable-gpu',
+    `--remote-debugging-port=${port}`,
+    `--user-data-dir=${profileDirectory}`,
+  ];
+  if (process.platform === 'linux') args.push('--ozone-platform=x11');
+  args.push(mainEntry);
+  const child = spawn(electronBinary, args, {
+    cwd: projectDirectory,
+    env: environment,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  launchedChildren.add(child);
+  let output = '';
+  child.stdout.on('data', (chunk) => {
+    output += String(chunk);
+  });
+  child.stderr.on('data', (chunk) => {
+    output += String(chunk);
+  });
+  const exited = new Promise((resolve) => child.once('exit', (code, signal) => {
+    launchedChildren.delete(child);
+    resolve({ code, signal });
+  }));
+  const target = await waitForTarget(port);
+  return { child, output: () => output, exited, target };
+};
+
+const closeCleanly = async (runtime, cdp) => {
+  try {
+    await cdp.evaluate('window.close(); true');
+  } catch (error) {
+    if (!String(error).includes('Execution context was destroyed')) throw error;
+  }
+  const result = await Promise.race([
+    runtime.exited,
+    new Promise((resolve) => setTimeout(() => resolve(null), 5_000)),
+  ]);
+  if (result === null) {
+    runtime.child.kill('SIGTERM');
+    throw new Error('Electron did not exit after its renderer window closed.');
+  }
+};
+
+const profileDirectory = await mkdtemp(path.join(os.tmpdir(), 'chorale-electron-smoke-'));
+try {
+  const first = await launch(profileDirectory);
+  const firstCDP = await connectCDP(first.target.webSocketDebuggerUrl);
+  const shellState = await firstCDP.evaluate(`(async () => {
+    const waitForElement = async (selector) => {
+      const deadline = Date.now() + 5000;
+      while (Date.now() < deadline) {
+        const element = document.querySelector(selector);
+        if (element) return element;
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      return null;
+    };
+    const bridge = window.choraleAI;
+    const gear = await waitForElement('[aria-label="Open settings"]');
+    gear?.click();
+    const settingsTitle = await waitForElement('#ai-settings-title');
+    const provider = document.querySelector('.ai-add-connection select');
+    const chatResize = document.querySelector('.chat-rail-resize-handle');
+    if (chatResize) {
+      chatResize.setPointerCapture = () => undefined;
+      chatResize.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles: true,
+        clientX: chatResize.getBoundingClientRect().x,
+        pointerId: 1,
+      }));
+      window.dispatchEvent(new PointerEvent('pointermove', {
+        clientX: -2000,
+        pointerId: 1,
+      }));
+      window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1 }));
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    const chatWidth = document.querySelector('.right-panel')?.getBoundingClientRect().width;
+    const chatWidthLimit = Math.floor(window.innerWidth / 3);
+    window.dispatchEvent(new WheelEvent('wheel', {
+      ctrlKey: true,
+      deltaY: -100,
+      cancelable: true,
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    localStorage.setItem('chorale.electron-smoke', 'persisted');
+    return {
+      url: location.href,
+      title: document.title,
+      hasNodeRequire: typeof window.require !== 'undefined',
+      hasNodeProcess: typeof window.process !== 'undefined',
+      bridgeMethods: bridge ? Object.keys(bridge).sort() : [],
+      connections: bridge ? await bridge.listConnections() : null,
+      settingsTitle: settingsTitle?.textContent,
+      providerCount: provider?.querySelectorAll('option').length ?? 0,
+      chatWidth,
+      chatWidthLimit,
+      interfaceZoom: document.documentElement.style.getPropertyValue('--ui-zoom'),
+      computedInterfaceZoom: getComputedStyle(document.body).zoom,
+    };
+  })()`);
+  assert(shellState.url === 'app://chorale/index.html', 'Production renderer did not use app://chorale.');
+  assert(shellState.title.includes('Chorale'), 'Production renderer title is missing.');
+  assert(shellState.hasNodeRequire === false, 'Renderer unexpectedly exposes Node require.');
+  assert(shellState.hasNodeProcess === false, 'Renderer unexpectedly exposes Node process.');
+  assert(shellState.bridgeMethods.includes('sendChat'), 'Typed preload bridge is unavailable.');
+  assert(shellState.bridgeMethods.includes('startCodexLogin'), 'Codex bridge method is unavailable.');
+  assert(Array.isArray(shellState.connections), 'Connection listing did not cross the preload bridge.');
+  assert(shellState.connections.length === 0, 'Electron smoke profile was not isolated.');
+  assert(shellState.settingsTitle === 'Settings', 'Settings modal did not open.');
+  assert(shellState.providerCount === 6, 'Settings modal does not list all six provider types.');
+  assert(
+    Math.abs(shellState.chatWidth - shellState.chatWidthLimit) <= 1,
+    'Chat panel did not resize to one third of the viewport.',
+  );
+  assert(shellState.interfaceZoom === '1.1', 'Ctrl+wheel did not increase interface zoom.');
+  assert(shellState.computedInterfaceZoom === '1.1', 'Interface zoom was not applied to the renderer.');
+  await closeCleanly(first, firstCDP);
+  firstCDP.socket.close();
+  assert(!first.output().includes('violates the following Content Security Policy'), (
+    `Electron reported a CSP violation:\n${first.output()}`
+  ));
+
+  const second = await launch(profileDirectory);
+  const secondCDP = await connectCDP(second.target.webSocketDebuggerUrl);
+  const persisted = await secondCDP.evaluate(`(async () => {
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      try {
+        if (document.readyState !== 'loading') {
+          const value = localStorage.getItem('chorale.electron-smoke');
+          if (value !== null) return value;
+        }
+      } catch {
+        // The app:// navigation can be visible to CDP before its origin is committed.
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    throw new Error('Renderer storage origin was not ready after restart.');
+  })()`);
+  assert(persisted === 'persisted', 'Renderer localStorage did not survive an Electron restart.');
+  await closeCleanly(second, secondCDP);
+  secondCDP.socket.close();
+  assert(!second.output().includes('violates the following Content Security Policy'), (
+    `Electron reported a CSP violation after restart:\n${second.output()}`
+  ));
+
+  console.log('Electron smoke passed: app protocol, sandboxed bridge, settings UI, clean restart, and localStorage persistence.');
+} finally {
+  for (const child of launchedChildren) child.kill('SIGTERM');
+  // Chromium helper processes can finish a final profile write just after the
+  // browser process exits, so let recursive removal retry that short race.
+  await rm(profileDirectory, {
+    recursive: true,
+    force: true,
+    maxRetries: 8,
+    retryDelay: 100,
+  });
+}
