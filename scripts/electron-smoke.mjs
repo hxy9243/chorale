@@ -152,10 +152,19 @@ try {
       return null;
     };
     const bridge = window.choraleAI;
-    const gear = await waitForElement('[aria-label="Open settings"]');
-    gear?.click();
-    const settingsTitle = await waitForElement('#ai-settings-title');
-    const provider = document.querySelector('.ai-add-connection select');
+    const sheet = await waitForElement('.sheet-music-card');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const sheetZoomBefore = sheet?.querySelector('.scale-val')?.textContent;
+    sheet?.dispatchEvent(new WheelEvent('wheel', {
+      bubbles: true,
+      ctrlKey: true,
+      deltaY: -100,
+      cancelable: true,
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const sheetZoomAfter = sheet?.querySelector('.scale-val')?.textContent;
+    const interfaceZoomAfterSheet = document.documentElement.style.getPropertyValue('--ui-zoom');
+
     const chatResize = document.querySelector('.chat-rail-resize-handle');
     if (chatResize) {
       chatResize.setPointerCapture = () => undefined;
@@ -179,6 +188,20 @@ try {
       cancelable: true,
     }));
     await new Promise((resolve) => setTimeout(resolve, 25));
+    const rightEdgeIsChat = document.elementsFromPoint(window.innerWidth - 1, 100)
+      .some((element) => Boolean(element.closest('.right-panel')));
+    const zoomGeometry = {
+      bodyRight: document.body.getBoundingClientRect().right,
+      shellRight: document.querySelector('.chorale-app-shell')?.getBoundingClientRect().right,
+      bodyWidth: getComputedStyle(document.body).width,
+    };
+
+    const gear = await waitForElement('[aria-label="Open settings"]');
+    gear?.click();
+    const settingsTitle = await waitForElement('#ai-settings-title');
+    const provider = document.querySelector('.ai-add-connection select');
+    const settingsTabs = document.querySelector('.ai-settings-tabs');
+    const settingsHasSubtitle = Boolean(document.querySelector('.ai-settings-header p'));
     localStorage.setItem('chorale.electron-smoke', 'persisted');
     return {
       url: location.href,
@@ -188,9 +211,16 @@ try {
       bridgeMethods: bridge ? Object.keys(bridge).sort() : [],
       connections: bridge ? await bridge.listConnections() : null,
       settingsTitle: settingsTitle?.textContent,
+      settingsTabsDirection: settingsTabs ? getComputedStyle(settingsTabs).flexDirection : null,
+      settingsHasSubtitle,
       providerCount: provider?.querySelectorAll('option').length ?? 0,
+      sheetZoomBefore,
+      sheetZoomAfter,
+      interfaceZoomAfterSheet,
       chatWidth,
       chatWidthLimit,
+      rightEdgeIsChat,
+      zoomGeometry,
       interfaceZoom: document.documentElement.style.getPropertyValue('--ui-zoom'),
       computedInterfaceZoom: getComputedStyle(document.body).zoom,
     };
@@ -204,13 +234,25 @@ try {
   assert(Array.isArray(shellState.connections), 'Connection listing did not cross the preload bridge.');
   assert(shellState.connections.length === 0, 'Electron smoke profile was not isolated.');
   assert(shellState.settingsTitle === 'Settings', 'Settings modal did not open.');
+  assert(shellState.settingsTabsDirection === 'column', 'Settings tabs are not vertical.');
+  assert(shellState.settingsHasSubtitle === false, 'Settings header still contains a subtitle.');
   assert(shellState.providerCount === 6, 'Settings modal does not list all six provider types.');
+  assert(shellState.sheetZoomBefore === '100%', `Sheet zoom did not start at 100% (${shellState.sheetZoomBefore}).`);
+  assert(
+    shellState.sheetZoomAfter === '110%',
+    `Ctrl+wheel over the sheet did not zoom only the sheet (${shellState.sheetZoomAfter}).`,
+  );
+  assert(shellState.interfaceZoomAfterSheet === '1', 'Sheet zoom unexpectedly changed interface zoom.');
   assert(
     Math.abs(shellState.chatWidth - shellState.chatWidthLimit) <= 1,
     'Chat panel did not resize to one third of the viewport.',
   );
   assert(shellState.interfaceZoom === '1.1', 'Ctrl+wheel did not increase interface zoom.');
   assert(shellState.computedInterfaceZoom === '1.1', 'Interface zoom was not applied to the renderer.');
+  assert(
+    shellState.rightEdgeIsChat,
+    `Interface zoom detached the chat panel from the visual right edge (${JSON.stringify(shellState.zoomGeometry)}).`,
+  );
   await closeCleanly(first, firstCDP);
   firstCDP.socket.close();
   assert(!first.output().includes('violates the following Content Security Policy'), (

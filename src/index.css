@@ -1693,8 +1693,8 @@ body,
 }
 
 body {
-  width: calc(100% / var(--ui-zoom, 1));
-  height: calc(100% / var(--ui-zoom, 1));
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   background: var(--figma-workspace);
   color: var(--figma-ink);
@@ -3230,9 +3230,11 @@ textarea {
 }
 
 .ai-settings-modal {
+  display: flex;
+  flex-direction: column;
   width: min(920px, 100%);
   max-height: min(760px, calc(100dvh - 48px));
-  overflow: auto;
+  overflow: hidden;
   border: 1px solid var(--figma-border, #e4e1dc);
   border-radius: 18px;
   background: #fff;
@@ -3241,20 +3243,17 @@ textarea {
 }
 
 .ai-settings-header {
-  position: sticky;
-  z-index: 2;
-  top: 0;
   display: flex;
-  align-items: flex-start;
+  flex: 0 0 auto;
+  align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 22px 24px 18px;
+  padding: 18px 22px;
   border-bottom: 1px solid var(--figma-border, #e4e1dc);
   background: rgba(255, 255, 255, 0.96);
 }
 
 .ai-settings-header h2,
-.ai-settings-header p,
 .ai-settings-layout h3,
 .ai-codex-login p {
   margin: 0;
@@ -3264,7 +3263,6 @@ textarea {
   font-size: 22px;
 }
 
-.ai-settings-header p,
 .ai-muted,
 .ai-codex-login p {
   margin-top: 4px;
@@ -3272,12 +3270,17 @@ textarea {
   font-size: 12px;
 }
 
-.ai-settings-kicker {
-  color: var(--figma-coral, #bd596b);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.ai-settings-body {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.ai-settings-content {
+  min-width: 0;
+  overflow: auto;
 }
 
 .ai-settings-layout {
@@ -3287,25 +3290,27 @@ textarea {
 
 .ai-settings-tabs {
   display: flex;
+  flex-direction: column;
   gap: 4px;
-  padding: 10px 24px 0;
-  border-bottom: 1px solid var(--figma-border, #e4e1dc);
-  background: #fff;
+  padding: 16px 10px;
+  border-right: 1px solid var(--figma-border, #e4e1dc);
+  background: #fbfaf8;
 }
 
 .ai-settings-tabs button {
-  padding: 9px 12px 10px;
+  padding: 10px 12px;
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-radius: 8px;
   background: transparent;
   color: var(--figma-muted, #747985);
   font-size: 12px;
   font-weight: 600;
+  text-align: left;
   cursor: pointer;
 }
 
 .ai-settings-tabs button[aria-selected='true'] {
-  border-bottom-color: var(--figma-coral, #bd596b);
+  background: var(--figma-coral-soft, #f9e9ec);
   color: var(--figma-ink, #252933);
 }
 

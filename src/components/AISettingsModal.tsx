@@ -13,6 +13,12 @@ type AISettingsModalProps = {
 
 type SettingsTab = 'providers' | 'appearance' | 'about';
 
+const SETTINGS_TABS: Array<{ id: SettingsTab; label: string }> = [
+  { id: 'providers', label: 'API providers' },
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'about', label: 'About' },
+];
+
 const PROVIDER_LABELS: Record<AIProviderKind, string> = {
   'openai-codex': 'OpenAI Codex',
   openai: 'OpenAI API',
@@ -159,11 +165,18 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({
   const providerOptions = useMemo(() => (
     Object.entries(PROVIDER_LABELS) as [AIProviderKind, string][]
   ), []);
-  const tabs: Array<{ id: SettingsTab; label: string }> = [
-    { id: 'providers', label: 'API providers' },
-    { id: 'appearance', label: 'Appearance' },
-    { id: 'about', label: 'About' },
-  ];
+  const handleTabKeyDown = (event: React.KeyboardEvent, index: number) => {
+    let nextIndex: number | undefined;
+    if (event.key === 'ArrowDown') nextIndex = (index + 1) % SETTINGS_TABS.length;
+    if (event.key === 'ArrowUp') nextIndex = (index - 1 + SETTINGS_TABS.length) % SETTINGS_TABS.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = SETTINGS_TABS.length - 1;
+    if (nextIndex === undefined) return;
+    event.preventDefault();
+    const nextTab = SETTINGS_TABS[nextIndex];
+    setActiveTab(nextTab.id);
+    requestAnimationFrame(() => document.getElementById(`settings-tab-${nextTab.id}`)?.focus());
+  };
 
   if (!open) return null;
 
@@ -179,18 +192,20 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({
         aria-labelledby="ai-settings-title"
       >
         <header className="ai-settings-header">
-          <div>
-            <span className="ai-settings-kicker">Workspace preferences</span>
-            <h2 id="ai-settings-title">Settings</h2>
-            <p>Configure providers, interface scale, and application information.</p>
-          </div>
-          <button ref={closeRef} type="button" className="agent-icon-button" onClick={onClose} aria-label="Close AI settings">
+          <h2 id="ai-settings-title">Settings</h2>
+          <button ref={closeRef} type="button" className="agent-icon-button" onClick={onClose} aria-label="Close settings">
             <X size={19} />
           </button>
         </header>
 
-        <nav className="ai-settings-tabs" role="tablist" aria-label="Settings sections">
-          {tabs.map((tab) => (
+        <div className="ai-settings-body">
+          <nav
+            className="ai-settings-tabs"
+            role="tablist"
+            aria-label="Settings sections"
+            aria-orientation="vertical"
+          >
+          {SETTINGS_TABS.map((tab, index) => (
             <button
               key={tab.id}
               id={`settings-tab-${tab.id}`}
@@ -200,12 +215,14 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({
               aria-controls={`settings-panel-${tab.id}`}
               tabIndex={activeTab === tab.id ? 0 : -1}
               onClick={() => setActiveTab(tab.id)}
+              onKeyDown={(event) => handleTabKeyDown(event, index)}
             >
               {tab.label}
             </button>
           ))}
-        </nav>
+          </nav>
 
+          <div className="ai-settings-content">
         {activeTab === 'providers' && (
           <div
             id="settings-panel-providers"
@@ -405,6 +422,8 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({
             </dl>
           </section>
         )}
+          </div>
+        </div>
       </div>
     </div>
   );

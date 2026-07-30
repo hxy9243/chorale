@@ -12,8 +12,9 @@ The ordinary browser build remains a score editor. It displays “AI providers r
 ## 2. Access and presentation
 
 - A gear button in the top-right workspace header opens the accessible **Settings** modal.
-- Settings uses **API providers**, **Appearance**, and **About** tabs.
-- Appearance controls a persistent 80%–160% interface scale. Ctrl/Cmd + wheel changes the same setting.
+- Settings uses a compact **Settings** header and vertical **API providers**, **Appearance**, and **About** tabs.
+- Appearance controls a persistent 80%–160% interface scale. Ctrl/Cmd + wheel changes the same setting outside the score; over the score it changes score zoom only.
+- Interface scaling preserves the chat panel against the window's right edge.
 - About displays the Chorale name, release, and current desktop/browser runtime.
 - The modal traps focus, closes with Escape or its close button, and restores focus to its trigger.
 - Existing connections show provider kind, validation status, persistence mode, model count, and the age of the cached model list.
