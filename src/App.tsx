@@ -510,8 +510,8 @@ export const App: React.FC = () => {
           onBeginResize={beginRailResize}
         />
 
-        <main className="central-workspace">
-          <div className={`score-editor-shell ${editorVisible ? 'editor-open' : 'editor-hidden'}`}>
+        <main className={`central-workspace ${editorVisible ? 'editor-open' : 'editor-hidden'}`}>
+          <div className="score-editor-shell">
             <section className="score-workspace-card">
               <ScoreCardHeader
                 title={scoreTitle}
@@ -589,14 +589,14 @@ export const App: React.FC = () => {
                 </div>
               </>
             )}
+          </div>
 
-            <div className="playback-dock-container">
-              <AudioPlayer
-                tunes={canRenderScore ? tunes : null}
-                activeAnchor={activeAnchor}
-                onPlaybackPositionChange={handlePlaybackPositionChange}
-              />
-            </div>
+          <div className="playback-dock-container">
+            <AudioPlayer
+              tunes={canRenderScore ? tunes : null}
+              activeAnchor={activeAnchor}
+              onPlaybackPositionChange={handlePlaybackPositionChange}
+            />
           </div>
         </main>
 

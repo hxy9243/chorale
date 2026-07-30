@@ -205,6 +205,8 @@ try {
     const settingsHasSubtitle = Boolean(document.querySelector('.ai-settings-header p'));
     const composerBottom = document.querySelector('.agent-composer')?.getBoundingClientRect().bottom;
     const panelBottom = document.querySelector('.right-panel')?.getBoundingClientRect().bottom;
+    const playbackBottom = document.querySelector('.playback-dock-container')?.getBoundingClientRect().bottom;
+    const workspaceBottom = document.querySelector('.central-workspace')?.getBoundingClientRect().bottom;
     localStorage.setItem('chorale.electron-smoke', 'persisted');
     document.querySelector('[aria-label="Close settings"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 25));
@@ -232,6 +234,8 @@ try {
       computedInterfaceZoom: getComputedStyle(document.body).zoom,
       composerBottom,
       panelBottom,
+      playbackBottom,
+      workspaceBottom,
       storedChatOpen: localStorage.getItem('chorale.workspace.chatOpen'),
       storedChatWidth: Number(localStorage.getItem('chorale.workspace.chatWidth')),
     };
@@ -270,6 +274,10 @@ try {
   assert(
     shellState.panelBottom - shellState.composerBottom <= 20,
     'Chat composer is not anchored to the bottom of the panel.',
+  );
+  assert(
+    Math.abs(shellState.workspaceBottom - shellState.playbackBottom) <= 1,
+    `Playback dock is not anchored to the central workspace bottom (${shellState.playbackBottom} vs ${shellState.workspaceBottom}).`,
   );
   assert(shellState.storedChatOpen === 'false', 'Closed chat state was not persisted.');
   assert(Number.isFinite(shellState.storedChatWidth), 'Resized chat width was not persisted.');
