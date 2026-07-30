@@ -30,6 +30,8 @@ const EDITOR_VISIBLE_KEY = 'chorale.workspace.editorVisible';
 const EDITOR_WIDTH_KEY = 'chorale.workspace.editorWidth';
 const DOCUMENTS_STORAGE_KEY = 'chorale.workspace.documents';
 const ACTIVE_FILE_KEY = 'chorale.workspace.activeFileId';
+export const CHAT_OPEN_KEY = 'chorale.workspace.chatOpen';
+export const CHAT_WIDTH_KEY = 'chorale.workspace.chatWidth';
 const DEFAULT_EDITOR_WIDTH = 420;
 const MIN_EDITOR_WIDTH = 320;
 const MAX_EDITOR_WIDTH = 720;
@@ -95,7 +97,7 @@ export const App: React.FC = () => {
   });
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [chatOpen, setChatOpen] = useState<boolean>(true);
+  const [chatOpen, setChatOpen] = useState<boolean>(() => readStoredBool(CHAT_OPEN_KEY, true));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const aiProviders = useAIProviders();
   const interfaceZoom = useInterfaceZoom();
@@ -419,7 +421,10 @@ export const App: React.FC = () => {
     [interfaceZoom.zoom],
   );
   const [chatWidth, setChatWidth] = useState<number>(() => (
-    clampChatPanelWidth(392, layoutViewportWidth())
+    clampChatPanelWidth(
+      Number(window.localStorage.getItem(CHAT_WIDTH_KEY)) || 392,
+      layoutViewportWidth(),
+    )
   ));
   const chatDragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
@@ -431,6 +436,14 @@ export const App: React.FC = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [layoutViewportWidth]);
+
+  useEffect(() => {
+    window.localStorage.setItem(CHAT_OPEN_KEY, String(chatOpen));
+  }, [chatOpen]);
+
+  useEffect(() => {
+    window.localStorage.setItem(CHAT_WIDTH_KEY, String(Math.round(chatWidth)));
+  }, [chatWidth]);
 
   const beginChatResize = (event: React.PointerEvent<HTMLButtonElement>) => {
     chatDragStateRef.current = {

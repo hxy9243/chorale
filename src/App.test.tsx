@@ -1,7 +1,7 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import abcjs from 'abcjs';
-import App from './App';
+import App, { CHAT_OPEN_KEY, CHAT_WIDTH_KEY } from './App';
 import * as xmlParser from './utils/xmlParser';
 
 vi.mock('abcjs', () => ({
@@ -149,6 +149,40 @@ describe('App Integration', () => {
 
     fireEvent.click(screen.getByTitle('Show score chat'));
     expect(screen.getByLabelText('Current sheet assistant')).toBeDefined();
+  });
+
+  it('restores the chat open state and width across refreshes and reopens', async () => {
+    localStorage.setItem('chorale.workspace.documents', JSON.stringify([{
+      id: 'chat-state-doc',
+      name: 'Chat state.abc',
+      sourceType: 'abc',
+      abcSource: 'X:1\nT:Chat state\nK:C\nCDEF|',
+      revision: 1,
+      versions: [],
+      scoreInfo: { title: 'Chat state' },
+    }]));
+    localStorage.setItem('chorale.workspace.activeFileId', 'chat-state-doc');
+    localStorage.setItem(CHAT_OPEN_KEY, 'false');
+    localStorage.setItem(CHAT_WIDTH_KEY, '320');
+    const { unmount } = render(<App />);
+
+    expect(screen.queryByLabelText('Current sheet assistant')).toBeNull();
+    fireEvent.click(screen.getByTitle('Show score chat'));
+    expect(screen.getByLabelText('Current sheet assistant')).toBeDefined();
+    const workspace = document.querySelector<HTMLElement>('.workspace-body')!;
+    expect(workspace.style.gridTemplateColumns).toContain('320px');
+    await waitFor(() => expect(localStorage.getItem(CHAT_OPEN_KEY)).toBe('true'));
+
+    fireEvent.click(screen.getByTitle('Close assistant'));
+    await waitFor(() => expect(localStorage.getItem(CHAT_OPEN_KEY)).toBe('false'));
+    expect(localStorage.getItem(CHAT_WIDTH_KEY)).toBe('320');
+    unmount();
+
+    render(<App />);
+    expect(screen.queryByLabelText('Current sheet assistant')).toBeNull();
+    fireEvent.click(screen.getByTitle('Show score chat'));
+    expect(document.querySelector<HTMLElement>('.workspace-body')!.style.gridTemplateColumns)
+      .toContain('320px');
   });
 
   it('allows deleting files from the file rail', async () => {

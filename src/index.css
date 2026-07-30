@@ -2951,7 +2951,7 @@ textarea {
 
 .agent-composer {
   position: relative;
-  margin: 0 16px 18px;
+  margin: auto 16px 18px;
   padding: 12px;
   border: 1px solid var(--figma-border);
   border-radius: 14px;

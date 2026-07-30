@@ -30,6 +30,8 @@ The panel provides four vertical zones and a left resize handle:
 - the workspace header gear opens AI provider settings
 - close action; persistent header button allows reopening chat
 - panel drag-to-resize handle on left border (minimum 280px, maximum one third of the viewport, default 392px when space allows)
+- the composer remains anchored to the bottom of the panel while the transcript scrolls
+- panel width and open/closed state persist across close/reopen and renderer refresh
 
 ### Conversation
 
