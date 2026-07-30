@@ -51,7 +51,7 @@ It contains:
 - score toolbar (title, zoom controls, semitone transposition)
 - rendered score surface (with auto-centering playback line and zoom layout space reservation)
 - optional split ABC editor pane (horizontal drag-to-resize, width bounded between 320px and 720px, default 420px)
-- playback dock anchored at the bottom (max-width bounded to 800px for centered desktop presentation)
+- playback dock anchored to the visible bottom of the central workspace, independent of content height and interface zoom (max-width bounded to 800px for centered desktop presentation)
 
 The score remains the dominant surface. The editor is subordinate even when visible.
 

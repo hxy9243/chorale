@@ -151,6 +151,14 @@ describe('App Integration', () => {
     expect(screen.getByLabelText('Current sheet assistant')).toBeDefined();
   });
 
+  it('anchors the playback dock to the central workspace viewport', () => {
+    render(<App />);
+
+    const workspace = document.querySelector('.central-workspace');
+    const playbackDock = document.querySelector('.playback-dock-container');
+    expect(playbackDock?.parentElement).toBe(workspace);
+  });
+
   it('restores the chat open state and width across refreshes and reopens', async () => {
     localStorage.setItem('chorale.workspace.documents', JSON.stringify([{
       id: 'chat-state-doc',
