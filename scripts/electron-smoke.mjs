@@ -194,6 +194,10 @@ try {
       bodyRight: document.body.getBoundingClientRect().right,
       shellRight: document.querySelector('.chorale-app-shell')?.getBoundingClientRect().right,
       bodyWidth: getComputedStyle(document.body).width,
+      viewportWidth: window.innerWidth,
+      bodyBottom: document.body.getBoundingClientRect().bottom,
+      bodyHeight: getComputedStyle(document.body).height,
+      viewportHeight: window.innerHeight,
     };
 
     const gear = await waitForElement('[aria-label="Open settings"]');
@@ -236,6 +240,7 @@ try {
       panelBottom,
       playbackBottom,
       workspaceBottom,
+      viewportBottom: window.innerHeight,
       storedChatOpen: localStorage.getItem('chorale.workspace.chatOpen'),
       storedChatWidth: Number(localStorage.getItem('chorale.workspace.chatWidth')),
     };
@@ -272,12 +277,14 @@ try {
     `Interface zoom detached the chat panel from the visual right edge (${JSON.stringify(shellState.zoomGeometry)}).`,
   );
   assert(
-    shellState.panelBottom - shellState.composerBottom <= 20,
-    'Chat composer is not anchored to the bottom of the panel.',
+    Math.abs(shellState.panelBottom - shellState.viewportBottom) <= 1
+      && shellState.panelBottom - shellState.composerBottom <= 20,
+    `Chat composer is not anchored to the visible window bottom (${shellState.composerBottom}, panel ${shellState.panelBottom}, viewport ${shellState.viewportBottom}, geometry ${JSON.stringify(shellState.zoomGeometry)}).`,
   );
   assert(
-    Math.abs(shellState.workspaceBottom - shellState.playbackBottom) <= 1,
-    `Playback dock is not anchored to the central workspace bottom (${shellState.playbackBottom} vs ${shellState.workspaceBottom}).`,
+    Math.abs(shellState.workspaceBottom - shellState.playbackBottom) <= 1
+      && Math.abs(shellState.playbackBottom - shellState.viewportBottom) <= 1,
+    `Playback dock is not anchored to the visible window bottom (${shellState.playbackBottom}, workspace ${shellState.workspaceBottom}, viewport ${shellState.viewportBottom}).`,
   );
   assert(shellState.storedChatOpen === 'false', 'Closed chat state was not persisted.');
   assert(Number.isFinite(shellState.storedChatWidth), 'Resized chat width was not persisted.');
