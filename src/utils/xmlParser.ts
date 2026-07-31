@@ -54,7 +54,7 @@ export async function extractMusicXml(fileOrBuffer: File | ArrayBuffer | string)
     if (xmlFiles.length > 0) {
       return await zip.file(xmlFiles[0])!.async('text');
     }
-  } catch (_e) {
+  } catch {
     // If not a valid zip archive, attempt parsing as plain text string
   }
 
