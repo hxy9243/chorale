@@ -132,6 +132,7 @@ export const App: React.FC = () => {
   const [buildStatus, setBuildStatus] = useState<BuildStatus>('idle');
   const [buildResult, setBuildResult] = useState<BuildResult | null>(null);
   const loadRequestRef = useRef(0);
+  const workspaceInitializedRef = useRef(false);
   const buildRequestRef = useRef(0);
   const dragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
@@ -180,14 +181,6 @@ export const App: React.FC = () => {
 
   const handlePlaybackPositionChange = useCallback((position: PlaybackPosition) => {
     playbackPositionRef.current = position;
-  }, []);
-
-  useEffect(() => {
-    if (documents.length === 0 && PRESET_SAMPLES.length > 0) {
-      void loadSample(PRESET_SAMPLES[0]);
-    } else if (!activeFileId && documents.length > 0) {
-      setActiveFileId(documents[0].id);
-    }
   }, []);
 
   useEffect(() => {
@@ -324,7 +317,7 @@ export const App: React.FC = () => {
     }
   };
 
-  const loadSample = async (sample: MusicSample) => {
+  const loadSample = useCallback(async (sample: MusicSample) => {
     const sampleName = `${sample.title} (${sample.type.toUpperCase()})`;
     const existingDoc = documents.find((doc) => doc.name === sampleName);
     if (existingDoc) {
@@ -367,7 +360,18 @@ export const App: React.FC = () => {
         setLoading(false);
       }
     }
-  };
+  }, [documents]);
+
+  useEffect(() => {
+    if (workspaceInitializedRef.current) return;
+    workspaceInitializedRef.current = true;
+
+    if (documents.length === 0 && PRESET_SAMPLES.length > 0) {
+      void loadSample(PRESET_SAMPLES[0]);
+    } else if (!activeFileId && documents.length > 0) {
+      setActiveFileId(documents[0].id);
+    }
+  }, [activeFileId, documents, loadSample]);
 
   const handleDeleteDocument = (fileId: string) => {
     setDocuments((prevDocs) => {
