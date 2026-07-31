@@ -618,7 +618,7 @@ try {
     `Thread selector styling is incomplete (${shellState.threadBorderWidth}, radius ${shellState.threadBorderRadius}, chevron ${shellState.threadChevronBackground}/${shellState.threadChevronShadow}, legacy ${shellState.threadLegacyArrowContent}/${shellState.threadLegacyArrowBorderWidth}, appearance ${shellState.threadTriggerAppearance}, chevrons ${shellState.threadChevronCount}).`,
   );
   assert(
-    shellState.threadLabelWidth / shellState.threadTriggerWidth >= 0.9,
+    shellState.threadLabelWidth / shellState.threadTriggerWidth >= 0.92,
     `Thread title does not use the available trigger width (${shellState.threadLabelWidth}px of ${shellState.threadTriggerWidth}px).`,
   );
   assert(shellState.hasThreadDelete, 'Thread history does not expose a delete action.');
