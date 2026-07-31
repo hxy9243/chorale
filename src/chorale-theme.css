@@ -4681,7 +4681,7 @@ body,
   gap: var(--space-xs);
   padding: 0 var(--space-sm);
   border: var(--rule-thin) solid var(--color-assistant-rule);
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-control);
   -webkit-appearance: none;
   appearance: none;
   background: var(--color-paper-raised);
@@ -4700,9 +4700,7 @@ body,
 .agent-history-chevron {
   position: static;
   flex: none;
-  background: var(--color-paper-raised);
   color: var(--color-muted);
-  box-shadow: 0 0 0 var(--space-xs) var(--color-paper-raised);
   pointer-events: none;
   transform: none;
 }
@@ -4886,11 +4884,6 @@ body,
   .agent-history-menu button:hover {
     background: var(--color-paper-2);
     color: var(--color-ink);
-  }
-
-  .agent-history-trigger:hover .agent-history-chevron {
-    background: var(--color-paper-2);
-    box-shadow: 0 0 0 var(--space-xs) var(--color-paper-2);
   }
 }
 
