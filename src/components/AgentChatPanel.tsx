@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Plus, Send, Square, Trash2, X } from 'lucide-react';
 import { DesktopSheetAgent } from '../agent/DesktopSheetAgent';
 import type { AIProviderState } from '../agent/useAIProviders';
@@ -28,6 +28,10 @@ const SUGGESTED_QUESTIONS = [
   'Find non-chord tones',
   'Suggest a simpler reharmonization',
 ] as const;
+
+const DEFAULT_TEXTAREA_HEIGHT = 80;
+const COMPOSER_MAX_PANEL_RATIO = 0.35;
+const KEYBOARD_RESIZE_STEP = 16;
 
 const makeId = () => crypto.randomUUID();
 
@@ -73,13 +77,55 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   const [isStreaming, setIsStreaming] = useState(false);
   const [threadMenuOpen, setThreadMenuOpen] = useState(false);
   const [providerPickerOpen, setProviderPickerOpen] = useState(false);
+  const [textareaHeight, setTextareaHeight] = useState<number | null>(null);
   const agentRef = useRef<DesktopSheetAgent | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const composerRef = useRef<HTMLFormElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const resizeStartRef = useRef<{ pointerId: number; pointerY: number; height: number } | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const threadPickerRef = useRef<HTMLDivElement>(null);
   const threadTriggerRef = useRef<HTMLButtonElement>(null);
   const providerPickerRef = useRef<HTMLDivElement>(null);
   const providerTriggerRef = useRef<HTMLButtonElement>(null);
+
+  const getTextareaBounds = useCallback(() => {
+    const panel = panelRef.current;
+    const composer = composerRef.current;
+    const textarea = textareaRef.current;
+    if (!panel || !composer || !textarea) {
+      return { minHeight: DEFAULT_TEXTAREA_HEIGHT, maxHeight: DEFAULT_TEXTAREA_HEIGHT };
+    }
+
+    const renderedHeight = textarea.getBoundingClientRect().height || DEFAULT_TEXTAREA_HEIGHT;
+    const minHeight = Number.parseFloat(getComputedStyle(textarea).minHeight) || DEFAULT_TEXTAREA_HEIGHT;
+    const composerChrome = Math.max(0, composer.getBoundingClientRect().height - renderedHeight);
+    const maxHeight = Math.max(
+      minHeight,
+      Math.floor(panel.getBoundingClientRect().height * COMPOSER_MAX_PANEL_RATIO - composerChrome),
+    );
+    return { minHeight, maxHeight };
+  }, []);
+
+  const setBoundedTextareaHeight = useCallback((requestedHeight: number) => {
+    const { minHeight, maxHeight } = getTextareaBounds();
+    setTextareaHeight(Math.min(maxHeight, Math.max(minHeight, requestedHeight)));
+  }, [getTextareaBounds]);
+
+  const growTextareaToContent = useCallback((textarea: HTMLTextAreaElement) => {
+    const { minHeight, maxHeight } = getTextareaBounds();
+    const currentHeight = textarea.getBoundingClientRect().height || DEFAULT_TEXTAREA_HEIGHT;
+    const overflow = textarea.scrollHeight - textarea.clientHeight;
+    if (overflow <= 1) {
+      textarea.style.overflowY = 'hidden';
+      return;
+    }
+
+    const nextHeight = Math.min(maxHeight, Math.max(minHeight, currentHeight + overflow));
+    setTextareaHeight(nextHeight);
+    textarea.style.overflowY = currentHeight + overflow > maxHeight ? 'auto' : 'hidden';
+  }, [getTextareaBounds]);
 
   useEffect(() => {
     if (abortControllerRef.current) {
@@ -100,11 +146,29 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     saveConversation(fileId, conversation);
   }, [conversation, fileId]);
 
+  useEffect(() => {
+    if (draft) return;
+    setTextareaHeight(null);
+    if (textareaRef.current) textareaRef.current.style.overflowY = 'hidden';
+  }, [draft]);
+
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => {
+      const { maxHeight } = getTextareaBounds();
+      setTextareaHeight((current) => (current === null ? null : Math.min(current, maxHeight)));
+    });
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [getTextareaBounds]);
+
   const activeThread = useMemo(() => (
     conversation.threads.find((thread) => thread.id === conversation.activeThreadId) || conversation.threads[0]
   ), [conversation]);
 
   const messages = useMemo(() => activeThread?.messages || [], [activeThread]);
+  const anchorLabel = formatAnchorLabel(activeAnchor);
   const getAgent = () => {
     agentRef.current ??= new DesktopSheetAgent();
     return agentRef.current;
@@ -332,7 +396,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   };
 
   return (
-    <aside className="agent-panel" aria-label="Current sheet assistant">
+    <aside className="agent-panel" aria-label="Current sheet assistant" ref={panelRef}>
       <div className="agent-panel-header">
         <div className="agent-title-row">
           <div>
@@ -437,11 +501,6 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
                 </button>
               ))}
             </div>
-            <div className="agent-history-preview">
-              <span>Earlier in this score</span>
-              <strong>{activeThread?.title || 'Cadence analysis'}</strong>
-              <small>{messages.length} messages · ABC revision {revision}</small>
-            </div>
           </div>
         ) : messages.map((message) => (
           <article
@@ -479,7 +538,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
 
       {error && <div className="agent-error" role="alert">{error}</div>}
 
-      <form className="agent-composer" onSubmit={sendMessage}>
+      <form className="agent-composer" onSubmit={sendMessage} ref={composerRef}>
         {!ai.desktopAvailable && (
           <div className="agent-provider-required">
             <span>AI providers require the Chorale desktop app.</span>
@@ -553,27 +612,90 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
             )}
           </div>
         )}
+        {anchorLabel && (
+          <div className="agent-composer-anchor">
+            <span>Selected {anchorLabel}</span>
+          </div>
+        )}
         <label htmlFor="agent-question" className="sr-only">Ask about the current sheet</label>
-        <textarea
-          id="agent-question"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder={!ai.desktopAvailable
-            ? 'Open Chorale desktop to use AI'
-            : !providerReady
-              ? 'Select a provider and model'
-              : abcCode.trim()
-                ? 'Ask about the current sheet…'
-                : 'Load a score to start chatting'}
-          disabled={!abcCode.trim() || isStreaming || !providerReady}
-          rows={3}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
+        <div className="agent-composer-input">
+          <textarea
+            ref={textareaRef}
+            id="agent-question"
+            value={draft}
+            style={textareaHeight === null ? undefined : { height: `${textareaHeight}px` }}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              if (event.target.value) growTextareaToContent(event.currentTarget);
+            }}
+            placeholder={!ai.desktopAvailable
+              ? 'Open Chorale desktop to use AI'
+              : !providerReady
+                ? 'Select a provider and model'
+                : abcCode.trim()
+                  ? 'Ask about the current sheet…'
+                  : 'Load a score to start chatting'}
+            disabled={!abcCode.trim() || isStreaming || !providerReady}
+            rows={3}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                event.currentTarget.form?.requestSubmit();
+              }
+            }}
+          />
+          <button
+            className="agent-composer-resize-handle"
+            type="button"
+            aria-label="Resize chat input"
+            aria-controls="agent-question"
+            title="Drag vertically or use the arrow keys to resize"
+            disabled={!abcCode.trim() || isStreaming || !providerReady}
+            onPointerDown={(event) => {
+              const textarea = textareaRef.current;
+              if (!textarea) return;
+              resizeStartRef.current = {
+                pointerId: event.pointerId,
+                pointerY: event.clientY,
+                height: textarea.getBoundingClientRect().height || DEFAULT_TEXTAREA_HEIGHT,
+              };
+              event.currentTarget.setPointerCapture?.(event.pointerId);
+            }}
+            onPointerMove={(event) => {
+              const start = resizeStartRef.current;
+              if (!start || start.pointerId !== event.pointerId) return;
+              setBoundedTextareaHeight(start.height + start.pointerY - event.clientY);
+            }}
+            onPointerUp={(event) => {
+              if (resizeStartRef.current?.pointerId === event.pointerId) {
+                resizeStartRef.current = null;
+                event.currentTarget.releasePointerCapture?.(event.pointerId);
+              }
+            }}
+            onPointerCancel={() => {
+              resizeStartRef.current = null;
+            }}
+            onKeyDown={(event) => {
+              const textarea = textareaRef.current;
+              if (!textarea || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
               event.preventDefault();
-              event.currentTarget.form?.requestSubmit();
-            }
-          }}
-        />
+              const currentHeight = textarea.getBoundingClientRect().height || DEFAULT_TEXTAREA_HEIGHT;
+              setBoundedTextareaHeight(
+                currentHeight + (event.key === 'ArrowUp' ? KEYBOARD_RESIZE_STEP : -KEYBOARD_RESIZE_STEP),
+              );
+            }}
+          >
+            <svg
+              className="agent-composer-resize-icon"
+              viewBox="0 0 16 16"
+              aria-hidden="true"
+            >
+              <path d="M3 1 15 13" />
+              <path d="M8 1 15 8" />
+              <path d="M13 1 15 3" />
+            </svg>
+          </button>
+        </div>
         {isStreaming ? (
           <button
             className="agent-send-button"
