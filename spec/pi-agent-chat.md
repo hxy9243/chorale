@@ -27,7 +27,8 @@ The panel provides four vertical zones and a left resize handle:
 
 - thread title and history selector
 - active file subtitle
-- the workspace header gear opens AI provider settings
+- a full-width history selector below the title row; the closed select and its dropdown share the same width and control styling
+- the left-rail **Settings** panel opens AI provider settings
 - close action; persistent header button allows reopening chat
 - panel drag-to-resize handle on left border (minimum 280px, maximum one third of the viewport, default 392px when space allows)
 - the composer remains anchored to the bottom of the panel while the transcript scrolls
@@ -35,15 +36,14 @@ The panel provides four vertical zones and a left resize handle:
 
 ### Conversation
 
-- anchor chip (e.g. `Selected m. 5–8`)
 - user prompt bubbles
 - assistant response messages with markdown formatting
 - visible tool execution indicators (`Executing analyze_harmonic_cadence...`)
 - interactive mutation review cards (Diff view for proposed ABC edits or Annotation additions)
+- empty state begins with a slightly narrower `Try asking` group and does not repeat a `Chorale / Analysis` brand card
 
 ### Composer
 
-- attached anchor chip
 - compact global provider/model popover
 - prompt input area
 - send prompt action
@@ -156,7 +156,7 @@ Current branch provides:
 - file-scoped chat panel with toggle control in header
 - horizontal drag-to-resize functionality (280px–680px)
 - per-file transcript persistence
-- active score anchor attachment and display in composer
+- active score anchor attachment in the captured request context without a persistent selection banner or composer chip
 - Electron IPC-backed Pi streaming and cancellation
 - six provider kinds and multiple named connections
 - global provider/model selector and cached model catalogs

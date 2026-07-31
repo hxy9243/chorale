@@ -14,7 +14,7 @@ The playback dock is positioned against the central workspace viewport and stays
 Expected elements:
 
 - primary play/pause and stop controls
-- progress timeline seek track with elapsed and total duration (`mm:ss`)
+- progress timeline seek track with high-contrast elapsed and total duration (`mm:ss`)
 - active score anchor label badge (e.g. `Selected m.5`)
 - audio status indicator (`Synth Ready`, `Buffering Audio...`, `No Score Loaded`, or error banner)
 - WebAudio master gain volume slider (0–100%) and mute toggle

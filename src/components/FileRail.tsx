@@ -1,5 +1,14 @@
 import React, { useRef } from 'react';
-import { Plus, FileMusic, AlertCircle, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import {
+  AlertCircle,
+  Braces,
+  ChevronDown,
+  ChevronUp,
+  FileMusic,
+  Plus,
+  Settings,
+  Trash2,
+} from 'lucide-react';
 import type { FileDocument } from '../types/document';
 
 interface FileRailProps {
@@ -13,6 +22,9 @@ interface FileRailProps {
   error?: string | null;
   collapsed?: boolean;
   onBeginResize?: (e: React.PointerEvent<HTMLButtonElement>) => void;
+  editorVisible?: boolean;
+  onToggleEditor?: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const FileRail: React.FC<FileRailProps> = ({
@@ -26,6 +38,9 @@ export const FileRail: React.FC<FileRailProps> = ({
   error = null,
   collapsed = false,
   onBeginResize,
+  editorVisible = false,
+  onToggleEditor,
+  onOpenSettings,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -52,27 +67,27 @@ export const FileRail: React.FC<FileRailProps> = ({
 
   return (
     <aside className={`file-rail ${collapsed ? 'collapsed' : ''}`} aria-label="Files">
-      <button
-        type="button"
-        className="import-btn"
-        onClick={() => fileInputRef.current?.click()}
-        disabled={loading}
-      >
-        <Plus size={15} />
-        <span>Import score</span>
-      </button>
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        accept=".xml,.musicxml,.mxl,.abc"
-        hidden
-      />
-
-      <div className="file-rail-section">
+      <section className="file-rail-section" aria-labelledby="files-panel-title">
         <div className="rail-section-header">
-          <p className="rail-section-title">FILES</p>
+          <h2 className="rail-section-title" id="files-panel-title">Files</h2>
         </div>
+        <button
+          type="button"
+          className="import-btn"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={loading}
+          title="Import an ABC, MusicXML, or MXL score"
+        >
+          <Plus size={15} aria-hidden="true" />
+          <span>Import score</span>
+        </button>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept=".xml,.musicxml,.mxl,.abc"
+          hidden
+        />
         <div className="file-list">
           {documents.map((doc, index) => {
             const isActive = doc.id === activeFileId;
@@ -150,7 +165,39 @@ export const FileRail: React.FC<FileRailProps> = ({
             );
           })}
         </div>
-      </div>
+      </section>
+
+      <section className="file-rail-section rail-tools-panel" aria-labelledby="tools-panel-title">
+        <div className="rail-section-header">
+          <h2 className="rail-section-title" id="tools-panel-title">Tools</h2>
+        </div>
+        <button
+          type="button"
+          className={`rail-tool-button ${editorVisible ? 'active' : ''}`}
+          onClick={onToggleEditor}
+          aria-pressed={editorVisible}
+          title={editorVisible ? 'Close the ABC source panel' : 'Open the ABC source panel'}
+        >
+          <Braces size={16} aria-hidden="true" />
+          <span>ABC display</span>
+        </button>
+      </section>
+
+      <section className="file-rail-section rail-settings-panel" aria-labelledby="settings-panel-title">
+        <div className="rail-section-header">
+          <h2 className="rail-section-title" id="settings-panel-title">Settings</h2>
+        </div>
+        <button
+          type="button"
+          className="rail-tool-button"
+          onClick={onOpenSettings}
+          title="Open application settings"
+          aria-label="Open settings"
+        >
+          <Settings size={16} aria-hidden="true" />
+          <span>Application settings</span>
+        </button>
+      </section>
 
       {error && (
         <div className="file-rail-error" role="alert">

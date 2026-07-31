@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, PanelLeft, Settings } from 'lucide-react';
+import { MessageSquare, PanelLeft } from 'lucide-react';
 
 interface HeaderProps {
   activeFileName?: string;
@@ -7,8 +7,6 @@ interface HeaderProps {
   onToggleChat?: () => void;
   railCollapsed?: boolean;
   onToggleRail?: () => void;
-  saveState?: string;
-  onOpenSettings?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,22 +15,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleChat,
   railCollapsed = false,
   onToggleRail,
-  saveState = 'Saved',
-  onOpenSettings,
 }) => {
-  const saveLabel = saveState === 'Saved' || saveState === 'Auto-saved'
-    ? 'Auto-saved'
-    : saveState === 'Saving'
-      ? 'Saving…'
-      : saveState === 'Error'
-        ? 'Save failed'
-        : saveState;
-  const saveClassName = saveState === 'Saving'
-    ? 'draft'
-    : saveState === 'Error'
-      ? 'error'
-      : '';
-
   return (
     <header className="app-header">
       <div className="header-brand">
@@ -45,7 +28,6 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <PanelLeft size={18} aria-hidden="true" />
         </button>
-        <div className="brand-mark" aria-hidden="true">C</div>
         <span>Chorale</span>
       </div>
 
@@ -54,14 +36,6 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="header-right">
-        <span
-          className={`header-save-pill ${saveClassName}`}
-          role="status"
-          aria-live="polite"
-          title={saveState === 'Error' ? 'Changes could not be saved in this browser.' : undefined}
-        >
-          {saveLabel}
-        </span>
         <button
           type="button"
           className={`header-chat-button ${chatOpen ? 'active' : ''}`}
@@ -72,15 +46,6 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <MessageSquare size={15} aria-hidden="true" />
           <span>Chat</span>
-        </button>
-        <button
-          type="button"
-          className="header-icon-btn"
-          onClick={onOpenSettings}
-          title="Settings"
-          aria-label="Open settings"
-        >
-          <Settings size={17} aria-hidden="true" />
         </button>
       </div>
     </header>

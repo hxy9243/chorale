@@ -151,6 +151,29 @@ describe('AISettingsModal', () => {
     expect(screen.getByText('v0.0.0')).toBeDefined();
   });
 
+  it('keeps every settings section inside the same dialog frame', () => {
+    render(
+      <AISettingsModal
+        open
+        onClose={() => undefined}
+        ai={makeAIState()}
+        {...zoomProps}
+      />,
+    );
+
+    const dialog = screen.getByRole('dialog', { name: 'Settings' });
+    const content = dialog.querySelector('.ai-settings-content');
+    expect(screen.getByRole('tabpanel').parentElement).toBe(content);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
+    expect(screen.getByRole('dialog', { name: 'Settings' })).toBe(dialog);
+    expect(screen.getByRole('tabpanel').parentElement).toBe(content);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'About' }));
+    expect(screen.getByRole('dialog', { name: 'Settings' })).toBe(dialog);
+    expect(screen.getByRole('tabpanel').parentElement).toBe(content);
+  });
+
   it('uses vertical tabs and supports arrow-key navigation', () => {
     render(
       <AISettingsModal

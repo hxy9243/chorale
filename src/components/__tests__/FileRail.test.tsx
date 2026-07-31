@@ -16,13 +16,47 @@ describe('FileRail Component', () => {
     error: null,
   };
 
-  it('renders a files-only sidebar', () => {
+  it('renders named files, tools, and settings panels', () => {
     render(<FileRail {...defaultProps} />);
 
     expect(screen.getByText('Import score')).toBeDefined();
-    expect(screen.getByText('FILES')).toBeDefined();
+    expect(screen.getByRole('region', { name: 'Files' })).toBeDefined();
+    expect(screen.getByRole('region', { name: 'Tools' })).toBeDefined();
+    expect(screen.getByRole('region', { name: 'Settings' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'ABC display' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Open settings' })).toBeDefined();
     expect(screen.queryByText('LIBRARY')).toBeNull();
     expect(screen.queryByText('PROJECTS')).toBeNull();
+  });
+
+  it('owns the ABC display toggle and settings entry point', () => {
+    const onToggleEditor = vi.fn();
+    const onOpenSettings = vi.fn();
+    const { rerender } = render(
+      <FileRail
+        {...defaultProps}
+        onToggleEditor={onToggleEditor}
+        onOpenSettings={onOpenSettings}
+      />,
+    );
+
+    const abcDisplay = screen.getByRole('button', { name: 'ABC display' });
+    expect(abcDisplay.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(abcDisplay);
+    expect(onToggleEditor).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
+    expect(onOpenSettings).toHaveBeenCalledOnce();
+
+    rerender(
+      <FileRail
+        {...defaultProps}
+        editorVisible
+        onToggleEditor={onToggleEditor}
+        onOpenSettings={onOpenSettings}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'ABC display' }).getAttribute('aria-pressed')).toBe('true');
   });
 
   it('renders active document names', () => {

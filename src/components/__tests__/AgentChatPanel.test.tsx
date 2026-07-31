@@ -151,6 +151,29 @@ describe('AgentChatPanel', () => {
     expect(screen.queryByText('Tools')).toBeNull();
   });
 
+  it('uses a full header row for thread selection without redundant analysis or selection displays', () => {
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-layout"
+        abcCode={'X:1\nT:Layout\nK:C\nCDEF|'}
+        activeFileName="Layout.abc"
+        revision={2}
+        activeAnchor={{ measure: 3 }}
+        ai={ai}
+        onOpenSettings={() => undefined}
+      />,
+    );
+
+    const threadSelect = screen.getByLabelText('Conversation history');
+    expect(threadSelect.closest('.agent-history-control')?.parentElement?.className)
+      .toContain('agent-panel-header');
+    expect(screen.queryByText('Analysis')).toBeNull();
+    expect(screen.queryByText(/Selection:/)).toBeNull();
+    expect(screen.queryByText(/Attached anchor:/)).toBeNull();
+  });
+
   it('shows desktop-required state and gates the composer without a preload bridge', () => {
     render(
       <AgentChatPanel

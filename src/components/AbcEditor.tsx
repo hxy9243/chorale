@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, Check, Copy, FileCode2, LoaderCircle } from 'lucide-react';
+import { AlertTriangle, Check, Copy, FileCode2, LoaderCircle, X } from 'lucide-react';
 
 interface AbcEditorProps {
   abcCode: string;
@@ -66,11 +66,13 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
             {copied ? 'Copied' : 'Copy'}
           </button>
           <button
-            className="btn btn-sm btn-secondary"
+            className="btn btn-sm btn-secondary editor-close-button"
             type="button"
             onClick={onToggleVisibility}
+            title="Close ABC editor"
+            aria-label="Close ABC editor"
           >
-            {visible ? 'Hide pane' : 'Show pane'}
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
       </div>

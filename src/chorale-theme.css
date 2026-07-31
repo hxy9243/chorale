@@ -3900,3 +3900,309 @@ body,
     transform: none;
   }
 }
+
+/* Hallmark · refinement: workbench chrome · tone: austere · anchor hue: fjord */
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4 */
+
+/* Decorative rules exist only where a visible element carries meaning. */
+.app-header::after,
+.file-rail::before,
+.score-card-header::before,
+.playback-dock-container::before,
+.ai-settings-header::after {
+  display: none;
+  content: none;
+}
+
+.app-header {
+  border-bottom: 0;
+}
+
+.header-icon-btn,
+.header-chat-button,
+.sidebar-toggle-btn,
+.header-chat-button.active,
+.sidebar-toggle-btn:not(.collapsed),
+.sidebar-toggle-btn.collapsed {
+  border-bottom: 0;
+}
+
+.header-chat-button.active,
+.sidebar-toggle-btn:not(.collapsed),
+.sidebar-toggle-btn.collapsed {
+  border-radius: var(--radius-control);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+}
+
+.file-rail.collapsed,
+.workspace-body:not(.chat-open) .right-panel {
+  border: 0;
+  border-right: 0;
+  border-left: 0;
+  border-inline-start: 0;
+  border-inline-end: 0;
+}
+
+/* The left rail is a compact stack of named work areas. */
+.file-rail {
+  gap: var(--space-lg);
+  padding-block: var(--space-lg);
+}
+
+.file-rail-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.rail-section-header {
+  min-height: 1.25rem;
+}
+
+.rail-section-title {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.25rem;
+  text-transform: uppercase;
+}
+
+.file-rail .import-btn {
+  margin: 0;
+}
+
+.rail-tools-panel {
+  margin-top: var(--space-sm);
+}
+
+.rail-settings-panel {
+  margin-top: auto;
+}
+
+.rail-tool-button {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--rule-thin) solid var(--color-transparent);
+  border-radius: var(--radius-control);
+  background: var(--color-transparent);
+  color: var(--color-ink-2);
+  font-size: var(--text-sm);
+  font-weight: 550;
+  text-align: start;
+  cursor: pointer;
+}
+
+.rail-tool-button.active {
+  border-color: var(--color-rule);
+  background: var(--color-paper-raised);
+  color: var(--color-accent-strong);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .rail-tool-button:hover {
+    background: var(--color-paper-3);
+    color: var(--color-ink);
+  }
+}
+
+/* Display controls float over the score instead of occupying another header. */
+.score-workspace-card {
+  position: relative;
+}
+
+.score-display-options {
+  position: absolute;
+  z-index: var(--z-raised);
+  top: var(--space-sm);
+  right: var(--space-sm);
+  display: flex;
+  align-items: center;
+  padding: var(--space-2xs);
+  border: var(--rule-thin) solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-paper-raised);
+  box-shadow: var(--shadow-whisper);
+  opacity: 0.8;
+  backdrop-filter: blur(0.5rem);
+  transition: opacity var(--dur-short) var(--ease-out);
+}
+
+.score-display-options:hover,
+.score-display-options:focus-within {
+  opacity: 1;
+}
+
+.score-display-options .figma-button {
+  border: 0;
+  border-radius: var(--radius-small);
+}
+
+.score-display-options .figma-button:hover {
+  background: var(--color-paper-3);
+}
+
+.score-sheet-heading {
+  padding-top: var(--space-xl);
+}
+
+.score-build-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-sm);
+  margin-top: var(--space-sm);
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.score-status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.score-status-item::before {
+  width: var(--space-xs);
+  height: var(--space-xs);
+  flex: none;
+  border-radius: var(--radius-round);
+  background: var(--color-rule-2);
+  content: "";
+}
+
+.score-status-item.ready::before,
+.score-status-item.save.saved::before {
+  background: var(--color-success);
+}
+
+.score-status-item.save.saving::before {
+  background: var(--color-warning);
+}
+
+.score-status-item.save.error {
+  color: var(--color-error);
+}
+
+.score-status-item.save.error::before {
+  background: var(--color-error);
+}
+
+/* The source pane owns its close affordance. */
+.editor-close-button {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  padding: 0;
+  border-radius: var(--radius-round);
+}
+
+/* Give thread selection the full panel width and keep empty chat quiet. */
+.agent-panel-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm);
+  padding: var(--space-md);
+}
+
+.agent-title-row {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.agent-title-row > div:first-child {
+  min-width: 0;
+}
+
+.agent-header-actions {
+  display: flex;
+  width: auto;
+  flex: none;
+  grid-template-columns: none;
+  gap: var(--space-xs);
+}
+
+.agent-history-control,
+.agent-history-control select {
+  width: 100%;
+}
+
+.agent-history-control {
+  min-width: 0;
+  max-width: none;
+  border: var(--rule-thin) solid var(--color-assistant-rule);
+  border-radius: var(--radius-control);
+}
+
+.agent-history-control select {
+  min-height: 2.75rem;
+  padding-inline: var(--space-xs);
+  border: 0;
+  border-radius: inherit;
+  background: var(--color-paper-raised);
+}
+
+.agent-suggestions {
+  width: min(90%, 20rem);
+  margin-inline: auto;
+}
+
+/* All settings tabs keep one stable dialog frame. */
+.ai-settings-modal {
+  width: min(58rem, calc(100% - 2 * var(--space-lg)));
+  height: min(44rem, calc(100dvh - 2 * var(--space-lg)));
+  max-height: none;
+}
+
+.ai-settings-body,
+.ai-settings-content,
+.ai-settings-content > [role="tabpanel"] {
+  min-height: 0;
+  height: 100%;
+}
+
+.ai-settings-single-panel {
+  min-height: 100%;
+}
+
+/* Elapsed and total time must remain legible beside the transport. */
+.playback-progress strong {
+  color: var(--color-ink);
+  font-weight: 650;
+}
+
+.playback-progress span {
+  color: var(--color-ink-2);
+  font-weight: 500;
+}
+
+@media (max-width: 39.999rem) {
+  .score-display-options {
+    top: var(--space-xs);
+    right: var(--space-xs);
+  }
+
+  .score-display-options .figma-button:last-child {
+    padding-inline: var(--space-xs);
+  }
+
+  .score-sheet-heading {
+    padding-top: var(--space-xl);
+  }
+
+  .ai-settings-modal {
+    width: 100%;
+    height: calc(100dvh - 2 * var(--space-md));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .score-display-options {
+    transition-duration: 0ms;
+  }
+}

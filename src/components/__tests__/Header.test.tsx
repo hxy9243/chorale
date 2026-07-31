@@ -3,18 +3,18 @@ import { describe, it, expect, vi } from 'vitest';
 import { Header } from '../Header';
 
 describe('Header Component', () => {
-  it('renders brand logo title and active file name without Baroque Studies or Share button', () => {
+  it('renders the title and current score without a brand icon', () => {
     const onToggleChat = vi.fn();
     const { rerender } = render(
-      <Header activeFileName="Test Score.xml" chatOpen onToggleChat={onToggleChat} saveState="Saved" />,
+      <Header activeFileName="Test Score.xml" chatOpen onToggleChat={onToggleChat} />,
     );
     expect(screen.getByText('Chorale')).toBeDefined();
     expect(screen.getByText('Test Score.xml')).toBeDefined();
+    expect(document.querySelector('.brand-mark')).toBeNull();
     expect(screen.queryByText('Baroque Studies')).toBeNull();
     expect(screen.queryByText('Share')).toBeNull();
     expect(screen.getByTitle('Hide score chat')).toBeDefined();
     expect(screen.getByText('Chat')).toBeDefined();
-    expect(screen.getByText('Auto-saved')).toBeDefined();
 
     fireEvent.click(screen.getByTitle('Hide score chat'));
     expect(onToggleChat).toHaveBeenCalledOnce();
@@ -23,11 +23,11 @@ describe('Header Component', () => {
     expect(screen.getByTitle('Show score chat')).toBeDefined();
   });
 
-  it('surfaces autosave failures instead of reporting success', () => {
-    render(<Header activeFileName="Test.xml" saveState="Error" />);
+  it('leaves save state and settings to their owning panels', () => {
+    render(<Header activeFileName="Test.xml" />);
 
-    expect(screen.getByRole('status').textContent).toBe('Save failed');
-    expect(screen.getByRole('status').className).toContain('error');
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Open settings' })).toBeNull();
   });
 
   it('triggers onToggleRail when sidebar toggle button is clicked', () => {
@@ -39,12 +39,4 @@ describe('Header Component', () => {
     expect(onToggleRail).toHaveBeenCalledOnce();
   });
 
-  it('opens settings from the top-right gear', () => {
-    const onOpenSettings = vi.fn();
-    render(<Header activeFileName="Test.xml" onOpenSettings={onOpenSettings} />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
-
-    expect(onOpenSettings).toHaveBeenCalledOnce();
-  });
 });
