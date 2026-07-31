@@ -35,7 +35,9 @@ Required content:
 - import score action (`.xml`, `.musicxml`, `.mxl`, `.abc`)
 - active and available file list with format badge (MXL, ABC, MusicXML) and state indicator (`original`, `edited`)
 - file management actions: file reordering (up/down) and score deletion (preserving at least 1 document)
-- collapsible state (`railCollapsed` state) and horizontal drag-to-resize handle (width bounded between 160px and 420px, default 236px)
+- collapsible state (`railCollapsed` state) and horizontal drag-to-resize handle
+- default width at 25% of the logical layout viewport, bounded between 240px and 560px so long file names remain legible
+- persistent resized width in local storage (`chorale.workspace.fileRailWidth`)
 
 Implication:
 
@@ -50,14 +52,14 @@ It contains:
 
 - score toolbar (title, zoom controls, semitone transposition)
 - rendered score surface (with auto-centering playback line and zoom layout space reservation)
-- optional split ABC editor pane (horizontal drag-to-resize, width bounded between 320px and 720px, default 420px)
+- optional split ABC editor pane (horizontal drag-to-resize, width bounded between 320px and 720px, default 420px, persisted as `chorale.workspace.editorWidth`)
 - playback dock anchored to the visible bottom of the central workspace, independent of content height and interface zoom (max-width bounded to 800px for centered desktop presentation)
 
 The score remains the dominant surface. The editor is subordinate even when visible.
 
 ## 5. Right-side chat panel
 
-The chat panel is part of the fixed workspace layout on desktop. It supports horizontal drag-to-resize (width bounded between 280px and 680px, default 392px) via a left drag handle. Closing it expands the score workspace, but a persistent header control always allows the user to reopen it.
+The chat panel is part of the fixed workspace layout on desktop. It supports horizontal drag-to-resize (minimum 280px, maximum one third of the logical layout viewport, default 392px) via a left drag handle. Its resized width persists as `chorale.workspace.chatWidth`. Closing it expands the score workspace, but a persistent header control always allows the user to reopen it.
 
 It functions as a persistent product surface with:
 
