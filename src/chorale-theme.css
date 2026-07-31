@@ -4628,3 +4628,192 @@ body,
     color: var(--color-error);
   }
 }
+
+/* Hallmark · component refinement: file drag + chat controls · genre: editorial · theme: Nordic Ledger
+ * states: default · hover · focus · active · disabled · loading · error · success
+ * contrast: preserved from project tokens
+ */
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4 */
+
+.file-list.is-dragging {
+  padding-block-end: var(--space-lg);
+}
+
+.file-item.dragging,
+.file-item.active.dragging {
+  opacity: 1;
+  border-color: var(--color-rule-2);
+  background: var(--color-paper-3);
+  color: var(--color-ink);
+}
+
+.file-item.dragging .file-item-meta {
+  color: var(--color-muted);
+}
+
+.file-item.drop-before,
+.file-item.drop-after {
+  border-color: var(--color-rule);
+  background: var(--color-accent-soft);
+}
+
+.agent-history-control {
+  position: relative;
+  height: 2.75rem;
+  overflow: visible;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: var(--color-transparent);
+}
+
+.agent-history-control:focus-within {
+  outline: 0;
+}
+
+.agent-history-trigger {
+  display: flex;
+  width: 100%;
+  height: 2.75rem;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  padding: 0 var(--space-sm);
+  border: var(--rule-thin) solid var(--color-assistant-rule);
+  border-radius: var(--radius-round);
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.agent-history-trigger > span {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-history-chevron {
+  position: static;
+  flex: none;
+  color: var(--color-muted);
+  pointer-events: none;
+  transform: none;
+}
+
+.agent-history-trigger[aria-expanded="true"] .agent-history-chevron {
+  transform: rotate(180deg);
+}
+
+.agent-history-menu {
+  position: absolute;
+  z-index: var(--z-dropdown);
+  top: calc(100% + var(--space-xs));
+  left: 0;
+  display: grid;
+  width: 100%;
+  max-height: 16rem;
+  gap: var(--space-3xs);
+  padding: var(--space-2xs);
+  overflow-y: auto;
+  border: var(--rule-thin) solid var(--color-rule-2);
+  border-radius: var(--radius-card);
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-modal);
+}
+
+.agent-history-menu button {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  padding: 0 var(--space-sm);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--color-transparent);
+  color: var(--color-ink-2);
+  text-align: start;
+  cursor: pointer;
+}
+
+.agent-history-menu button > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-history-menu button[aria-selected="true"] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+}
+
+.agent-empty-state {
+  grid-template-rows: minmax(var(--space-md), 1fr) auto auto;
+}
+
+.agent-delete-thread-button {
+  border-radius: var(--radius-round);
+}
+
+.agent-provider-trigger {
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-2xs) var(--space-xs);
+  border: var(--rule-thin) solid var(--color-rule);
+  border-radius: var(--radius-control);
+  background: var(--color-paper-2);
+  color: var(--color-muted);
+  font-size: var(--text-base);
+  cursor: pointer;
+}
+
+.agent-provider-trigger > span,
+.agent-provider-trigger > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-provider-trigger > svg {
+  flex: none;
+}
+
+.agent-composer:focus-within {
+  border-color:
+    var(--color-assistant-rule)
+    var(--color-assistant-rule)
+    var(--color-accent);
+  outline: 0;
+  box-shadow: var(--shadow-whisper);
+}
+
+.agent-composer:has(> textarea:focus) {
+  background: var(--color-paper-2);
+}
+
+.agent-composer:has(> textarea:focus) textarea {
+  outline-color: var(--color-transparent);
+  background: var(--color-paper-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .agent-history-trigger:hover,
+  .agent-provider-trigger:hover,
+  .agent-history-menu button:hover {
+    background: var(--color-paper-2);
+    color: var(--color-ink);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-history-chevron {
+    transition-duration: 0ms;
+  }
+}

@@ -88,12 +88,27 @@ export const FileRail: React.FC<FileRailProps> = ({
   const resolveDropPlacement = (
     sourceFileId: string,
     targetFileId: string,
+    pointerY?: number,
+    targetElement?: HTMLElement,
   ): DropPlacement | null => {
     const sourceIndex = documents.findIndex((document) => document.id === sourceFileId);
     const targetIndex = documents.findIndex((document) => document.id === targetFileId);
     if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) return null;
+
+    if (pointerY !== undefined && targetElement) {
+      const bounds = targetElement.getBoundingClientRect();
+      if (bounds.height > 0 && pointerY >= bounds.top && pointerY <= bounds.bottom) {
+        return pointerY < bounds.top + bounds.height / 2 ? 'before' : 'after';
+      }
+    }
+
     return sourceIndex > targetIndex ? 'before' : 'after';
   };
+  const resolveDraggedFileId = (event: React.DragEvent<HTMLElement>) => (
+    draggedFileIdRef.current
+    || event.dataTransfer.getData('application/x-chorale-file-id')
+    || event.dataTransfer.getData('text/plain')
+  );
 
   return (
     <aside className={`file-rail ${collapsed ? 'collapsed' : ''}`} aria-label="Workspace panels">
@@ -167,7 +182,32 @@ export const FileRail: React.FC<FileRailProps> = ({
             Drag a file handle onto another row to reorder. Use Arrow Up or Arrow Down
             while a handle is focused for keyboard reordering.
           </p>
-          <div className="file-list">
+          <div
+            className={`file-list ${draggedFileId ? 'is-dragging' : ''}`}
+            onDragOver={(event) => {
+              if (event.target !== event.currentTarget || !onReorderDocument) return;
+              const sourceFileId = resolveDraggedFileId(event);
+              const lastTarget = [...documents].reverse().find((document) => (
+                document.id !== sourceFileId
+              ));
+              if (!sourceFileId || !lastTarget) return;
+              event.preventDefault();
+              event.dataTransfer.dropEffect = 'move';
+              setDropTarget({ fileId: lastTarget.id, placement: 'after' });
+            }}
+            onDrop={(event) => {
+              if (event.target !== event.currentTarget || !onReorderDocument) return;
+              event.preventDefault();
+              const sourceFileId = resolveDraggedFileId(event);
+              const lastTarget = [...documents].reverse().find((document) => (
+                document.id !== sourceFileId
+              ));
+              if (sourceFileId && lastTarget) {
+                onReorderDocument(sourceFileId, lastTarget.id, 'after');
+              }
+              clearDragState();
+            }}
+          >
             {documents.map((doc, index) => {
               const isActive = doc.id === activeFileId;
               const lastReason = doc.versions?.[doc.versions.length - 1]?.reason;
@@ -182,18 +222,33 @@ export const FileRail: React.FC<FileRailProps> = ({
                   onDragOver={(event) => {
                     const sourceFileId = draggedFileIdRef.current;
                     if (!onReorderDocument || !sourceFileId || sourceFileId === doc.id) return;
-                    const placement = resolveDropPlacement(sourceFileId, doc.id);
+                    event.stopPropagation();
+                    const placement = resolveDropPlacement(
+                      sourceFileId,
+                      doc.id,
+                      event.clientY,
+                      event.currentTarget,
+                    );
                     if (!placement) return;
                     event.preventDefault();
                     event.dataTransfer.dropEffect = 'move';
                     setDropTarget({ fileId: doc.id, placement });
                   }}
+                  onDragLeave={(event) => {
+                    const nextTarget = event.relatedTarget;
+                    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
+                    setDropTarget((current) => current?.fileId === doc.id ? null : current);
+                  }}
                   onDrop={(event) => {
                     event.preventDefault();
-                    const sourceFileId = (
-                      draggedFileIdRef.current || event.dataTransfer.getData('text/plain')
+                    event.stopPropagation();
+                    const sourceFileId = resolveDraggedFileId(event);
+                    const placement = resolveDropPlacement(
+                      sourceFileId,
+                      doc.id,
+                      event.clientY,
+                      event.currentTarget,
                     );
-                    const placement = resolveDropPlacement(sourceFileId, doc.id);
                     if (onReorderDocument && placement) {
                       onReorderDocument(sourceFileId, doc.id, placement);
                     }
@@ -213,7 +268,12 @@ export const FileRail: React.FC<FileRailProps> = ({
                         draggedFileIdRef.current = doc.id;
                         setDraggedFileId(doc.id);
                         event.dataTransfer.effectAllowed = 'move';
+                        event.dataTransfer.setData('application/x-chorale-file-id', doc.id);
                         event.dataTransfer.setData('text/plain', doc.id);
+                        const row = event.currentTarget.closest<HTMLElement>('.file-item');
+                        if (row && typeof event.dataTransfer.setDragImage === 'function') {
+                          event.dataTransfer.setDragImage(row, 24, 24);
+                        }
                       }}
                       onDragEnd={clearDragState}
                       onKeyDown={(event) => {

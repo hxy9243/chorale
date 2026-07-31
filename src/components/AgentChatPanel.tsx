@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, History, Plus, Send, Square, Trash2, X } from 'lucide-react';
+import { ChevronDown, Plus, Send, Square, Trash2, X } from 'lucide-react';
 import { DesktopSheetAgent } from '../agent/DesktopSheetAgent';
 import type { AIProviderState } from '../agent/useAIProviders';
 import {
@@ -71,9 +71,15 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [threadMenuOpen, setThreadMenuOpen] = useState(false);
+  const [providerPickerOpen, setProviderPickerOpen] = useState(false);
   const agentRef = useRef<DesktopSheetAgent | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
+  const threadPickerRef = useRef<HTMLDivElement>(null);
+  const threadTriggerRef = useRef<HTMLButtonElement>(null);
+  const providerPickerRef = useRef<HTMLDivElement>(null);
+  const providerTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (abortControllerRef.current) {
@@ -122,6 +128,41 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     if (!open) abortControllerRef.current?.abort();
   }, [open]);
 
+  useEffect(() => {
+    if (!threadMenuOpen && !providerPickerOpen) return;
+
+    const handleOutsideInteraction = (event: PointerEvent | FocusEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+
+      if (threadMenuOpen && !threadPickerRef.current?.contains(target)) {
+        setThreadMenuOpen(false);
+      }
+      if (providerPickerOpen && !providerPickerRef.current?.contains(target)) {
+        setProviderPickerOpen(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (providerPickerOpen) {
+        setProviderPickerOpen(false);
+        providerTriggerRef.current?.focus();
+      } else if (threadMenuOpen) {
+        setThreadMenuOpen(false);
+        threadTriggerRef.current?.focus();
+      }
+    };
+
+    document.addEventListener('pointerdown', handleOutsideInteraction, true);
+    document.addEventListener('focusin', handleOutsideInteraction, true);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('pointerdown', handleOutsideInteraction, true);
+      document.removeEventListener('focusin', handleOutsideInteraction, true);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [providerPickerOpen, threadMenuOpen]);
+
   const captureContext = (): MusicContextSnapshot => ({
     id: makeId(),
     revision,
@@ -162,6 +203,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     }));
     setDraft('');
     setError(null);
+    setThreadMenuOpen(false);
   };
 
   const handleDeleteThread = () => {
@@ -320,25 +362,50 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
           </div>
         </div>
         <div className="agent-history-row">
-          <div className="agent-history-control">
-            <History className="agent-history-icon" size={16} aria-hidden="true" />
-            <label htmlFor="conversation-history" className="sr-only">Conversation history</label>
-            <select
-              id="conversation-history"
-              value={activeThread?.id}
-              onChange={(event) => setConversation((current) => ({
-                ...current,
-                activeThreadId: event.target.value,
-              }))}
+          <div className="agent-history-control" ref={threadPickerRef}>
+            <button
+              ref={threadTriggerRef}
+              type="button"
+              className="agent-history-trigger"
               aria-label="Conversation history"
+              aria-haspopup="listbox"
+              aria-expanded={threadMenuOpen}
+              aria-controls="conversation-history-menu"
+              onClick={() => {
+                setThreadMenuOpen((current) => !current);
+                setProviderPickerOpen(false);
+              }}
             >
-              {conversation.threads.map((thread) => (
-                <option key={thread.id} value={thread.id}>
-                  {thread.title}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="agent-history-chevron" size={16} aria-hidden="true" />
+              <span>{activeThread?.title || 'New thread'}</span>
+              <ChevronDown className="agent-history-chevron" size={16} aria-hidden="true" />
+            </button>
+            {threadMenuOpen && (
+              <div
+                className="agent-history-menu"
+                id="conversation-history-menu"
+                role="listbox"
+                aria-label="Conversation threads"
+              >
+                {conversation.threads.map((thread) => (
+                  <button
+                    key={thread.id}
+                    type="button"
+                    role="option"
+                    aria-selected={thread.id === activeThread?.id}
+                    onClick={() => {
+                      setConversation((current) => ({
+                        ...current,
+                        activeThreadId: thread.id,
+                      }));
+                      setThreadMenuOpen(false);
+                      threadTriggerRef.current?.focus();
+                    }}
+                  >
+                    <span>{thread.title}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <button
             className="agent-icon-button agent-delete-thread-button"
@@ -419,12 +486,26 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
           </div>
         )}
         {ai.desktopAvailable && (
-          <details className="agent-provider-picker">
-            <summary>
+          <div className="agent-provider-picker" ref={providerPickerRef}>
+            <button
+              ref={providerTriggerRef}
+              type="button"
+              className="agent-provider-trigger"
+              aria-label="Choose AI provider and model"
+              aria-haspopup="dialog"
+              aria-expanded={providerPickerOpen}
+              aria-controls="agent-provider-popover"
+              onClick={() => {
+                setProviderPickerOpen((current) => !current);
+                setThreadMenuOpen(false);
+              }}
+            >
               <span>{selectedConnection?.name || 'Select provider'}</span>
               <strong>{selectedModel?.name || 'No model'}</strong>
-            </summary>
-            <div className="agent-provider-popover">
+              <ChevronDown size={14} aria-hidden="true" />
+            </button>
+            {providerPickerOpen && (
+            <div className="agent-provider-popover" id="agent-provider-popover" role="dialog" aria-label="AI model selection">
               <label>
                 Provider
                 <select
@@ -454,6 +535,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
                         connectionId: selectedConnection.id,
                         modelId: event.target.value,
                       });
+                      setProviderPickerOpen(false);
                     }
                   }}
                 >
@@ -463,9 +545,13 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
                   ))}
                 </select>
               </label>
-              <button type="button" onClick={onOpenSettings}>Manage providers</button>
+              <button type="button" onClick={() => {
+                setProviderPickerOpen(false);
+                onOpenSettings();
+              }}>Manage providers</button>
             </div>
-          </details>
+            )}
+          </div>
         )}
         <label htmlFor="agent-question" className="sr-only">Ask about the current sheet</label>
         <textarea
