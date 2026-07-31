@@ -4,13 +4,14 @@ import {
   Braces,
   FileMusic,
   FolderOpen,
+  GripVertical,
   Plus,
   Settings,
   Trash2,
 } from 'lucide-react';
 import type { FileDocument } from '../types/document';
 
-type RailPanel = 'files' | 'tools' | 'settings';
+type RailPanel = 'files' | 'tools';
 type DropPlacement = 'before' | 'after';
 
 interface FileRailProps {
@@ -49,6 +50,7 @@ export const FileRail: React.FC<FileRailProps> = ({
   onOpenSettings,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const draggedFileIdRef = useRef<string | null>(null);
   const [activePanel, setActivePanel] = useState<RailPanel>('files');
   const [draggedFileId, setDraggedFileId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{
@@ -78,47 +80,56 @@ export const FileRail: React.FC<FileRailProps> = ({
   };
 
   const clearDragState = () => {
+    draggedFileIdRef.current = null;
     setDraggedFileId(null);
     setDropTarget(null);
   };
   const canReorder = Boolean(onReorderDocument && documents.length > 1);
+  const resolveDropPlacement = (
+    sourceFileId: string,
+    targetFileId: string,
+  ): DropPlacement | null => {
+    const sourceIndex = documents.findIndex((document) => document.id === sourceFileId);
+    const targetIndex = documents.findIndex((document) => document.id === targetFileId);
+    if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) return null;
+    return sourceIndex > targetIndex ? 'before' : 'after';
+  };
 
   return (
     <aside className={`file-rail ${collapsed ? 'collapsed' : ''}`} aria-label="Workspace panels">
-      <nav className="file-rail-tabs" role="tablist" aria-label="Workspace panels">
+      <nav className="file-rail-tabs" aria-label="Workspace panels">
+        <div className="file-rail-tablist" role="tablist" aria-label="Workspace panels">
+          <button
+            type="button"
+            className={`file-rail-tab ${activePanel === 'files' ? 'active' : ''}`}
+            role="tab"
+            aria-selected={activePanel === 'files'}
+            aria-controls="files-panel"
+            aria-label="Files"
+            title="Files"
+            onClick={() => setActivePanel('files')}
+          >
+            <FolderOpen size={18} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className={`file-rail-tab ${activePanel === 'tools' ? 'active' : ''}`}
+            role="tab"
+            aria-selected={activePanel === 'tools'}
+            aria-controls="tools-panel"
+            aria-label="Tools"
+            title="Tools"
+            onClick={() => setActivePanel('tools')}
+          >
+            <Braces size={18} aria-hidden="true" />
+          </button>
+        </div>
         <button
           type="button"
-          className={`file-rail-tab ${activePanel === 'files' ? 'active' : ''}`}
-          role="tab"
-          aria-selected={activePanel === 'files'}
-          aria-controls="files-panel"
-          aria-label="Files"
-          title="Files"
-          onClick={() => setActivePanel('files')}
-        >
-          <FolderOpen size={18} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className={`file-rail-tab ${activePanel === 'tools' ? 'active' : ''}`}
-          role="tab"
-          aria-selected={activePanel === 'tools'}
-          aria-controls="tools-panel"
-          aria-label="Tools"
-          title="Tools"
-          onClick={() => setActivePanel('tools')}
-        >
-          <Braces size={18} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className={`file-rail-tab settings ${activePanel === 'settings' ? 'active' : ''}`}
-          role="tab"
-          aria-selected={activePanel === 'settings'}
-          aria-controls="settings-panel"
+          className="file-rail-tab settings"
           aria-label="Settings"
           title="Settings"
-          onClick={() => setActivePanel('settings')}
+          onClick={onOpenSettings}
         >
           <Settings size={18} aria-hidden="true" />
         </button>
@@ -153,10 +164,11 @@ export const FileRail: React.FC<FileRailProps> = ({
             hidden
           />
           <p className="sr-only" id="file-reorder-help">
-            Drag files before or after another file to reorder them.
+            Drag a file handle onto another row to reorder. Use Arrow Up or Arrow Down
+            while a handle is focused for keyboard reordering.
           </p>
           <div className="file-list">
-            {documents.map((doc) => {
+            {documents.map((doc, index) => {
               const isActive = doc.id === activeFileId;
               const lastReason = doc.versions?.[doc.versions.length - 1]?.reason;
               const fileState = lastReason === 'manual-edit' ? 'edited' : 'original';
@@ -167,47 +179,62 @@ export const FileRail: React.FC<FileRailProps> = ({
                 <div
                   key={doc.id}
                   className={`file-item ${isActive ? 'active' : ''} ${canReorder ? 'reorderable' : ''} ${draggedFileId === doc.id ? 'dragging' : ''} ${dropClass}`}
-                  draggable={canReorder}
-                  onDragStart={(event) => {
-                    if (!onReorderDocument) return;
-                    setDraggedFileId(doc.id);
-                    event.dataTransfer.effectAllowed = 'move';
-                    event.dataTransfer.setData('text/plain', doc.id);
-                  }}
                   onDragOver={(event) => {
-                    if (!onReorderDocument || draggedFileId === doc.id) return;
+                    const sourceFileId = draggedFileIdRef.current;
+                    if (!onReorderDocument || !sourceFileId || sourceFileId === doc.id) return;
+                    const placement = resolveDropPlacement(sourceFileId, doc.id);
+                    if (!placement) return;
                     event.preventDefault();
                     event.dataTransfer.dropEffect = 'move';
-                    const bounds = event.currentTarget.getBoundingClientRect();
-                    const placement = event.clientY < bounds.top + bounds.height / 2
-                      ? 'before'
-                      : 'after';
                     setDropTarget({ fileId: doc.id, placement });
                   }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  const sourceFileId = draggedFileId || event.dataTransfer.getData('text/plain');
-                  const bounds = event.currentTarget.getBoundingClientRect();
-                  const placement = event.clientY < bounds.top + bounds.height / 2
-                    ? 'before'
-                    : 'after';
-                  if (onReorderDocument && sourceFileId && sourceFileId !== doc.id) {
-                    onReorderDocument(
-                      sourceFileId,
-                      doc.id,
-                      placement,
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    const sourceFileId = (
+                      draggedFileIdRef.current || event.dataTransfer.getData('text/plain')
                     );
-                  }
+                    const placement = resolveDropPlacement(sourceFileId, doc.id);
+                    if (onReorderDocument && placement) {
+                      onReorderDocument(sourceFileId, doc.id, placement);
+                    }
                     clearDragState();
                   }}
-                  onDragEnd={clearDragState}
-                  title={canReorder ? `Drag ${doc.name} to reorder` : undefined}
                 >
+                  {canReorder && (
+                    <button
+                      type="button"
+                      className="file-drag-handle"
+                      draggable
+                      aria-label={`Reorder ${doc.name}`}
+                      aria-describedby="file-reorder-help"
+                      aria-pressed={draggedFileId === doc.id}
+                      title={`Drag ${doc.name} to reorder`}
+                      onDragStart={(event) => {
+                        draggedFileIdRef.current = doc.id;
+                        setDraggedFileId(doc.id);
+                        event.dataTransfer.effectAllowed = 'move';
+                        event.dataTransfer.setData('text/plain', doc.id);
+                      }}
+                      onDragEnd={clearDragState}
+                      onKeyDown={(event) => {
+                        if (!onReorderDocument) return;
+                        if (event.key === 'ArrowUp' && index > 0) {
+                          event.preventDefault();
+                          onReorderDocument(doc.id, documents[index - 1].id, 'before');
+                        }
+                        if (event.key === 'ArrowDown' && index < documents.length - 1) {
+                          event.preventDefault();
+                          onReorderDocument(doc.id, documents[index + 1].id, 'after');
+                        }
+                      }}
+                    >
+                      <GripVertical size={16} aria-hidden="true" />
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="file-item-select"
                     onClick={() => onSelectDocument(doc.id)}
-                    aria-describedby="file-reorder-help"
                     aria-label={`Open ${doc.scoreInfo.title || doc.name}`}
                   >
                     <span className="file-icon"><FileMusic size={16} aria-hidden="true" /></span>
@@ -267,27 +294,6 @@ export const FileRail: React.FC<FileRailProps> = ({
           </button>
         </section>
 
-        <section
-          className="file-rail-section"
-          id="settings-panel"
-          role="tabpanel"
-          aria-labelledby="settings-tab-title"
-          hidden={activePanel !== 'settings'}
-        >
-          <div className="rail-section-header">
-            <h2 className="rail-section-title" id="settings-tab-title">Settings</h2>
-          </div>
-          <button
-            type="button"
-            className="rail-tool-button"
-            onClick={onOpenSettings}
-            title="Open application settings"
-            aria-label="Open settings"
-          >
-            <Settings size={16} aria-hidden="true" />
-            <span>Application settings</span>
-          </button>
-        </section>
       </div>
 
       {onBeginResize && (

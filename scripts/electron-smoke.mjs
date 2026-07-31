@@ -255,16 +255,28 @@ try {
     const abcDisplay = await waitForElement('#tools-panel:not([hidden]) [aria-pressed="false"]');
     abcDisplay?.click();
     const abcClose = await waitForElement('[aria-label="Close ABC editor"]');
+    const abcEditorBounds = document.querySelector('.abc-editor-card')?.getBoundingClientRect();
+    const abcCloseBounds = abcClose?.getBoundingClientRect();
+    const abcCloseVisible = abcClose
+      ? getComputedStyle(abcClose).display !== 'none'
+        && abcCloseBounds.width > 0
+        && abcCloseBounds.height > 0
+      : false;
+    const abcCloseRightDelta = abcEditorBounds && abcCloseBounds
+      ? Math.abs(abcEditorBounds.right - abcCloseBounds.right)
+      : null;
+    const abcCloseTopDelta = abcEditorBounds && abcCloseBounds
+      ? Math.abs(abcCloseBounds.top - abcEditorBounds.top)
+      : null;
     const editorOpened = Boolean(document.querySelector('.editor-workspace-card'));
     abcClose?.click();
     await new Promise((resolve) => setTimeout(resolve, 25));
     const editorClosed = !document.querySelector('.editor-workspace-card');
 
-    document.querySelector('[role="tab"][aria-label="Settings"]')?.click();
+    document.querySelector('.file-rail-tab[aria-label="Settings"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 25));
-    const gear = await waitForElement('#settings-panel:not([hidden]) [aria-label="Open settings"]');
-    gear?.click();
     const settingsTitle = await waitForElement('#ai-settings-title');
+    const settingsPreservedToolsPanel = Boolean(document.querySelector('#tools-panel:not([hidden])'));
     const provider = document.querySelector('.ai-add-connection select');
     const settingsRect = document.querySelector('.ai-settings-modal')?.getBoundingClientRect();
     const settingsTabs = document.querySelector('.ai-settings-tabs');
@@ -289,6 +301,7 @@ try {
       )
       : null;
     const threadWidth = document.querySelector('.agent-history-control')?.getBoundingClientRect().width;
+    const threadRowWidth = document.querySelector('.agent-history-row')?.getBoundingClientRect().width;
     const suggestionsWidth = document.querySelector('.agent-suggestions')?.getBoundingClientRect().width;
     const transcriptWidth = document.querySelector('.agent-transcript')?.getBoundingClientRect().width;
     const transcriptBounds = document.querySelector('.agent-transcript')?.getBoundingClientRect();
@@ -304,7 +317,9 @@ try {
     const threadBorderWidth = threadControlStyle?.borderTopWidth ?? null;
     const threadSelectBackground = threadSelectStyle?.backgroundColor ?? null;
     const threadSelectFontSize = threadSelectStyle?.fontSize ?? null;
-    const hasThreadChevron = Boolean(document.querySelector('.agent-history-chevron'));
+    const threadSelectAppearance = threadSelectStyle?.appearance ?? null;
+    const threadChevronCount = document.querySelectorAll('.agent-history-chevron').length;
+    const hasThreadDelete = Boolean(document.querySelector('[aria-label="Delete current thread"]'));
     await new Promise((resolve) => setTimeout(resolve, 750));
     const displayOptions = document.querySelector('.score-display-options');
     const displayOptionsBounds = displayOptions?.getBoundingClientRect();
@@ -327,6 +342,11 @@ try {
     localStorage.setItem('chorale.electron-smoke', 'persisted');
     document.querySelector('[aria-label="Close settings"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 25));
+    const threadIdBeforeDelete = threadSelect?.value ?? null;
+    document.querySelector('[aria-label="Delete current thread"]')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const threadIdAfterDelete = threadSelect?.value ?? null;
+    const threadCountAfterDelete = threadSelect?.querySelectorAll('option').length ?? 0;
     document.querySelector('[aria-label="Close assistant"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 25));
     const closedPanel = document.querySelector('.right-panel');
@@ -356,11 +376,15 @@ try {
       fileRuleContent: getComputedStyle(document.querySelector('.file-rail'), '::before').content,
       editorOpened,
       editorClosed,
+      abcCloseVisible,
+      abcCloseRightDelta,
+      abcCloseTopDelta,
       hasNodeRequire: typeof window.require !== 'undefined',
       hasNodeProcess: typeof window.process !== 'undefined',
       bridgeMethods: bridge ? Object.keys(bridge).sort() : [],
       connections: bridge ? await bridge.listConnections() : null,
       settingsTitle: settingsTitle?.textContent,
+      settingsPreservedToolsPanel,
       settingsTabsDirection,
       settingsHasSubtitle,
       settingsFrames: [settingsRect, appearanceRect, aboutRect].map((rect) => rect && ({
@@ -389,11 +413,17 @@ try {
       viewportBottom: window.innerHeight,
       scoreCenterDelta,
       threadWidth,
+      threadRowWidth,
       agentFontSize,
       threadBorderWidth,
       threadSelectBackground,
       threadSelectFontSize,
-      hasThreadChevron,
+      threadSelectAppearance,
+      threadChevronCount,
+      hasThreadDelete,
+      threadIdBeforeDelete,
+      threadIdAfterDelete,
+      threadCountAfterDelete,
       suggestionsWidth,
       transcriptWidth,
       tryAskingTopRatio,
@@ -416,7 +446,7 @@ try {
   assert(shellState.hasHeaderBrandMark === false, 'Header still contains the removed brand icon.');
   assert(shellState.hasHeaderSettings === false, 'Settings entry point is still in the header.');
   assert(
-    shellState.railSectionNames.join(',') === 'Files,Tools,Settings',
+    shellState.railSectionNames.join(',') === 'Files,Tools',
     `Left rail sections are incomplete (${shellState.railSectionNames.join(',')}).`,
   );
   assert(
@@ -465,6 +495,12 @@ try {
     `Empty decorative rules remain (${shellState.headerRuleContent}, ${shellState.fileRuleContent}).`,
   );
   assert(shellState.editorOpened && shellState.editorClosed, 'ABC display did not open and close from its owning panels.');
+  assert(
+    shellState.abcCloseVisible
+      && shellState.abcCloseRightDelta <= 20
+      && shellState.abcCloseTopDelta <= 20,
+    `ABC close action is not visible in the pane upper-right (${shellState.abcCloseVisible}, right ${shellState.abcCloseRightDelta}, top ${shellState.abcCloseTopDelta}).`,
+  );
   assert(shellState.hasNodeRequire === false, 'Renderer unexpectedly exposes Node require.');
   assert(shellState.hasNodeProcess === false, 'Renderer unexpectedly exposes Node process.');
   assert(shellState.bridgeMethods.includes('sendChat'), 'Typed preload bridge is unavailable.');
@@ -472,6 +508,10 @@ try {
   assert(Array.isArray(shellState.connections), 'Connection listing did not cross the preload bridge.');
   assert(shellState.connections.length === 0, 'Electron smoke profile was not isolated.');
   assert(shellState.settingsTitle === 'Settings', 'Settings modal did not open.');
+  assert(
+    shellState.settingsPreservedToolsPanel,
+    'Direct settings action replaced the selected left work panel.',
+  );
   assert(
     shellState.settingsTabsDirection === 'column',
     `Settings tabs are not vertical (${shellState.settingsTabsDirection}).`,
@@ -527,8 +567,9 @@ try {
     `Score sheet is not centered in the middle panel (${shellState.scoreCenterDelta}px).`,
   );
   assert(
-    shellState.threadWidth >= shellState.chatWidth - 40,
-    `Thread selector is still too narrow (${shellState.threadWidth}px in ${shellState.chatWidth}px panel).`,
+    shellState.threadRowWidth >= shellState.chatWidth - 40
+      && shellState.threadWidth >= shellState.threadRowWidth - 60,
+    `Thread history row is still too narrow (${shellState.threadWidth}px selector, ${shellState.threadRowWidth}px row in ${shellState.chatWidth}px panel).`,
   );
   assert(
     shellState.agentFontSize === '16px' && shellState.threadSelectFontSize === '16px',
@@ -543,8 +584,17 @@ try {
         'oklab(0 0 0 / 0)',
         'oklch(0 0 0 / 0)',
       ].includes(shellState.threadSelectBackground)
-      && shellState.hasThreadChevron,
-    `Thread selector does not preserve the styled control frame (${shellState.threadBorderWidth}, ${shellState.threadSelectBackground}, chevron ${shellState.hasThreadChevron}).`,
+      && shellState.threadSelectAppearance === 'none'
+      && shellState.threadChevronCount === 1,
+    `Thread selector does not preserve one styled chevron (${shellState.threadBorderWidth}, ${shellState.threadSelectBackground}, appearance ${shellState.threadSelectAppearance}, chevrons ${shellState.threadChevronCount}).`,
+  );
+  assert(shellState.hasThreadDelete, 'Thread history does not expose a delete action.');
+  assert(
+    shellState.threadIdBeforeDelete
+      && shellState.threadIdAfterDelete
+      && shellState.threadIdBeforeDelete !== shellState.threadIdAfterDelete
+      && shellState.threadCountAfterDelete === 1,
+    `Deleting the final thread did not create one fresh replacement (${shellState.threadIdBeforeDelete} -> ${shellState.threadIdAfterDelete}, count ${shellState.threadCountAfterDelete}).`,
   );
   assert(
     shellState.suggestionsWidth < shellState.transcriptWidth * 0.95,

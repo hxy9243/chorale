@@ -4520,3 +4520,111 @@ body,
     opacity: 0.55;
   }
 }
+
+/* Hallmark · refinement: direct rail actions · tone: austere · anchor hue: fjord */
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4 */
+
+.file-rail-tablist {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.file-item.reorderable,
+.file-item.reorderable:active {
+  cursor: default;
+}
+
+.file-item.reorderable .file-item-select,
+.file-item.reorderable:active .file-item-select {
+  cursor: pointer;
+}
+
+.file-drag-handle {
+  display: grid;
+  width: 2.5rem;
+  min-width: 2.5rem;
+  min-height: 4rem;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: var(--color-transparent);
+  color: var(--color-muted);
+  cursor: grab;
+}
+
+.file-drag-handle:active,
+.file-drag-handle[aria-pressed="true"] {
+  color: var(--color-accent-strong);
+  cursor: grabbing;
+}
+
+.file-drag-handle:focus-visible {
+  outline: var(--rule-active) solid var(--color-focus);
+  outline-offset: calc(-1 * var(--rule-active));
+}
+
+.file-item.drop-before,
+.file-item.drop-after {
+  background: var(--color-accent-soft);
+  color: inherit;
+}
+
+/* Keep the ABC pane's own close action visible at its true upper-right corner. */
+.abc-editor-card {
+  position: relative;
+}
+
+.abc-editor-card .editor-header {
+  padding-inline-end: 4rem;
+}
+
+.abc-editor-card .editor-actions .editor-close-button {
+  position: absolute;
+  z-index: var(--z-raised);
+  top: var(--space-xs);
+  right: var(--space-xs);
+  display: inline-flex;
+}
+
+.agent-history-row {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: stretch;
+  gap: var(--space-xs);
+}
+
+.agent-history-row .agent-history-control {
+  min-width: 0;
+  flex: 1;
+}
+
+.agent-history-control select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: none;
+}
+
+.agent-delete-thread-button {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  flex: none;
+  color: var(--color-muted);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .file-drag-handle:hover {
+    color: var(--color-ink);
+  }
+
+  .agent-delete-thread-button:hover {
+    background: var(--color-error-soft);
+    color: var(--color-error);
+  }
+}

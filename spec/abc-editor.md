@@ -28,7 +28,7 @@ Expected UI elements:
 - line numbers
 - live refresh or rebuild status indicator
 - copy ABC action button
-- an icon close button inside the ABC pane; reopening remains available from **Tools**
+- an always-visible icon close button in the ABC pane's upper-right corner; reopening remains available from **Tools**
 
 These communicate whether the current text can safely drive score and playback output.
 

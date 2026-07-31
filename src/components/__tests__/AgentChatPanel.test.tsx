@@ -168,13 +168,73 @@ describe('AgentChatPanel', () => {
 
     const threadSelect = screen.getByLabelText('Conversation history');
     const threadControl = threadSelect.closest('.agent-history-control');
-    expect(threadControl?.parentElement?.className)
+    expect(threadControl?.parentElement?.className).toContain('agent-history-row');
+    expect(threadControl?.parentElement?.parentElement?.className)
       .toContain('agent-panel-header');
     expect(threadControl?.querySelector('.agent-history-icon')).not.toBeNull();
-    expect(threadControl?.querySelector('.agent-history-chevron')).not.toBeNull();
+    expect(threadControl?.querySelectorAll('.agent-history-chevron')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Delete current thread' })).toBeDefined();
     expect(screen.queryByText('Analysis')).toBeNull();
     expect(screen.queryByText(/Selection:/)).toBeNull();
     expect(screen.queryByText(/Attached anchor:/)).toBeNull();
+  });
+
+  it('deletes the active thread and keeps one fresh thread when history becomes empty', async () => {
+    localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
+      version: 2,
+      files: {
+        'doc-history': {
+          activeThreadId: 'thread-first',
+          threads: [
+            {
+              id: 'thread-first',
+              title: 'First thread',
+              updatedAt: '2026-07-31T00:00:00.000Z',
+              messages: [],
+            },
+            {
+              id: 'thread-second',
+              title: 'Second thread',
+              updatedAt: '2026-07-31T00:01:00.000Z',
+              messages: [],
+            },
+          ],
+        },
+      },
+    }));
+
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-history"
+        abcCode={'X:1\nT:History\nK:C\nCDEF|'}
+        activeFileName="History.abc"
+        revision={1}
+        ai={ai}
+        onOpenSettings={() => undefined}
+      />,
+    );
+
+    const threadSelect = screen.getByLabelText('Conversation history') as HTMLSelectElement;
+    expect(threadSelect.value).toBe('thread-first');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete current thread' }));
+    expect(threadSelect.value).toBe('thread-second');
+    expect(within(threadSelect).queryByRole('option', { name: 'First thread' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete current thread' }));
+    const remainingOptions = within(threadSelect).getAllByRole('option');
+    expect(remainingOptions).toHaveLength(1);
+    expect(remainingOptions[0].textContent).toBe('New thread');
+    expect(threadSelect.value).not.toBe('thread-second');
+
+    await waitFor(() => {
+      const saved = localStorage.getItem(CONVERSATION_STORAGE_KEY) || '';
+      expect(saved).not.toContain('thread-first');
+      expect(saved).not.toContain('thread-second');
+      expect(saved).toContain('New thread');
+    });
   });
 
   it('shows desktop-required state and gates the composer without a preload bridge', () => {

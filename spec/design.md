@@ -36,7 +36,7 @@ The design direction is a file-owned music workspace where score viewing, ABC ed
 ## Implemented workspace features
 
 - [x] File rail with document list, file import, reordering, deletion, collapse toggle, and drag-resizing
-- [x] Icon-tabbed Files, Tools, and Settings rail panels with drag-reordered files, ABC display, and settings ownership
+- [x] Icon-tabbed Files and Tools rail panels, direct bottom settings action, handled drag-reordered files, and ABC display ownership
 - [x] Resizable right-side chat panel with toggle and per-file thread persistence
 - [x] Floating score display controls plus title-local autosave, SVG, and audio status
 - [x] Split ABC editor pane with draggable divider, status chrome (`Valid · r{revision}`, `Rebuilding`, `Invalid ABC`), and local storage persistence

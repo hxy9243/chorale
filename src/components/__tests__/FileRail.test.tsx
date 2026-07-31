@@ -16,19 +16,20 @@ describe('FileRail Component', () => {
     error: null,
   };
 
-  it('renders icon-only tabs and one named panel at a time', () => {
-    render(<FileRail {...defaultProps} />);
+  it('renders icon-only work tabs and opens settings directly', () => {
+    const onOpenSettings = vi.fn();
+    render(<FileRail {...defaultProps} onOpenSettings={onOpenSettings} />);
 
     const filesTab = screen.getByRole('tab', { name: 'Files' });
     const toolsTab = screen.getByRole('tab', { name: 'Tools' });
-    const settingsTab = screen.getByRole('tab', { name: 'Settings' });
+    const settingsButton = screen.getByRole('button', { name: 'Settings' });
 
     expect(filesTab.textContent).toBe('');
     expect(toolsTab.textContent).toBe('');
-    expect(settingsTab.textContent).toBe('');
+    expect(settingsButton.textContent).toBe('');
     expect(filesTab.getAttribute('title')).toBe('Files');
     expect(toolsTab.getAttribute('title')).toBe('Tools');
-    expect(settingsTab.getAttribute('title')).toBe('Settings');
+    expect(settingsButton.getAttribute('title')).toBe('Settings');
     expect(screen.getByText('Import score')).toBeDefined();
     expect(screen.getByRole('tabpanel', { name: 'Files' })).toBeDefined();
 
@@ -36,9 +37,9 @@ describe('FileRail Component', () => {
     expect(screen.getByRole('tabpanel', { name: 'Tools' })).toBeDefined();
     expect(screen.getByRole('button', { name: 'ABC display' })).toBeDefined();
 
-    fireEvent.click(settingsTab);
-    expect(screen.getByRole('tabpanel', { name: 'Settings' })).toBeDefined();
-    expect(screen.getByRole('button', { name: 'Open settings' })).toBeDefined();
+    fireEvent.click(settingsButton);
+    expect(onOpenSettings).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('tabpanel', { name: 'Settings' })).toBeNull();
     expect(screen.queryByText('LIBRARY')).toBeNull();
     expect(screen.queryByText('PROJECTS')).toBeNull();
   });
@@ -60,8 +61,7 @@ describe('FileRail Component', () => {
     fireEvent.click(abcDisplay);
     expect(onToggleEditor).toHaveBeenCalledOnce();
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Settings' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(onOpenSettings).toHaveBeenCalledOnce();
 
     rerender(
@@ -102,23 +102,12 @@ describe('FileRail Component', () => {
     expect(onDeleteDocument).toHaveBeenCalledWith(doc1.id);
   });
 
-  it('reorders files by dragging before or after another row', () => {
+  it('uses direction-aware whole-row drop targets and keyboard reordering', () => {
     const onReorderDocument = vi.fn();
     render(<FileRail {...defaultProps} onReorderDocument={onReorderDocument} />);
 
-    const source = screen.getByRole('button', { name: 'Open Bach Minuet' }).closest('.file-item')!;
+    const source = screen.getByRole('button', { name: `Reorder ${doc1.name}` });
     const target = screen.getByRole('button', { name: 'Open Beethoven Ode' }).closest('.file-item')!;
-    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
-      top: 0,
-      height: 40,
-      bottom: 40,
-      left: 0,
-      right: 200,
-      width: 200,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    });
     const dataTransfer = {
       effectAllowed: 'none',
       dropEffect: 'none',
@@ -127,11 +116,25 @@ describe('FileRail Component', () => {
     };
 
     fireEvent.dragStart(source, { dataTransfer });
-    fireEvent.dragOver(target, { clientY: 35, dataTransfer });
+    fireEvent.dragOver(target, { dataTransfer });
     expect(target.className).toContain('drop-after');
-    fireEvent.drop(target, { clientY: 35, dataTransfer });
+    fireEvent.drop(target, { dataTransfer });
 
     expect(onReorderDocument).toHaveBeenCalledWith(doc1.id, doc2.id, 'after');
+    fireEvent.keyDown(source, { key: 'ArrowDown' });
+    expect(onReorderDocument).toHaveBeenLastCalledWith(doc1.id, doc2.id, 'after');
+
+    const upwardSource = screen.getByRole('button', { name: `Reorder ${doc2.name}` });
+    const upwardTarget = screen.getByRole('button', { name: 'Open Bach Minuet' }).closest('.file-item')!;
+    const upwardDataTransfer = {
+      ...dataTransfer,
+      getData: vi.fn(() => doc2.id),
+    };
+    fireEvent.dragStart(upwardSource, { dataTransfer: upwardDataTransfer });
+    fireEvent.dragOver(upwardTarget, { dataTransfer: upwardDataTransfer });
+    expect(upwardTarget.className).toContain('drop-before');
+    fireEvent.drop(upwardTarget, { dataTransfer: upwardDataTransfer });
+    expect(onReorderDocument).toHaveBeenLastCalledWith(doc2.id, doc1.id, 'before');
     expect(screen.queryByLabelText(`Move ${doc1.name} down`)).toBeNull();
   });
 });

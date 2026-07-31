@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, History, Plus, Send, Square, X } from 'lucide-react';
+import { ChevronDown, History, Plus, Send, Square, Trash2, X } from 'lucide-react';
 import { DesktopSheetAgent } from '../agent/DesktopSheetAgent';
 import type { AIProviderState } from '../agent/useAIProviders';
 import {
@@ -164,6 +164,33 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     setError(null);
   };
 
+  const handleDeleteThread = () => {
+    if (!fileId || !activeThread) return;
+    if (isStreaming) stop();
+    const threadId = activeThread.id;
+    setConversation((current) => {
+      const deletedIndex = current.threads.findIndex((thread) => thread.id === threadId);
+      const remainingThreads = current.threads.filter((thread) => thread.id !== threadId);
+      if (remainingThreads.length === 0) {
+        const replacement = makeThread();
+        return {
+          activeThreadId: replacement.id,
+          threads: [replacement],
+        };
+      }
+      const nextActiveIndex = Math.min(
+        Math.max(deletedIndex, 0),
+        remainingThreads.length - 1,
+      );
+      return {
+        activeThreadId: remainingThreads[nextActiveIndex].id,
+        threads: remainingThreads,
+      };
+    });
+    setDraft('');
+    setError(null);
+  };
+
   const sendMessage = async (event: React.FormEvent) => {
     event.preventDefault();
     const question = draft.trim();
@@ -292,25 +319,37 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
           </button>
           </div>
         </div>
-        <div className="agent-history-control">
-          <History className="agent-history-icon" size={16} aria-hidden="true" />
-          <label htmlFor="conversation-history" className="sr-only">Conversation history</label>
-          <select
-            id="conversation-history"
-            value={activeThread?.id}
-            onChange={(event) => setConversation((current) => ({
-              ...current,
-              activeThreadId: event.target.value,
-            }))}
-            aria-label="Conversation history"
+        <div className="agent-history-row">
+          <div className="agent-history-control">
+            <History className="agent-history-icon" size={16} aria-hidden="true" />
+            <label htmlFor="conversation-history" className="sr-only">Conversation history</label>
+            <select
+              id="conversation-history"
+              value={activeThread?.id}
+              onChange={(event) => setConversation((current) => ({
+                ...current,
+                activeThreadId: event.target.value,
+              }))}
+              aria-label="Conversation history"
+            >
+              {conversation.threads.map((thread) => (
+                <option key={thread.id} value={thread.id}>
+                  {thread.title}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="agent-history-chevron" size={16} aria-hidden="true" />
+          </div>
+          <button
+            className="agent-icon-button agent-delete-thread-button"
+            type="button"
+            onClick={handleDeleteThread}
+            title="Delete current thread"
+            aria-label="Delete current thread"
+            disabled={!fileId || !activeThread}
           >
-            {conversation.threads.map((thread) => (
-              <option key={thread.id} value={thread.id}>
-                {thread.title}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="agent-history-chevron" size={16} aria-hidden="true" />
+            <Trash2 size={16} aria-hidden="true" />
+          </button>
         </div>
       </div>
 
