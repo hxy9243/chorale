@@ -17,7 +17,7 @@ Expected elements:
 - progress timeline seek track with high-contrast elapsed and total duration (`mm:ss`)
 - active score anchor label badge (e.g. `Selected m.5`)
 - audio status indicator (`Synth Ready`, `Buffering Audio...`, `No Score Loaded`, or error banner)
-- WebAudio master gain volume slider (0–100%) and mute toggle
+- WebAudio master gain volume slider (0–100%) and mute toggle, with a high-contrast percentage readout
 
 ## 3. Shared cursor behavior
 

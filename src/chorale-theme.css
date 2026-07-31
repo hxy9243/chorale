@@ -4206,3 +4206,317 @@ body,
     transition-duration: 0ms;
   }
 }
+
+/* Hallmark · refinement: tabbed work rail · tone: austere · anchor hue: fjord */
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4 */
+
+/* One icon rail selects one visible work panel; panel content never scrolls sideways. */
+.file-rail {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr);
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.file-rail-tabs {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  align-items: center;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md) var(--space-xs);
+  overflow: hidden;
+  border-inline-end: var(--rule-thin) solid var(--color-file-rule);
+  background: var(--color-paper-2);
+}
+
+.file-rail-tab {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: var(--rule-thin) solid var(--color-transparent);
+  border-radius: var(--radius-control);
+  background: var(--color-transparent);
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.file-rail-tab.settings {
+  margin-top: auto;
+}
+
+.file-rail-tab.active {
+  border-color: var(--color-rule);
+  background: var(--color-paper-raised);
+  color: var(--color-accent-strong);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .file-rail-tab:hover {
+    background: var(--color-paper-3);
+    color: var(--color-ink);
+  }
+}
+
+.file-rail-panel-stack {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.file-rail-section {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-lg) var(--space-md);
+  overflow-x: clip;
+  overflow-y: auto;
+}
+
+.file-rail-section[hidden] {
+  display: none;
+}
+
+.file-rail .import-btn {
+  width: min(9rem, 100%);
+  justify-content: center;
+  margin: 0 auto var(--space-sm);
+  text-align: center;
+}
+
+.file-list {
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.file-item,
+.file-item.active {
+  min-width: 0;
+  padding: 0;
+  cursor: default;
+}
+
+.file-item.reorderable {
+  cursor: grab;
+}
+
+.file-item.reorderable:active,
+.file-item.reorderable:active .file-item-select {
+  cursor: grabbing;
+}
+
+.file-item-select {
+  display: flex;
+  min-width: 0;
+  min-height: 4rem;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-xs);
+  overflow: hidden;
+  border: 0;
+  border-radius: inherit;
+  background: var(--color-transparent);
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.file-item.reorderable .file-item-select {
+  cursor: grab;
+}
+
+.file-item-actions {
+  padding-inline-end: var(--space-xs);
+}
+
+.file-item.dragging {
+  opacity: 0.42;
+}
+
+.file-item.drop-before::after,
+.file-item.drop-after::after {
+  position: absolute;
+  z-index: var(--z-raised);
+  right: var(--space-xs);
+  left: var(--space-xs);
+  height: var(--rule-active);
+  border-radius: var(--radius-round);
+  background: var(--color-accent);
+  content: "";
+}
+
+.file-item.drop-before::after {
+  top: calc(-1 * var(--space-2xs));
+}
+
+.file-item.drop-after::after {
+  bottom: calc(-1 * var(--space-2xs));
+}
+
+/* The zoom controls sit over the score center and surface only during use. */
+.score-display-options {
+  top: var(--space-xs);
+  right: auto;
+  left: 50%;
+  padding: var(--space-3xs);
+  opacity: 0.32;
+  transform: translateX(-50%);
+}
+
+.score-display-options.is-scrolling {
+  opacity: 0.68;
+}
+
+.score-display-options:hover,
+.score-display-options:focus-within {
+  opacity: 0.9;
+}
+
+.score-display-options .figma-button {
+  min-height: 2rem;
+  padding: 0 var(--space-xs);
+  font-size: var(--text-xs);
+}
+
+.score-display-options .zoom-button {
+  width: 2rem;
+  min-width: 2rem;
+  padding: 0;
+}
+
+.score-display-options .zoom-level-text {
+  min-width: 2.75rem;
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
+/* Chat defaults to readable 12 pt type and keeps the select border visually intact. */
+.agent-panel {
+  font-size: var(--text-base);
+}
+
+.agent-panel-header h2 {
+  font-size: var(--text-lg);
+}
+
+.agent-panel-header p,
+.agent-suggestions > span,
+.agent-history-preview,
+.agent-message-context,
+.agent-message-provider {
+  font-size: var(--text-sm);
+}
+
+.agent-history-control {
+  position: relative;
+  height: 2.75rem;
+  padding: 0;
+  overflow: visible;
+  border: var(--rule-thin) solid var(--color-assistant-rule);
+  border-radius: var(--radius-control);
+  background: var(--color-paper-raised);
+}
+
+.agent-history-control:focus-within {
+  outline: var(--rule-active) solid var(--color-focus);
+  outline-offset: var(--space-3xs);
+}
+
+.agent-history-control select {
+  position: relative;
+  z-index: var(--z-base);
+  height: 100%;
+  min-height: 0;
+  padding: 0 2.5rem;
+  border: 0;
+  border-radius: inherit;
+  outline: 0;
+  appearance: none;
+  background: var(--color-transparent);
+  color: var(--color-ink);
+  font-size: var(--text-base);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.agent-history-control select option {
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
+}
+
+.agent-history-icon,
+.agent-history-chevron {
+  position: absolute;
+  z-index: var(--z-raised);
+  top: 50%;
+  color: var(--color-muted);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.agent-history-icon {
+  left: var(--space-sm);
+}
+
+.agent-history-chevron {
+  right: var(--space-sm);
+}
+
+.agent-suggestion,
+.agent-message-content,
+.agent-composer textarea,
+.agent-provider-picker summary,
+.agent-provider-popover,
+.agent-provider-popover select,
+.agent-provider-popover button {
+  font-size: var(--text-base);
+}
+
+.agent-empty-state {
+  display: grid;
+  min-height: 100%;
+  grid-template-rows: minmax(0, 20%) auto minmax(0, 1fr);
+  gap: 0;
+}
+
+.agent-suggestions {
+  grid-row: 2;
+}
+
+.agent-history-preview {
+  grid-row: 3;
+  align-self: end;
+}
+
+/* Playback percentages need the same contrast as the elapsed time. */
+.slider-value {
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+
+@media (max-width: 39.999rem) {
+  .score-display-options {
+    right: auto;
+    left: 50%;
+  }
+
+  .file-rail-section {
+    padding-inline: var(--space-sm);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .file-item.dragging {
+    opacity: 0.55;
+  }
+}

@@ -28,15 +28,16 @@ The Electron window and renderer document title are exactly `Chorale`. Save and 
 
 ## 3. Left work rail
 
-The left rail is divided into visibly named **Files**, **Tools**, and **Settings** panels. Project and library hierarchy is omitted until the product has real project-backed behavior.
+The left rail uses a narrow vertical selection bar to switch between **Files**, **Tools**, and **Settings** panels. Each selection is one icon with a tooltip and accessible name, and only the selected panel is visible. Project and library hierarchy is omitted until the product has real project-backed behavior.
 
 Required content:
 
-- **Files**: import score action (`.xml`, `.musicxml`, `.mxl`, `.abc`) plus the active and available file list with format badge (MXL, ABC, MusicXML) and state indicator (`original`, `edited`)
+- **Files**: a compact, centered import score action (`.xml`, `.musicxml`, `.mxl`, `.abc`) directly under the panel title, plus the active and available file list with format badge (MXL, ABC, MusicXML) and state indicator (`original`, `edited`)
 - **Tools**: an `ABC display` toggle; future score tools join this panel rather than the score header
-- **Settings**: a bottom-aligned application settings button
-- icon-led actions expose hover titles and accessible names
-- file management actions: file reordering (up/down) and score deletion (preserving at least 1 document)
+- **Settings**: its selection icon anchors to the bottom of the tab bar; the selected panel contains the application settings button
+- icon-only panel selections expose hover titles and accessible names
+- file management actions: drag-and-drop file reordering with before/after insertion cues, and score deletion (preserving at least 1 document)
+- vertical scrolling is allowed inside the selected panel; horizontal scrolling is clipped
 - collapsible state (`railCollapsed` state) and horizontal drag-to-resize handle
 - default width at 25% of the logical layout viewport, bounded between 240px and 560px so long file names remain legible
 - persistent resized width in local storage (`chorale.workspace.fileRailWidth`)
@@ -53,7 +54,7 @@ The center column is the primary editing and reading surface.
 It contains:
 
 - score title and composer with `Auto-saved`, `SVG ready`, and `Audio ready` status directly underneath
-- an 80%-opaque rounded display-options panel floating in the score's upper-right corner; it becomes fully opaque on hover or keyboard focus
+- a compact rounded display-options panel floating at the score's upper center; it is highly translucent at rest, becomes less translucent during score scrolling, and becomes clearest on hover or keyboard focus
 - score zoom controls inside that floating panel, without `Score` or `ABC code` view tabs
 - rendered score surface (with auto-centering playback line and zoom layout space reservation)
 - optional split ABC editor pane (horizontal drag-to-resize, width bounded between 320px and 720px, default 420px, persisted as `chorale.workspace.editorWidth`)

@@ -27,7 +27,7 @@ The panel provides four vertical zones and a left resize handle:
 
 - thread title and history selector
 - active file subtitle
-- a full-width history selector below the title row; the closed select and its dropdown share the same width and control styling
+- a full-width custom-styled history selector below the title row; its transparent text field, border, history icon, chevron, and option colors use the same control language as the rest of Chorale
 - the left-rail **Settings** panel opens AI provider settings
 - close action; persistent header button allows reopening chat
 - panel drag-to-resize handle on left border (minimum 280px, maximum one third of the viewport, default 392px when space allows)
@@ -40,7 +40,8 @@ The panel provides four vertical zones and a left resize handle:
 - assistant response messages with markdown formatting
 - visible tool execution indicators (`Executing analyze_harmonic_cadence...`)
 - interactive mutation review cards (Diff view for proposed ABC edits or Annotation additions)
-- empty state begins with a slightly narrower `Try asking` group and does not repeat a `Chorale / Analysis` brand card
+- chat content uses approximately 12 pt as its default reading size
+- empty state places the slightly narrower `Try asking` group about 20% down from the transcript top and does not repeat a `Chorale / Analysis` brand card
 
 ### Composer
 

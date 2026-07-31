@@ -167,8 +167,11 @@ describe('AgentChatPanel', () => {
     );
 
     const threadSelect = screen.getByLabelText('Conversation history');
-    expect(threadSelect.closest('.agent-history-control')?.parentElement?.className)
+    const threadControl = threadSelect.closest('.agent-history-control');
+    expect(threadControl?.parentElement?.className)
       .toContain('agent-panel-header');
+    expect(threadControl?.querySelector('.agent-history-icon')).not.toBeNull();
+    expect(threadControl?.querySelector('.agent-history-chevron')).not.toBeNull();
     expect(screen.queryByText('Analysis')).toBeNull();
     expect(screen.queryByText(/Selection:/)).toBeNull();
     expect(screen.queryByText(/Attached anchor:/)).toBeNull();

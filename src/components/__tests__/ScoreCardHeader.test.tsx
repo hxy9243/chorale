@@ -40,4 +40,18 @@ describe('ScoreCardHeader Component', () => {
     fireEvent.click(resetZoomBtn);
     expect(defaultProps.onResetZoom).toHaveBeenCalledTimes(1);
   });
+
+  it('surfaces the translucent controls while the score is scrolling', () => {
+    const { unmount } = render(
+      <section className="score-workspace-card">
+        <ScoreCardHeader {...defaultProps} />
+      </section>,
+    );
+
+    const controls = screen.getByLabelText('Score display options');
+    expect(controls.className).not.toContain('is-scrolling');
+    fireEvent.wheel(controls);
+    expect(controls.className).toContain('is-scrolling');
+    unmount();
+  });
 });
