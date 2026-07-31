@@ -4691,6 +4691,7 @@ body,
   appearance: none;
   background: var(--color-paper-raised);
   color: var(--color-ink);
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 
