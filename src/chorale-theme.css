@@ -1308,13 +1308,14 @@ textarea:disabled,
   width: 100%;
   min-height: 5rem;
   padding: var(--space-2xs) 3rem var(--space-xs) 0;
-  resize: vertical;
+  resize: none;
   border: 0;
   border-radius: 0;
   background: var(--color-paper-raised);
   color: var(--color-ink);
   font-size: var(--text-sm);
   line-height: 1.6;
+  overflow-y: hidden;
 }
 
 .agent-composer textarea::placeholder {
@@ -4629,7 +4630,7 @@ body,
   }
 }
 
-/* Hallmark · component refinement: file drag + chat controls · genre: editorial · theme: Nordic Ledger
+/* Hallmark · component refinement: file drag + chat controls + selection context · genre: editorial · theme: Nordic Ledger
  * states: default · hover · focus · active · disabled · loading · error · success
  * contrast: preserved from project tokens
  */
@@ -4681,6 +4682,8 @@ body,
   padding: 0 var(--space-sm);
   border: var(--rule-thin) solid var(--color-assistant-rule);
   border-radius: var(--radius-round);
+  -webkit-appearance: none;
+  appearance: none;
   background: var(--color-paper-raised);
   color: var(--color-ink);
   cursor: pointer;
@@ -4697,7 +4700,9 @@ body,
 .agent-history-chevron {
   position: static;
   flex: none;
+  background: var(--color-paper-raised);
   color: var(--color-muted);
+  box-shadow: 0 0 0 var(--space-xs) var(--color-paper-raised);
   pointer-events: none;
   transform: none;
 }
@@ -4751,7 +4756,11 @@ body,
 }
 
 .agent-empty-state {
-  grid-template-rows: minmax(var(--space-md), 1fr) auto auto;
+  grid-template-rows: minmax(0, 20%) auto minmax(0, 1fr);
+}
+
+.agent-suggestions > span {
+  color: var(--color-neutral);
 }
 
 .agent-delete-thread-button {
@@ -4785,6 +4794,31 @@ body,
   flex: none;
 }
 
+.playback-loop-pill,
+.agent-composer-anchor {
+  border: 0;
+  border-bottom: var(--rule-active) solid var(--color-accent);
+  border-radius: var(--radius-small) var(--radius-small) 0 0;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+}
+
+.agent-composer-anchor {
+  width: max-content;
+  max-width: 100%;
+  margin-block-end: var(--space-xs);
+  overflow: hidden;
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-composer,
+.agent-composer textarea {
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+}
+
 .agent-composer:focus-within {
   border-color:
     var(--color-assistant-rule)
@@ -4794,13 +4828,56 @@ body,
   box-shadow: var(--shadow-whisper);
 }
 
-.agent-composer:has(> textarea:focus) {
-  background: var(--color-paper-2);
+.agent-composer:has(textarea:focus) {
+  background: var(--color-paper);
+  color: var(--color-ink);
 }
 
-.agent-composer:has(> textarea:focus) textarea {
+.agent-composer:has(textarea:focus) textarea {
   outline-color: var(--color-transparent);
-  background: var(--color-paper-2);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  caret-color: var(--color-accent-strong);
+}
+
+.agent-composer-input {
+  min-width: 0;
+}
+
+.agent-composer-resize-handle {
+  position: absolute;
+  z-index: var(--z-raised);
+  top: 0;
+  right: 0;
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  padding: var(--space-2xs) var(--space-2xs) 0 0;
+  place-items: start end;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: var(--color-transparent);
+  color: var(--color-neutral);
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.agent-composer-resize-handle::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  content: "";
+}
+
+.agent-composer-resize-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-width: var(--rule-active);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -4809,6 +4886,11 @@ body,
   .agent-history-menu button:hover {
     background: var(--color-paper-2);
     color: var(--color-ink);
+  }
+
+  .agent-history-trigger:hover .agent-history-chevron {
+    background: var(--color-paper-2);
+    box-shadow: 0 0 0 var(--space-xs) var(--color-paper-2);
   }
 }
 

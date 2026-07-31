@@ -153,7 +153,7 @@ describe('AgentChatPanel', () => {
     expect(screen.queryByText('Tools')).toBeNull();
   });
 
-  it('uses a full header row for thread selection without redundant analysis or selection displays', () => {
+  it('uses a full header row and shows the selected measure inside the composer', () => {
     render(
       <AgentChatPanel
         open
@@ -178,7 +178,10 @@ describe('AgentChatPanel', () => {
     expect(screen.getByRole('button', { name: 'Delete current thread' })).toBeDefined();
     expect(screen.queryByText('Analysis')).toBeNull();
     expect(screen.queryByText(/Selection:/)).toBeNull();
-    expect(screen.queryByText(/Attached anchor:/)).toBeNull();
+    expect(screen.queryByText('Earlier in this score')).toBeNull();
+    const selectionIndicator = screen.getByText('Selected m. 3');
+    expect(selectionIndicator.closest('.agent-composer-anchor')).not.toBeNull();
+    expect(selectionIndicator.closest('form')?.className).toContain('agent-composer');
   });
 
   it('deletes the active thread and keeps one fresh thread when history becomes empty', async () => {
@@ -262,6 +265,44 @@ describe('AgentChatPanel', () => {
     expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it('keeps the chat input height until content overflows, then grows within 35 percent of the panel', () => {
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-growing-input"
+        abcCode={'X:1\nT:Growing input\nK:C\nCDEF|'}
+        activeFileName="Growing input.abc"
+        revision={1}
+        ai={ai}
+        onOpenSettings={() => undefined}
+      />,
+    );
+
+    const panel = screen.getByLabelText('Current sheet assistant');
+    const textarea = screen.getByLabelText('Ask about the current sheet') as HTMLTextAreaElement;
+    const composer = textarea.closest('form') as HTMLFormElement;
+    vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue({ height: 800 } as DOMRect);
+    vi.spyOn(composer, 'getBoundingClientRect').mockReturnValue({ height: 160 } as DOMRect);
+    vi.spyOn(textarea, 'getBoundingClientRect').mockReturnValue({ height: 80 } as DOMRect);
+    Object.defineProperty(textarea, 'clientHeight', { configurable: true, value: 80 });
+    Object.defineProperty(textarea, 'scrollHeight', { configurable: true, value: 80 });
+
+    fireEvent.change(textarea, { target: { value: 'A short question' } });
+
+    expect(textarea.style.height).toBe('');
+
+    Object.defineProperty(textarea, 'scrollHeight', { configurable: true, value: 320 });
+
+    fireEvent.change(textarea, { target: { value: 'A long question '.repeat(40) } });
+
+    expect(textarea.style.height).toBe('200px');
+    expect(textarea.style.overflowY).toBe('auto');
+    const resizeHandle = screen.getByRole('button', { name: 'Resize chat input' });
+    expect(resizeHandle.getAttribute('aria-controls')).toBe('agent-question');
+    expect(resizeHandle.querySelectorAll('.agent-composer-resize-icon path')).toHaveLength(3);
+  });
+
   it('closes the model selection popup when focus moves outside it', () => {
     render(
       <AgentChatPanel
@@ -324,6 +365,7 @@ describe('AgentChatPanel', () => {
     );
 
     const trigger = screen.getByLabelText('Conversation history');
+    expect(trigger.getAttribute('aria-haspopup')).toBe('listbox');
     expect(trigger.querySelectorAll('.agent-history-chevron')).toHaveLength(1);
     fireEvent.click(trigger);
     const secondThread = screen.getByRole('option', { name: 'Second thread' });
