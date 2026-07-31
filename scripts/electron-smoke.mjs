@@ -312,6 +312,7 @@ try {
     const agentFontSize = getComputedStyle(document.querySelector('.agent-panel')).fontSize;
     const threadControl = document.querySelector('.agent-history-control');
     const threadTrigger = threadControl?.querySelector('.agent-history-trigger');
+    const threadLabel = threadTrigger?.querySelector('span');
     const threadChevron = threadTrigger?.querySelector('.agent-history-chevron');
     const threadTriggerStyle = threadTrigger ? getComputedStyle(threadTrigger) : null;
     const threadChevronStyle = threadChevron ? getComputedStyle(threadChevron) : null;
@@ -321,6 +322,13 @@ try {
     const threadTriggerAppearance = threadTriggerStyle?.appearance ?? null;
     const threadChevronBackground = threadChevronStyle?.backgroundColor ?? null;
     const threadChevronShadow = threadChevronStyle?.boxShadow ?? null;
+    const threadLegacyArrowStyle = threadControl
+      ? getComputedStyle(threadControl, '::after')
+      : null;
+    const threadLegacyArrowContent = threadLegacyArrowStyle?.content ?? null;
+    const threadLegacyArrowBorderWidth = threadLegacyArrowStyle?.borderTopWidth ?? null;
+    const threadTriggerWidth = threadTrigger?.getBoundingClientRect().width ?? null;
+    const threadLabelWidth = threadLabel?.getBoundingClientRect().width ?? null;
     const threadChevronCount = document.querySelectorAll('.agent-history-chevron').length;
     const hasThreadDelete = Boolean(document.querySelector('[aria-label="Delete current thread"]'));
     await new Promise((resolve) => setTimeout(resolve, 750));
@@ -432,6 +440,10 @@ try {
       threadTriggerAppearance,
       threadChevronBackground,
       threadChevronShadow,
+      threadLegacyArrowContent,
+      threadLegacyArrowBorderWidth,
+      threadTriggerWidth,
+      threadLabelWidth,
       threadChevronCount,
       hasThreadDelete,
       threadIdBeforeDelete: threadBeforeDelete.id,
@@ -599,9 +611,15 @@ try {
         'oklch(0 0 0 / 0)',
       ].includes(shellState.threadChevronBackground)
       && shellState.threadChevronShadow === 'none'
+      && ['none', 'normal', '""'].includes(shellState.threadLegacyArrowContent)
+      && Number.parseFloat(shellState.threadLegacyArrowBorderWidth) === 0
       && shellState.threadTriggerAppearance === 'none'
       && shellState.threadChevronCount === 1,
-    `Thread selector styling is incomplete (${shellState.threadBorderWidth}, radius ${shellState.threadBorderRadius}, chevron ${shellState.threadChevronBackground}/${shellState.threadChevronShadow}, appearance ${shellState.threadTriggerAppearance}, chevrons ${shellState.threadChevronCount}).`,
+    `Thread selector styling is incomplete (${shellState.threadBorderWidth}, radius ${shellState.threadBorderRadius}, chevron ${shellState.threadChevronBackground}/${shellState.threadChevronShadow}, legacy ${shellState.threadLegacyArrowContent}/${shellState.threadLegacyArrowBorderWidth}, appearance ${shellState.threadTriggerAppearance}, chevrons ${shellState.threadChevronCount}).`,
+  );
+  assert(
+    shellState.threadLabelWidth / shellState.threadTriggerWidth >= 0.9,
+    `Thread title does not use the available trigger width (${shellState.threadLabelWidth}px of ${shellState.threadTriggerWidth}px).`,
   );
   assert(shellState.hasThreadDelete, 'Thread history does not expose a delete action.');
   assert(
