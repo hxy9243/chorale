@@ -21,7 +21,6 @@ import {
   sampleToDocument,
   updateDocumentAbc,
 } from './utils/fileSession';
-import { formatAnchorLabel } from './utils/anchor';
 import type { PlaybackPosition } from './utils/repeatPlayback';
 import { prepareAbcForPlayback } from './utils/abcAudio';
 import {
@@ -140,7 +139,6 @@ export const App: React.FC = () => {
   const activeFileName = activeDocument?.name || '';
   const abcCode = activeDocument?.abcSource || '';
   const abcRevision = activeDocument?.revision || 0;
-  const anchorLabel = formatAnchorLabel(activeAnchor);
   const saveState = !activeDocument
     ? 'No file'
     : saveStatus === 'saving'
@@ -148,6 +146,13 @@ export const App: React.FC = () => {
       : saveStatus === 'error'
         ? 'Error'
         : 'Saved';
+  const saveLabel = saveState === 'Saved'
+    ? 'Auto-saved'
+    : saveState === 'Saving'
+      ? 'Saving…'
+      : saveState === 'Error'
+        ? 'Save failed'
+        : saveState;
   const canRenderScore = buildStatus === 'valid';
   const liveMetadata = useMemo(() => parseAbcMetadata(abcCode), [abcCode]);
   const scoreTitle = liveMetadata.title || activeDocument?.scoreInfo.title || activeFileName || 'Untitled score';
@@ -522,8 +527,6 @@ export const App: React.FC = () => {
         onToggleChat={() => setChatOpen((open) => !open)}
         railCollapsed={railCollapsed}
         onToggleRail={() => setRailCollapsed((c) => !c)}
-        saveState={saveState}
-        onOpenSettings={openSettings}
       />
 
       <div
@@ -545,6 +548,9 @@ export const App: React.FC = () => {
           error={error}
           collapsed={railCollapsed}
           onBeginResize={beginRailResize}
+          editorVisible={editorVisible}
+          onToggleEditor={() => setEditorVisible((visible) => !visible)}
+          onOpenSettings={openSettings}
         />
 
         <main
@@ -559,11 +565,6 @@ export const App: React.FC = () => {
                 onZoomIn={() => setZoom((z) => clampSheetZoom(z + 10))}
                 onZoomOut={() => setZoom((z) => clampSheetZoom(z - 10))}
                 onResetZoom={() => setZoom(DEFAULT_SHEET_ZOOM)}
-                anchorContext={anchorLabel}
-                buildStatus={buildStatus}
-                saveState={saveState}
-                editorVisible={editorVisible}
-                onToggleEditor={() => setEditorVisible((visible) => !visible)}
               />
 
               <div className="score-canvas">
@@ -572,6 +573,17 @@ export const App: React.FC = () => {
                     <div>
                       <h1>{scoreTitle}</h1>
                       <p>{scoreComposer}</p>
+                      <div className="score-build-status" role="status" aria-live="polite">
+                        <span className={`score-status-item save ${saveStatus}`}>
+                          {saveLabel}
+                        </span>
+                        <span className={`score-status-item svg ${canRenderScore ? 'ready' : ''}`}>
+                          SVG {canRenderScore ? 'ready' : 'pending'}
+                        </span>
+                        <span className={`score-status-item audio ${buildResult?.hasPlayback ? 'ready' : ''}`}>
+                          Audio {buildResult?.hasPlayback ? 'ready' : 'pending'}
+                        </span>
+                      </div>
                     </div>
                     <span>{scoreKey} · {scoreMeter} · {scoreTempo}</span>
                   </div>
@@ -593,15 +605,6 @@ export const App: React.FC = () => {
                       zoom={zoom}
                       onZoomChange={(newZoom) => setZoom(clampSheetZoom(newZoom))}
                     />
-                  </div>
-                </div>
-
-                <div className="score-canvas-footer">
-                  <div>
-                    <span className={`render-pill ${canRenderScore ? 'ready' : ''}`}>SVG {canRenderScore ? 'ready' : 'pending'}</span>
-                    <span className={`render-pill audio ${buildResult?.hasPlayback ? 'ready' : ''}`}>
-                      Audio {buildResult?.hasPlayback ? 'ready' : 'pending'}
-                    </span>
                   </div>
                 </div>
 

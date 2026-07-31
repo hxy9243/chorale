@@ -11,8 +11,9 @@ The ordinary browser build remains a score editor. It displays “AI providers r
 
 ## 2. Access and presentation
 
-- A gear button in the top-right workspace header opens the accessible **Settings** modal.
+- A gear button in the bottom-aligned **Settings** panel of the left rail opens the accessible **Settings** modal.
 - Settings uses a compact **Settings** header and vertical **API providers**, **Appearance**, and **About** tabs.
+- The dialog retains the same centered position, width, and height while switching tabs; sparse tabs do not shrink or move the frame.
 - Appearance controls a persistent 80%–160% interface scale. Ctrl/Cmd + wheel changes the same setting outside the score; over the score it changes score zoom only.
 - Interface scaling preserves the visible viewport bounds so the chat panel stays against the window's right edge and both its composer and the bottom playback dock remain on-screen.
 - About displays the Chorale name, release, and current desktop/browser runtime.

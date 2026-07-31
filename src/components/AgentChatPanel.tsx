@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Bot, History, Plus, Send, Square, X } from 'lucide-react';
+import { History, Plus, Send, Square, X } from 'lucide-react';
 import { DesktopSheetAgent } from '../agent/DesktopSheetAgent';
 import type { AIProviderState } from '../agent/useAIProviders';
 import {
@@ -99,8 +99,6 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   ), [conversation]);
 
   const messages = useMemo(() => activeThread?.messages || [], [activeThread]);
-  const anchorLabel = formatAnchorLabel(activeAnchor);
-
   const getAgent = () => {
     agentRef.current ??= new DesktopSheetAgent();
     return agentRef.current;
@@ -267,30 +265,12 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   return (
     <aside className="agent-panel" aria-label="Current sheet assistant">
       <div className="agent-panel-header">
-        <div>
-          <h2>Chat with this score</h2>
-          <p>Grounded in {activeFileName || 'the active score'}</p>
-        </div>
-        <div className="agent-header-actions">
-          <div className="agent-history-control">
-            <History size={14} aria-hidden="true" />
-            <label htmlFor="conversation-history" className="sr-only">Conversation history</label>
-            <select
-              id="conversation-history"
-              value={activeThread?.id}
-              onChange={(event) => setConversation((current) => ({
-                ...current,
-                activeThreadId: event.target.value,
-              }))}
-              aria-label="Conversation history"
-            >
-              {conversation.threads.map((thread) => (
-                <option key={thread.id} value={thread.id}>
-                  {thread.title}
-                </option>
-              ))}
-            </select>
+        <div className="agent-title-row">
+          <div>
+            <h2>Chat with this score</h2>
+            <p>Grounded in {activeFileName || 'the active score'}</p>
           </div>
+          <div className="agent-header-actions">
           <button
             className="agent-icon-button"
             type="button"
@@ -310,22 +290,32 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
           >
             <X size={18} />
           </button>
+          </div>
+        </div>
+        <div className="agent-history-control">
+          <History size={14} aria-hidden="true" />
+          <label htmlFor="conversation-history" className="sr-only">Conversation history</label>
+          <select
+            id="conversation-history"
+            value={activeThread?.id}
+            onChange={(event) => setConversation((current) => ({
+              ...current,
+              activeThreadId: event.target.value,
+            }))}
+            aria-label="Conversation history"
+          >
+            {conversation.threads.map((thread) => (
+              <option key={thread.id} value={thread.id}>
+                {thread.title}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
-
-      {anchorLabel && <div className="agent-context-banner">Selection: {anchorLabel}</div>}
 
       <div className="agent-transcript" ref={transcriptRef} role="log" aria-live="polite">
         {messages.length === 0 ? (
           <div className="agent-empty-state">
-            <div className="agent-empty-intro">
-              <span className="agent-brand-mark"><Bot aria-hidden="true" size={15} /></span>
-              <div>
-                <strong>Chorale</strong>
-                <span>Analysis</span>
-              </div>
-              <p>Ask about harmony, voice leading, form, or a selected passage in this score.</p>
-            </div>
             <div className="agent-suggestions">
               <span>TRY ASKING</span>
               {SUGGESTED_QUESTIONS.map((question) => (
@@ -436,11 +426,6 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
               <button type="button" onClick={onOpenSettings}>Manage providers</button>
             </div>
           </details>
-        )}
-        {anchorLabel && (
-          <div className="agent-composer-anchor">
-            Attached anchor: <strong>{anchorLabel}</strong>
-          </div>
         )}
         <label htmlFor="agent-question" className="sr-only">Ask about the current sheet</label>
         <textarea

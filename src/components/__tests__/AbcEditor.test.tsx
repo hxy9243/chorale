@@ -15,4 +15,18 @@ describe('AbcEditor Component', () => {
     fireEvent.change(textarea, { target: { value: 'X:1\nT:Modified\nK:C\nC4|' } });
     expect(onAbcChange).toHaveBeenCalledWith('X:1\nT:Modified\nK:C\nC4|');
   });
+
+  it('provides a close button inside the editor window', () => {
+    const onToggleVisibility = vi.fn();
+    render(
+      <AbcEditor
+        abcCode={'X:1\nT:Test\nK:C\nC|'}
+        onAbcChange={() => undefined}
+        onToggleVisibility={onToggleVisibility}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close ABC editor' }));
+    expect(onToggleVisibility).toHaveBeenCalledOnce();
+  });
 });

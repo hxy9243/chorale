@@ -17,6 +17,7 @@ Required behavior:
 - draggable divider between score and editor (width bounded between 320px and 720px, default 420px)
 - persistent editor visibility and width state stored in local storage (`chorale.workspace.editorVisible`, `chorale.workspace.editorWidth`)
 - editor width that can be adjusted without collapsing the score
+- opening from the left-rail **Tools** panel through the `ABC display` toggle
 
 ## 3. Editor chrome
 
@@ -27,7 +28,7 @@ Expected UI elements:
 - line numbers
 - live refresh or rebuild status indicator
 - copy ABC action button
-- pane hide/show toggle button
+- an icon close button inside the ABC pane; reopening remains available from **Tools**
 
 These communicate whether the current text can safely drive score and playback output.
 

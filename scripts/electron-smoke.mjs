@@ -154,6 +154,13 @@ try {
     const bridge = window.choraleAI;
     const sheet = await waitForElement('.sheet-music-card');
     await new Promise((resolve) => setTimeout(resolve, 100));
+    const saveDeadline = Date.now() + 5000;
+    while (
+      Date.now() < saveDeadline
+      && document.querySelector('.score-status-item.save')?.textContent !== 'Auto-saved'
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
     const sheetZoomBefore = sheet?.querySelector('.scale-val')?.textContent;
     sheet?.dispatchEvent(new WheelEvent('wheel', {
       bubbles: true,
@@ -220,13 +227,28 @@ try {
       viewportHeight: window.innerHeight,
     };
 
+    const abcDisplay = await waitForElement('[aria-pressed="false"].rail-tool-button');
+    abcDisplay?.click();
+    const abcClose = await waitForElement('[aria-label="Close ABC editor"]');
+    const editorOpened = Boolean(document.querySelector('.editor-workspace-card'));
+    abcClose?.click();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const editorClosed = !document.querySelector('.editor-workspace-card');
+
     const gear = await waitForElement('[aria-label="Open settings"]');
     gear?.click();
     const settingsTitle = await waitForElement('#ai-settings-title');
     const provider = document.querySelector('.ai-add-connection select');
+    const settingsRect = document.querySelector('.ai-settings-modal')?.getBoundingClientRect();
     const settingsTabs = document.querySelector('.ai-settings-tabs');
     const settingsTabsDirection = settingsTabs ? getComputedStyle(settingsTabs).flexDirection : null;
     const settingsHasSubtitle = Boolean(document.querySelector('.ai-settings-header p'));
+    document.querySelector('#settings-tab-appearance')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const appearanceRect = document.querySelector('.ai-settings-modal')?.getBoundingClientRect();
+    document.querySelector('#settings-tab-about')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const aboutRect = document.querySelector('.ai-settings-modal')?.getBoundingClientRect();
     const composerBottom = document.querySelector('.agent-composer')?.getBoundingClientRect().bottom;
     const panelBottom = document.querySelector('.right-panel')?.getBoundingClientRect().bottom;
     const playbackBottom = document.querySelector('.playback-dock-container')?.getBoundingClientRect().bottom;
@@ -239,14 +261,35 @@ try {
         - (scoreBounds.left + scoreBounds.width / 2)
       )
       : null;
+    const threadWidth = document.querySelector('.agent-history-control')?.getBoundingClientRect().width;
+    const suggestionsWidth = document.querySelector('.agent-suggestions')?.getBoundingClientRect().width;
+    const transcriptWidth = document.querySelector('.agent-transcript')?.getBoundingClientRect().width;
+    const displayOptions = document.querySelector('.score-display-options');
+    const elapsedTime = document.querySelector('.playback-progress strong');
     localStorage.setItem('chorale.electron-smoke', 'persisted');
     document.querySelector('[aria-label="Close settings"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 25));
     document.querySelector('[aria-label="Close assistant"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 25));
+    const closedPanel = document.querySelector('.right-panel');
+    const closedPanelStyle = closedPanel && {
+      display: getComputedStyle(closedPanel).display,
+      width: closedPanel.getBoundingClientRect().width,
+    };
     return {
       url: location.href,
       title: document.title,
+      hasHeaderBrandMark: Boolean(document.querySelector('.header-brand .brand-mark')),
+      hasHeaderSettings: Boolean(document.querySelector('.app-header [aria-label="Open settings"]')),
+      railSectionNames: [...document.querySelectorAll('.rail-section-title')].map((element) => element.textContent),
+      hasScoreViewSwitch: Boolean(document.querySelector('.score-view-switch')),
+      hasScoreFooter: Boolean(document.querySelector('.score-canvas-footer')),
+      scoreStatusText: document.querySelector('.score-build-status')?.textContent,
+      displayOptionsOpacity: displayOptions ? getComputedStyle(displayOptions).opacity : null,
+      headerRuleContent: getComputedStyle(document.querySelector('.app-header'), '::after').content,
+      fileRuleContent: getComputedStyle(document.querySelector('.file-rail'), '::before').content,
+      editorOpened,
+      editorClosed,
       hasNodeRequire: typeof window.require !== 'undefined',
       hasNodeProcess: typeof window.process !== 'undefined',
       bridgeMethods: bridge ? Object.keys(bridge).sort() : [],
@@ -254,6 +297,12 @@ try {
       settingsTitle: settingsTitle?.textContent,
       settingsTabsDirection,
       settingsHasSubtitle,
+      settingsFrames: [settingsRect, appearanceRect, aboutRect].map((rect) => rect && ({
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+      })),
       providerCount: provider?.querySelectorAll('option').length ?? 0,
       sheetZoomBefore,
       sheetZoomAfter,
@@ -273,6 +322,15 @@ try {
       workspaceBottom,
       viewportBottom: window.innerHeight,
       scoreCenterDelta,
+      threadWidth,
+      suggestionsWidth,
+      transcriptWidth,
+      hasAnalysisLabel: document.body.textContent.includes('Analysis'),
+      hasSelectionDisplay: document.body.textContent.includes('Attached anchor:')
+        || document.body.textContent.includes('Selection:'),
+      elapsedTimeColor: elapsedTime ? getComputedStyle(elapsedTime).color : null,
+      elapsedTimeWeight: elapsedTime ? getComputedStyle(elapsedTime).fontWeight : null,
+      closedPanelStyle,
       storedChatOpen: localStorage.getItem('chorale.workspace.chatOpen'),
       storedChatWidth: Number(localStorage.getItem('chorale.workspace.chatWidth')),
       storedFileRailWidth: Number(localStorage.getItem('chorale.workspace.fileRailWidth')),
@@ -280,7 +338,28 @@ try {
     };
   })()`);
   assert(shellState.url === 'app://chorale/index.html', 'Production renderer did not use app://chorale.');
-  assert(shellState.title.includes('Chorale'), 'Production renderer title is missing.');
+  assert(shellState.title === 'Chorale', `Production renderer title is not exact (${shellState.title}).`);
+  assert(shellState.hasHeaderBrandMark === false, 'Header still contains the removed brand icon.');
+  assert(shellState.hasHeaderSettings === false, 'Settings entry point is still in the header.');
+  assert(
+    shellState.railSectionNames.join(',') === 'Files,Tools,Settings',
+    `Left rail sections are incomplete (${shellState.railSectionNames.join(',')}).`,
+  );
+  assert(shellState.hasScoreViewSwitch === false, 'Score/ABC view switch is still in the score header.');
+  assert(shellState.hasScoreFooter === false, 'Render status still occupies the score footer.');
+  assert(
+    shellState.scoreStatusText.includes('Auto-saved')
+      && shellState.scoreStatusText.includes('SVG ready')
+      && shellState.scoreStatusText.includes('Audio ready'),
+    `Score status is not grouped under the title (${shellState.scoreStatusText}).`,
+  );
+  assert(shellState.displayOptionsOpacity === '0.8', 'Score display controls are not 80% translucent.');
+  assert(
+    ['none', 'normal'].includes(shellState.headerRuleContent)
+      && ['none', 'normal'].includes(shellState.fileRuleContent),
+    `Empty decorative rules remain (${shellState.headerRuleContent}, ${shellState.fileRuleContent}).`,
+  );
+  assert(shellState.editorOpened && shellState.editorClosed, 'ABC display did not open and close from its owning panels.');
   assert(shellState.hasNodeRequire === false, 'Renderer unexpectedly exposes Node require.');
   assert(shellState.hasNodeProcess === false, 'Renderer unexpectedly exposes Node process.');
   assert(shellState.bridgeMethods.includes('sendChat'), 'Typed preload bridge is unavailable.');
@@ -293,6 +372,16 @@ try {
     `Settings tabs are not vertical (${shellState.settingsTabsDirection}).`,
   );
   assert(shellState.settingsHasSubtitle === false, 'Settings header still contains a subtitle.');
+  assert(
+    shellState.settingsFrames.every((frame) => (
+      frame
+      && frame.x === shellState.settingsFrames[0].x
+      && frame.y === shellState.settingsFrames[0].y
+      && frame.width === shellState.settingsFrames[0].width
+      && frame.height === shellState.settingsFrames[0].height
+    )),
+    `Settings tabs changed the dialog frame (${JSON.stringify(shellState.settingsFrames)}).`,
+  );
   assert(shellState.providerCount === 6, 'Settings modal does not list all six provider types.');
   assert(shellState.sheetZoomBefore === '100%', `Sheet zoom did not start at 100% (${shellState.sheetZoomBefore}).`);
   assert(
@@ -331,6 +420,24 @@ try {
   assert(
     shellState.scoreCenterDelta !== null && shellState.scoreCenterDelta <= 1,
     `Score sheet is not centered in the middle panel (${shellState.scoreCenterDelta}px).`,
+  );
+  assert(
+    shellState.threadWidth >= shellState.chatWidth - 40,
+    `Thread selector is still too narrow (${shellState.threadWidth}px in ${shellState.chatWidth}px panel).`,
+  );
+  assert(
+    shellState.suggestionsWidth < shellState.transcriptWidth * 0.95,
+    `Try Asking group is not narrower than the transcript (${shellState.suggestionsWidth}px).`,
+  );
+  assert(shellState.hasAnalysisLabel === false, 'Empty chat still contains the removed Chorale Analysis label.');
+  assert(shellState.hasSelectionDisplay === false, 'Chat still contains the removed selection display.');
+  assert(
+    shellState.elapsedTimeColor && Number(shellState.elapsedTimeWeight) >= 600,
+    `Playback time is not high-contrast (${shellState.elapsedTimeColor}, ${shellState.elapsedTimeWeight}).`,
+  );
+  assert(
+    shellState.closedPanelStyle.display === 'none' && shellState.closedPanelStyle.width === 0,
+    `Closed chat left visible panel chrome (${JSON.stringify(shellState.closedPanelStyle)}).`,
   );
   assert(shellState.storedChatOpen === 'false', 'Closed chat state was not persisted.');
   assert(Number.isFinite(shellState.storedChatWidth), 'Resized chat width was not persisted.');

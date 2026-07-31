@@ -14,6 +14,7 @@ The score surface supports continuous-scroll reading with automatic playback cen
 Expected presentation:
 
 - score title, composer, key, meter, and tempo header row at the top of the score sheet
+- autosave, SVG-build, and audio-build status grouped directly under the title and composer
 - continuous vertical staff systems rendered via SVG (`abcjs`)
 - visible measure numbers on the left of systems
 - zoom space reservation (`zoom: currentZoom/100`, `width: ${currentZoom}%`, `marginInline: auto`) ensuring scaled score SVGs do not clip container bounds
@@ -62,7 +63,7 @@ Annotations are positioned relative to rendered SVG staff measure coordinates (`
 
 ## 5. Score toolbar
 
-The toolbar exposes score-facing controls without competing with the score itself.
+Score-facing display controls float in a rounded panel at the upper-right of the score. The panel is 80% opaque at rest and fully opaque on hover or keyboard focus, so it remains available without reading as another header.
 
 Expected controls:
 
@@ -70,9 +71,8 @@ Expected controls:
 - zoom controls (-10%, +10%, percentage readout, wheel zoom with Ctrl/Cmd)
 - annotation layer toggles (Key/Modulation, Roman Numerals, Chords, Freeform)
 - active anchor badge with clear selection button
-- split editor visibility toggle button
 
-The toolbar belongs to the score workspace.
+The toolbar belongs to the score workspace. ABC editor visibility belongs to the left **Tools** panel, and the score surface does not expose parallel `Score` / `ABC code` tabs.
 
 ## 6. Relationship to current implementation
 

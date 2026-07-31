@@ -69,6 +69,7 @@ const installAppProtocol = () => {
 
 const createWindow = async () => {
   mainWindow = new BrowserWindow({
+    title: 'Chorale',
     width: 1480,
     height: 960,
     minWidth: 1024,

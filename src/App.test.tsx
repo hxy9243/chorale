@@ -64,14 +64,18 @@ describe('App Integration', () => {
 
     expect(screen.getByRole('banner').textContent).toContain('Chorale');
     expect(screen.getByText('Import score')).toBeDefined();
-    expect(screen.getByText('FILES')).toBeDefined();
+    expect(screen.getByRole('region', { name: 'Files' })).toBeDefined();
+    expect(screen.getByRole('region', { name: 'Tools' })).toBeDefined();
+    expect(screen.getByRole('region', { name: 'Settings' })).toBeDefined();
 
     await waitFor(() => {
       expect(screen.getByTestId('sheet-svg')).toBeDefined();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
     expect(screen.getByPlaceholderText(/Parsed ABC code will appear here/)).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Close ABC editor' }));
+    expect(screen.queryByPlaceholderText(/Parsed ABC code will appear here/)).toBeNull();
   });
 
   it('normalizes unsupported ABC before both visible and validation rendering', async () => {
@@ -198,7 +202,7 @@ describe('App Integration', () => {
       .toContain('360px');
     expect(document.querySelector('.zoom-level-text')?.textContent).toBe('140%');
 
-    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
     expect(document.querySelector<HTMLElement>('.editor-workspace-card')?.style.width)
       .toBe('520px');
   });
@@ -288,7 +292,7 @@ describe('App Integration', () => {
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
 
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
     const editor = screen.getByPlaceholderText(/Parsed ABC code will appear here/);
 
     for (let edit = 1; edit <= 8; edit += 1) {
@@ -309,7 +313,7 @@ describe('App Integration', () => {
     setItemSpy.mockRestore();
   });
 
-  it('surfaces localStorage quota failures in the header', async () => {
+  it('surfaces localStorage quota failures under the score title', async () => {
     const mockDoc = {
       id: 'stored-doc-123',
       name: 'Persisted Score.abc',
@@ -338,7 +342,7 @@ describe('App Integration', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole('status').textContent).toBe('Save failed');
+      expect(screen.getByRole('status').textContent).toContain('Save failed');
     }, { timeout: 1200 });
 
     setItemSpy.mockRestore();
