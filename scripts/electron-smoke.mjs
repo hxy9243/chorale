@@ -311,13 +311,16 @@ try {
       : null;
     const agentFontSize = getComputedStyle(document.querySelector('.agent-panel')).fontSize;
     const threadControl = document.querySelector('.agent-history-control');
-    const threadSelect = threadControl?.querySelector('select');
-    const threadControlStyle = threadControl ? getComputedStyle(threadControl) : null;
-    const threadSelectStyle = threadSelect ? getComputedStyle(threadSelect) : null;
-    const threadBorderWidth = threadControlStyle?.borderTopWidth ?? null;
-    const threadSelectBackground = threadSelectStyle?.backgroundColor ?? null;
-    const threadSelectFontSize = threadSelectStyle?.fontSize ?? null;
-    const threadSelectAppearance = threadSelectStyle?.appearance ?? null;
+    const threadTrigger = threadControl?.querySelector('.agent-history-trigger');
+    const threadChevron = threadTrigger?.querySelector('.agent-history-chevron');
+    const threadTriggerStyle = threadTrigger ? getComputedStyle(threadTrigger) : null;
+    const threadChevronStyle = threadChevron ? getComputedStyle(threadChevron) : null;
+    const threadBorderWidth = threadTriggerStyle?.borderTopWidth ?? null;
+    const threadBorderRadius = threadTriggerStyle?.borderTopLeftRadius ?? null;
+    const threadTriggerFontSize = threadTriggerStyle?.fontSize ?? null;
+    const threadTriggerAppearance = threadTriggerStyle?.appearance ?? null;
+    const threadChevronBackground = threadChevronStyle?.backgroundColor ?? null;
+    const threadChevronShadow = threadChevronStyle?.boxShadow ?? null;
     const threadChevronCount = document.querySelectorAll('.agent-history-chevron').length;
     const hasThreadDelete = Boolean(document.querySelector('[aria-label="Delete current thread"]'));
     await new Promise((resolve) => setTimeout(resolve, 750));
@@ -342,11 +345,19 @@ try {
     localStorage.setItem('chorale.electron-smoke', 'persisted');
     document.querySelector('[aria-label="Close settings"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 25));
-    const threadIdBeforeDelete = threadSelect?.value ?? null;
+    const readActiveThread = () => {
+      const store = JSON.parse(localStorage.getItem('chorale.pi-agent-conversation.v2') ?? 'null');
+      const activeFileId = localStorage.getItem('chorale.workspace.activeFileId');
+      const fileConversation = activeFileId ? store?.files?.[activeFileId] : null;
+      return {
+        id: fileConversation?.activeThreadId ?? null,
+        count: fileConversation?.threads?.length ?? 0,
+      };
+    };
+    const threadBeforeDelete = readActiveThread();
     document.querySelector('[aria-label="Delete current thread"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 25));
-    const threadIdAfterDelete = threadSelect?.value ?? null;
-    const threadCountAfterDelete = threadSelect?.querySelectorAll('option').length ?? 0;
+    const threadAfterDelete = readActiveThread();
     document.querySelector('[aria-label="Close assistant"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 25));
     const closedPanel = document.querySelector('.right-panel');
@@ -416,14 +427,16 @@ try {
       threadRowWidth,
       agentFontSize,
       threadBorderWidth,
-      threadSelectBackground,
-      threadSelectFontSize,
-      threadSelectAppearance,
+      threadBorderRadius,
+      threadTriggerFontSize,
+      threadTriggerAppearance,
+      threadChevronBackground,
+      threadChevronShadow,
       threadChevronCount,
       hasThreadDelete,
-      threadIdBeforeDelete,
-      threadIdAfterDelete,
-      threadCountAfterDelete,
+      threadIdBeforeDelete: threadBeforeDelete.id,
+      threadIdAfterDelete: threadAfterDelete.id,
+      threadCountAfterDelete: threadAfterDelete.count,
       suggestionsWidth,
       transcriptWidth,
       tryAskingTopRatio,
@@ -572,21 +585,23 @@ try {
     `Thread history row is still too narrow (${shellState.threadWidth}px selector, ${shellState.threadRowWidth}px row in ${shellState.chatWidth}px panel).`,
   );
   assert(
-    shellState.agentFontSize === '16px' && shellState.threadSelectFontSize === '16px',
-    `Chat defaults are not approximately 12 pt (${shellState.agentFontSize}, select ${shellState.threadSelectFontSize}).`,
+    shellState.agentFontSize === '16px' && shellState.threadTriggerFontSize === '16px',
+    `Chat defaults are not approximately 12 pt (${shellState.agentFontSize}, trigger ${shellState.threadTriggerFontSize}).`,
   );
   assert(
     Number.parseFloat(shellState.threadBorderWidth) >= 0.8
       && Number.parseFloat(shellState.threadBorderWidth) <= 1.1
+      && shellState.threadBorderRadius === '8px'
       && [
         'rgba(0, 0, 0, 0)',
         'transparent',
         'oklab(0 0 0 / 0)',
         'oklch(0 0 0 / 0)',
-      ].includes(shellState.threadSelectBackground)
-      && shellState.threadSelectAppearance === 'none'
+      ].includes(shellState.threadChevronBackground)
+      && shellState.threadChevronShadow === 'none'
+      && shellState.threadTriggerAppearance === 'none'
       && shellState.threadChevronCount === 1,
-    `Thread selector does not preserve one styled chevron (${shellState.threadBorderWidth}, ${shellState.threadSelectBackground}, appearance ${shellState.threadSelectAppearance}, chevrons ${shellState.threadChevronCount}).`,
+    `Thread selector styling is incomplete (${shellState.threadBorderWidth}, radius ${shellState.threadBorderRadius}, chevron ${shellState.threadChevronBackground}/${shellState.threadChevronShadow}, appearance ${shellState.threadTriggerAppearance}, chevrons ${shellState.threadChevronCount}).`,
   );
   assert(shellState.hasThreadDelete, 'Thread history does not expose a delete action.');
   assert(
