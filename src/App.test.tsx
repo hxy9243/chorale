@@ -66,7 +66,7 @@ describe('App Integration', () => {
     expect(screen.getByText('Import score')).toBeDefined();
     expect(screen.getByRole('tabpanel', { name: 'Files' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Tools' })).toBeDefined();
-    expect(screen.getByRole('tab', { name: 'Settings' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
 
     await waitFor(() => {
       expect(screen.getByTestId('sheet-svg')).toBeDefined();
@@ -77,6 +77,9 @@ describe('App Integration', () => {
     expect(screen.getByPlaceholderText(/Parsed ABC code will appear here/)).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: 'Close ABC editor' }));
     expect(screen.queryByPlaceholderText(/Parsed ABC code will appear here/)).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeDefined();
   });
 
   it('reorders persisted files through the drag-and-drop rail contract', async () => {
@@ -103,19 +106,8 @@ describe('App Integration', () => {
     localStorage.setItem('chorale.workspace.activeFileId', 'drag-one');
     render(<App />);
 
-    const source = screen.getByRole('button', { name: 'Open First' }).closest('.file-item')!;
+    const source = screen.getByRole('button', { name: 'Reorder First.abc' });
     const target = screen.getByRole('button', { name: 'Open Second' }).closest('.file-item')!;
-    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
-      top: 0,
-      height: 40,
-      bottom: 40,
-      left: 0,
-      right: 200,
-      width: 200,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    });
     const dataTransfer = {
       effectAllowed: 'none',
       dropEffect: 'none',
@@ -124,8 +116,8 @@ describe('App Integration', () => {
     };
 
     fireEvent.dragStart(source, { dataTransfer });
-    fireEvent.dragOver(target, { clientY: 35, dataTransfer });
-    fireEvent.drop(target, { clientY: 35, dataTransfer });
+    fireEvent.dragOver(target, { dataTransfer });
+    fireEvent.drop(target, { dataTransfer });
 
     await waitFor(() => {
       const names = [...document.querySelectorAll('.file-item-name')]

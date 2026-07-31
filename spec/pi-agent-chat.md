@@ -27,8 +27,9 @@ The panel provides four vertical zones and a left resize handle:
 
 - thread title and history selector
 - active file subtitle
-- a full-width custom-styled history selector below the title row; its transparent text field, border, history icon, chevron, and option colors use the same control language as the rest of Chorale
-- the left-rail **Settings** panel opens AI provider settings
+- a custom-styled history row below the title row; its flexible selector has one visible chevron (the native arrow is suppressed), and its transparent text field, border, history icon, and option colors use the same control language as the rest of Chorale
+- an adjacent delete action removes the active thread, selects the nearest remaining thread, and creates a fresh empty thread when the final thread is deleted
+- the bottom-left **Settings** action opens AI provider settings directly
 - close action; persistent header button allows reopening chat
 - panel drag-to-resize handle on left border (minimum 280px, maximum one third of the viewport, default 392px when space allows)
 - the composer remains anchored to the bottom of the panel while the transcript scrolls

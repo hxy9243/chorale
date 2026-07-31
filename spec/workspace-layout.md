@@ -28,15 +28,15 @@ The Electron window and renderer document title are exactly `Chorale`. Save and 
 
 ## 3. Left work rail
 
-The left rail uses a narrow vertical selection bar to switch between **Files**, **Tools**, and **Settings** panels. Each selection is one icon with a tooltip and accessible name, and only the selected panel is visible. Project and library hierarchy is omitted until the product has real project-backed behavior.
+The left rail uses a narrow vertical selection bar to switch between **Files** and **Tools** panels. Each selection is one icon with a tooltip and accessible name, and only the selected panel is visible. A bottom-anchored **Settings** icon is a direct action that opens the settings dialog without replacing the selected work panel. Project and library hierarchy is omitted until the product has real project-backed behavior.
 
 Required content:
 
 - **Files**: a compact, centered import score action (`.xml`, `.musicxml`, `.mxl`, `.abc`) directly under the panel title, plus the active and available file list with format badge (MXL, ABC, MusicXML) and state indicator (`original`, `edited`)
 - **Tools**: an `ABC display` toggle; future score tools join this panel rather than the score header
-- **Settings**: its selection icon anchors to the bottom of the tab bar; the selected panel contains the application settings button
+- **Settings**: its action icon anchors to the bottom of the selection bar and opens application settings directly
 - icon-only panel selections expose hover titles and accessible names
-- file management actions: drag-and-drop file reordering with before/after insertion cues, and score deletion (preserving at least 1 document)
+- file management actions: a visible drag handle per row; direction-aware whole-row drop targets insert before when moving upward and after when moving downward, with matching insertion cues and Arrow Up/Arrow Down keyboard reordering; score deletion preserves at least 1 document
 - vertical scrolling is allowed inside the selected panel; horizontal scrolling is clipped
 - collapsible state (`railCollapsed` state) and horizontal drag-to-resize handle
 - default width at 25% of the logical layout viewport, bounded between 240px and 560px so long file names remain legible
