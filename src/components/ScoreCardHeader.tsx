@@ -50,11 +50,11 @@ export const ScoreCardHeader: React.FC<ScoreCardHeaderProps> = ({
           </div>
         )}
 
-        <div className="zoom-controls-group" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+        <div className="zoom-controls-group">
           <button type="button" className="figma-button zoom-button" onClick={onZoomOut} title="Zoom out" aria-label="Zoom out">
             <span aria-hidden="true">−</span>
           </button>
-          <span className="zoom-level-text" style={{ fontSize: '12px', padding: '0 4px', minWidth: '40px', textAlign: 'center' }}>{zoom}%</span>
+          <span className="zoom-level-text">{zoom}%</span>
           <button type="button" className="figma-button zoom-button" onClick={onZoomIn} title="Zoom in" aria-label="Zoom in">
             <span aria-hidden="true">+</span>
           </button>

@@ -17,6 +17,8 @@ Expected presentation:
 - continuous vertical staff systems rendered via SVG (`abcjs`)
 - visible measure numbers on the left of systems
 - zoom space reservation (`zoom: currentZoom/100`, `width: ${currentZoom}%`, `marginInline: auto`) ensuring scaled score SVGs do not clip container bounds
+- score zoom persisted in local storage (`chorale.workspace.sheetZoom`) and restored independently from the global interface zoom
+- score sheet and rendered notation centered within the middle score pane at every zoom ratio
 - auto-centering playback line: during audio playback, the score smooth-scrolls to keep the active playback line centered; manual user scroll/touch/key input pauses auto-centering for 2 seconds before resuming
 
 ## 3. Selection behavior

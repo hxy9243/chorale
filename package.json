@@ -21,6 +21,8 @@
     "@earendil-works/pi-agent-core": "^0.81.1",
     "@earendil-works/pi-ai": "^0.81.1",
     "@educandu/abc-tools": "^3.0.3",
+    "@fontsource-variable/ibm-plex-sans": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
     "abcjs": "^6.6.4",
     "jszip": "^3.10.1",
     "lucide-react": "^0.475.0",

@@ -24,22 +24,32 @@ import {
 import { formatAnchorLabel } from './utils/anchor';
 import type { PlaybackPosition } from './utils/repeatPlayback';
 import { prepareAbcForPlayback } from './utils/abcAudio';
-import { clampChatPanelWidth } from './utils/workspaceSizing';
+import {
+  clampChatPanelWidth,
+  clampFileRailWidth,
+  defaultFileRailWidth,
+} from './utils/workspaceSizing';
 
 const EDITOR_VISIBLE_KEY = 'chorale.workspace.editorVisible';
-const EDITOR_WIDTH_KEY = 'chorale.workspace.editorWidth';
+export const EDITOR_WIDTH_KEY = 'chorale.workspace.editorWidth';
 const DOCUMENTS_STORAGE_KEY = 'chorale.workspace.documents';
 const ACTIVE_FILE_KEY = 'chorale.workspace.activeFileId';
 export const CHAT_OPEN_KEY = 'chorale.workspace.chatOpen';
 export const CHAT_WIDTH_KEY = 'chorale.workspace.chatWidth';
+export const FILE_RAIL_WIDTH_KEY = 'chorale.workspace.fileRailWidth';
+export const SHEET_ZOOM_KEY = 'chorale.workspace.sheetZoom';
 const DEFAULT_EDITOR_WIDTH = 420;
 const MIN_EDITOR_WIDTH = 320;
 const MAX_EDITOR_WIDTH = 720;
+const DEFAULT_SHEET_ZOOM = 100;
+const MIN_SHEET_ZOOM = 50;
+const MAX_SHEET_ZOOM = 200;
 const AUTOSAVE_DELAY_MS = 400;
 
 type BuildStatus = 'idle' | 'building' | 'valid' | 'invalid';
 
 const clampEditorWidth = (width: number) => Math.max(MIN_EDITOR_WIDTH, Math.min(MAX_EDITOR_WIDTH, width));
+const clampSheetZoom = (zoom: number) => Math.max(MIN_SHEET_ZOOM, Math.min(MAX_SHEET_ZOOM, zoom));
 
 const readStoredBool = (key: string, fallback: boolean) => {
   if (typeof window === 'undefined') return fallback;
@@ -47,10 +57,16 @@ const readStoredBool = (key: string, fallback: boolean) => {
   return value === null ? fallback : value === 'true';
 };
 
-const readStoredNumber = (key: string, fallback: number) => {
+const readStoredNumber = (
+  key: string,
+  fallback: number,
+  clamp: (value: number) => number,
+) => {
   if (typeof window === 'undefined') return fallback;
-  const value = Number(window.localStorage.getItem(key));
-  return Number.isFinite(value) ? clampEditorWidth(value) : fallback;
+  const stored = window.localStorage.getItem(key);
+  if (stored === null) return fallback;
+  const value = Number(stored);
+  return Number.isFinite(value) ? clamp(value) : fallback;
 };
 
 const readStoredDocuments = (): FileDocument[] => {
@@ -101,11 +117,19 @@ export const App: React.FC = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const aiProviders = useAIProviders();
   const interfaceZoom = useInterfaceZoom();
+  const layoutViewportWidth = useCallback(
+    () => window.innerWidth * 100 / interfaceZoom.zoom,
+    [interfaceZoom.zoom],
+  );
   const openSettings = useCallback(() => setSettingsOpen(true), []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
-  const [zoom, setZoom] = useState<number>(100);
+  const [zoom, setZoom] = useState<number>(() => (
+    readStoredNumber(SHEET_ZOOM_KEY, DEFAULT_SHEET_ZOOM, clampSheetZoom)
+  ));
   const [editorVisible, setEditorVisible] = useState<boolean>(() => readStoredBool(EDITOR_VISIBLE_KEY, false));
-  const [editorWidth, setEditorWidth] = useState<number>(() => readStoredNumber(EDITOR_WIDTH_KEY, DEFAULT_EDITOR_WIDTH));
+  const [editorWidth, setEditorWidth] = useState<number>(() => (
+    readStoredNumber(EDITOR_WIDTH_KEY, DEFAULT_EDITOR_WIDTH, clampEditorWidth)
+  ));
   const [buildStatus, setBuildStatus] = useState<BuildStatus>('idle');
   const [buildResult, setBuildResult] = useState<BuildResult | null>(null);
   const loadRequestRef = useRef(0);
@@ -168,6 +192,10 @@ export const App: React.FC = () => {
   useEffect(() => {
     window.localStorage.setItem(EDITOR_WIDTH_KEY, String(editorWidth));
   }, [editorWidth]);
+
+  useEffect(() => {
+    window.localStorage.setItem(SHEET_ZOOM_KEY, String(zoom));
+  }, [zoom]);
 
   useEffect(() => {
     if (documents.length === 0) {
@@ -386,9 +414,19 @@ export const App: React.FC = () => {
     window.addEventListener('pointerup', handlePointerUp, { once: true });
   };
 
-  const [railWidth, setRailWidth] = useState<number>(236);
+  const [railWidth, setRailWidth] = useState<number>(() => (
+    readStoredNumber(
+      FILE_RAIL_WIDTH_KEY,
+      defaultFileRailWidth(layoutViewportWidth()),
+      clampFileRailWidth,
+    )
+  ));
   const [railCollapsed, setRailCollapsed] = useState<boolean>(false);
   const railDragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  useEffect(() => {
+    window.localStorage.setItem(FILE_RAIL_WIDTH_KEY, String(Math.round(railWidth)));
+  }, [railWidth]);
 
   const beginRailResize = (event: React.PointerEvent<HTMLButtonElement>) => {
     railDragStateRef.current = {
@@ -402,7 +440,7 @@ export const App: React.FC = () => {
       const dragState = railDragStateRef.current;
       if (!dragState) return;
       const delta = moveEvent.clientX - dragState.startX;
-      const newWidth = Math.max(160, Math.min(420, dragState.startWidth + delta));
+      const newWidth = clampFileRailWidth(dragState.startWidth + delta);
       setRailWidth(newWidth);
     };
 
@@ -416,14 +454,11 @@ export const App: React.FC = () => {
     window.addEventListener('pointerup', handlePointerUp, { once: true });
   };
 
-  const layoutViewportWidth = useCallback(
-    () => window.innerWidth * 100 / interfaceZoom.zoom,
-    [interfaceZoom.zoom],
-  );
   const [chatWidth, setChatWidth] = useState<number>(() => (
-    clampChatPanelWidth(
-      Number(window.localStorage.getItem(CHAT_WIDTH_KEY)) || 392,
-      layoutViewportWidth(),
+    readStoredNumber(
+      CHAT_WIDTH_KEY,
+      clampChatPanelWidth(392, layoutViewportWidth()),
+      (width) => clampChatPanelWidth(width, layoutViewportWidth()),
     )
   ));
   const chatDragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
@@ -494,8 +529,10 @@ export const App: React.FC = () => {
       <div
         className={`workspace-body ${chatOpen ? 'chat-open' : ''} ${railCollapsed ? 'rail-collapsed' : ''}`}
         style={{
-          gridTemplateColumns: `${railCollapsed ? 0 : railWidth}px minmax(0, 1fr) ${chatOpen ? `${chatWidth}px` : ''}`,
-        }}
+          gridTemplateColumns: `${railCollapsed ? 0 : railWidth}px minmax(0, 1fr) ${chatOpen ? `${chatWidth}px` : '0px'}`,
+          '--file-rail-width': `${railCollapsed ? 0 : railWidth}px`,
+          '--chat-rail-width': chatOpen ? `${chatWidth}px` : '0px',
+        } as React.CSSProperties}
       >
         <FileRail
           documents={documents}
@@ -510,15 +547,18 @@ export const App: React.FC = () => {
           onBeginResize={beginRailResize}
         />
 
-        <main className={`central-workspace ${editorVisible ? 'editor-open' : 'editor-hidden'}`}>
+        <main
+          className={`central-workspace ${editorVisible ? 'editor-open' : 'editor-hidden'}`}
+          style={{ '--editor-panel-width': editorVisible ? `${editorWidth}px` : '0px' } as React.CSSProperties}
+        >
           <div className="score-editor-shell">
             <section className="score-workspace-card">
               <ScoreCardHeader
                 title={scoreTitle}
                 zoom={zoom}
-                onZoomIn={() => setZoom((z) => Math.min(z + 10, 200))}
-                onZoomOut={() => setZoom((z) => Math.max(z - 10, 50))}
-                onResetZoom={() => setZoom(100)}
+                onZoomIn={() => setZoom((z) => clampSheetZoom(z + 10))}
+                onZoomOut={() => setZoom((z) => clampSheetZoom(z - 10))}
+                onResetZoom={() => setZoom(DEFAULT_SHEET_ZOOM)}
                 anchorContext={anchorLabel}
                 buildStatus={buildStatus}
                 saveState={saveState}
@@ -551,7 +591,7 @@ export const App: React.FC = () => {
                       onTuneRendered={handleTuneRendered}
                       getPlaybackPosition={getPlaybackPosition}
                       zoom={zoom}
-                      onZoomChange={(newZoom) => setZoom(Math.max(50, Math.min(200, newZoom)))}
+                      onZoomChange={(newZoom) => setZoom(clampSheetZoom(newZoom))}
                     />
                   </div>
                 </div>

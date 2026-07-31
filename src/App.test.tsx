@@ -1,8 +1,15 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import abcjs from 'abcjs';
-import App, { CHAT_OPEN_KEY, CHAT_WIDTH_KEY } from './App';
+import App, {
+  CHAT_OPEN_KEY,
+  CHAT_WIDTH_KEY,
+  EDITOR_WIDTH_KEY,
+  FILE_RAIL_WIDTH_KEY,
+  SHEET_ZOOM_KEY,
+} from './App';
 import * as xmlParser from './utils/xmlParser';
+import { defaultFileRailWidth } from './utils/workspaceSizing';
 
 vi.mock('abcjs', () => ({
   default: {
@@ -157,6 +164,43 @@ describe('App Integration', () => {
     const workspace = document.querySelector('.central-workspace');
     const playbackDock = document.querySelector('.playback-dock-container');
     expect(playbackDock?.parentElement).toBe(workspace);
+  });
+
+  it('uses the 25% file rail and the intended editor width when storage is empty', () => {
+    render(<App />);
+
+    const workspace = document.querySelector<HTMLElement>('.workspace-body')!;
+    expect(workspace.style.gridTemplateColumns)
+      .toContain(`${defaultFileRailWidth(window.innerWidth)}px`);
+    expect(localStorage.getItem(FILE_RAIL_WIDTH_KEY))
+      .toBe(String(defaultFileRailWidth(window.innerWidth)));
+    expect(localStorage.getItem(EDITOR_WIDTH_KEY)).toBe('420');
+  });
+
+  it('restores every panel width and sheet zoom across a refresh', async () => {
+    localStorage.setItem(FILE_RAIL_WIDTH_KEY, '360');
+    localStorage.setItem(EDITOR_WIDTH_KEY, '520');
+    localStorage.setItem(CHAT_WIDTH_KEY, '320');
+    localStorage.setItem(SHEET_ZOOM_KEY, '130');
+    const { unmount } = render(<App />);
+
+    const workspace = document.querySelector<HTMLElement>('.workspace-body')!;
+    expect(workspace.style.gridTemplateColumns).toContain('360px');
+    expect(workspace.style.gridTemplateColumns).toContain('320px');
+    expect(document.querySelector('.zoom-level-text')?.textContent).toBe('130%');
+
+    fireEvent.click(screen.getByTitle('Zoom in'));
+    await waitFor(() => expect(localStorage.getItem(SHEET_ZOOM_KEY)).toBe('140'));
+    unmount();
+
+    render(<App />);
+    expect(document.querySelector<HTMLElement>('.workspace-body')!.style.gridTemplateColumns)
+      .toContain('360px');
+    expect(document.querySelector('.zoom-level-text')?.textContent).toBe('140%');
+
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    expect(document.querySelector<HTMLElement>('.editor-workspace-card')?.style.width)
+      .toBe('520px');
   });
 
   it('restores the chat open state and width across refreshes and reopens', async () => {

@@ -165,6 +165,26 @@ try {
     const sheetZoomAfter = sheet?.querySelector('.scale-val')?.textContent;
     const interfaceZoomAfterSheet = document.documentElement.style.getPropertyValue('--ui-zoom');
 
+    const fileRailWidthDefault = document.querySelector('.file-rail')?.getBoundingClientRect().width;
+    const expectedFileRailWidth = Math.max(240, Math.min(560, Math.round(window.innerWidth / 4)));
+    const fileResize = document.querySelector('.file-rail-resize-handle');
+    if (fileResize) {
+      const startX = fileResize.getBoundingClientRect().x;
+      fileResize.setPointerCapture = () => undefined;
+      fileResize.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles: true,
+        clientX: startX,
+        pointerId: 2,
+      }));
+      window.dispatchEvent(new PointerEvent('pointermove', {
+        clientX: startX + 64,
+        pointerId: 2,
+      }));
+      window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 2 }));
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    const fileRailWidth = document.querySelector('.file-rail')?.getBoundingClientRect().width;
+
     const chatResize = document.querySelector('.chat-rail-resize-handle');
     if (chatResize) {
       chatResize.setPointerCapture = () => undefined;
@@ -211,6 +231,14 @@ try {
     const panelBottom = document.querySelector('.right-panel')?.getBoundingClientRect().bottom;
     const playbackBottom = document.querySelector('.playback-dock-container')?.getBoundingClientRect().bottom;
     const workspaceBottom = document.querySelector('.central-workspace')?.getBoundingClientRect().bottom;
+    const centralBounds = document.querySelector('.central-workspace')?.getBoundingClientRect();
+    const scoreBounds = document.querySelector('.score-sheet')?.getBoundingClientRect();
+    const scoreCenterDelta = centralBounds && scoreBounds
+      ? Math.abs(
+        (centralBounds.left + centralBounds.width / 2)
+        - (scoreBounds.left + scoreBounds.width / 2)
+      )
+      : null;
     localStorage.setItem('chorale.electron-smoke', 'persisted');
     document.querySelector('[aria-label="Close settings"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 25));
@@ -230,6 +258,9 @@ try {
       sheetZoomBefore,
       sheetZoomAfter,
       interfaceZoomAfterSheet,
+      fileRailWidthDefault,
+      expectedFileRailWidth,
+      fileRailWidth,
       chatWidth,
       chatWidthLimit,
       rightEdgeIsChat,
@@ -241,8 +272,11 @@ try {
       playbackBottom,
       workspaceBottom,
       viewportBottom: window.innerHeight,
+      scoreCenterDelta,
       storedChatOpen: localStorage.getItem('chorale.workspace.chatOpen'),
       storedChatWidth: Number(localStorage.getItem('chorale.workspace.chatWidth')),
+      storedFileRailWidth: Number(localStorage.getItem('chorale.workspace.fileRailWidth')),
+      storedSheetZoom: Number(localStorage.getItem('chorale.workspace.sheetZoom')),
     };
   })()`);
   assert(shellState.url === 'app://chorale/index.html', 'Production renderer did not use app://chorale.');
@@ -267,6 +301,14 @@ try {
   );
   assert(shellState.interfaceZoomAfterSheet === '1', 'Sheet zoom unexpectedly changed interface zoom.');
   assert(
+    Math.abs(shellState.fileRailWidthDefault - shellState.expectedFileRailWidth) <= 1,
+    `File rail did not start at 25% (${shellState.fileRailWidthDefault} vs ${shellState.expectedFileRailWidth}).`,
+  );
+  assert(
+    Math.abs(shellState.fileRailWidth - (shellState.fileRailWidthDefault + 64)) <= 1,
+    `File rail did not resize (${shellState.fileRailWidth} vs ${shellState.fileRailWidthDefault}).`,
+  );
+  assert(
     Math.abs(shellState.chatWidth - shellState.chatWidthLimit) <= 1,
     'Chat panel did not resize to one third of the viewport.',
   );
@@ -286,8 +328,17 @@ try {
       && Math.abs(shellState.playbackBottom - shellState.viewportBottom) <= 1,
     `Playback dock is not anchored to the visible window bottom (${shellState.playbackBottom}, workspace ${shellState.workspaceBottom}, viewport ${shellState.viewportBottom}).`,
   );
+  assert(
+    shellState.scoreCenterDelta !== null && shellState.scoreCenterDelta <= 1,
+    `Score sheet is not centered in the middle panel (${shellState.scoreCenterDelta}px).`,
+  );
   assert(shellState.storedChatOpen === 'false', 'Closed chat state was not persisted.');
   assert(Number.isFinite(shellState.storedChatWidth), 'Resized chat width was not persisted.');
+  assert(
+    shellState.storedFileRailWidth === Math.round(shellState.fileRailWidth),
+    'Resized file rail width was not persisted.',
+  );
+  assert(shellState.storedSheetZoom === 110, 'Sheet zoom was not persisted.');
   await closeCleanly(first, firstCDP);
   firstCDP.socket.close();
   assert(!first.output().includes('violates the following Content Security Policy'), (
@@ -313,6 +364,9 @@ try {
               reopened: Boolean(document.querySelector('[aria-label="Current sheet assistant"]')),
               reopenedWidth: document.querySelector('.right-panel')?.getBoundingClientRect().width,
               storedWidth: Number(localStorage.getItem('chorale.workspace.chatWidth')),
+              fileRailWidth: document.querySelector('.file-rail')?.getBoundingClientRect().width,
+              storedFileRailWidth: Number(localStorage.getItem('chorale.workspace.fileRailWidth')),
+              sheetZoom: document.querySelector('.scale-val')?.textContent,
               interfaceZoom: Number(getComputedStyle(document.body).zoom),
             };
           }
@@ -331,13 +385,18 @@ try {
     Math.abs(persisted.reopenedWidth - persisted.storedWidth * persisted.interfaceZoom) <= 1,
     `Reopened chat did not restore its persisted width (${persisted.reopenedWidth} vs ${persisted.storedWidth}).`,
   );
+  assert(
+    Math.abs(persisted.fileRailWidth - persisted.storedFileRailWidth * persisted.interfaceZoom) <= 1,
+    `File rail did not restore its persisted width (${persisted.fileRailWidth} vs ${persisted.storedFileRailWidth}).`,
+  );
+  assert(persisted.sheetZoom === '110%', `Sheet zoom did not survive restart (${persisted.sheetZoom}).`);
   await closeCleanly(second, secondCDP);
   secondCDP.socket.close();
   assert(!second.output().includes('violates the following Content Security Policy'), (
     `Electron reported a CSP violation after restart:\n${second.output()}`
   ));
 
-  console.log('Electron smoke passed: app protocol, sandboxed bridge, settings UI, clean restart, and localStorage persistence.');
+  console.log('Electron smoke passed: app protocol, sandboxed bridge, centered score, settings UI, clean restart, and workspace persistence.');
 } finally {
   for (const child of launchedChildren) child.kill('SIGTERM');
   // Chromium helper processes can finish a final profile write just after the
