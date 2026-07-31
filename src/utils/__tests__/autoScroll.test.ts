@@ -1,21 +1,22 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
-  easeInOutQuad,
+  easeOutCubic,
   calculateCenterScrollTop,
   animateScrollTo,
 } from '../autoScroll';
 
 describe('autoScroll utils', () => {
-  describe('easeInOutQuad', () => {
+  describe('easeOutCubic', () => {
     it('returns 0 at progress 0 and 1 at progress 1', () => {
-      expect(easeInOutQuad(0)).toBe(0);
-      expect(easeInOutQuad(1)).toBe(1);
+      expect(easeOutCubic(0)).toBe(0);
+      expect(easeOutCubic(1)).toBe(1);
     });
 
-    it('returns ease-in values for first half and ease-out for second half', () => {
-      expect(easeInOutQuad(0.25)).toBe(0.125);
-      expect(easeInOutQuad(0.5)).toBe(0.5);
-      expect(easeInOutQuad(0.75)).toBe(0.875);
+    it('moves quickly, then settles monotonically without overshoot', () => {
+      expect(easeOutCubic(0.25)).toBeCloseTo(0.578125);
+      expect(easeOutCubic(0.5)).toBe(0.875);
+      expect(easeOutCubic(0.75)).toBeCloseTo(0.984375);
+      expect(easeOutCubic(0.75)).toBeLessThan(easeOutCubic(1));
     });
   });
 
@@ -85,7 +86,7 @@ describe('autoScroll utils', () => {
 
       // Simulate half-way frame (250ms)
       if (rafCallback) (rafCallback as (t: number) => void)(250);
-      expect(container.scrollTop).toBe(100); // 200 * 0.5
+      expect(container.scrollTop).toBe(175); // 200 * 0.875
 
       // Simulate completion frame (500ms)
       if (rafCallback) (rafCallback as (t: number) => void)(500);

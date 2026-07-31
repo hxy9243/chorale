@@ -21,6 +21,8 @@ import {
 } from '../utils/autoScroll';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+const AUTO_SCROLL_DURATION_MS = 280;
+const AUTO_SCROLL_RESUME_DURATION_MS = 320;
 
 type SvgBounds = {
   x: number;
@@ -373,7 +375,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         isUserPausedRef.current = false;
         const currentPlaying = getPlaybackPosition?.().isPlaying || isPlayingRef.current;
         if (currentPlaying) {
-          performAutoCenter(500);
+          performAutoCenter(AUTO_SCROLL_RESUME_DURATION_MS);
         }
       }, 2000);
     };
@@ -410,23 +412,36 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   }, [getPlaybackPosition, performAutoCenter]);
 
   useEffect(() => {
-    const handleCursorMove = () => {
+    const handleCursorMove = (event: Event) => {
       const playing = getPlaybackPosition?.().isPlaying || isPlayingRef.current;
       if (!playing || isUserPausedRef.current) return;
 
       if (!containerRef.current) return;
+      const scrollContainer = containerRef.current.closest<HTMLElement>('.score-canvas')
+        || document.querySelector<HTMLElement>('.score-canvas');
+      if (!scrollContainer) return;
+
       const cursorEl = containerRef.current.querySelector('.abcjs-playback-cursor');
       if (!cursorEl) return;
 
+      const cursorEvent = event as CustomEvent<{ top?: number }>;
+      const eventLineTop = cursorEvent.detail?.top;
+      const svgLineTopAttribute = cursorEl.getAttribute('y1');
+      const svgLineTop = svgLineTopAttribute === null ? null : Number(svgLineTopAttribute);
       const cursorRect = cursorEl.getBoundingClientRect();
-      const currentLineTop = cursorRect.top;
+      // Compare in score coordinates so our own scrolling is not mistaken for a new staff line.
+      const currentLineTop = typeof eventLineTop === 'number' && Number.isFinite(eventLineTop)
+        ? eventLineTop
+        : svgLineTop !== null && Number.isFinite(svgLineTop)
+          ? svgLineTop
+          : cursorRect.top + scrollContainer.scrollTop;
 
       if (lastLineTopRef.current === null) {
         lastLineTopRef.current = currentLineTop;
-        performAutoCenter(400);
+        performAutoCenter(AUTO_SCROLL_DURATION_MS);
       } else if (Math.abs(currentLineTop - lastLineTopRef.current) > 8) {
         lastLineTopRef.current = currentLineTop;
-        performAutoCenter(400);
+        performAutoCenter(AUTO_SCROLL_DURATION_MS);
       }
     };
 

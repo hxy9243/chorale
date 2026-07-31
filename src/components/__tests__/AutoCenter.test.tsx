@@ -59,9 +59,9 @@ describe('Auto-Centering Playing Line with User Scroll Override', () => {
       window.dispatchEvent(new CustomEvent('chorale-playback-cursor', { detail: {} }));
     });
 
-    // Advance animation frame for 400ms smooth scroll to new line position
+    // Advance animation frame past the 280ms smooth scroll duration.
     act(() => {
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(280);
       if (rafCallback) (rafCallback as (t: number) => void)(performance.now());
     });
 
@@ -69,7 +69,7 @@ describe('Auto-Centering Playing Line with User Scroll Override', () => {
     expect(scoreCanvas.scrollTop).toBe(288);
   });
 
-  it('pauses auto-centering for 2s on user scroll, then smoothly scrolls back to line in 500ms', () => {
+  it('pauses auto-centering for 2s on user scroll, then smoothly scrolls back to line', () => {
     const getPlaybackPosition = () => ({ currentSeconds: 5, isPlaying: true });
 
     let rafCallback: FrameRequestCallback | null = null;
@@ -94,7 +94,7 @@ describe('Auto-Centering Playing Line with User Scroll Override', () => {
     act(() => {
       window.dispatchEvent(new CustomEvent('chorale-playback-state', { detail: { isPlaying: true } }));
       window.dispatchEvent(new CustomEvent('chorale-playback-cursor', { detail: {} }));
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(280);
       if (rafCallback) (rafCallback as (t: number) => void)(performance.now());
     });
 
@@ -123,13 +123,50 @@ describe('Auto-Centering Playing Line with User Scroll Override', () => {
 
     expect(window.requestAnimationFrame).toHaveBeenCalled();
 
-    // Fast-forward animation frame by advancing timer by 500ms
+    // Fast-forward past the 320ms resume animation.
     act(() => {
-      vi.advanceTimersByTime(500);
+      vi.advanceTimersByTime(320);
       if (rafCallback) (rafCallback as (t: number) => void)(performance.now());
     });
 
     // target is 676 (initial 288 + delta 388) after smooth scroll finishes
     expect(scoreCanvas.scrollTop).toBe(676);
+  });
+
+  it('does not restart auto-scroll when the scroll itself moves the cursor in the viewport', () => {
+    const getPlaybackPosition = () => ({ currentSeconds: 5, isPlaying: true });
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
+    const cancelSpy = vi.spyOn(window, 'cancelAnimationFrame');
+
+    const { container } = render(
+      <div className="score-canvas" style={{ height: 400, overflowY: 'auto' }}>
+        <SheetMusicView abcCode="X:1\nT:Test\nK:C\nCDEF|GABc|" getPlaybackPosition={getPlaybackPosition} />
+      </div>
+    );
+
+    const scoreCanvas = container.querySelector('.score-canvas') as HTMLElement;
+    const cursor = container.querySelector('.abcjs-playback-cursor') as SVGLineElement;
+
+    Object.defineProperty(scoreCanvas, 'scrollHeight', { value: 1000, writable: true });
+    scoreCanvas.getBoundingClientRect = () => ({ top: 100, bottom: 500, height: 400 } as DOMRect);
+    cursor.getBoundingClientRect = () => ({
+      top: 500 - scoreCanvas.scrollTop,
+      bottom: 540 - scoreCanvas.scrollTop,
+      height: 40,
+    } as DOMRect);
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('chorale-playback-state', { detail: { isPlaying: true } }));
+      window.dispatchEvent(new CustomEvent('chorale-playback-cursor', { detail: { top: 500 } }));
+    });
+
+    scoreCanvas.scrollTop = 120;
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('chorale-playback-cursor', { detail: { top: 500 } }));
+    });
+
+    expect(window.requestAnimationFrame).toHaveBeenCalledTimes(1);
+    expect(cancelSpy).not.toHaveBeenCalled();
   });
 });
