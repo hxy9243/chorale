@@ -4684,7 +4684,7 @@ body,
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2xs);
-  padding: 0 var(--space-xs);
+  padding: 0 var(--space-2xs);
   border: var(--rule-thin) solid var(--color-assistant-rule);
   border-radius: var(--radius-control);
   -webkit-appearance: none;
