@@ -128,7 +128,9 @@ describe('AgentChatPanel', () => {
     expect(newThreadBtn.disabled).toBe(true);
 
     fireEvent.click(newThreadBtn);
-    const options = within(screen.getByLabelText('Conversation history')).getAllByRole('option');
+    fireEvent.click(screen.getByLabelText('Conversation history'));
+    const options = within(screen.getByRole('listbox', { name: 'Conversation threads' }))
+      .getAllByRole('option');
     expect(options.length).toBe(1);
   });
 
@@ -171,7 +173,7 @@ describe('AgentChatPanel', () => {
     expect(threadControl?.parentElement?.className).toContain('agent-history-row');
     expect(threadControl?.parentElement?.parentElement?.className)
       .toContain('agent-panel-header');
-    expect(threadControl?.querySelector('.agent-history-icon')).not.toBeNull();
+    expect(threadControl?.querySelector('.agent-history-icon')).toBeNull();
     expect(threadControl?.querySelectorAll('.agent-history-chevron')).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Delete current thread' })).toBeDefined();
     expect(screen.queryByText('Analysis')).toBeNull();
@@ -216,18 +218,22 @@ describe('AgentChatPanel', () => {
       />,
     );
 
-    const threadSelect = screen.getByLabelText('Conversation history') as HTMLSelectElement;
-    expect(threadSelect.value).toBe('thread-first');
+    const threadSelect = screen.getByLabelText('Conversation history');
+    expect(threadSelect.textContent).toContain('First thread');
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete current thread' }));
-    expect(threadSelect.value).toBe('thread-second');
-    expect(within(threadSelect).queryByRole('option', { name: 'First thread' })).toBeNull();
+    expect(threadSelect.textContent).toContain('Second thread');
+    fireEvent.click(threadSelect);
+    expect(screen.queryByRole('option', { name: 'First thread' })).toBeNull();
+    fireEvent.click(threadSelect);
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete current thread' }));
-    const remainingOptions = within(threadSelect).getAllByRole('option');
+    fireEvent.click(threadSelect);
+    const remainingOptions = within(screen.getByRole('listbox', { name: 'Conversation threads' }))
+      .getAllByRole('option');
     expect(remainingOptions).toHaveLength(1);
     expect(remainingOptions[0].textContent).toBe('New thread');
-    expect(threadSelect.value).not.toBe('thread-second');
+    expect(threadSelect.textContent).not.toContain('Second thread');
 
     await waitFor(() => {
       const saved = localStorage.getItem(CONVERSATION_STORAGE_KEY) || '';
@@ -254,6 +260,77 @@ describe('AgentChatPanel', () => {
     expect(screen.getByText('AI providers require the Chorale desktop app.')).toBeDefined();
     expect((screen.getByLabelText('Ask about the current sheet') as HTMLTextAreaElement).disabled).toBe(true);
     expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('closes the model selection popup when focus moves outside it', () => {
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-model-picker"
+        abcCode={'X:1\nT:Model picker\nK:C\nCDEF|'}
+        activeFileName="Model picker.abc"
+        revision={1}
+        ai={ai}
+        onOpenSettings={() => undefined}
+      />,
+    );
+
+    const picker = screen.getByRole('button', { name: 'Choose AI provider and model' });
+    fireEvent.click(picker);
+    expect(picker.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('dialog', { name: 'AI model selection' })).toBeDefined();
+
+    fireEvent.focus(screen.getByLabelText('Ask about the current sheet'));
+
+    expect(picker.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('dialog', { name: 'AI model selection' })).toBeNull();
+  });
+
+  it('uses a rounded custom thread menu and selects a thread from one chevron trigger', () => {
+    localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
+      version: 2,
+      files: {
+        'doc-thread-menu': {
+          activeThreadId: 'thread-first',
+          threads: [
+            {
+              id: 'thread-first',
+              title: 'First thread',
+              updatedAt: '2026-07-31T00:00:00.000Z',
+              messages: [],
+            },
+            {
+              id: 'thread-second',
+              title: 'Second thread',
+              updatedAt: '2026-07-31T00:01:00.000Z',
+              messages: [],
+            },
+          ],
+        },
+      },
+    }));
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-thread-menu"
+        abcCode={'X:1\nT:Threads\nK:C\nCDEF|'}
+        activeFileName="Threads.abc"
+        revision={1}
+        ai={ai}
+        onOpenSettings={() => undefined}
+      />,
+    );
+
+    const trigger = screen.getByLabelText('Conversation history');
+    expect(trigger.querySelectorAll('.agent-history-chevron')).toHaveLength(1);
+    fireEvent.click(trigger);
+    const secondThread = screen.getByRole('option', { name: 'Second thread' });
+    fireEvent.click(secondThread);
+
+    expect(trigger.textContent).toContain('Second thread');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
   });
 
   it('aborts an in-flight request when the panel closes', async () => {

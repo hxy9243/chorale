@@ -112,13 +112,21 @@ describe('FileRail Component', () => {
       effectAllowed: 'none',
       dropEffect: 'none',
       setData: vi.fn(),
+      setDragImage: vi.fn(),
       getData: vi.fn(() => doc1.id),
     };
 
+    target.getBoundingClientRect = () => ({
+      top: 100,
+      bottom: 164,
+      height: 64,
+    } as DOMRect);
     fireEvent.dragStart(source, { dataTransfer });
-    fireEvent.dragOver(target, { dataTransfer });
+    expect(source.closest('.file-item')?.className).toContain('dragging');
+    expect(dataTransfer.setDragImage).toHaveBeenCalled();
+    fireEvent.dragOver(target, { dataTransfer, clientY: 150 });
     expect(target.className).toContain('drop-after');
-    fireEvent.drop(target, { dataTransfer });
+    fireEvent.drop(target, { dataTransfer, clientY: 150 });
 
     expect(onReorderDocument).toHaveBeenCalledWith(doc1.id, doc2.id, 'after');
     fireEvent.keyDown(source, { key: 'ArrowDown' });
@@ -130,11 +138,39 @@ describe('FileRail Component', () => {
       ...dataTransfer,
       getData: vi.fn(() => doc2.id),
     };
+    upwardTarget.getBoundingClientRect = () => ({
+      top: 200,
+      bottom: 264,
+      height: 64,
+    } as DOMRect);
     fireEvent.dragStart(upwardSource, { dataTransfer: upwardDataTransfer });
-    fireEvent.dragOver(upwardTarget, { dataTransfer: upwardDataTransfer });
+    fireEvent.dragOver(upwardTarget, { dataTransfer: upwardDataTransfer, clientY: 210 });
     expect(upwardTarget.className).toContain('drop-before');
-    fireEvent.drop(upwardTarget, { dataTransfer: upwardDataTransfer });
+    fireEvent.drop(upwardTarget, { dataTransfer: upwardDataTransfer, clientY: 210 });
     expect(onReorderDocument).toHaveBeenLastCalledWith(doc2.id, doc1.id, 'before');
     expect(screen.queryByLabelText(`Move ${doc1.name} down`)).toBeNull();
+  });
+
+  it('accepts a drop in trailing list space and keeps the source row visible', () => {
+    const onReorderDocument = vi.fn();
+    const { container } = render(
+      <FileRail {...defaultProps} onReorderDocument={onReorderDocument} />,
+    );
+    const source = screen.getByRole('button', { name: `Reorder ${doc1.name}` });
+    const fileList = container.querySelector('.file-list')!;
+    const dataTransfer = {
+      effectAllowed: 'none',
+      dropEffect: 'none',
+      setData: vi.fn(),
+      setDragImage: vi.fn(),
+      getData: vi.fn(() => doc1.id),
+    };
+
+    fireEvent.dragStart(source, { dataTransfer });
+    expect(source.closest('.file-item')?.className).toContain('dragging');
+    fireEvent.dragOver(fileList, { dataTransfer });
+    fireEvent.drop(fileList, { dataTransfer });
+
+    expect(onReorderDocument).toHaveBeenCalledWith(doc1.id, doc2.id, 'after');
   });
 });
