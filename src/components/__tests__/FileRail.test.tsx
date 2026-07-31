@@ -16,14 +16,28 @@ describe('FileRail Component', () => {
     error: null,
   };
 
-  it('renders named files, tools, and settings panels', () => {
+  it('renders icon-only tabs and one named panel at a time', () => {
     render(<FileRail {...defaultProps} />);
 
+    const filesTab = screen.getByRole('tab', { name: 'Files' });
+    const toolsTab = screen.getByRole('tab', { name: 'Tools' });
+    const settingsTab = screen.getByRole('tab', { name: 'Settings' });
+
+    expect(filesTab.textContent).toBe('');
+    expect(toolsTab.textContent).toBe('');
+    expect(settingsTab.textContent).toBe('');
+    expect(filesTab.getAttribute('title')).toBe('Files');
+    expect(toolsTab.getAttribute('title')).toBe('Tools');
+    expect(settingsTab.getAttribute('title')).toBe('Settings');
     expect(screen.getByText('Import score')).toBeDefined();
-    expect(screen.getByRole('region', { name: 'Files' })).toBeDefined();
-    expect(screen.getByRole('region', { name: 'Tools' })).toBeDefined();
-    expect(screen.getByRole('region', { name: 'Settings' })).toBeDefined();
+    expect(screen.getByRole('tabpanel', { name: 'Files' })).toBeDefined();
+
+    fireEvent.click(toolsTab);
+    expect(screen.getByRole('tabpanel', { name: 'Tools' })).toBeDefined();
     expect(screen.getByRole('button', { name: 'ABC display' })).toBeDefined();
+
+    fireEvent.click(settingsTab);
+    expect(screen.getByRole('tabpanel', { name: 'Settings' })).toBeDefined();
     expect(screen.getByRole('button', { name: 'Open settings' })).toBeDefined();
     expect(screen.queryByText('LIBRARY')).toBeNull();
     expect(screen.queryByText('PROJECTS')).toBeNull();
@@ -40,11 +54,13 @@ describe('FileRail Component', () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
     const abcDisplay = screen.getByRole('button', { name: 'ABC display' });
     expect(abcDisplay.getAttribute('aria-pressed')).toBe('false');
     fireEvent.click(abcDisplay);
     expect(onToggleEditor).toHaveBeenCalledOnce();
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Settings' }));
     fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
     expect(onOpenSettings).toHaveBeenCalledOnce();
 
@@ -56,6 +72,7 @@ describe('FileRail Component', () => {
         onOpenSettings={onOpenSettings}
       />,
     );
+    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
     expect(screen.getByRole('button', { name: 'ABC display' }).getAttribute('aria-pressed')).toBe('true');
   });
 
@@ -85,16 +102,36 @@ describe('FileRail Component', () => {
     expect(onDeleteDocument).toHaveBeenCalledWith(doc1.id);
   });
 
-  it('calls onMoveDocument when move buttons are clicked', () => {
-    const onMoveDocument = vi.fn();
-    render(<FileRail {...defaultProps} onMoveDocument={onMoveDocument} />);
+  it('reorders files by dragging before or after another row', () => {
+    const onReorderDocument = vi.fn();
+    render(<FileRail {...defaultProps} onReorderDocument={onReorderDocument} />);
 
-    const moveDownBtn = screen.getByLabelText(`Move ${doc1.name} down`);
-    fireEvent.click(moveDownBtn);
-    expect(onMoveDocument).toHaveBeenCalledWith(doc1.id, 'down');
+    const source = screen.getByRole('button', { name: 'Open Bach Minuet' }).closest('.file-item')!;
+    const target = screen.getByRole('button', { name: 'Open Beethoven Ode' }).closest('.file-item')!;
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
+      top: 0,
+      height: 40,
+      bottom: 40,
+      left: 0,
+      right: 200,
+      width: 200,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    const dataTransfer = {
+      effectAllowed: 'none',
+      dropEffect: 'none',
+      setData: vi.fn(),
+      getData: vi.fn(() => doc1.id),
+    };
 
-    const moveUpBtn = screen.getByLabelText(`Move ${doc2.name} up`);
-    fireEvent.click(moveUpBtn);
-    expect(onMoveDocument).toHaveBeenCalledWith(doc2.id, 'up');
+    fireEvent.dragStart(source, { dataTransfer });
+    fireEvent.dragOver(target, { clientY: 35, dataTransfer });
+    expect(target.className).toContain('drop-after');
+    fireEvent.drop(target, { clientY: 35, dataTransfer });
+
+    expect(onReorderDocument).toHaveBeenCalledWith(doc1.id, doc2.id, 'after');
+    expect(screen.queryByLabelText(`Move ${doc1.name} down`)).toBeNull();
   });
 });

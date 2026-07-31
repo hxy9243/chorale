@@ -63,7 +63,7 @@ Annotations are positioned relative to rendered SVG staff measure coordinates (`
 
 ## 5. Score toolbar
 
-Score-facing display controls float in a rounded panel at the upper-right of the score. The panel is 80% opaque at rest and fully opaque on hover or keyboard focus, so it remains available without reading as another header.
+Score-facing display controls float in a compact rounded panel at the upper center of the score. The panel is highly translucent at rest, surfaces temporarily during score scrolling, and becomes clearest on hover or keyboard focus, so it remains available without reading as another header.
 
 Expected controls:
 

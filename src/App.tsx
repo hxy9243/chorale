@@ -381,15 +381,25 @@ export const App: React.FC = () => {
     });
   };
 
-  const handleMoveDocument = (fileId: string, direction: 'up' | 'down') => {
+  const handleReorderDocument = (
+    sourceFileId: string,
+    targetFileId: string,
+    placement: 'before' | 'after',
+  ) => {
     setDocuments((prevDocs) => {
-      const index = prevDocs.findIndex((doc) => doc.id === fileId);
-      if (index === -1) return prevDocs;
-      const targetIndex = direction === 'up' ? index - 1 : index + 1;
-      if (targetIndex < 0 || targetIndex >= prevDocs.length) return prevDocs;
+      const sourceIndex = prevDocs.findIndex((doc) => doc.id === sourceFileId);
+      const targetIndex = prevDocs.findIndex((doc) => doc.id === targetFileId);
+      if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) {
+        return prevDocs;
+      }
+
       const nextDocs = [...prevDocs];
-      const [moved] = nextDocs.splice(index, 1);
-      nextDocs.splice(targetIndex, 0, moved);
+      const [moved] = nextDocs.splice(sourceIndex, 1);
+      const adjustedTargetIndex = nextDocs.findIndex((doc) => doc.id === targetFileId);
+      const insertionIndex = placement === 'after'
+        ? adjustedTargetIndex + 1
+        : adjustedTargetIndex;
+      nextDocs.splice(insertionIndex, 0, moved);
       return nextDocs;
     });
   };
@@ -543,7 +553,7 @@ export const App: React.FC = () => {
           onSelectDocument={handleSelectFile}
           onFileLoaded={handleProcessMusicXml}
           onDeleteDocument={handleDeleteDocument}
-          onMoveDocument={handleMoveDocument}
+          onReorderDocument={handleReorderDocument}
           loading={loading}
           error={error}
           collapsed={railCollapsed}

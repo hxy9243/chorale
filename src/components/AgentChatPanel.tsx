@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { History, Plus, Send, Square, X } from 'lucide-react';
+import { ChevronDown, History, Plus, Send, Square, X } from 'lucide-react';
 import { DesktopSheetAgent } from '../agent/DesktopSheetAgent';
 import type { AIProviderState } from '../agent/useAIProviders';
 import {
@@ -293,7 +293,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
           </div>
         </div>
         <div className="agent-history-control">
-          <History size={14} aria-hidden="true" />
+          <History className="agent-history-icon" size={16} aria-hidden="true" />
           <label htmlFor="conversation-history" className="sr-only">Conversation history</label>
           <select
             id="conversation-history"
@@ -310,6 +310,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
               </option>
             ))}
           </select>
+          <ChevronDown className="agent-history-chevron" size={16} aria-hidden="true" />
         </div>
       </div>
 

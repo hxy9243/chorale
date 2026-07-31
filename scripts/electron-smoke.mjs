@@ -191,6 +191,29 @@ try {
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
     const fileRailWidth = document.querySelector('.file-rail')?.getBoundingClientRect().width;
+    const filePanelStack = document.querySelector('.file-rail-panel-stack');
+    const importButton = document.querySelector('.file-rail-section:not([hidden]) .import-btn');
+    const importBounds = importButton?.getBoundingClientRect();
+    const filePanelBounds = filePanelStack?.getBoundingClientRect();
+    const importCenterDelta = importBounds && filePanelBounds
+      ? Math.abs(
+        (importBounds.left + importBounds.width / 2)
+        - (filePanelBounds.left + filePanelBounds.width / 2)
+      )
+      : null;
+    const railTabs = [...document.querySelectorAll('.file-rail-tab')].map((tab) => ({
+      label: tab.getAttribute('aria-label'),
+      title: tab.getAttribute('title'),
+      text: tab.textContent.trim(),
+    }));
+    const visibleRailPanelCount = [...document.querySelectorAll('.file-rail-section')]
+      .filter((panel) => !panel.hidden).length;
+    const fileRailHorizontalOverflow = filePanelStack
+      ? filePanelStack.scrollWidth - filePanelStack.clientWidth
+      : null;
+    const hasFileMoveButtons = Boolean(
+      document.querySelector('[aria-label^="Move "][aria-label$=" up"], [aria-label^="Move "][aria-label$=" down"]'),
+    );
 
     const chatResize = document.querySelector('.chat-rail-resize-handle');
     if (chatResize) {
@@ -227,7 +250,9 @@ try {
       viewportHeight: window.innerHeight,
     };
 
-    const abcDisplay = await waitForElement('[aria-pressed="false"].rail-tool-button');
+    document.querySelector('[role="tab"][aria-label="Tools"]')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const abcDisplay = await waitForElement('#tools-panel:not([hidden]) [aria-pressed="false"]');
     abcDisplay?.click();
     const abcClose = await waitForElement('[aria-label="Close ABC editor"]');
     const editorOpened = Boolean(document.querySelector('.editor-workspace-card'));
@@ -235,7 +260,9 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 25));
     const editorClosed = !document.querySelector('.editor-workspace-card');
 
-    const gear = await waitForElement('[aria-label="Open settings"]');
+    document.querySelector('[role="tab"][aria-label="Settings"]')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const gear = await waitForElement('#settings-panel:not([hidden]) [aria-label="Open settings"]');
     gear?.click();
     const settingsTitle = await waitForElement('#ai-settings-title');
     const provider = document.querySelector('.ai-add-connection select');
@@ -264,8 +291,39 @@ try {
     const threadWidth = document.querySelector('.agent-history-control')?.getBoundingClientRect().width;
     const suggestionsWidth = document.querySelector('.agent-suggestions')?.getBoundingClientRect().width;
     const transcriptWidth = document.querySelector('.agent-transcript')?.getBoundingClientRect().width;
+    const transcriptBounds = document.querySelector('.agent-transcript')?.getBoundingClientRect();
+    const suggestionsBounds = document.querySelector('.agent-suggestions')?.getBoundingClientRect();
+    const tryAskingTopRatio = transcriptBounds && suggestionsBounds
+      ? (suggestionsBounds.top - transcriptBounds.top) / transcriptBounds.height
+      : null;
+    const agentFontSize = getComputedStyle(document.querySelector('.agent-panel')).fontSize;
+    const threadControl = document.querySelector('.agent-history-control');
+    const threadSelect = threadControl?.querySelector('select');
+    const threadControlStyle = threadControl ? getComputedStyle(threadControl) : null;
+    const threadSelectStyle = threadSelect ? getComputedStyle(threadSelect) : null;
+    const threadBorderWidth = threadControlStyle?.borderTopWidth ?? null;
+    const threadSelectBackground = threadSelectStyle?.backgroundColor ?? null;
+    const threadSelectFontSize = threadSelectStyle?.fontSize ?? null;
+    const hasThreadChevron = Boolean(document.querySelector('.agent-history-chevron'));
+    await new Promise((resolve) => setTimeout(resolve, 750));
     const displayOptions = document.querySelector('.score-display-options');
+    const displayOptionsBounds = displayOptions?.getBoundingClientRect();
+    const scoreWorkspaceBounds = document.querySelector('.score-workspace-card')?.getBoundingClientRect();
+    const displayOptionsCenterDelta = displayOptionsBounds && scoreWorkspaceBounds
+      ? Math.abs(
+        (displayOptionsBounds.left + displayOptionsBounds.width / 2)
+        - (scoreWorkspaceBounds.left + scoreWorkspaceBounds.width / 2)
+      )
+      : null;
+    const displayOptionsRestOpacity = displayOptions ? getComputedStyle(displayOptions).opacity : null;
+    document.querySelector('.score-workspace-card')?.dispatchEvent(new WheelEvent('wheel', {
+      bubbles: true,
+      deltaY: 12,
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 260));
+    const displayOptionsScrollOpacity = displayOptions ? getComputedStyle(displayOptions).opacity : null;
     const elapsedTime = document.querySelector('.playback-progress strong');
+    const volumeValue = document.querySelector('.slider-value');
     localStorage.setItem('chorale.electron-smoke', 'persisted');
     document.querySelector('[aria-label="Close settings"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 25));
@@ -282,10 +340,18 @@ try {
       hasHeaderBrandMark: Boolean(document.querySelector('.header-brand .brand-mark')),
       hasHeaderSettings: Boolean(document.querySelector('.app-header [aria-label="Open settings"]')),
       railSectionNames: [...document.querySelectorAll('.rail-section-title')].map((element) => element.textContent),
+      railTabs,
+      visibleRailPanelCount,
+      importWidth: importBounds?.width ?? null,
+      importCenterDelta,
+      fileRailHorizontalOverflow,
+      hasFileMoveButtons,
       hasScoreViewSwitch: Boolean(document.querySelector('.score-view-switch')),
       hasScoreFooter: Boolean(document.querySelector('.score-canvas-footer')),
       scoreStatusText: document.querySelector('.score-build-status')?.textContent,
-      displayOptionsOpacity: displayOptions ? getComputedStyle(displayOptions).opacity : null,
+      displayOptionsRestOpacity,
+      displayOptionsScrollOpacity,
+      displayOptionsCenterDelta,
       headerRuleContent: getComputedStyle(document.querySelector('.app-header'), '::after').content,
       fileRuleContent: getComputedStyle(document.querySelector('.file-rail'), '::before').content,
       editorOpened,
@@ -323,13 +389,21 @@ try {
       viewportBottom: window.innerHeight,
       scoreCenterDelta,
       threadWidth,
+      agentFontSize,
+      threadBorderWidth,
+      threadSelectBackground,
+      threadSelectFontSize,
+      hasThreadChevron,
       suggestionsWidth,
       transcriptWidth,
+      tryAskingTopRatio,
       hasAnalysisLabel: document.body.textContent.includes('Analysis'),
       hasSelectionDisplay: document.body.textContent.includes('Attached anchor:')
         || document.body.textContent.includes('Selection:'),
       elapsedTimeColor: elapsedTime ? getComputedStyle(elapsedTime).color : null,
       elapsedTimeWeight: elapsedTime ? getComputedStyle(elapsedTime).fontWeight : null,
+      volumeValueColor: volumeValue ? getComputedStyle(volumeValue).color : null,
+      volumeValueWeight: volumeValue ? getComputedStyle(volumeValue).fontWeight : null,
       closedPanelStyle,
       storedChatOpen: localStorage.getItem('chorale.workspace.chatOpen'),
       storedChatWidth: Number(localStorage.getItem('chorale.workspace.chatWidth')),
@@ -345,6 +419,28 @@ try {
     shellState.railSectionNames.join(',') === 'Files,Tools,Settings',
     `Left rail sections are incomplete (${shellState.railSectionNames.join(',')}).`,
   );
+  assert(
+    shellState.railTabs.length === 3
+      && shellState.railTabs.every((tab) => tab.label === tab.title && tab.text === ''),
+    `Left rail tabs are not icon-only selections with tooltips (${JSON.stringify(shellState.railTabs)}).`,
+  );
+  assert(
+    shellState.visibleRailPanelCount === 1,
+    `Left rail displays more than one panel (${shellState.visibleRailPanelCount}).`,
+  );
+  assert(
+    Number.isFinite(shellState.importWidth)
+      && shellState.importWidth <= 145
+      && Number.isFinite(shellState.importCenterDelta)
+      && shellState.importCenterDelta <= 1,
+    `Import action is not compact and centered (${shellState.importWidth}px, delta ${shellState.importCenterDelta}px).`,
+  );
+  assert(
+    Number.isFinite(shellState.fileRailHorizontalOverflow)
+      && shellState.fileRailHorizontalOverflow <= 1,
+    `Left rail still scrolls horizontally (${shellState.fileRailHorizontalOverflow}px overflow).`,
+  );
+  assert(shellState.hasFileMoveButtons === false, 'File rail still contains arrow reorder buttons.');
   assert(shellState.hasScoreViewSwitch === false, 'Score/ABC view switch is still in the score header.');
   assert(shellState.hasScoreFooter === false, 'Render status still occupies the score footer.');
   assert(
@@ -353,7 +449,16 @@ try {
       && shellState.scoreStatusText.includes('Audio ready'),
     `Score status is not grouped under the title (${shellState.scoreStatusText}).`,
   );
-  assert(shellState.displayOptionsOpacity === '0.8', 'Score display controls are not 80% translucent.');
+  assert(
+    Number.isFinite(shellState.displayOptionsCenterDelta)
+      && shellState.displayOptionsCenterDelta <= 1,
+    `Score display controls are not centered (${shellState.displayOptionsCenterDelta}px).`,
+  );
+  assert(
+    shellState.displayOptionsRestOpacity === '0.32'
+      && shellState.displayOptionsScrollOpacity === '0.68',
+    `Score display controls do not surface on scroll (${shellState.displayOptionsRestOpacity} -> ${shellState.displayOptionsScrollOpacity}).`,
+  );
   assert(
     ['none', 'normal'].includes(shellState.headerRuleContent)
       && ['none', 'normal'].includes(shellState.fileRuleContent),
@@ -426,14 +531,40 @@ try {
     `Thread selector is still too narrow (${shellState.threadWidth}px in ${shellState.chatWidth}px panel).`,
   );
   assert(
+    shellState.agentFontSize === '16px' && shellState.threadSelectFontSize === '16px',
+    `Chat defaults are not approximately 12 pt (${shellState.agentFontSize}, select ${shellState.threadSelectFontSize}).`,
+  );
+  assert(
+    Number.parseFloat(shellState.threadBorderWidth) >= 0.8
+      && Number.parseFloat(shellState.threadBorderWidth) <= 1.1
+      && [
+        'rgba(0, 0, 0, 0)',
+        'transparent',
+        'oklab(0 0 0 / 0)',
+        'oklch(0 0 0 / 0)',
+      ].includes(shellState.threadSelectBackground)
+      && shellState.hasThreadChevron,
+    `Thread selector does not preserve the styled control frame (${shellState.threadBorderWidth}, ${shellState.threadSelectBackground}, chevron ${shellState.hasThreadChevron}).`,
+  );
+  assert(
     shellState.suggestionsWidth < shellState.transcriptWidth * 0.95,
     `Try Asking group is not narrower than the transcript (${shellState.suggestionsWidth}px).`,
+  );
+  assert(
+    Number.isFinite(shellState.tryAskingTopRatio)
+      && shellState.tryAskingTopRatio >= 0.18
+      && shellState.tryAskingTopRatio <= 0.35,
+    `Try Asking group is not positioned near 20% from the top (${shellState.tryAskingTopRatio}).`,
   );
   assert(shellState.hasAnalysisLabel === false, 'Empty chat still contains the removed Chorale Analysis label.');
   assert(shellState.hasSelectionDisplay === false, 'Chat still contains the removed selection display.');
   assert(
     shellState.elapsedTimeColor && Number(shellState.elapsedTimeWeight) >= 600,
     `Playback time is not high-contrast (${shellState.elapsedTimeColor}, ${shellState.elapsedTimeWeight}).`,
+  );
+  assert(
+    shellState.volumeValueColor && Number(shellState.volumeValueWeight) >= 600,
+    `Playback volume is not high-contrast (${shellState.volumeValueColor}, ${shellState.volumeValueWeight}).`,
   );
   assert(
     shellState.closedPanelStyle.display === 'none' && shellState.closedPanelStyle.width === 0,

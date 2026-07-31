@@ -64,18 +64,78 @@ describe('App Integration', () => {
 
     expect(screen.getByRole('banner').textContent).toContain('Chorale');
     expect(screen.getByText('Import score')).toBeDefined();
-    expect(screen.getByRole('region', { name: 'Files' })).toBeDefined();
-    expect(screen.getByRole('region', { name: 'Tools' })).toBeDefined();
-    expect(screen.getByRole('region', { name: 'Settings' })).toBeDefined();
+    expect(screen.getByRole('tabpanel', { name: 'Files' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Tools' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Settings' })).toBeDefined();
 
     await waitFor(() => {
       expect(screen.getByTestId('sheet-svg')).toBeDefined();
     });
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
     fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
     expect(screen.getByPlaceholderText(/Parsed ABC code will appear here/)).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: 'Close ABC editor' }));
     expect(screen.queryByPlaceholderText(/Parsed ABC code will appear here/)).toBeNull();
+  });
+
+  it('reorders persisted files through the drag-and-drop rail contract', async () => {
+    localStorage.setItem('chorale.workspace.documents', JSON.stringify([
+      {
+        id: 'drag-one',
+        name: 'First.abc',
+        sourceType: 'abc',
+        abcSource: 'X:1\nT:First\nK:C\nCDEF|',
+        revision: 1,
+        versions: [],
+        scoreInfo: { title: 'First' },
+      },
+      {
+        id: 'drag-two',
+        name: 'Second.abc',
+        sourceType: 'abc',
+        abcSource: 'X:1\nT:Second\nK:C\nGABc|',
+        revision: 1,
+        versions: [],
+        scoreInfo: { title: 'Second' },
+      },
+    ]));
+    localStorage.setItem('chorale.workspace.activeFileId', 'drag-one');
+    render(<App />);
+
+    const source = screen.getByRole('button', { name: 'Open First' }).closest('.file-item')!;
+    const target = screen.getByRole('button', { name: 'Open Second' }).closest('.file-item')!;
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
+      top: 0,
+      height: 40,
+      bottom: 40,
+      left: 0,
+      right: 200,
+      width: 200,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    const dataTransfer = {
+      effectAllowed: 'none',
+      dropEffect: 'none',
+      setData: vi.fn(),
+      getData: vi.fn(() => 'drag-one'),
+    };
+
+    fireEvent.dragStart(source, { dataTransfer });
+    fireEvent.dragOver(target, { clientY: 35, dataTransfer });
+    fireEvent.drop(target, { clientY: 35, dataTransfer });
+
+    await waitFor(() => {
+      const names = [...document.querySelectorAll('.file-item-name')]
+        .map((element) => element.textContent);
+      expect(names).toEqual(['Second', 'First']);
+    });
+    await waitFor(() => {
+      const saved = JSON.parse(localStorage.getItem('chorale.workspace.documents') || '[]');
+      expect(saved.map((document: { id: string }) => document.id)).toEqual(['drag-two', 'drag-one']);
+    });
   });
 
   it('normalizes unsupported ABC before both visible and validation rendering', async () => {
@@ -202,6 +262,7 @@ describe('App Integration', () => {
       .toContain('360px');
     expect(document.querySelector('.zoom-level-text')?.textContent).toBe('140%');
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
     fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
     expect(document.querySelector<HTMLElement>('.editor-workspace-card')?.style.width)
       .toBe('520px');
@@ -292,6 +353,7 @@ describe('App Integration', () => {
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
 
     render(<App />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
     fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
     const editor = screen.getByPlaceholderText(/Parsed ABC code will appear here/);
 
