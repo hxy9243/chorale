@@ -2,9 +2,7 @@
  * Auto-scroll utility for centering playing lines in score viewports.
  */
 
-export const easeInOutQuad = (t: number): number => (
-  t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
-);
+export const easeOutCubic = (t: number): number => 1 - (1 - t) ** 3;
 
 export const calculateCenterScrollTop = (
   container: HTMLElement,
@@ -31,7 +29,7 @@ export interface SmoothScrollController {
 export const animateScrollTo = (
   container: HTMLElement,
   targetScrollTop: number,
-  durationMs = 500,
+  durationMs = 300,
   onComplete?: () => void,
 ): SmoothScrollController => {
   const startScrollTop = container.scrollTop;
@@ -51,9 +49,11 @@ export const animateScrollTo = (
 
     const elapsed = currentTime - startTime;
     const progress = Math.min(1, elapsed / durationMs);
-    const ease = easeInOutQuad(progress);
+    const ease = easeOutCubic(progress);
 
-    container.scrollTop = startScrollTop + distance * ease;
+    container.scrollTop = progress === 1
+      ? targetScrollTop
+      : startScrollTop + distance * ease;
 
     if (progress < 1) {
       animationFrameId = requestAnimationFrame(step);
