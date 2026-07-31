@@ -597,8 +597,8 @@ try {
     `Thread history row is still too narrow (${shellState.threadWidth}px selector, ${shellState.threadRowWidth}px row in ${shellState.chatWidth}px panel).`,
   );
   assert(
-    shellState.agentFontSize === '16px' && shellState.threadTriggerFontSize === '16px',
-    `Chat defaults are not approximately 12 pt (${shellState.agentFontSize}, trigger ${shellState.threadTriggerFontSize}).`,
+    shellState.agentFontSize === '16px' && shellState.threadTriggerFontSize === '14px',
+    `Chat body and compact thread-title sizes are incorrect (${shellState.agentFontSize}, trigger ${shellState.threadTriggerFontSize}).`,
   );
   assert(
     Number.parseFloat(shellState.threadBorderWidth) >= 0.8
