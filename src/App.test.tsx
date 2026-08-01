@@ -257,7 +257,8 @@ describe('App Integration', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
     fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
     expect(document.querySelector<HTMLElement>('.editor-workspace-card')?.style.width)
-      .toBe('520px');
+      .toBe('456px');
+    expect(localStorage.getItem(EDITOR_WIDTH_KEY)).toBe('520');
   });
 
   it('restores the chat open state and width across refreshes and reopens', async () => {

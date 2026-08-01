@@ -1,0 +1,32 @@
+/* Responsive workspace rules that depend on the sizing contract in
+ * utils/workspaceSizing.ts. Keep these after the theme import. */
+.workspace-body.side-panels-overlay,
+.workspace-body.side-panels-overlay.chat-open {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.workspace-body.side-panels-overlay .file-rail {
+  position: absolute;
+  z-index: var(--z-dropdown);
+  inset: 0 auto 0 0;
+  width: min(var(--file-rail-width), calc(100% - var(--space-xl)));
+  height: 100%;
+  box-shadow: var(--shadow-modal);
+}
+
+.workspace-body.side-panels-overlay .file-rail.collapsed {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-100%);
+}
+
+.workspace-body.side-panels-overlay .right-panel,
+.workspace-body.side-panels-overlay.chat-open .right-panel,
+.workspace-body.side-panels-overlay #current-sheet-agent {
+  position: absolute;
+  z-index: var(--z-dropdown);
+  inset: 0 0 0 auto;
+  width: min(var(--chat-rail-width), calc(100% - var(--space-xl)));
+  height: 100%;
+  box-shadow: var(--shadow-modal);
+}
