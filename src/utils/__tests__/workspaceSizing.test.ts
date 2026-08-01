@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   clampChatPanelWidth,
+  fitWorkspacePanelLayout,
   clampFileRailWidth,
   defaultFileRailWidth,
+  MIN_SCORE_WORKSPACE_WIDTH,
   maximumChatPanelWidth,
 } from '../workspaceSizing';
 
@@ -29,5 +31,60 @@ describe('chat panel sizing', () => {
   it('retains a usable minimum on narrow viewports', () => {
     expect(maximumChatPanelWidth(720)).toBe(280);
     expect(clampChatPanelWidth(100, 720)).toBe(280);
+  });
+});
+
+describe('workspace panel fitting', () => {
+  it('turns side panels into drawers at 1024px instead of collapsing the score', () => {
+    const layout = fitWorkspacePanelLayout({
+      viewportWidth: 1_024,
+      fileRailWidth: 560,
+      chatPanelWidth: 560,
+      editorPanelWidth: 720,
+      fileRailVisible: true,
+      chatPanelVisible: true,
+      editorPanelVisible: true,
+    });
+
+    expect(layout.overlaySidePanels).toBe(true);
+    expect(layout.scoreWorkspaceWidth).toBeGreaterThanOrEqual(MIN_SCORE_WORKSPACE_WIDTH);
+    expect(layout.editorPanelWidth).toBe(456);
+  });
+
+  it('shrinks inline panels proportionally while preserving the score minimum', () => {
+    const layout = fitWorkspacePanelLayout({
+      viewportWidth: 1_480,
+      fileRailWidth: 560,
+      chatPanelWidth: 560,
+      editorPanelWidth: 720,
+      fileRailVisible: true,
+      chatPanelVisible: true,
+      editorPanelVisible: true,
+    });
+
+    expect(layout.overlaySidePanels).toBe(false);
+    expect(layout.fileRailWidth).toBeGreaterThanOrEqual(240);
+    expect(layout.chatPanelWidth).toBeGreaterThanOrEqual(280);
+    expect(layout.editorPanelWidth).toBeGreaterThanOrEqual(320);
+    expect(layout.scoreWorkspaceWidth).toBeGreaterThanOrEqual(MIN_SCORE_WORKSPACE_WIDTH);
+  });
+
+  it('keeps preferred widths when the viewport has enough room', () => {
+    const layout = fitWorkspacePanelLayout({
+      viewportWidth: 2_400,
+      fileRailWidth: 360,
+      chatPanelWidth: 420,
+      editorPanelWidth: 520,
+      fileRailVisible: true,
+      chatPanelVisible: true,
+      editorPanelVisible: true,
+    });
+
+    expect(layout).toMatchObject({
+      fileRailWidth: 360,
+      chatPanelWidth: 420,
+      editorPanelWidth: 520,
+      overlaySidePanels: false,
+    });
   });
 });

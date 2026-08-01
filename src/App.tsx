@@ -24,9 +24,11 @@ import {
 import type { PlaybackPosition } from './utils/repeatPlayback';
 import { prepareAbcForPlayback } from './utils/abcAudio';
 import {
+  clampEditorPanelWidth,
   clampChatPanelWidth,
   clampFileRailWidth,
   defaultFileRailWidth,
+  fitWorkspacePanelLayout,
 } from './utils/workspaceSizing';
 
 const EDITOR_VISIBLE_KEY = 'chorale.workspace.editorVisible';
@@ -38,8 +40,6 @@ export const CHAT_WIDTH_KEY = 'chorale.workspace.chatWidth';
 export const FILE_RAIL_WIDTH_KEY = 'chorale.workspace.fileRailWidth';
 export const SHEET_ZOOM_KEY = 'chorale.workspace.sheetZoom';
 const DEFAULT_EDITOR_WIDTH = 420;
-const MIN_EDITOR_WIDTH = 320;
-const MAX_EDITOR_WIDTH = 720;
 const DEFAULT_SHEET_ZOOM = 100;
 const MIN_SHEET_ZOOM = 50;
 const MAX_SHEET_ZOOM = 200;
@@ -47,7 +47,6 @@ const AUTOSAVE_DELAY_MS = 400;
 
 type BuildStatus = 'idle' | 'building' | 'valid' | 'invalid';
 
-const clampEditorWidth = (width: number) => Math.max(MIN_EDITOR_WIDTH, Math.min(MAX_EDITOR_WIDTH, width));
 const clampSheetZoom = (zoom: number) => Math.max(MIN_SHEET_ZOOM, Math.min(MAX_SHEET_ZOOM, zoom));
 
 const readStoredBool = (key: string, fallback: boolean) => {
@@ -120,6 +119,7 @@ export const App: React.FC = () => {
     () => window.innerWidth * 100 / interfaceZoom.zoom,
     [interfaceZoom.zoom],
   );
+  const [layoutWidth, setLayoutWidth] = useState(() => layoutViewportWidth());
   const openSettings = useCallback(() => setSettingsOpen(true), []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const [zoom, setZoom] = useState<number>(() => (
@@ -127,7 +127,7 @@ export const App: React.FC = () => {
   ));
   const [editorVisible, setEditorVisible] = useState<boolean>(() => readStoredBool(EDITOR_VISIBLE_KEY, false));
   const [editorWidth, setEditorWidth] = useState<number>(() => (
-    readStoredNumber(EDITOR_WIDTH_KEY, DEFAULT_EDITOR_WIDTH, clampEditorWidth)
+    readStoredNumber(EDITOR_WIDTH_KEY, DEFAULT_EDITOR_WIDTH, clampEditorPanelWidth)
   ));
   const [buildStatus, setBuildStatus] = useState<BuildStatus>('idle');
   const [buildResult, setBuildResult] = useState<BuildResult | null>(null);
@@ -420,7 +420,7 @@ export const App: React.FC = () => {
       const dragState = dragStateRef.current;
       if (!dragState) return;
       const delta = dragState.startX - moveEvent.clientX;
-      setEditorWidth(clampEditorWidth(dragState.startWidth + delta));
+      setEditorWidth(clampEditorPanelWidth(dragState.startWidth + delta));
     };
 
     const handlePointerUp = () => {
@@ -484,12 +484,24 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     const handleResize = () => {
-      setChatWidth((current) => clampChatPanelWidth(current, layoutViewportWidth()));
+      const nextLayoutWidth = layoutViewportWidth();
+      setLayoutWidth(nextLayoutWidth);
+      setChatWidth((current) => clampChatPanelWidth(current, nextLayoutWidth));
     };
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [layoutViewportWidth]);
+
+  const fittedPanelLayout = useMemo(() => fitWorkspacePanelLayout({
+    viewportWidth: layoutWidth,
+    fileRailWidth: railWidth,
+    chatPanelWidth: chatWidth,
+    editorPanelWidth: editorWidth,
+    fileRailVisible: !railCollapsed,
+    chatPanelVisible: chatOpen,
+    editorPanelVisible: editorVisible,
+  }), [chatOpen, chatWidth, editorVisible, editorWidth, layoutWidth, railCollapsed, railWidth]);
 
   useEffect(() => {
     window.localStorage.setItem(CHAT_OPEN_KEY, String(chatOpen));
@@ -544,11 +556,11 @@ export const App: React.FC = () => {
       />
 
       <div
-        className={`workspace-body ${chatOpen ? 'chat-open' : ''} ${railCollapsed ? 'rail-collapsed' : ''}`}
+        className={`workspace-body ${chatOpen ? 'chat-open' : ''} ${railCollapsed ? 'rail-collapsed' : ''} ${fittedPanelLayout.overlaySidePanels ? 'side-panels-overlay' : ''}`}
         style={{
-          gridTemplateColumns: `${railCollapsed ? 0 : railWidth}px minmax(0, 1fr) ${chatOpen ? `${chatWidth}px` : '0px'}`,
-          '--file-rail-width': `${railCollapsed ? 0 : railWidth}px`,
-          '--chat-rail-width': chatOpen ? `${chatWidth}px` : '0px',
+          gridTemplateColumns: `${railCollapsed ? 0 : fittedPanelLayout.fileRailWidth}px minmax(0, 1fr) ${chatOpen ? `${fittedPanelLayout.chatPanelWidth}px` : '0px'}`,
+          '--file-rail-width': `${railCollapsed ? 0 : fittedPanelLayout.fileRailWidth}px`,
+          '--chat-rail-width': chatOpen ? `${fittedPanelLayout.chatPanelWidth}px` : '0px',
         } as React.CSSProperties}
       >
         <FileRail
@@ -569,7 +581,7 @@ export const App: React.FC = () => {
 
         <main
           className={`central-workspace ${editorVisible ? 'editor-open' : 'editor-hidden'}`}
-          style={{ '--editor-panel-width': editorVisible ? `${editorWidth}px` : '0px' } as React.CSSProperties}
+          style={{ '--editor-panel-width': editorVisible ? `${fittedPanelLayout.editorPanelWidth}px` : '0px' } as React.CSSProperties}
         >
           <div className="score-editor-shell">
             <section className="score-workspace-card">
@@ -633,7 +645,7 @@ export const App: React.FC = () => {
                   aria-label="Resize ABC editor"
                   onPointerDown={beginEditorResize}
                 />
-                <div className="editor-workspace-card" style={{ width: `${editorWidth}px` }}>
+                <div className="editor-workspace-card" style={{ width: `${fittedPanelLayout.editorPanelWidth}px` }}>
                   <AbcEditor
                     abcCode={abcCode}
                     onAbcChange={handleAbcChange}
