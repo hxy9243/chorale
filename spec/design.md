@@ -45,10 +45,10 @@ The design direction is a file-owned music workspace where score viewing, ABC ed
 - [x] Auto-centering score playback line with smooth scrolling and 2-second user scroll pause
 - [x] Score zoom layout space reservation preventing SVG container clipping
 - [x] Debounced document autosave (400ms) with bounded version history (max 10 revisions)
+- [x] Settings modal for API key & ChatGPT OAuth provider credentials (`AISettingsModal.tsx`, `useAIProviders.ts`, `electron/ai/*`)
 
 ## Specified target features
 
 - [ ] Inline document annotation overlay rendering on notation surface (key ribbons, Roman numeral track, multi-measure spans)
-- [ ] Settings modal for API key & ChatGPT OAuth provider credentials
 - [ ] Agent tool handler implementation (`annotate_harmonies`, `replace_abc_range`, `navigate_to_measure`)
 - [ ] Explicit proposal-and-review UI card for AI-suggested ABC edits and annotations

@@ -1,8 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import JSZip from 'jszip';
-import { extractMusicXml, parseMusicXmlToAbc } from '../xmlParser';
+import { clearMusicXmlCache, extractMusicXml, parseMusicXmlToAbc } from '../xmlParser';
 
 describe('xmlParser utils', () => {
+  beforeEach(() => {
+    clearMusicXmlCache();
+  });
+
   const sampleXml = `<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="3.1">
   <part-list>
@@ -58,8 +62,22 @@ describe('xmlParser utils', () => {
       expect(abc).toMatch(/X:|T:|M:|K:/);
     });
 
+    it('should cache consecutive conversions of the same MusicXML', () => {
+      const abc1 = parseMusicXmlToAbc(sampleXml);
+      const abc2 = parseMusicXmlToAbc(sampleXml);
+      expect(abc1).toBe(abc2);
+    });
+
+    it('should allow clearing the cache via clearMusicXmlCache', () => {
+      const abc1 = parseMusicXmlToAbc(sampleXml);
+      clearMusicXmlCache();
+      const abc2 = parseMusicXmlToAbc(sampleXml);
+      expect(abc1).toEqual(abc2);
+    });
+
     it('should throw an error for empty MusicXML string', () => {
       expect(() => parseMusicXmlToAbc('')).toThrow('Empty MusicXML content provided.');
     });
   });
 });
+

@@ -63,12 +63,26 @@ export async function extractMusicXml(fileOrBuffer: File | ArrayBuffer | string)
   return decoder.decode(arrayBuffer);
 }
 
+const MAX_XML_CACHE_SIZE = 50;
+const xmlToAbcCache = new Map<string, string>();
+
+/**
+ * Clears the in-memory MusicXML to ABC conversion cache.
+ */
+export function clearMusicXmlCache(): void {
+  xmlToAbcCache.clear();
+}
+
 /**
  * Converts MusicXML string into ABC notation string.
  */
 export function parseMusicXmlToAbc(xmlContent: string): string {
   if (!xmlContent || !xmlContent.trim()) {
     throw new Error('Empty MusicXML content provided.');
+  }
+
+  if (xmlToAbcCache.has(xmlContent)) {
+    return xmlToAbcCache.get(xmlContent)!;
   }
 
   // Polyfill window.DOMParser if running in Node environment during Vitest runs
@@ -83,9 +97,19 @@ export function parseMusicXmlToAbc(xmlContent: string): string {
     if (!abc || !abc.trim()) {
       return '% Error converting MusicXML to ABC notation.';
     }
+
+    if (xmlToAbcCache.size >= MAX_XML_CACHE_SIZE) {
+      const firstKey = xmlToAbcCache.keys().next().value;
+      if (firstKey !== undefined) {
+        xmlToAbcCache.delete(firstKey);
+      }
+    }
+    xmlToAbcCache.set(xmlContent, abc);
+
     return abc;
   } catch (error: any) {
     console.error('MusicXML to ABC conversion error:', error);
     throw new Error(`Failed to convert MusicXML to ABC: ${error?.message || error}`);
   }
 }
+

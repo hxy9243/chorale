@@ -98,6 +98,16 @@ function resolveSelfContainedTuplets(tunes: abcjs.TuneObject[]): void {
   }
 }
 
+const MAX_AUDIO_CACHE_SIZE = 50;
+const audioTuneCache = new Map<string, abcjs.TuneObject[]>();
+
+/**
+ * Clears the in-memory ABC audio tune cache.
+ */
+export function clearAudioTuneCache(): void {
+  audioTuneCache.clear();
+}
+
 /**
  * Keeps the engraved tune as the source of cursor and timing events while
  * supplying it with an equivalent, hairpin-safe synthesis event stream.
@@ -109,8 +119,20 @@ export function configureAudioPlayback(
   if (!originalAbc || !tunes?.length) return;
   if (typeof abcjs.parseOnly !== 'function') return;
 
-  const audioTunes = abcjs.parseOnly(prepareAbcForAudio(originalAbc));
-  resolveSelfContainedTuplets(audioTunes);
+  let audioTunes = audioTuneCache.get(originalAbc);
+  if (!audioTunes) {
+    audioTunes = abcjs.parseOnly(prepareAbcForAudio(originalAbc));
+    resolveSelfContainedTuplets(audioTunes);
+
+    if (audioTuneCache.size >= MAX_AUDIO_CACHE_SIZE) {
+      const firstKey = audioTuneCache.keys().next().value;
+      if (firstKey !== undefined) {
+        audioTuneCache.delete(firstKey);
+      }
+    }
+    audioTuneCache.set(originalAbc, audioTunes);
+  }
+
   for (const [index, tune] of tunes.entries()) {
     const audioTune = audioTunes[index];
     if (!audioTune?.setUpAudio) continue;

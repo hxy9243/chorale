@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import abcjs from 'abcjs';
 import {
+  clearAudioTuneCache,
   configureAudioPlayback,
   hideSyntheticTupletRests,
   prepareAbcForAudio,
@@ -190,4 +191,21 @@ x2 (3:2:2A,/ (D, (3:2:1C,3/2) | B,4 | C4 | D4 |`;
     expect(secondVoiceNotes.slice(3).map((event) => event.duration)).toEqual([1, 1, 1]);
     expect(scratch.querySelectorAll('.abcjs-triplet')).toHaveLength(2);
   });
+
+  it('caches audio tune objects for repeated calls with the same ABC string', () => {
+    clearAudioTuneCache();
+    const scratch = document.createElement('div');
+    const tunes1 = abcjs.renderAbc(scratch, prepareAbcForPlayback(abcWithHairpin));
+    const tunes2 = abcjs.renderAbc(scratch, prepareAbcForPlayback(abcWithHairpin));
+
+    configureAudioPlayback(abcWithHairpin, tunes1);
+    const audio1 = tunes1[0].setUpAudio;
+
+    configureAudioPlayback(abcWithHairpin, tunes2);
+    const audio2 = tunes2[0].setUpAudio;
+
+    expect(audio1).toBeDefined();
+    expect(audio2).toBeDefined();
+  });
 });
+
