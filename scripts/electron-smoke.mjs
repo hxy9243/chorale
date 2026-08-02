@@ -15,6 +15,7 @@ const electronBinary = path.join(
 );
 const mainEntry = path.join(projectDirectory, 'dist-electron', 'main.js');
 const launchedChildren = new Set();
+const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
@@ -660,6 +661,129 @@ try {
     'Resized file rail width was not persisted.',
   );
   assert(shellState.storedSheetZoom === 110, 'Sheet zoom was not persisted.');
+
+  await firstCDP.evaluate(`(() => {
+    document.querySelector('[role="tab"][aria-label="Files"]')?.click();
+    return true;
+  })()`);
+  await firstCDP.call('DOM.enable');
+  const documentNode = await firstCDP.call('DOM.getDocument');
+  const fileInput = await firstCDP.call('DOM.querySelector', {
+    nodeId: documentNode.root.nodeId,
+    selector: 'input[type="file"]',
+  });
+  await firstCDP.call('DOM.setFileInputFiles', {
+    nodeId: fileInput.nodeId,
+    files: [path.join(projectDirectory, 'src/test/fixtures/abc/moonlight.abc')],
+  });
+  const dragGeometry = await firstCDP.evaluate(`(async () => {
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      const rows = [...document.querySelectorAll('.file-list .file-item')];
+      const storedDocuments = JSON.parse(localStorage.getItem('chorale.workspace.documents') ?? '[]');
+      if (rows.length === 2 && storedDocuments.length === 2) {
+        const source = rows[0].getBoundingClientRect();
+        const target = rows[1].getBoundingClientRect();
+        return {
+          source: { x: source.left + 20, y: source.top + source.height * 0.1 },
+          target: { x: target.left + 20, y: target.top + target.height * 0.25 },
+          names: rows.map((row) => row.querySelector('.file-item-name')?.textContent),
+          ids: storedDocuments.map((document) => document.id),
+          rowsAreNativeDraggables: rows.every((row) => row.draggable),
+        };
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    throw new Error('Two-file rail did not render for native drag smoke.');
+  })()`);
+  assert(
+    dragGeometry.names.length === 2 && dragGeometry.rowsAreNativeDraggables,
+    `File rows did not start as native draggables (${JSON.stringify(dragGeometry)}).`,
+  );
+  const expectedFileNames = [...dragGeometry.names].reverse();
+  const expectedFileIds = [...dragGeometry.ids].reverse();
+
+  await firstCDP.call('Input.dispatchMouseEvent', {
+    type: 'mouseMoved',
+    x: dragGeometry.source.x,
+    y: dragGeometry.source.y,
+    pointerType: 'mouse',
+  });
+  await firstCDP.call('Input.dispatchMouseEvent', {
+    type: 'mousePressed',
+    x: dragGeometry.source.x,
+    y: dragGeometry.source.y,
+    button: 'left',
+    buttons: 1,
+    clickCount: 1,
+    pointerType: 'mouse',
+  });
+  for (let step = 1; step <= 12; step += 1) {
+    const progress = step / 12;
+    await firstCDP.call('Input.dispatchMouseEvent', {
+      type: 'mouseMoved',
+      x: dragGeometry.source.x + (dragGeometry.target.x - dragGeometry.source.x) * progress,
+      y: dragGeometry.source.y + (dragGeometry.target.y - dragGeometry.source.y) * progress,
+      button: 'left',
+      buttons: 1,
+      pointerType: 'mouse',
+    });
+    await delay(10);
+  }
+  await delay(50);
+  const activeDragState = await firstCDP.evaluate(`(() => {
+    const rows = [...document.querySelectorAll('.file-list .file-item')];
+    const placeholder = document.querySelector('.file-list .drag-source-placeholder');
+    return {
+      names: rows.map((row) => row.querySelector('.file-item-name')?.textContent),
+      placeholderCount: document.querySelectorAll('.file-list .drag-source-placeholder').length,
+      placeholderOpacity: placeholder ? getComputedStyle(placeholder).opacity : null,
+      nativeDragImageCount: document.querySelectorAll('.file-item-drag-image').length,
+    };
+  })()`);
+  assert(
+    activeDragState.names.join(',') === expectedFileNames.join(',')
+      && activeDragState.placeholderCount === 1
+      && activeDragState.placeholderOpacity === '0'
+      && activeDragState.nativeDragImageCount === 1,
+    `File rows did not shift live around one hidden source slot (${JSON.stringify(activeDragState)}).`,
+  );
+
+  await firstCDP.call('Input.dispatchMouseEvent', {
+    type: 'mouseReleased',
+    x: dragGeometry.target.x,
+    y: dragGeometry.target.y,
+    button: 'left',
+    buttons: 0,
+    clickCount: 1,
+    pointerType: 'mouse',
+  });
+  const droppedDragState = await firstCDP.evaluate(`(async () => {
+    const expectedNames = ${JSON.stringify(expectedFileNames)};
+    const expectedIds = ${JSON.stringify(expectedFileIds)};
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      const names = [...document.querySelectorAll('.file-list .file-item-name')]
+        .map((element) => element.textContent);
+      const stored = JSON.parse(localStorage.getItem('chorale.workspace.documents') ?? '[]')
+        .map((document) => document.id);
+      if (names.join(',') === expectedNames.join(',') && stored.join(',') === expectedIds.join(',')) {
+        return {
+          names,
+          stored,
+          placeholderCount: document.querySelectorAll('.file-list .drag-source-placeholder').length,
+          nativeDragImageCount: document.querySelectorAll('.file-item-drag-image').length,
+        };
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    throw new Error('Native file drop did not commit its visible order.');
+  })()`);
+  assert(
+    droppedDragState.placeholderCount === 0 && droppedDragState.nativeDragImageCount === 0,
+    `Native drag artifacts remained after drop (${JSON.stringify(droppedDragState)}).`,
+  );
+
   await closeCleanly(first, firstCDP);
   firstCDP.socket.close();
   assert(!first.output().includes('violates the following Content Security Policy'), (
@@ -687,6 +811,8 @@ try {
               storedWidth: Number(localStorage.getItem('chorale.workspace.chatWidth')),
               fileRailWidth: document.querySelector('.file-rail')?.getBoundingClientRect().width,
               storedFileRailWidth: Number(localStorage.getItem('chorale.workspace.fileRailWidth')),
+              fileOrder: [...document.querySelectorAll('.file-list .file-item-name')]
+                .map((element) => element.textContent),
               sheetZoom: document.querySelector('.scale-val')?.textContent,
               interfaceZoom: Number(getComputedStyle(document.body).zoom),
             };
@@ -710,6 +836,10 @@ try {
     Math.abs(persisted.fileRailWidth - persisted.storedFileRailWidth * persisted.interfaceZoom) <= 1,
     `File rail did not restore its persisted width (${persisted.fileRailWidth} vs ${persisted.storedFileRailWidth}).`,
   );
+  assert(
+    persisted.fileOrder.join(',') === expectedFileNames.join(','),
+    `Native file order jumped back after restart (${persisted.fileOrder.join(',')}).`,
+  );
   assert(persisted.sheetZoom === '110%', `Sheet zoom did not survive restart (${persisted.sheetZoom}).`);
   await closeCleanly(second, secondCDP);
   secondCDP.socket.close();
@@ -717,7 +847,7 @@ try {
     `Electron reported a CSP violation after restart:\n${second.output()}`
   ));
 
-  console.log('Electron smoke passed: app protocol, sandboxed bridge, centered score, settings UI, clean restart, and workspace persistence.');
+  console.log('Electron smoke passed: app protocol, native file drag, sandboxed bridge, centered score, settings UI, clean restart, and workspace persistence.');
 } finally {
   for (const child of launchedChildren) child.kill('SIGTERM');
   // Chromium helper processes can finish a final profile write just after the

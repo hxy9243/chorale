@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, createEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import abcjs from 'abcjs';
 import App, {
@@ -107,17 +107,42 @@ describe('App Integration', () => {
     render(<App />);
 
     const source = screen.getByRole('button', { name: 'Reorder First.abc' });
-    const target = screen.getByRole('button', { name: 'Open Second' }).closest('.file-item')!;
+    const target = screen.getByRole('button', { name: 'Open Second' }).closest<HTMLElement>('.file-item')!;
+    const fileList = target.closest<HTMLElement>('.file-list')!;
+    const rows = [...fileList.querySelectorAll<HTMLElement>('.file-item')];
+    rows.forEach((row) => {
+      row.getBoundingClientRect = () => {
+        const index = [...fileList.querySelectorAll('.file-item')].indexOf(row);
+        const top = 100 + index * 72;
+        return {
+          top,
+          bottom: top + 64,
+          left: 0,
+          right: 240,
+          width: 240,
+          height: 64,
+          x: 0,
+          y: top,
+        } as DOMRect;
+      };
+    });
     const dataTransfer = {
       effectAllowed: 'none',
       dropEffect: 'none',
       setData: vi.fn(),
+      setDragImage: vi.fn(),
       getData: vi.fn(() => 'drag-one'),
     };
+    const dragStart = createEvent.dragStart(source, { dataTransfer });
+    Object.defineProperty(dragStart, 'clientY', { value: 132 });
+    const dragOver = createEvent.dragOver(target, { dataTransfer });
+    Object.defineProperty(dragOver, 'clientY', { value: 220 });
+    const drop = createEvent.drop(target, { dataTransfer });
+    Object.defineProperty(drop, 'clientY', { value: 220 });
 
-    fireEvent.dragStart(source, { dataTransfer });
-    fireEvent.dragOver(target, { dataTransfer });
-    fireEvent.drop(target, { dataTransfer });
+    fireEvent(source, dragStart);
+    fireEvent(target, dragOver);
+    fireEvent(target, drop);
 
     await waitFor(() => {
       const names = [...document.querySelectorAll('.file-item-name')]

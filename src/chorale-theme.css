@@ -4640,6 +4640,17 @@ body,
   padding-block-end: var(--space-lg);
 }
 
+.file-item-drag-image {
+  position: fixed;
+  z-index: var(--z-modal);
+  top: 0;
+  left: 0;
+  width: var(--file-drag-image-width, 14.75rem);
+  margin: 0;
+  pointer-events: none;
+  transform: translate(-200vw, -200vh);
+}
+
 .file-item.dragging,
 .file-item.active.dragging {
   opacity: 1;
@@ -4650,6 +4661,11 @@ body,
 
 .file-item.dragging .file-item-meta {
   color: var(--color-muted);
+}
+
+.file-item.drag-source-placeholder,
+.file-item.active.drag-source-placeholder {
+  opacity: 0;
 }
 
 .file-item.drop-before,

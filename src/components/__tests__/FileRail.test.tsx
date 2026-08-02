@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, createEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { FileRail } from '../FileRail';
 import { createDocumentFromAbc } from '../../utils/fileSession';
@@ -6,6 +6,7 @@ import { createDocumentFromAbc } from '../../utils/fileSession';
 describe('FileRail Component', () => {
   const doc1 = createDocumentFromAbc('Bach Minuet.xml', 'musicxml', 'X:1\nK:G\nGAB');
   const doc2 = createDocumentFromAbc('Beethoven Ode.xml', 'musicxml', 'X:1\nK:C\nEDCD');
+  const doc3 = createDocumentFromAbc('Mozart Sonata.xml', 'musicxml', 'X:1\nK:C\nCEGc');
 
   const defaultProps = {
     documents: [doc1, doc2],
@@ -14,6 +15,87 @@ describe('FileRail Component', () => {
     onFileLoaded: vi.fn(),
     loading: false,
     error: null,
+  };
+
+  const setVerticalFileGeometry = (container: HTMLElement) => {
+    const fileList = container.querySelector<HTMLElement>('.file-list')!;
+    const rowHeight = 64;
+    const rowGap = 8;
+    const listTop = 100;
+    const rows = [...fileList.querySelectorAll<HTMLElement>('.file-item')];
+    rows.forEach((row) => {
+      row.getBoundingClientRect = () => {
+        const currentRows = [...fileList.querySelectorAll<HTMLElement>('.file-item')];
+        const index = currentRows.indexOf(row);
+        const top = listTop + index * (rowHeight + rowGap);
+        return {
+          top,
+          bottom: top + rowHeight,
+          left: 0,
+          right: 240,
+          width: 240,
+          height: rowHeight,
+          x: 0,
+          y: top,
+        } as DOMRect;
+      };
+    });
+    fileList.getBoundingClientRect = () => ({
+      top: listTop,
+      bottom: listTop + rows.length * (rowHeight + rowGap) + 24,
+      left: 0,
+      right: 240,
+      width: 240,
+      height: rows.length * (rowHeight + rowGap) + 24,
+      x: 0,
+      y: listTop,
+    } as DOMRect);
+    return { fileList, listTop, rowHeight, rowGap };
+  };
+
+  const createDataTransfer = (fileId: string) => ({
+    effectAllowed: 'none',
+    dropEffect: 'none',
+    setData: vi.fn(),
+    setDragImage: vi.fn(),
+    getData: vi.fn(() => fileId),
+  });
+
+  const fireDragStartAt = (
+    element: Element,
+    dataTransfer: ReturnType<typeof createDataTransfer>,
+    clientY: number,
+  ) => {
+    const event = createEvent.dragStart(element, { dataTransfer });
+    Object.defineProperty(event, 'clientY', { value: clientY });
+    fireEvent(element, event);
+  };
+  const fireDragOverAt = (
+    element: Element,
+    dataTransfer: ReturnType<typeof createDataTransfer>,
+    clientY: number,
+  ) => {
+    const event = createEvent.dragOver(element, { dataTransfer });
+    Object.defineProperty(event, 'clientY', { value: clientY });
+    fireEvent(element, event);
+  };
+  const fireDropAt = (
+    element: Element,
+    dataTransfer: ReturnType<typeof createDataTransfer>,
+    clientY: number,
+  ) => {
+    const event = createEvent.drop(element, { dataTransfer });
+    Object.defineProperty(event, 'clientY', { value: clientY });
+    fireEvent(element, event);
+  };
+  const fireDragEndAt = (
+    element: Element,
+    dataTransfer: ReturnType<typeof createDataTransfer>,
+    clientY: number,
+  ) => {
+    const event = createEvent.dragEnd(element, { dataTransfer });
+    Object.defineProperty(event, 'clientY', { value: clientY });
+    fireEvent(element, event);
   };
 
   it('renders icon-only work tabs and opens settings directly', () => {
@@ -102,75 +184,205 @@ describe('FileRail Component', () => {
     expect(onDeleteDocument).toHaveBeenCalledWith(doc1.id);
   });
 
-  it('uses direction-aware whole-row drop targets and keyboard reordering', () => {
+  it('reorders rows live like browser tabs and preserves keyboard reordering', () => {
     const onReorderDocument = vi.fn();
-    render(<FileRail {...defaultProps} onReorderDocument={onReorderDocument} />);
+    const { container } = render(
+      <FileRail {...defaultProps} onReorderDocument={onReorderDocument} />,
+    );
+    const { fileList, listTop, rowHeight, rowGap } = setVerticalFileGeometry(container);
 
     const source = screen.getByRole('button', { name: `Reorder ${doc1.name}` });
-    const target = screen.getByRole('button', { name: 'Open Beethoven Ode' }).closest('.file-item')!;
-    const dataTransfer = {
-      effectAllowed: 'none',
-      dropEffect: 'none',
-      setData: vi.fn(),
-      setDragImage: vi.fn(),
-      getData: vi.fn(() => doc1.id),
-    };
+    const target = screen.getByRole('button', { name: 'Open Beethoven Ode' }).closest<HTMLElement>('.file-item')!;
+    const dataTransfer = createDataTransfer(doc1.id);
+    const sourceCenterY = listTop + rowHeight / 2;
+    const targetLowerY = listTop + rowHeight + rowGap + rowHeight * 0.75;
 
-    target.getBoundingClientRect = () => ({
-      top: 100,
-      bottom: 164,
-      height: 64,
-    } as DOMRect);
-    fireEvent.dragStart(source, { dataTransfer });
+    fireDragStartAt(source, dataTransfer, sourceCenterY);
     expect(source.closest('.file-item')?.className).toContain('dragging');
     expect(dataTransfer.setDragImage).toHaveBeenCalled();
-    fireEvent.dragOver(target, { dataTransfer, clientY: 150 });
-    expect(target.className).toContain('drop-after');
-    fireEvent.drop(target, { dataTransfer, clientY: 150 });
+    fireDragOverAt(target, dataTransfer, targetLowerY);
+    expect([...fileList.querySelectorAll('.file-item-name')].map((element) => element.textContent))
+      .toEqual(['Beethoven Ode', 'Bach Minuet']);
+    fireDropAt(target, dataTransfer, targetLowerY);
+    fireDragEndAt(source, dataTransfer, targetLowerY);
 
     expect(onReorderDocument).toHaveBeenCalledWith(doc1.id, doc2.id, 'after');
-    fireEvent.keyDown(source, { key: 'ArrowDown' });
-    expect(onReorderDocument).toHaveBeenLastCalledWith(doc1.id, doc2.id, 'after');
+    expect(onReorderDocument).toHaveBeenCalledTimes(1);
 
-    const upwardSource = screen.getByRole('button', { name: `Reorder ${doc2.name}` });
-    const upwardTarget = screen.getByRole('button', { name: 'Open Bach Minuet' }).closest('.file-item')!;
-    const upwardDataTransfer = {
-      ...dataTransfer,
-      getData: vi.fn(() => doc2.id),
-    };
-    upwardTarget.getBoundingClientRect = () => ({
-      top: 200,
-      bottom: 264,
-      height: 64,
-    } as DOMRect);
-    fireEvent.dragStart(upwardSource, { dataTransfer: upwardDataTransfer });
-    fireEvent.dragOver(upwardTarget, { dataTransfer: upwardDataTransfer, clientY: 210 });
-    expect(upwardTarget.className).toContain('drop-before');
-    fireEvent.drop(upwardTarget, { dataTransfer: upwardDataTransfer, clientY: 210 });
-    expect(onReorderDocument).toHaveBeenLastCalledWith(doc2.id, doc1.id, 'before');
+    fireEvent.keyDown(source, { key: 'ArrowUp' });
+    expect([...fileList.querySelectorAll('.file-item-name')].map((element) => element.textContent))
+      .toEqual(['Bach Minuet', 'Beethoven Ode']);
+    expect(onReorderDocument).toHaveBeenLastCalledWith(doc1.id, doc2.id, 'before');
     expect(screen.queryByLabelText(`Move ${doc1.name} down`)).toBeNull();
   });
 
-  it('accepts a drop in trailing list space and keeps the source row visible', () => {
+  it('positions a native drag by the dragged row center instead of the raw pointer', () => {
+    const onReorderDocument = vi.fn();
+    const { container } = render(
+      <FileRail {...defaultProps} onReorderDocument={onReorderDocument} />,
+    );
+    const { fileList, listTop, rowHeight, rowGap } = setVerticalFileGeometry(container);
+    const source = screen.getByRole('button', { name: `Reorder ${doc1.name}` });
+    const target = screen.getByRole('button', { name: 'Open Beethoven Ode' }).closest<HTMLElement>('.file-item')!;
+    const dataTransfer = createDataTransfer(doc1.id);
+    const grabNearTopY = listTop + rowHeight * 0.1;
+    const targetQuarterY = listTop + rowHeight + rowGap + rowHeight * 0.25;
+
+    fireDragStartAt(source, dataTransfer, grabNearTopY);
+    fireDragOverAt(target, dataTransfer, targetQuarterY);
+
+    expect([...fileList.querySelectorAll('.file-item-name')].map((element) => element.textContent))
+      .toEqual(['Beethoven Ode', 'Bach Minuet']);
+  });
+
+  it('does not reorder early when the row was grabbed near its bottom edge', () => {
+    const onReorderDocument = vi.fn();
+    const { container } = render(
+      <FileRail {...defaultProps} onReorderDocument={onReorderDocument} />,
+    );
+    const { fileList, listTop, rowHeight, rowGap } = setVerticalFileGeometry(container);
+    const source = screen.getByRole('button', { name: `Reorder ${doc1.name}` });
+    const target = screen.getByRole('button', { name: 'Open Beethoven Ode' }).closest<HTMLElement>('.file-item')!;
+    const dataTransfer = createDataTransfer(doc1.id);
+    const grabNearBottomY = listTop + rowHeight * 0.9;
+    const targetThreeQuarterY = listTop + rowHeight + rowGap + rowHeight * 0.75;
+
+    fireDragStartAt(source, dataTransfer, grabNearBottomY);
+    fireDragOverAt(target, dataTransfer, targetThreeQuarterY);
+
+    expect([...fileList.querySelectorAll('.file-item-name')].map((element) => element.textContent))
+      .toEqual(['Bach Minuet', 'Beethoven Ode']);
+  });
+
+  it('moves across multiple rows using their rendered centers', () => {
+    const onReorderDocument = vi.fn();
+    const { container } = render(
+      <FileRail
+        {...defaultProps}
+        documents={[doc1, doc2, doc3]}
+        onReorderDocument={onReorderDocument}
+      />,
+    );
+    const { fileList, listTop, rowHeight, rowGap } = setVerticalFileGeometry(container);
+    const source = screen.getByRole('button', { name: `Reorder ${doc1.name}` });
+    const target = screen.getByRole('button', { name: 'Open Mozart Sonata' }).closest<HTMLElement>('.file-item')!;
+    const dataTransfer = createDataTransfer(doc1.id);
+    const sourceCenterY = listTop + rowHeight / 2;
+    const thirdRowLowerY = listTop + (rowHeight + rowGap) * 2 + rowHeight * 0.75;
+
+    fireDragStartAt(source, dataTransfer, sourceCenterY);
+    fireDragOverAt(target, dataTransfer, thirdRowLowerY);
+    fireDropAt(target, dataTransfer, thirdRowLowerY);
+
+    expect([...fileList.querySelectorAll('.file-item-name')].map((element) => element.textContent))
+      .toEqual(['Beethoven Ode', 'Mozart Sonata', 'Bach Minuet']);
+    expect(onReorderDocument).toHaveBeenCalledWith(doc1.id, doc3.id, 'after');
+  });
+
+  it('uses a native row drag image, removes the source placeholder, and keeps the dropped order', async () => {
     const onReorderDocument = vi.fn();
     const { container } = render(
       <FileRail {...defaultProps} onReorderDocument={onReorderDocument} />,
     );
     const source = screen.getByRole('button', { name: `Reorder ${doc1.name}` });
-    const fileList = container.querySelector('.file-list')!;
-    const dataTransfer = {
-      effectAllowed: 'none',
-      dropEffect: 'none',
-      setData: vi.fn(),
-      setDragImage: vi.fn(),
-      getData: vi.fn(() => doc1.id),
-    };
+    const sourceRow = source.closest<HTMLElement>('.file-item')!;
+    const { fileList, listTop, rowHeight, rowGap } = setVerticalFileGeometry(container);
+    const dataTransfer = createDataTransfer(doc1.id);
+    const sourceCenterY = listTop + rowHeight / 2;
+    const trailingY = listTop + (rowHeight + rowGap) * 2 + 12;
 
-    fireEvent.dragStart(source, { dataTransfer });
-    expect(source.closest('.file-item')?.className).toContain('dragging');
-    fireEvent.dragOver(fileList, { dataTransfer });
-    fireEvent.drop(fileList, { dataTransfer });
+    expect(sourceRow.draggable).toBe(true);
+    expect(source.draggable).toBe(false);
+    fireDragStartAt(source, dataTransfer, sourceCenterY);
+    const dragImage = dataTransfer.setDragImage.mock.calls[0]?.[0] as HTMLElement;
+    expect(dragImage.className).toContain('file-item-drag-image');
+    expect(document.body.contains(dragImage)).toBe(true);
+
+    await waitFor(() => {
+      expect(sourceRow.className).toContain('drag-source-placeholder');
+    });
+    expect([...fileList.querySelectorAll('.file-item:not(.drag-source-placeholder)')]).toHaveLength(1);
+
+    fireDragOverAt(fileList, dataTransfer, trailingY);
+    expect([...fileList.querySelectorAll('.file-item-name')].map((element) => element.textContent))
+      .toEqual(['Beethoven Ode', 'Bach Minuet']);
+    fireDropAt(fileList, dataTransfer, trailingY);
 
     expect(onReorderDocument).toHaveBeenCalledWith(doc1.id, doc2.id, 'after');
+    expect([...fileList.querySelectorAll('.file-item-name')].map((element) => element.textContent))
+      .toEqual(['Beethoven Ode', 'Bach Minuet']);
+    expect(sourceRow.className).not.toContain('drag-source-placeholder');
+    expect(document.body.contains(dragImage)).toBe(false);
+  });
+
+  it('commits the live order when Chromium ends a fast drag without a drop event', () => {
+    const onReorderDocument = vi.fn();
+    const { container } = render(
+      <FileRail {...defaultProps} onReorderDocument={onReorderDocument} />,
+    );
+    const { fileList, listTop, rowHeight, rowGap } = setVerticalFileGeometry(container);
+    const source = screen.getByRole('button', { name: `Reorder ${doc1.name}` });
+    const target = screen.getByRole('button', { name: 'Open Beethoven Ode' }).closest<HTMLElement>('.file-item')!;
+    const dataTransfer = createDataTransfer(doc1.id);
+    const sourceCenterY = listTop + rowHeight / 2;
+    const targetLowerY = listTop + rowHeight + rowGap + rowHeight * 0.75;
+
+    fireDragStartAt(source, dataTransfer, sourceCenterY);
+    fireDragOverAt(target, dataTransfer, targetLowerY);
+    expect([...fileList.querySelectorAll('.file-item-name')].map((element) => element.textContent))
+      .toEqual(['Beethoven Ode', 'Bach Minuet']);
+
+    fireDragEndAt(source, dataTransfer, targetLowerY);
+
+    expect([...fileList.querySelectorAll('.file-item-name')].map((element) => element.textContent))
+      .toEqual(['Beethoven Ode', 'Bach Minuet']);
+    expect(onReorderDocument).toHaveBeenCalledWith(doc1.id, doc2.id, 'after');
+  });
+
+  it('recomputes the final pointer position on drop', () => {
+    const onReorderDocument = vi.fn();
+    const { container } = render(
+      <FileRail {...defaultProps} onReorderDocument={onReorderDocument} />,
+    );
+    const { fileList, listTop, rowHeight, rowGap } = setVerticalFileGeometry(container);
+    const source = screen.getByRole('button', { name: `Reorder ${doc1.name}` });
+    const target = screen.getByRole('button', { name: 'Open Beethoven Ode' }).closest<HTMLElement>('.file-item')!;
+    const dataTransfer = createDataTransfer(doc1.id);
+    const sourceCenterY = listTop + rowHeight / 2;
+    const targetLowerY = listTop + rowHeight + rowGap + rowHeight * 0.75;
+    const finalBeforeFirstRowY = listTop + rowHeight * 0.25;
+
+    fireDragStartAt(source, dataTransfer, sourceCenterY);
+    fireDragOverAt(target, dataTransfer, targetLowerY);
+    expect([...fileList.querySelectorAll('.file-item-name')].map((element) => element.textContent))
+      .toEqual(['Beethoven Ode', 'Bach Minuet']);
+
+    fireDropAt(fileList, dataTransfer, finalBeforeFirstRowY);
+
+    expect([...fileList.querySelectorAll('.file-item-name')].map((element) => element.textContent))
+      .toEqual(['Bach Minuet', 'Beethoven Ode']);
+    expect(onReorderDocument).not.toHaveBeenCalled();
+  });
+
+  it('restores the starting order only after an explicit Escape cancellation', () => {
+    const onReorderDocument = vi.fn();
+    const { container } = render(
+      <FileRail {...defaultProps} onReorderDocument={onReorderDocument} />,
+    );
+    const { fileList, listTop, rowHeight, rowGap } = setVerticalFileGeometry(container);
+    const source = screen.getByRole('button', { name: `Reorder ${doc1.name}` });
+    const target = screen.getByRole('button', { name: 'Open Beethoven Ode' }).closest<HTMLElement>('.file-item')!;
+    const dataTransfer = createDataTransfer(doc1.id);
+    const sourceCenterY = listTop + rowHeight / 2;
+    const targetLowerY = listTop + rowHeight + rowGap + rowHeight * 0.75;
+
+    fireDragStartAt(source, dataTransfer, sourceCenterY);
+    fireDragOverAt(target, dataTransfer, targetLowerY);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    fireDragEndAt(source, dataTransfer, targetLowerY);
+
+    expect([...fileList.querySelectorAll('.file-item-name')].map((element) => element.textContent))
+      .toEqual(['Bach Minuet', 'Beethoven Ode']);
+    expect(onReorderDocument).not.toHaveBeenCalled();
   });
 });
