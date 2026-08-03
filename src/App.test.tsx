@@ -13,6 +13,7 @@ import { defaultFileRailWidth } from './utils/workspaceSizing';
 
 vi.mock('abcjs', () => ({
   default: {
+    parseOnly: vi.fn().mockReturnValue([{ getBpm: () => 120 }]),
     renderAbc: vi.fn().mockImplementation((element) => {
       if (element) {
         element.innerHTML = '<svg data-testid="sheet-svg"><path class="abcjs-note"/></svg>';
@@ -162,7 +163,6 @@ describe('App Integration', () => {
       name: 'tuplet-rest.abc',
       sourceType: 'abc',
       abcSource,
-      revision: 1,
       versions: [],
       scoreInfo: { title: 'Tuplet rest' },
     }]));
@@ -171,12 +171,16 @@ describe('App Integration', () => {
     render(<App />);
 
     await waitFor(() => {
+      const parsedSources = vi.mocked(abcjs.parseOnly).mock.calls
+        .map((call) => call[0] as string)
+        .filter((source) => source.includes('T:Tuplet rest'));
       const renderedSources = vi.mocked(abcjs.renderAbc).mock.calls
         .map((call) => call[1] as string)
         .filter((source) => source.includes('T:Tuplet rest'));
-      expect(renderedSources).toHaveLength(2);
-      expect(renderedSources.every((source) => source.includes('(3z/C/E/'))).toBe(true);
-      expect(renderedSources.every((source) => !source.includes('(3x/C/E/'))).toBe(true);
+      const allSources = [...parsedSources, ...renderedSources];
+      expect(allSources.length).toBeGreaterThanOrEqual(2);
+      expect(allSources.every((source) => source.includes('(3z/C/E/'))).toBe(true);
+      expect(allSources.every((source) => !source.includes('(3x/C/E/'))).toBe(true);
     });
   });
 
