@@ -308,4 +308,40 @@ describe('AudioPlayer Component', () => {
     expect(instanceControl.seek).toHaveBeenCalledWith(5, 'seconds');
     expect(instanceControl.play).toHaveBeenCalledTimes(1);
   });
+
+  it('resets playing state to paused when switching to a different tune while playing', async () => {
+    const tuneOne = { ...mockTune };
+    const tuneTwo = { ...mockTune };
+    const onPlaybackPositionChange = vi.fn();
+
+    const { rerender } = render(
+      <AudioPlayer
+        tunes={[tuneOne]}
+        onPlaybackPositionChange={onPlaybackPositionChange}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+
+    const playBtn = screen.getByTitle('Play Piano Synthesizer');
+    fireEvent.click(playBtn);
+    expect(screen.getByTitle('Pause Audio')).toBeDefined();
+
+    // Switch to tuneTwo
+    rerender(
+      <AudioPlayer
+        tunes={[tuneTwo]}
+        onPlaybackPositionChange={onPlaybackPositionChange}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByTitle('Pause Audio')).toBeNull();
+      expect(screen.getByTitle('Play Piano Synthesizer')).toBeDefined();
+    });
+
+    expect(onPlaybackPositionChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ isPlaying: false })
+    );
+  });
 });

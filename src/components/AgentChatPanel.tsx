@@ -395,6 +395,8 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     await ai.setSelection(firstModel ? { connectionId, modelId: firstModel.id } : null);
   };
 
+  if (!open) return null;
+
   return (
     <aside className="agent-panel" aria-label="Current sheet assistant" ref={panelRef}>
       <div className="agent-panel-header">
