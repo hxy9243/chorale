@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { storageAdapter } from '../storageAdapter';
 import type { FileDocument } from '../../types/document';
 
@@ -7,6 +7,10 @@ describe('storageAdapter', () => {
     localStorage.clear();
     storageAdapter.clearMemoryStore();
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   const sampleDoc: FileDocument = {
@@ -23,7 +27,9 @@ describe('storageAdapter', () => {
     updatedAt: '2026-08-03T00:00:00.000Z',
   };
 
-  it('saves and retrieves documents using memory/IndexedDB storage without writing to localStorage', async () => {
+  it('saves and retrieves documents using memory storage when IndexedDB is unavailable', async () => {
+    vi.stubGlobal('indexedDB', undefined);
+
     const success = await storageAdapter.saveDocuments([sampleDoc]);
     expect(success).toBe(true);
 
@@ -33,5 +39,17 @@ describe('storageAdapter', () => {
 
     // localStorage must NOT contain documents (IndexedDB is single authority)
     expect(localStorage.getItem('chorale.workspace.documents')).toBeNull();
+  });
+
+  it('rejects the save when IndexedDB cannot be opened', async () => {
+    vi.stubGlobal('indexedDB', {
+      open: vi.fn(() => {
+        throw new Error('IndexedDB open failed');
+      }),
+    });
+
+    await expect(storageAdapter.saveDocuments([sampleDoc])).rejects.toThrow(
+      'IndexedDB open failed',
+    );
   });
 });
