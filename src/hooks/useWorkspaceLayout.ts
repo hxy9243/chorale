@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useResizablePanel } from './useResizablePanel';
 import {
   clampEditorPanelWidth,
   clampChatPanelWidth,
@@ -70,9 +71,7 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
     )
   ));
 
-  const editorDragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
-  const railDragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
-  const chatDragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
 
   useEffect(() => {
     window.localStorage.setItem(EDITOR_VISIBLE_KEY, String(editorVisible));
@@ -109,80 +108,29 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, [layoutViewportWidth]);
 
-  const beginEditorResize = (event: React.PointerEvent<HTMLButtonElement>) => {
-    editorDragStateRef.current = {
-      startX: event.clientX,
-      startWidth: editorWidth,
-    };
-    const nextTarget = event.currentTarget;
-    nextTarget.setPointerCapture(event.pointerId);
+  const { beginResize: beginEditorResize } = useResizablePanel({
+    initialWidth: editorWidth,
+    clampWidth: clampEditorPanelWidth,
+    onWidthChange: setEditorWidth,
+    direction: 'left',
+  });
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const dragState = editorDragStateRef.current;
-      if (!dragState) return;
-      const delta = dragState.startX - moveEvent.clientX;
-      setEditorWidth(clampEditorPanelWidth(dragState.startWidth + delta));
-    };
+  const { beginResize: beginRailResize } = useResizablePanel({
+    initialWidth: railWidth,
+    clampWidth: clampFileRailWidth,
+    onWidthChange: setRailWidth,
+    direction: 'right',
+  });
 
-    const handlePointerUp = () => {
-      editorDragStateRef.current = null;
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-    };
-
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp, { once: true });
-  };
-
-  const beginRailResize = (event: React.PointerEvent<HTMLButtonElement>) => {
-    railDragStateRef.current = {
-      startX: event.clientX,
-      startWidth: railWidth,
-    };
-    const nextTarget = event.currentTarget;
-    nextTarget.setPointerCapture(event.pointerId);
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const dragState = railDragStateRef.current;
-      if (!dragState) return;
-      const delta = moveEvent.clientX - dragState.startX;
-      setRailWidth(clampFileRailWidth(dragState.startWidth + delta));
-    };
-
-    const handlePointerUp = () => {
-      railDragStateRef.current = null;
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-    };
-
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp, { once: true });
-  };
-
-  const beginChatResize = (event: React.PointerEvent<HTMLButtonElement>) => {
-    chatDragStateRef.current = {
-      startX: event.clientX,
-      startWidth: chatWidth,
-    };
-    const nextTarget = event.currentTarget;
-    nextTarget.setPointerCapture(event.pointerId);
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const dragState = chatDragStateRef.current;
-      if (!dragState) return;
-      const delta = dragState.startX - moveEvent.clientX;
-      setChatWidth(clampChatPanelWidth(dragState.startWidth + delta, layoutViewportWidth()));
-    };
-
-    const handlePointerUp = () => {
-      chatDragStateRef.current = null;
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-    };
-
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp, { once: true });
-  };
+  const { beginResize: beginChatResize } = useResizablePanel({
+    initialWidth: chatWidth,
+    clampWidth: useCallback(
+      (width: number) => clampChatPanelWidth(width, layoutViewportWidth()),
+      [layoutViewportWidth],
+    ),
+    onWidthChange: setChatWidth,
+    direction: 'left',
+  });
 
   const fittedPanelLayout = useMemo(() => fitWorkspacePanelLayout({
     viewportWidth: layoutWidth,
