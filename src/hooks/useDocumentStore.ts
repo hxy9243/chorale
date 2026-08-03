@@ -5,10 +5,11 @@ import { PRESET_SAMPLES } from '../data/samples';
 import { extractMusicXml, parseMusicXmlToAbc } from '../utils/xmlParser';
 import {
   createDocumentFromAbc,
-  limitScoreVersions,
   sampleToDocument,
   updateDocumentAbc,
 } from '../utils/fileSession';
+
+import { storageAdapter } from '../utils/storageAdapter';
 
 const DOCUMENTS_STORAGE_KEY = 'chorale.workspace.documents';
 const ACTIVE_FILE_KEY = 'chorale.workspace.activeFileId';
@@ -16,29 +17,13 @@ const AUTOSAVE_DELAY_MS = 400;
 
 export type SaveStatus = 'saved' | 'saving' | 'error';
 
-const readStoredDocuments = (): FileDocument[] => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(DOCUMENTS_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map((document) => ({
-      ...document,
-      versions: limitScoreVersions(Array.isArray(document.versions) ? document.versions : []),
-    }));
-  } catch {
-    return [];
-  }
-};
-
 const readStoredActiveFileId = (): string => {
   if (typeof window === 'undefined') return '';
   return window.localStorage.getItem(ACTIVE_FILE_KEY) || '';
 };
 
 export const useDocumentStore = () => {
-  const [documents, setDocuments] = useState<FileDocument[]>(() => readStoredDocuments());
+  const [documents, setDocuments] = useState<FileDocument[]>(() => storageAdapter.readStoredDocumentsSync());
   const [activeFileId, setActiveFileId] = useState<string>(() => readStoredActiveFileId());
   const [activeAnchor, setActiveAnchor] = useState<ScoreAnchor | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
@@ -55,20 +40,19 @@ export const useDocumentStore = () => {
 
   useEffect(() => {
     if (documents.length === 0) {
-      window.localStorage.removeItem(DOCUMENTS_STORAGE_KEY);
+      void storageAdapter.removeItem(DOCUMENTS_STORAGE_KEY);
       setSaveStatus('saved');
       return;
     }
 
     setSaveStatus('saving');
     const timeout = window.setTimeout(() => {
-      try {
-        window.localStorage.setItem(DOCUMENTS_STORAGE_KEY, JSON.stringify(documents));
-        setSaveStatus('saved');
-      } catch (caught) {
-        console.error('Failed to auto-save documents:', caught);
-        setSaveStatus('error');
-      }
+      void storageAdapter.setItem(DOCUMENTS_STORAGE_KEY, documents)
+        .then(() => setSaveStatus('saved'))
+        .catch((caught) => {
+          console.error('Failed to auto-save documents:', caught);
+          setSaveStatus('error');
+        });
     }, AUTOSAVE_DELAY_MS);
 
     return () => window.clearTimeout(timeout);
