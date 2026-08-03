@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import abcjs from 'abcjs';
 import {
+  bindAudioSynthesis,
   clearAudioTuneCache,
   configureAudioPlayback,
+  hideSvgNode,
   hideSyntheticTupletRests,
   prepareAbcForAudio,
   prepareAbcForPlayback,
@@ -206,6 +208,25 @@ x2 (3:2:2A,/ (D, (3:2:1C,3/2) | B,4 | C4 | D4 |`;
 
     expect(audio1).toBeDefined();
     expect(audio2).toBeDefined();
+  });
+
+  it('safely handles binding audio synthesis to malformed tune objects', () => {
+    const target = {} as abcjs.TuneObject;
+    const invalidSource = {} as abcjs.TuneObject;
+    expect(bindAudioSynthesis(target, invalidSource)).toBe(false);
+
+    const validSource = { setUpAudio: () => ({}) } as unknown as abcjs.TuneObject;
+    expect(bindAudioSynthesis(target, validSource)).toBe(true);
+    expect(typeof target.setUpAudio).toBe('function');
+  });
+
+  it('safely conceals SVG nodes without throwing errors when missing or invalid', () => {
+    expect(() => hideSvgNode(null)).not.toThrow();
+    expect(() => hideSvgNode(undefined)).not.toThrow();
+
+    const mockElem = { setAttribute: vi.fn() } as unknown as SVGElement;
+    hideSvgNode(mockElem);
+    expect(mockElem.setAttribute).toHaveBeenCalledWith('visibility', 'hidden');
   });
 });
 

@@ -108,6 +108,30 @@ export function clearAudioTuneCache(): void {
   audioTuneCache.clear();
 }
 
+export function bindAudioSynthesis(
+  targetTune: abcjs.TuneObject,
+  audioSourceTune: abcjs.TuneObject,
+): boolean {
+  if (typeof audioSourceTune?.setUpAudio !== 'function') return false;
+  try {
+    targetTune.setUpAudio = audioSourceTune.setUpAudio.bind(audioSourceTune);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function hideSvgNode(svgElement: SVGElement | null | undefined): void {
+  if (!svgElement || typeof svgElement.setAttribute !== 'function') return;
+  try {
+    svgElement.setAttribute('visibility', 'hidden');
+    svgElement.setAttribute('aria-hidden', 'true');
+    svgElement.setAttribute('pointer-events', 'none');
+  } catch {
+    // Ignore DOM detachment errors
+  }
+}
+
 /**
  * Keeps the engraved tune as the source of cursor and timing events while
  * supplying it with an equivalent, hairpin-safe synthesis event stream.
@@ -135,8 +159,9 @@ export function configureAudioPlayback(
 
   for (const [index, tune] of tunes.entries()) {
     const audioTune = audioTunes[index];
-    if (!audioTune?.setUpAudio) continue;
-    tune.setUpAudio = audioTune.setUpAudio.bind(audioTune);
+    if (audioTune) {
+      bindAudioSynthesis(tune, audioTune);
+    }
   }
 }
 
@@ -178,9 +203,7 @@ export function hideSyntheticTupletRests(
   for (const tune of tunes as TuneWithEngraver[]) {
     for (const selectable of tune.engraver?.selectables ?? []) {
       if (!offsets.has(selectable.absEl?.abcelem?.startChar ?? -1)) continue;
-      selectable.svgEl?.setAttribute('visibility', 'hidden');
-      selectable.svgEl?.setAttribute('aria-hidden', 'true');
-      selectable.svgEl?.setAttribute('pointer-events', 'none');
+      hideSvgNode(selectable.svgEl);
     }
   }
 }
