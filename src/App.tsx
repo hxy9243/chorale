@@ -251,6 +251,12 @@ export const App: React.FC = () => {
                 onResetZoom={() => setZoom(DEFAULT_SHEET_ZOOM)}
               />
 
+              {!activeDocument && (
+                <div className="empty-sheet-placeholder" role="status">
+                  please import a music sheet to start working
+                </div>
+              )}
+              {activeDocument && <>
               <div className="score-canvas">
                 <div className="score-sheet">
                   <div className="score-sheet-heading">
@@ -293,6 +299,7 @@ export const App: React.FC = () => {
                 </div>
 
               </div>
+              </>}
             </section>
 
             {editorVisible && (

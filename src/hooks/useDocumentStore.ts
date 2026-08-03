@@ -88,6 +88,8 @@ export const useDocumentStore = () => {
   useEffect(() => {
     if (activeFileId) {
       window.localStorage.setItem(ACTIVE_FILE_KEY, activeFileId);
+    } else {
+      window.localStorage.removeItem(ACTIVE_FILE_KEY);
     }
   }, [activeFileId]);
 

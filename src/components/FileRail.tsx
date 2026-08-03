@@ -539,7 +539,6 @@ export const FileRail: React.FC<FileRailProps> = ({
                         type="button"
                         className="file-action-btn delete-btn"
                         onClick={() => onDeleteDocument(doc.id)}
-                        disabled={documents.length <= 1}
                         title="Delete file"
                         aria-label={`Delete ${doc.name}`}
                       >

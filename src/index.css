@@ -2216,6 +2216,17 @@ textarea {
   overflow: hidden;
 }
 
+.empty-sheet-placeholder {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  color: var(--figma-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
 .score-card-header {
   display: flex;
   min-height: 58px;

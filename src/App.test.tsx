@@ -261,6 +261,46 @@ describe('App Integration', () => {
     });
   });
 
+  it('allows deleting the final file and shows the empty sheet placeholder', async () => {
+    const first = {
+      id: 'delete-first',
+      name: 'First.abc',
+      sourceType: 'abc' as const,
+      abcSource: 'X:1\nT:First\nK:C\nCDEF|',
+      revision: 1,
+      annotations: [],
+      chats: [],
+      versions: [],
+      scoreInfo: { title: 'First' },
+      createdAt: '2026-08-03T00:00:00.000Z',
+      updatedAt: '2026-08-03T00:00:00.000Z',
+    };
+    const second = {
+      ...first,
+      id: 'delete-second',
+      name: 'Second.abc',
+      abcSource: 'X:1\nT:Second\nK:C\nGABc|',
+      scoreInfo: { title: 'Second' },
+    };
+    await storageAdapter.saveDocuments([first, second]);
+    localStorage.setItem('chorale.workspace.activeFileId', first.id);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Delete First.abc' })).toBeDefined();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Delete First.abc' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Delete Second.abc' })).toBeDefined();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Second.abc' }));
+
+    expect(await screen.findByText('please import a music sheet to start working')).toBeDefined();
+    expect(screen.queryByTestId('sheet-svg')).toBeNull();
+    expect(localStorage.getItem('chorale.workspace.activeFileId')).toBeNull();
+  });
+
   it('keeps a persistent control for reopening chat after it is closed', async () => {
     render(<App />);
 
