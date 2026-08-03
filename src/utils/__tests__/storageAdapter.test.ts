@@ -23,26 +23,13 @@ describe('storageAdapter', () => {
     updatedAt: '2026-08-03T00:00:00.000Z',
   };
 
-  it('reads stored legacy documents synchronously from localStorage fallback', () => {
-    localStorage.setItem('chorale.workspace.documents', JSON.stringify([sampleDoc]));
-
-    const loaded = storageAdapter.getLegacyLocalStorageDocuments();
-    expect(loaded).toHaveLength(1);
-    expect(loaded[0].name).toBe('Test.abc');
-  });
-
-  it('clears legacy localStorage documents key', () => {
-    localStorage.setItem('chorale.workspace.documents', JSON.stringify([sampleDoc]));
-    expect(storageAdapter.getLegacyLocalStorageDocuments()).toHaveLength(1);
-
-    storageAdapter.clearLegacyLocalStorageDocuments();
-    expect(storageAdapter.getLegacyLocalStorageDocuments()).toHaveLength(0);
-    expect(localStorage.getItem('chorale.workspace.documents')).toBeNull();
-  });
-
-  it('saves documents without writing to localStorage', async () => {
+  it('saves and retrieves documents using memory/IndexedDB storage without writing to localStorage', async () => {
     const success = await storageAdapter.saveDocuments([sampleDoc]);
     expect(success).toBe(true);
+
+    const docs = await storageAdapter.getDocuments();
+    expect(docs).toHaveLength(1);
+    expect(docs[0].name).toBe('Test.abc');
 
     // localStorage must NOT contain documents (IndexedDB is single authority)
     expect(localStorage.getItem('chorale.workspace.documents')).toBeNull();

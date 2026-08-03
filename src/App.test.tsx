@@ -86,15 +86,19 @@ describe('App Integration', () => {
   }, 10000);
 
   it('reorders persisted files through the drag-and-drop rail contract', async () => {
-    localStorage.setItem('chorale.workspace.documents', JSON.stringify([
+    await storageAdapter.saveDocuments([
       {
         id: 'drag-one',
         name: 'First.abc',
         sourceType: 'abc',
         abcSource: 'X:1\nT:First\nK:C\nCDEF|',
         revision: 1,
+        annotations: [],
+        chats: [],
         versions: [],
         scoreInfo: { title: 'First' },
+        createdAt: '2026-08-03T00:00:00.000Z',
+        updatedAt: '2026-08-03T00:00:00.000Z',
       },
       {
         id: 'drag-two',
@@ -102,10 +106,14 @@ describe('App Integration', () => {
         sourceType: 'abc',
         abcSource: 'X:1\nT:Second\nK:C\nGABc|',
         revision: 1,
+        annotations: [],
+        chats: [],
         versions: [],
         scoreInfo: { title: 'Second' },
+        createdAt: '2026-08-03T00:00:00.000Z',
+        updatedAt: '2026-08-03T00:00:00.000Z',
       },
-    ]));
+    ]);
     localStorage.setItem('chorale.workspace.activeFileId', 'drag-one');
     render(<App />);
     await waitFor(() => {
@@ -169,14 +177,19 @@ describe('App Integration', () => {
 
   it('normalizes unsupported ABC before both visible and validation rendering', async () => {
     const abcSource = 'X:1\nT:Tuplet rest\nL:1/4\nM:2/4\nK:C\n(3x/C/E/ C |';
-    localStorage.setItem('chorale.workspace.documents', JSON.stringify([{
+    await storageAdapter.saveDocuments([{
       id: 'tuplet-rest',
       name: 'tuplet-rest.abc',
-      sourceType: 'abc',
+      sourceType: 'abc' as const,
       abcSource,
+      revision: 1,
+      annotations: [],
+      chats: [],
       versions: [],
       scoreInfo: { title: 'Tuplet rest' },
-    }]));
+      createdAt: '2026-08-03T00:00:00.000Z',
+      updatedAt: '2026-08-03T00:00:00.000Z',
+    }]);
     localStorage.setItem('chorale.workspace.activeFileId', 'tuplet-rest');
 
     render(<App />);
@@ -201,22 +214,30 @@ describe('App Integration', () => {
     const doc1 = {
       id: 'doc-1',
       name: 'Twinkle, Twinkle, Little Star.xml',
-      sourceType: 'musicxml',
+      sourceType: 'musicxml' as const,
       abcSource: 'X:1\nT:Twinkle, Twinkle, Little Star\nK:C\nCCGG',
       revision: 1,
+      annotations: [],
+      chats: [],
       versions: [],
       scoreInfo: { title: 'Twinkle, Twinkle, Little Star', composer: 'Traditional' },
+      createdAt: '2026-08-03T00:00:00.000Z',
+      updatedAt: '2026-08-03T00:00:00.000Z',
     };
     const doc2 = {
       id: 'doc-2',
       name: 'Moonlight Sonata.xml',
-      sourceType: 'musicxml',
+      sourceType: 'musicxml' as const,
       abcSource: 'X:1\nT:Moonlight Sonata\nK:C#m\nCDEF',
       revision: 1,
+      annotations: [],
+      chats: [],
       versions: [],
       scoreInfo: { title: 'Moonlight Sonata', composer: 'Beethoven' },
+      createdAt: '2026-08-03T00:00:00.000Z',
+      updatedAt: '2026-08-03T00:00:00.000Z',
     };
-    localStorage.setItem('chorale.workspace.documents', JSON.stringify([doc1, doc2]));
+    await storageAdapter.saveDocuments([doc1, doc2]);
     localStorage.setItem('chorale.workspace.activeFileId', 'doc-1');
 
     render(<App />);
@@ -339,22 +360,30 @@ describe('App Integration', () => {
     const doc1 = {
       id: 'doc-1',
       name: 'Twinkle, Twinkle, Little Star.xml',
-      sourceType: 'musicxml',
+      sourceType: 'musicxml' as const,
       abcSource: 'X:1\nT:Twinkle, Twinkle, Little Star\nK:C\nCCGG',
       revision: 1,
+      annotations: [],
+      chats: [],
       versions: [],
       scoreInfo: { title: 'Twinkle, Twinkle, Little Star', composer: 'Traditional' },
+      createdAt: '2026-08-03T00:00:00.000Z',
+      updatedAt: '2026-08-03T00:00:00.000Z',
     };
     const doc2 = {
       id: 'doc-2',
       name: 'Moonlight Sonata.xml',
-      sourceType: 'musicxml',
+      sourceType: 'musicxml' as const,
       abcSource: 'X:1\nT:Moonlight Sonata\nK:C#m\nCDEF',
       revision: 1,
+      annotations: [],
+      chats: [],
       versions: [],
       scoreInfo: { title: 'Moonlight Sonata', composer: 'Beethoven' },
+      createdAt: '2026-08-03T00:00:00.000Z',
+      updatedAt: '2026-08-03T00:00:00.000Z',
     };
-    localStorage.setItem('chorale.workspace.documents', JSON.stringify([doc1, doc2]));
+    await storageAdapter.saveDocuments([doc1, doc2]);
     localStorage.setItem('chorale.workspace.activeFileId', 'doc-1');
 
     render(<App />);
@@ -375,13 +404,17 @@ describe('App Integration', () => {
     const mockDoc = {
       id: 'stored-doc-123',
       name: 'Persisted Score.abc',
-      sourceType: 'abc',
+      sourceType: 'abc' as const,
       abcSource: 'X:1\nT:Persisted Score\nK:C\nCDEF',
       revision: 1,
+      annotations: [],
+      chats: [],
       versions: [],
       scoreInfo: { title: 'Persisted Score' },
+      createdAt: '2026-08-03T00:00:00.000Z',
+      updatedAt: '2026-08-03T00:00:00.000Z',
     };
-    localStorage.setItem('chorale.workspace.documents', JSON.stringify([mockDoc]));
+    await storageAdapter.saveDocuments([mockDoc]);
     localStorage.setItem('chorale.workspace.activeFileId', 'stored-doc-123');
     render(<App />);
     await waitFor(() => {
@@ -410,19 +443,21 @@ describe('App Integration', () => {
     saveSpy.mockRestore();
   });
 
-  it('surfaces localStorage quota failures under the score title', async () => {
+  it('surfaces storage quota failures under the score title', async () => {
     const mockDoc = {
       id: 'stored-doc-123',
       name: 'Persisted Score.abc',
-      sourceType: 'abc',
+      sourceType: 'abc' as const,
       abcSource: 'X:1\nT:Persisted Score\nK:C\nCDEF',
       revision: 1,
       annotations: [],
       chats: [],
       versions: [],
       scoreInfo: { title: 'Persisted Score' },
+      createdAt: '2026-08-03T00:00:00.000Z',
+      updatedAt: '2026-08-03T00:00:00.000Z',
     };
-    localStorage.setItem('chorale.workspace.documents', JSON.stringify([mockDoc]));
+    await storageAdapter.saveDocuments([mockDoc]);
     localStorage.setItem('chorale.workspace.activeFileId', 'stored-doc-123');
 
     render(<App />);
@@ -448,18 +483,22 @@ describe('App Integration', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('restores the active file and documents from localStorage on page refresh', async () => {
+  it('restores the active file and documents from storage on page refresh', async () => {
     const mockDoc = {
       id: 'stored-doc-123',
       name: 'Persisted Score.abc',
-      sourceType: 'abc',
+      sourceType: 'abc' as const,
       abcSource: 'X:1\nT:Persisted Score\nK:C\nCDEF',
       revision: 1,
+      annotations: [],
+      chats: [],
       versions: [],
       scoreInfo: { title: 'Persisted Score', composer: 'Anon', key: 'C', meter: '4/4', tempoText: '120', measures: 4 },
+      createdAt: '2026-08-03T00:00:00.000Z',
+      updatedAt: '2026-08-03T00:00:00.000Z',
       activeAnchor: null,
     };
-    localStorage.setItem('chorale.workspace.documents', JSON.stringify([mockDoc]));
+    await storageAdapter.saveDocuments([mockDoc]);
     localStorage.setItem('chorale.workspace.activeFileId', 'stored-doc-123');
 
     render(<App />);

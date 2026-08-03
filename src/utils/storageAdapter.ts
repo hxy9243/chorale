@@ -43,6 +43,14 @@ export const storageAdapter = {
   },
 
   async getDocuments(): Promise<FileDocument[]> {
+    if (memoryStore.has(DOCUMENTS_STORAGE_KEY)) {
+      const memDocs = memoryStore.get(DOCUMENTS_STORAGE_KEY) as FileDocument[];
+      return memDocs.map((document) => ({
+        ...document,
+        versions: limitScoreVersions(Array.isArray(document.versions) ? document.versions : []),
+      }));
+    }
+
     try {
       const db = await getIDB();
       const rawDocs = await new Promise<FileDocument[] | null>((resolve) => {
@@ -69,15 +77,7 @@ export const storageAdapter = {
       // IDB unavailable or failed
     }
 
-    if (memoryStore.has(DOCUMENTS_STORAGE_KEY)) {
-      const memDocs = memoryStore.get(DOCUMENTS_STORAGE_KEY) as FileDocument[];
-      return memDocs.map((document) => ({
-        ...document,
-        versions: limitScoreVersions(Array.isArray(document.versions) ? document.versions : []),
-      }));
-    }
-
-    return this.getLegacyLocalStorageDocuments();
+    return [];
   },
 
   async saveDocuments(documents: FileDocument[]): Promise<boolean> {
@@ -95,36 +95,6 @@ export const storageAdapter = {
       // In environments without IndexedDB (e.g. JSDOM unit tests), memoryStore holds the documents
       return true;
     }
-  },
-
-  getLegacyLocalStorageDocuments(): FileDocument[] {
-    if (typeof window === 'undefined' || !window.localStorage) return [];
-    try {
-      const raw = window.localStorage.getItem(DOCUMENTS_STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-      return parsed.map((document) => ({
-        ...document,
-        versions: limitScoreVersions(Array.isArray(document.versions) ? document.versions : []),
-      }));
-    } catch {
-      return [];
-    }
-  },
-
-  clearLegacyLocalStorageDocuments(): void {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        window.localStorage.removeItem(DOCUMENTS_STORAGE_KEY);
-      } catch {
-        // Ignore
-      }
-    }
-  },
-
-  readStoredDocumentsSync(): FileDocument[] {
-    return this.getLegacyLocalStorageDocuments();
   },
 
   async getItem<T>(key: string, fallback: T): Promise<T> {
@@ -189,7 +159,6 @@ export const storageAdapter = {
   async removeItem(key: string): Promise<boolean> {
     if (key === DOCUMENTS_STORAGE_KEY) {
       memoryStore.delete(DOCUMENTS_STORAGE_KEY);
-      this.clearLegacyLocalStorageDocuments();
     }
     try {
       const db = await getIDB();

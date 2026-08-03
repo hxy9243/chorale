@@ -23,7 +23,7 @@ const readStoredActiveFileId = (): string => {
 };
 
 export const useDocumentStore = () => {
-  const [documents, setDocuments] = useState<FileDocument[]>(() => storageAdapter.readStoredDocumentsSync());
+  const [documents, setDocuments] = useState<FileDocument[]>([]);
   const [hydrationStatus, setHydrationStatus] = useState<HydrationStatus>('hydrating');
   const [activeFileId, setActiveFileId] = useState<string>(() => readStoredActiveFileId());
   const [activeAnchor, setActiveAnchor] = useState<ScoreAnchor | null>(null);
@@ -39,20 +39,12 @@ export const useDocumentStore = () => {
   const abcCode = activeDocument?.abcSource || '';
   const abcRevision = activeDocument?.revision || 0;
 
-  // Hydrate documents from IndexedDB on mount, with legacy localStorage fallback & migration
+  // Hydrate documents from IndexedDB on mount
   useEffect(() => {
     let cancelled = false;
     async function hydrate() {
       try {
-        let docs = await storageAdapter.getDocuments();
-        if (docs.length === 0) {
-          const legacyDocs = storageAdapter.getLegacyLocalStorageDocuments();
-          if (legacyDocs.length > 0) {
-            await storageAdapter.saveDocuments(legacyDocs);
-            storageAdapter.clearLegacyLocalStorageDocuments();
-            docs = legacyDocs;
-          }
-        }
+        const docs = await storageAdapter.getDocuments();
         if (!cancelled) {
           setDocuments(docs);
           setHydrationStatus('ready');

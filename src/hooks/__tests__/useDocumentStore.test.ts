@@ -50,27 +50,8 @@ describe('useDocumentStore', () => {
     expect(result.current.documents[0].name).toBe('IDBScore.abc');
   });
 
-  it('migrates legacy localStorage documents to IndexedDB if IDB is empty', async () => {
+  it('loads sample track safely when no IndexedDB documents exist and hydration completes', async () => {
     vi.spyOn(storageAdapter, 'getDocuments').mockResolvedValue([]);
-    vi.spyOn(storageAdapter, 'getLegacyLocalStorageDocuments').mockReturnValue([sampleDoc]);
-    const saveSpy = vi.spyOn(storageAdapter, 'saveDocuments').mockResolvedValue(true);
-    const clearSpy = vi.spyOn(storageAdapter, 'clearLegacyLocalStorageDocuments').mockImplementation(() => {});
-
-    const { result } = renderHook(() => useDocumentStore());
-
-    await waitFor(() => {
-      expect(result.current.hydrationStatus).toBe('ready');
-    });
-
-    expect(saveSpy).toHaveBeenCalledWith([sampleDoc]);
-    expect(clearSpy).toHaveBeenCalled();
-    expect(result.current.documents).toHaveLength(1);
-    expect(result.current.documents[0].name).toBe('IDBScore.abc');
-  });
-
-  it('loads sample track safely when no IDB or legacy documents exist and hydration completes', async () => {
-    vi.spyOn(storageAdapter, 'getDocuments').mockResolvedValue([]);
-    vi.spyOn(storageAdapter, 'getLegacyLocalStorageDocuments').mockReturnValue([]);
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
