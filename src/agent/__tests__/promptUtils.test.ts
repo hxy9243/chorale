@@ -41,14 +41,14 @@ describe('promptUtils', () => {
         role: 'user',
         content: 'Hello',
         createdAt: '2026-08-03T00:00:00.000Z',
-        status: 'ready',
+        status: 'complete',
       },
       {
         id: 'msg-2',
         role: 'assistant',
         content: 'Hi there!',
         createdAt: '2026-08-03T00:00:05.000Z',
-        status: 'ready',
+        status: 'complete',
       },
     ];
 

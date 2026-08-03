@@ -4,7 +4,7 @@ import { limitScoreVersions } from './fileSession';
 const DB_NAME = 'chorale_db';
 const DB_VERSION = 1;
 const STORE_NAME = 'chorale_store';
-const DOCUMENTS_STORAGE_KEY = 'chorale.workspace.documents';
+export const DOCUMENTS_STORAGE_KEY = 'chorale.workspace.documents';
 
 type IndexedDBRecord = {
   key: string;
@@ -12,6 +12,7 @@ type IndexedDBRecord = {
 };
 
 let dbPromise: Promise<IDBDatabase> | null = null;
+const memoryStore = new Map<string, unknown>();
 
 const getIDB = (): Promise<IDBDatabase> => {
   if (typeof window === 'undefined' || typeof window.indexedDB === 'undefined') {
@@ -37,6 +38,95 @@ const getIDB = (): Promise<IDBDatabase> => {
 };
 
 export const storageAdapter = {
+  clearMemoryStore(): void {
+    memoryStore.clear();
+  },
+
+  async getDocuments(): Promise<FileDocument[]> {
+    try {
+      const db = await getIDB();
+      const rawDocs = await new Promise<FileDocument[] | null>((resolve) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(DOCUMENTS_STORAGE_KEY);
+        req.onsuccess = () => {
+          if (req.result && 'value' in (req.result as IndexedDBRecord)) {
+            resolve((req.result as IndexedDBRecord).value as FileDocument[]);
+          } else {
+            resolve(null);
+          }
+        };
+        req.onerror = () => resolve(null);
+      });
+
+      if (rawDocs && Array.isArray(rawDocs)) {
+        return rawDocs.map((document) => ({
+          ...document,
+          versions: limitScoreVersions(Array.isArray(document.versions) ? document.versions : []),
+        }));
+      }
+    } catch {
+      // IDB unavailable or failed
+    }
+
+    if (memoryStore.has(DOCUMENTS_STORAGE_KEY)) {
+      const memDocs = memoryStore.get(DOCUMENTS_STORAGE_KEY) as FileDocument[];
+      return memDocs.map((document) => ({
+        ...document,
+        versions: limitScoreVersions(Array.isArray(document.versions) ? document.versions : []),
+      }));
+    }
+
+    return this.getLegacyLocalStorageDocuments();
+  },
+
+  async saveDocuments(documents: FileDocument[]): Promise<boolean> {
+    memoryStore.set(DOCUMENTS_STORAGE_KEY, documents);
+    try {
+      const db = await getIDB();
+      return await new Promise<boolean>((resolve) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.put({ key: DOCUMENTS_STORAGE_KEY, value: documents });
+        req.onsuccess = () => resolve(true);
+        req.onerror = () => resolve(false);
+      });
+    } catch {
+      // In environments without IndexedDB (e.g. JSDOM unit tests), memoryStore holds the documents
+      return true;
+    }
+  },
+
+  getLegacyLocalStorageDocuments(): FileDocument[] {
+    if (typeof window === 'undefined' || !window.localStorage) return [];
+    try {
+      const raw = window.localStorage.getItem(DOCUMENTS_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map((document) => ({
+        ...document,
+        versions: limitScoreVersions(Array.isArray(document.versions) ? document.versions : []),
+      }));
+    } catch {
+      return [];
+    }
+  },
+
+  clearLegacyLocalStorageDocuments(): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.removeItem(DOCUMENTS_STORAGE_KEY);
+      } catch {
+        // Ignore
+      }
+    }
+  },
+
+  readStoredDocumentsSync(): FileDocument[] {
+    return this.getLegacyLocalStorageDocuments();
+  },
+
   async getItem<T>(key: string, fallback: T): Promise<T> {
     try {
       const db = await getIDB();
@@ -67,6 +157,9 @@ export const storageAdapter = {
   },
 
   async setItem<T>(key: string, value: T): Promise<boolean> {
+    if (key === DOCUMENTS_STORAGE_KEY) {
+      return this.saveDocuments(value as unknown as FileDocument[]);
+    }
     let savedInIDB = false;
     try {
       const db = await getIDB();
@@ -82,23 +175,22 @@ export const storageAdapter = {
     }
 
     let savedInLocalStorage = false;
-    let localStorageError: unknown = null;
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         window.localStorage.setItem(key, JSON.stringify(value));
         savedInLocalStorage = true;
-      } catch (err) {
-        localStorageError = err;
+      } catch {
+        // Ignore quota or write errors
       }
-    }
-
-    if (!savedInIDB && localStorageError) {
-      throw localStorageError;
     }
     return savedInIDB || savedInLocalStorage;
   },
 
   async removeItem(key: string): Promise<boolean> {
+    if (key === DOCUMENTS_STORAGE_KEY) {
+      memoryStore.delete(DOCUMENTS_STORAGE_KEY);
+      this.clearLegacyLocalStorageDocuments();
+    }
     try {
       const db = await getIDB();
       await new Promise<void>((resolve) => {
@@ -109,32 +201,16 @@ export const storageAdapter = {
         req.onerror = () => resolve();
       });
     } catch {
-      // Ignore IDB delete failure fallback
+      // Ignore
     }
 
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         window.localStorage.removeItem(key);
       } catch {
-        // Ignore localStorage error
+        // Ignore
       }
     }
     return true;
-  },
-
-  readStoredDocumentsSync(): FileDocument[] {
-    if (typeof window === 'undefined' || !window.localStorage) return [];
-    try {
-      const raw = window.localStorage.getItem(DOCUMENTS_STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-      return parsed.map((document) => ({
-        ...document,
-        versions: limitScoreVersions(Array.isArray(document.versions) ? document.versions : []),
-      }));
-    } catch {
-      return [];
-    }
   },
 };

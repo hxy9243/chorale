@@ -154,6 +154,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       return;
     }
     lastInitTuneRef.current = currentTune;
+    setIsReady(false);
+    updatePlaybackPosition({ progress: 0, durationMs: 0, playing: false });
 
     const synthApi = (abcjs as any).synth;
     if (!synthApi || (synthApi.isSupported && !synthApi.isSupported())) {
@@ -268,6 +270,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         synthControllerRef.current = null;
       }
       removePlaybackCursor();
+      updatePlaybackPosition({ progress: 0, playing: false });
     };
   }, [tunes, updatePlaybackPosition]);
 

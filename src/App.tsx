@@ -146,6 +146,7 @@ export const App: React.FC = () => {
   }, []);
 
   const isFirstBuildRef = useRef(true);
+  const lastActiveDocIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!activeDocument || !abcCode.trim()) {
@@ -155,8 +156,11 @@ export const App: React.FC = () => {
       return;
     }
 
+    const isDocSwitch = lastActiveDocIdRef.current !== activeDocument.id;
+    lastActiveDocIdRef.current = activeDocument.id;
+
     const requestId = ++buildRequestRef.current;
-    const delay = isFirstBuildRef.current ? 0 : 140;
+    const delay = (isFirstBuildRef.current || isDocSwitch) ? 0 : 140;
     isFirstBuildRef.current = false;
     const timeout = window.setTimeout(() => {
       try {

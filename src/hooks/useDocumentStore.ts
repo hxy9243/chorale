@@ -11,10 +11,10 @@ import {
 
 import { storageAdapter } from '../utils/storageAdapter';
 
-const DOCUMENTS_STORAGE_KEY = 'chorale.workspace.documents';
 const ACTIVE_FILE_KEY = 'chorale.workspace.activeFileId';
 const AUTOSAVE_DELAY_MS = 400;
 
+export type HydrationStatus = 'hydrating' | 'ready' | 'error';
 export type SaveStatus = 'saved' | 'saving' | 'error';
 
 const readStoredActiveFileId = (): string => {
@@ -24,6 +24,7 @@ const readStoredActiveFileId = (): string => {
 
 export const useDocumentStore = () => {
   const [documents, setDocuments] = useState<FileDocument[]>(() => storageAdapter.readStoredDocumentsSync());
+  const [hydrationStatus, setHydrationStatus] = useState<HydrationStatus>('hydrating');
   const [activeFileId, setActiveFileId] = useState<string>(() => readStoredActiveFileId());
   const [activeAnchor, setActiveAnchor] = useState<ScoreAnchor | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
@@ -38,16 +39,50 @@ export const useDocumentStore = () => {
   const abcCode = activeDocument?.abcSource || '';
   const abcRevision = activeDocument?.revision || 0;
 
+  // Hydrate documents from IndexedDB on mount, with legacy localStorage fallback & migration
   useEffect(() => {
+    let cancelled = false;
+    async function hydrate() {
+      try {
+        let docs = await storageAdapter.getDocuments();
+        if (docs.length === 0) {
+          const legacyDocs = storageAdapter.getLegacyLocalStorageDocuments();
+          if (legacyDocs.length > 0) {
+            await storageAdapter.saveDocuments(legacyDocs);
+            storageAdapter.clearLegacyLocalStorageDocuments();
+            docs = legacyDocs;
+          }
+        }
+        if (!cancelled) {
+          setDocuments(docs);
+          setHydrationStatus('ready');
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setHydrationStatus('error');
+          setError(err instanceof Error ? err.message : 'Failed to hydrate documents.');
+        }
+      }
+    }
+    void hydrate();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Auto-save effect: ONLY run after hydration is ready
+  useEffect(() => {
+    if (hydrationStatus !== 'ready') return;
+
     if (documents.length === 0) {
-      void storageAdapter.removeItem(DOCUMENTS_STORAGE_KEY);
+      void storageAdapter.saveDocuments([]);
       setSaveStatus('saved');
       return;
     }
 
     setSaveStatus('saving');
     const timeout = window.setTimeout(() => {
-      void storageAdapter.setItem(DOCUMENTS_STORAGE_KEY, documents)
+      void storageAdapter.saveDocuments(documents)
         .then(() => setSaveStatus('saved'))
         .catch((caught) => {
           console.error('Failed to auto-save documents:', caught);
@@ -56,7 +91,7 @@ export const useDocumentStore = () => {
     }, AUTOSAVE_DELAY_MS);
 
     return () => window.clearTimeout(timeout);
-  }, [documents]);
+  }, [documents, hydrationStatus]);
 
   useEffect(() => {
     if (activeFileId) {
@@ -156,7 +191,9 @@ export const useDocumentStore = () => {
     }
   }, [documents]);
 
+  // Initial setup: ONLY run after hydration has finished
   useEffect(() => {
+    if (hydrationStatus !== 'ready') return;
     if (workspaceInitializedRef.current) return;
     workspaceInitializedRef.current = true;
 
@@ -165,7 +202,7 @@ export const useDocumentStore = () => {
     } else if (!activeFileId && documents.length > 0) {
       setActiveFileId(documents[0].id);
     }
-  }, [activeFileId, documents, loadSample]);
+  }, [hydrationStatus, activeFileId, documents, loadSample]);
 
   const handleDeleteDocument = useCallback((fileId: string) => {
     setDocuments((prevDocs) => {
@@ -204,6 +241,7 @@ export const useDocumentStore = () => {
 
   return {
     documents,
+    hydrationStatus,
     activeFileId,
     activeDocument,
     activeFileName,

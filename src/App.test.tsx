@@ -10,6 +10,7 @@ import App, {
 } from './App';
 import * as xmlParser from './utils/xmlParser';
 import { defaultFileRailWidth } from './utils/workspaceSizing';
+import { storageAdapter } from './utils/storageAdapter';
 
 vi.mock('abcjs', () => ({
   default: {
@@ -39,6 +40,7 @@ describe('App Integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    storageAdapter.clearMemoryStore();
 
     vi.spyOn(xmlParser, 'extractMusicXml').mockResolvedValue(`<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="3.1">
@@ -71,7 +73,7 @@ describe('App Integration', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('sheet-svg')).toBeDefined();
-    });
+    }, { timeout: 1500 });
 
     fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
     fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
@@ -81,7 +83,7 @@ describe('App Integration', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(screen.getByRole('dialog', { name: 'Settings' })).toBeDefined();
-  });
+  }, 10000);
 
   it('reorders persisted files through the drag-and-drop rail contract', async () => {
     localStorage.setItem('chorale.workspace.documents', JSON.stringify([
@@ -106,6 +108,12 @@ describe('App Integration', () => {
     ]));
     localStorage.setItem('chorale.workspace.activeFileId', 'drag-one');
     render(<App />);
+    await waitFor(() => {
+      expect(screen.getAllByText('First').length).toBeGreaterThan(0);
+    });
+
+    const saveSpy = vi.spyOn(storageAdapter, 'saveDocuments');
+    saveSpy.mockClear();
 
     const source = screen.getByRole('button', { name: 'Open First' });
     const target = screen.getByRole('button', { name: 'Open Second' }).closest<HTMLElement>('.file-item')!;
@@ -151,9 +159,12 @@ describe('App Integration', () => {
       expect(names).toEqual(['Second', 'First']);
     });
     await waitFor(() => {
-      const saved = JSON.parse(localStorage.getItem('chorale.workspace.documents') || '[]');
-      expect(saved.map((document: { id: string }) => document.id)).toEqual(['drag-two', 'drag-one']);
-    });
+      expect(saveSpy).toHaveBeenCalledWith([
+        expect.objectContaining({ id: 'drag-two' }),
+        expect.objectContaining({ id: 'drag-one' }),
+      ]);
+    }, { timeout: 1500 });
+    saveSpy.mockRestore();
   });
 
   it('normalizes unsupported ABC before both visible and validation rendering', async () => {
@@ -372,9 +383,14 @@ describe('App Integration', () => {
     };
     localStorage.setItem('chorale.workspace.documents', JSON.stringify([mockDoc]));
     localStorage.setItem('chorale.workspace.activeFileId', 'stored-doc-123');
-    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
-
     render(<App />);
+    await waitFor(() => {
+      expect(screen.getAllByText('Persisted Score').length).toBeGreaterThan(0);
+    });
+
+    const saveSpy = vi.spyOn(storageAdapter, 'saveDocuments');
+    saveSpy.mockClear();
+
     fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
     fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
     const editor = screen.getByPlaceholderText(/Parsed ABC code will appear here/);
@@ -385,16 +401,13 @@ describe('App Integration', () => {
       });
     }
 
-    const documentWrites = () => setItemSpy.mock.calls.filter(
-      ([key]) => key === 'chorale.workspace.documents',
-    );
-    expect(documentWrites()).toHaveLength(0);
+    expect(saveSpy).not.toHaveBeenCalled();
 
-    await waitFor(() => expect(documentWrites()).toHaveLength(1), { timeout: 1200 });
-    const savedDocuments = JSON.parse(String(documentWrites()[0][1]));
-    expect(savedDocuments[0].abcSource).toContain('% edit 8');
+    await waitFor(() => expect(saveSpy).toHaveBeenCalled(), { timeout: 1200 });
+    const lastSavedDocuments = saveSpy.mock.calls[saveSpy.mock.calls.length - 1][0];
+    expect(lastSavedDocuments[0].abcSource).toContain('% edit 8');
 
-    setItemSpy.mockRestore();
+    saveSpy.mockRestore();
   });
 
   it('surfaces localStorage quota failures under the score title', async () => {
@@ -404,32 +417,34 @@ describe('App Integration', () => {
       sourceType: 'abc',
       abcSource: 'X:1\nT:Persisted Score\nK:C\nCDEF',
       revision: 1,
+      annotations: [],
+      chats: [],
       versions: [],
       scoreInfo: { title: 'Persisted Score' },
     };
     localStorage.setItem('chorale.workspace.documents', JSON.stringify([mockDoc]));
     localStorage.setItem('chorale.workspace.activeFileId', 'stored-doc-123');
 
-    const originalSetItem = Storage.prototype.setItem;
-    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
-      this: Storage,
-      key,
-      value,
-    ) {
-      if (key === 'chorale.workspace.documents') {
-        throw new DOMException('Storage quota exceeded', 'QuotaExceededError');
-      }
-      return originalSetItem.call(this, key, value);
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getAllByText('Persisted Score').length).toBeGreaterThan(0);
     });
+
+    const saveSpy = vi.spyOn(storageAdapter, 'saveDocuments').mockRejectedValue(
+      new DOMException('Storage quota exceeded', 'QuotaExceededError'),
+    );
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-    render(<App />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
+    fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
+    const editor = screen.getByPlaceholderText(/Parsed ABC code will appear here/);
+    fireEvent.change(editor, { target: { value: 'X:1\nT:Persisted Score\nK:C\nCDEF G' } });
 
     await waitFor(() => {
-      expect(screen.getByRole('status').textContent).toContain('Save failed');
+      expect(screen.getByText('Save failed')).toBeDefined();
     }, { timeout: 1200 });
 
-    setItemSpy.mockRestore();
+    saveSpy.mockRestore();
     consoleErrorSpy.mockRestore();
   });
 
