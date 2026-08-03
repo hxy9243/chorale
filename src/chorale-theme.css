@@ -4543,32 +4543,6 @@ body,
   cursor: pointer;
 }
 
-.file-drag-handle {
-  display: grid;
-  width: 2.5rem;
-  min-width: 2.5rem;
-  min-height: 4rem;
-  flex: none;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: inherit;
-  background: var(--color-transparent);
-  color: var(--color-muted);
-  cursor: grab;
-}
-
-.file-drag-handle:active,
-.file-drag-handle[aria-pressed="true"] {
-  color: var(--color-accent-strong);
-  cursor: grabbing;
-}
-
-.file-drag-handle:focus-visible {
-  outline: var(--rule-active) solid var(--color-focus);
-  outline-offset: calc(-1 * var(--rule-active));
-}
-
 .file-item.drop-before,
 .file-item.drop-after {
   background: var(--color-accent-soft);
@@ -4620,10 +4594,6 @@ body,
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .file-drag-handle:hover {
-    color: var(--color-ink);
-  }
-
   .agent-delete-thread-button:hover {
     background: var(--color-error-soft);
     color: var(--color-error);

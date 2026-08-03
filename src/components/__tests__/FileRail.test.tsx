@@ -16,6 +16,7 @@ describe('FileRail Component', () => {
     loading: false,
     error: null,
   };
+  const getFirstFileButton = () => screen.getByRole('button', { name: 'Open Bach Minuet' });
 
   const setVerticalFileGeometry = (container: HTMLElement) => {
     const fileList = container.querySelector<HTMLElement>('.file-list')!;
@@ -191,7 +192,8 @@ describe('FileRail Component', () => {
     );
     const { fileList, listTop, rowHeight, rowGap } = setVerticalFileGeometry(container);
 
-    const source = screen.getByRole('button', { name: `Reorder ${doc1.name}` });
+    const source = getFirstFileButton();
+    expect(container.querySelector('.file-drag-handle')).toBeNull();
     const target = screen.getByRole('button', { name: 'Open Beethoven Ode' }).closest<HTMLElement>('.file-item')!;
     const dataTransfer = createDataTransfer(doc1.id);
     const sourceCenterY = listTop + rowHeight / 2;
@@ -222,7 +224,7 @@ describe('FileRail Component', () => {
       <FileRail {...defaultProps} onReorderDocument={onReorderDocument} />,
     );
     const { fileList, listTop, rowHeight, rowGap } = setVerticalFileGeometry(container);
-    const source = screen.getByRole('button', { name: `Reorder ${doc1.name}` });
+    const source = getFirstFileButton();
     const target = screen.getByRole('button', { name: 'Open Beethoven Ode' }).closest<HTMLElement>('.file-item')!;
     const dataTransfer = createDataTransfer(doc1.id);
     const grabNearTopY = listTop + rowHeight * 0.1;
@@ -241,7 +243,7 @@ describe('FileRail Component', () => {
       <FileRail {...defaultProps} onReorderDocument={onReorderDocument} />,
     );
     const { fileList, listTop, rowHeight, rowGap } = setVerticalFileGeometry(container);
-    const source = screen.getByRole('button', { name: `Reorder ${doc1.name}` });
+    const source = getFirstFileButton();
     const target = screen.getByRole('button', { name: 'Open Beethoven Ode' }).closest<HTMLElement>('.file-item')!;
     const dataTransfer = createDataTransfer(doc1.id);
     const grabNearBottomY = listTop + rowHeight * 0.9;
@@ -264,7 +266,7 @@ describe('FileRail Component', () => {
       />,
     );
     const { fileList, listTop, rowHeight, rowGap } = setVerticalFileGeometry(container);
-    const source = screen.getByRole('button', { name: `Reorder ${doc1.name}` });
+    const source = getFirstFileButton();
     const target = screen.getByRole('button', { name: 'Open Mozart Sonata' }).closest<HTMLElement>('.file-item')!;
     const dataTransfer = createDataTransfer(doc1.id);
     const sourceCenterY = listTop + rowHeight / 2;
@@ -284,7 +286,7 @@ describe('FileRail Component', () => {
     const { container } = render(
       <FileRail {...defaultProps} onReorderDocument={onReorderDocument} />,
     );
-    const source = screen.getByRole('button', { name: `Reorder ${doc1.name}` });
+    const source = getFirstFileButton();
     const sourceRow = source.closest<HTMLElement>('.file-item')!;
     const { fileList, listTop, rowHeight, rowGap } = setVerticalFileGeometry(container);
     const dataTransfer = createDataTransfer(doc1.id);
@@ -321,7 +323,7 @@ describe('FileRail Component', () => {
       <FileRail {...defaultProps} onReorderDocument={onReorderDocument} />,
     );
     const { fileList, listTop, rowHeight, rowGap } = setVerticalFileGeometry(container);
-    const source = screen.getByRole('button', { name: `Reorder ${doc1.name}` });
+    const source = getFirstFileButton();
     const target = screen.getByRole('button', { name: 'Open Beethoven Ode' }).closest<HTMLElement>('.file-item')!;
     const dataTransfer = createDataTransfer(doc1.id);
     const sourceCenterY = listTop + rowHeight / 2;
@@ -339,13 +341,78 @@ describe('FileRail Component', () => {
     expect(onReorderDocument).toHaveBeenCalledWith(doc1.id, doc2.id, 'after');
   });
 
+  it('commits a fast pointer gesture when Chromium releases before dragstart', () => {
+    const onReorderDocument = vi.fn();
+    const { container } = render(
+      <FileRail {...defaultProps} onReorderDocument={onReorderDocument} />,
+    );
+    const { fileList, listTop, rowHeight, rowGap } = setVerticalFileGeometry(container);
+    const sourceRow = getFirstFileButton()
+      .closest<HTMLElement>('.file-item')!;
+    const sourceCenterY = listTop + rowHeight / 2;
+    const targetLowerY = listTop + rowHeight + rowGap + rowHeight * 0.75;
+    const pointerDown = createEvent.pointerDown(sourceRow, { button: 0, pointerId: 1 });
+    Object.defineProperties(pointerDown, {
+      clientX: { value: 20 },
+      clientY: { value: sourceCenterY },
+      pointerId: { value: 1 },
+    });
+    const pointerUp = createEvent.pointerUp(window, { button: 0, pointerId: 1 });
+    Object.defineProperties(pointerUp, {
+      clientX: { value: 20 },
+      clientY: { value: targetLowerY },
+      pointerId: { value: 1 },
+    });
+
+    fireEvent(sourceRow, pointerDown);
+    fireEvent(window, pointerUp);
+
+    expect([...fileList.querySelectorAll('.file-item-name')].map((element) => element.textContent))
+      .toEqual(['Beethoven Ode', 'Bach Minuet']);
+    expect(onReorderDocument).toHaveBeenCalledWith(doc1.id, doc2.id, 'after');
+  });
+
+  it('does not treat a click or an outside release as a fallback reorder', () => {
+    const onReorderDocument = vi.fn();
+    const { container } = render(
+      <FileRail {...defaultProps} onReorderDocument={onReorderDocument} />,
+    );
+    const { fileList, listTop, rowHeight } = setVerticalFileGeometry(container);
+    const sourceRow = getFirstFileButton()
+      .closest<HTMLElement>('.file-item')!;
+    const sourceCenterY = listTop + rowHeight / 2;
+    const firePointerGesture = (endX: number, endY: number, pointerId: number) => {
+      const pointerDown = createEvent.pointerDown(sourceRow, { button: 0, pointerId });
+      Object.defineProperties(pointerDown, {
+        clientX: { value: 20 },
+        clientY: { value: sourceCenterY },
+        pointerId: { value: pointerId },
+      });
+      const pointerUp = createEvent.pointerUp(window, { button: 0, pointerId });
+      Object.defineProperties(pointerUp, {
+        clientX: { value: endX },
+        clientY: { value: endY },
+        pointerId: { value: pointerId },
+      });
+      fireEvent(sourceRow, pointerDown);
+      fireEvent(window, pointerUp);
+    };
+
+    firePointerGesture(20, sourceCenterY, 1);
+    firePointerGesture(300, listTop + rowHeight * 2, 2);
+
+    expect([...fileList.querySelectorAll('.file-item-name')].map((element) => element.textContent))
+      .toEqual(['Bach Minuet', 'Beethoven Ode']);
+    expect(onReorderDocument).not.toHaveBeenCalled();
+  });
+
   it('recomputes the final pointer position on drop', () => {
     const onReorderDocument = vi.fn();
     const { container } = render(
       <FileRail {...defaultProps} onReorderDocument={onReorderDocument} />,
     );
     const { fileList, listTop, rowHeight, rowGap } = setVerticalFileGeometry(container);
-    const source = screen.getByRole('button', { name: `Reorder ${doc1.name}` });
+    const source = getFirstFileButton();
     const target = screen.getByRole('button', { name: 'Open Beethoven Ode' }).closest<HTMLElement>('.file-item')!;
     const dataTransfer = createDataTransfer(doc1.id);
     const sourceCenterY = listTop + rowHeight / 2;
@@ -370,7 +437,7 @@ describe('FileRail Component', () => {
       <FileRail {...defaultProps} onReorderDocument={onReorderDocument} />,
     );
     const { fileList, listTop, rowHeight, rowGap } = setVerticalFileGeometry(container);
-    const source = screen.getByRole('button', { name: `Reorder ${doc1.name}` });
+    const source = getFirstFileButton();
     const target = screen.getByRole('button', { name: 'Open Beethoven Ode' }).closest<HTMLElement>('.file-item')!;
     const dataTransfer = createDataTransfer(doc1.id);
     const sourceCenterY = listTop + rowHeight / 2;

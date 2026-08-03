@@ -4,7 +4,6 @@ import {
   Braces,
   FileMusic,
   FolderOpen,
-  GripVertical,
   Plus,
   Settings,
   Trash2,
@@ -16,6 +15,12 @@ type DropPlacement = 'before' | 'after';
 type NativeDragGeometry = {
   grabOffsetY: number;
   rowHeight: number;
+};
+type PendingPointerGesture = {
+  sourceFileId: string;
+  pointerId: number;
+  startX: number;
+  startY: number;
 };
 
 const reorderFileIds = (
@@ -87,6 +92,7 @@ export const FileRail: React.FC<FileRailProps> = ({
   const cancelHideDragSourceRef = useRef<(() => void) | null>(null);
   const initialDragOrderRef = useRef<string[] | null>(null);
   const nativeDragGeometryRef = useRef<NativeDragGeometry | null>(null);
+  const pendingPointerGestureRef = useRef<PendingPointerGesture | null>(null);
   const dropCommittedRef = useRef(false);
   const dragCancelledRef = useRef(false);
   const [activePanel, setActivePanel] = useState<RailPanel>('files');
@@ -242,6 +248,55 @@ export const FileRail: React.FC<FileRailProps> = ({
     dropCommittedRef.current = true;
     clearDragArtifacts();
   };
+  useEffect(() => {
+    const resetPendingPointerGesture = () => {
+      pendingPointerGestureRef.current = null;
+      if (!draggedFileIdRef.current) {
+        initialDragOrderRef.current = null;
+        nativeDragGeometryRef.current = null;
+      }
+    };
+    const finishPendingPointerGesture = (event: PointerEvent) => {
+      const pendingGesture = pendingPointerGestureRef.current;
+      if (!pendingGesture || event.pointerId !== pendingGesture.pointerId) return;
+      pendingPointerGestureRef.current = null;
+
+      // Native drag suppresses pointerup once dragstart succeeds. If Chromium
+      // releases before dragstart, use the completed pointer gesture as the
+      // missing drop so a fast swipe cannot snap back to its starting slot.
+      if (draggedFileIdRef.current) return;
+      const fileListBounds = fileListRef.current?.getBoundingClientRect();
+      const movement = Math.hypot(
+        event.clientX - pendingGesture.startX,
+        event.clientY - pendingGesture.startY,
+      );
+      const releasedInsideFileList = Boolean(
+        fileListBounds
+        && event.clientX >= fileListBounds.left
+        && event.clientX <= fileListBounds.right
+        && event.clientY >= fileListBounds.top
+        && event.clientY <= fileListBounds.bottom
+      );
+      if (movement < 5 || !releasedInsideFileList) {
+        resetPendingPointerGesture();
+        return;
+      }
+
+      previewPointerPosition(pendingGesture.sourceFileId, event.clientY);
+      commitPreviewedDrop(pendingGesture.sourceFileId);
+      initialDragOrderRef.current = null;
+      nativeDragGeometryRef.current = null;
+      dropCommittedRef.current = false;
+      dragCancelledRef.current = false;
+    };
+
+    window.addEventListener('pointerup', finishPendingPointerGesture, true);
+    window.addEventListener('pointercancel', resetPendingPointerGesture, true);
+    return () => {
+      window.removeEventListener('pointerup', finishPendingPointerGesture, true);
+      window.removeEventListener('pointercancel', resetPendingPointerGesture, true);
+    };
+  });
   const endNativeDrag = (event: React.DragEvent<HTMLDivElement>) => {
     const sourceFileId = draggedFileIdRef.current;
     if (dragCancelledRef.current && initialDragOrderRef.current) {
@@ -268,6 +323,7 @@ export const FileRail: React.FC<FileRailProps> = ({
     event: React.DragEvent<HTMLDivElement>,
     fileId: string,
   ) => {
+    pendingPointerGestureRef.current = null;
     initialDragOrderRef.current = [...documentOrderRef.current];
     dropCommittedRef.current = false;
     dragCancelledRef.current = false;
@@ -394,8 +450,8 @@ export const FileRail: React.FC<FileRailProps> = ({
             hidden
           />
           <p className="sr-only" id="file-reorder-help">
-            Drag a file row to reorder. Use Arrow Up or Arrow Down while its reorder
-            handle is focused for keyboard reordering.
+            Drag a file row to reorder. Use Arrow Up or Arrow Down while its file
+            name is focused for keyboard reordering.
           </p>
           <div
             ref={fileListRef}
@@ -428,37 +484,46 @@ export const FileRail: React.FC<FileRailProps> = ({
                   data-file-id={doc.id}
                   className={`file-item ${isActive ? 'active' : ''} ${canReorder ? 'reorderable' : ''} ${draggedFileId === doc.id ? 'dragging' : ''} ${hiddenDraggedFileId === doc.id ? 'drag-source-placeholder' : ''}`}
                   draggable={canReorder}
+                  onPointerDown={(event) => {
+                    if (!canReorder || event.button !== 0) return;
+                    const target = event.target;
+                    if (target instanceof Element && target.closest('.file-action-btn')) return;
+                    const bounds = event.currentTarget.getBoundingClientRect();
+                    const rowHeight = bounds.height > 0 ? bounds.height : 64;
+                    nativeDragGeometryRef.current = {
+                      grabOffsetY: bounds.height > 0
+                        ? Math.max(0, Math.min(rowHeight, event.clientY - bounds.top))
+                        : rowHeight / 2,
+                      rowHeight,
+                    };
+                    initialDragOrderRef.current = [...documentOrderRef.current];
+                    pendingPointerGestureRef.current = {
+                      sourceFileId: doc.id,
+                      pointerId: event.pointerId,
+                      startX: event.clientX,
+                      startY: event.clientY,
+                    };
+                  }}
                   onDragStart={(event) => beginNativeDrag(event, doc.id)}
                   onDragEnd={endNativeDrag}
                 >
-                  {canReorder && (
-                    <button
-                      type="button"
-                      className="file-drag-handle"
-                      aria-label={`Reorder ${doc.name}`}
-                      aria-describedby="file-reorder-help"
-                      aria-pressed={draggedFileId === doc.id}
-                      title={`Drag ${doc.name} to reorder`}
-                      onKeyDown={(event) => {
-                        if (!onReorderDocument) return;
-                        if (event.key === 'ArrowUp' && index > 0) {
-                          event.preventDefault();
-                          commitKeyboardDrop(doc.id, orderedDocuments[index - 1].id, 'before');
-                        }
-                        if (event.key === 'ArrowDown' && index < orderedDocuments.length - 1) {
-                          event.preventDefault();
-                          commitKeyboardDrop(doc.id, orderedDocuments[index + 1].id, 'after');
-                        }
-                      }}
-                    >
-                      <GripVertical size={16} aria-hidden="true" />
-                    </button>
-                  )}
                   <button
                     type="button"
                     className="file-item-select"
                     onClick={() => onSelectDocument(doc.id)}
                     aria-label={`Open ${doc.scoreInfo.title || doc.name}`}
+                    aria-describedby={canReorder ? 'file-reorder-help' : undefined}
+                    onKeyDown={(event) => {
+                      if (!onReorderDocument) return;
+                      if (event.key === 'ArrowUp' && index > 0) {
+                        event.preventDefault();
+                        commitKeyboardDrop(doc.id, orderedDocuments[index - 1].id, 'before');
+                      }
+                      if (event.key === 'ArrowDown' && index < orderedDocuments.length - 1) {
+                        event.preventDefault();
+                        commitKeyboardDrop(doc.id, orderedDocuments[index + 1].id, 'after');
+                      }
+                    }}
                   >
                     <span className="file-icon"><FileMusic size={16} aria-hidden="true" /></span>
                     <span className="file-item-info">

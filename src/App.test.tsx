@@ -106,7 +106,7 @@ describe('App Integration', () => {
     localStorage.setItem('chorale.workspace.activeFileId', 'drag-one');
     render(<App />);
 
-    const source = screen.getByRole('button', { name: 'Reorder First.abc' });
+    const source = screen.getByRole('button', { name: 'Open First' });
     const target = screen.getByRole('button', { name: 'Open Second' }).closest<HTMLElement>('.file-item')!;
     const fileList = target.closest<HTMLElement>('.file-list')!;
     const rows = [...fileList.querySelectorAll<HTMLElement>('.file-item')];
