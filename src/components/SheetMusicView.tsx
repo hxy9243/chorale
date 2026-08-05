@@ -193,6 +193,7 @@ const installMeasureHitAreas = (
     hitArea.setAttribute('role', 'button');
     hitArea.setAttribute('tabindex', '0');
     hitArea.setAttribute('aria-label', `Select measure ${measure}`);
+    hitArea.setAttribute('aria-pressed', 'false');
     hitArea.addEventListener('click', (event) => {
       event.stopPropagation();
       onSelectMeasure(measure, selectionModifiers(event));
@@ -204,6 +205,21 @@ const installMeasureHitAreas = (
     });
     svg.appendChild(hitArea);
   }
+};
+
+const updateMeasureHitAreaSelection = (
+  container: HTMLDivElement,
+  anchor: ScoreAnchor | null,
+) => {
+  container.querySelectorAll<SVGElement>('.abcjs-measure-hit-area').forEach((hitArea) => {
+    const measure = Number(hitArea.dataset.measure);
+    const selected = Boolean(
+      anchor
+      && measure >= anchor.startMeasure
+      && measure <= anchor.endMeasure,
+    );
+    hitArea.setAttribute('aria-pressed', String(selected));
+  });
 };
 
 interface SheetMusicViewProps {
@@ -378,6 +394,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   useEffect(() => {
     if (!containerRef.current) return;
     highlightMeasures(containerRef.current, activeAnchor);
+    updateMeasureHitAreaSelection(containerRef.current, activeAnchor);
   }, [abcCode, activeAnchor, transpose]);
 
   const isPlayingRef = useRef<boolean>(false);

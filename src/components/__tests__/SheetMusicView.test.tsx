@@ -118,8 +118,10 @@ describe('SheetMusicView Component', () => {
     expect(screen.getByText('m. 5')).toBeDefined();
 
     const clearBtn = screen.getByTitle('Clear Selection');
+    clearBtn.focus();
     fireEvent.click(clearBtn);
     expect(onSelectAnchor).toHaveBeenCalledWith(null);
+    expect(document.activeElement).toBe(clearBtn);
   });
 
   it('resolves the global measure class instead of falling back to measure one', () => {
@@ -284,6 +286,15 @@ describe('SheetMusicView Component', () => {
     expect(highlights[0].getAttribute('y')).toBe('20');
     expect(highlights[1].getAttribute('y')).toBe('100');
     expect(highlights[2].getAttribute('y')).toBe('100');
+    expect(Array.from(container.querySelectorAll('.abcjs-measure-hit-area')).map((hitArea) => ({
+      measure: hitArea.getAttribute('data-measure'),
+      pressed: hitArea.getAttribute('aria-pressed'),
+    }))).toEqual([
+      { measure: '1', pressed: 'false' },
+      { measure: '2', pressed: 'true' },
+      { measure: '3', pressed: 'true' },
+      { measure: '4', pressed: 'true' },
+    ]);
   });
 
   it('selects a measure from its full hit target on the first click', () => {
@@ -336,7 +347,9 @@ describe('SheetMusicView Component', () => {
     });
 
     fireEvent.click(container.querySelector('[data-measure="1"]')!);
-    fireEvent.keyDown(container.querySelector('[data-measure="2"]')!, {
+    const secondMeasure = container.querySelector<SVGElement>('[data-measure="2"]')!;
+    secondMeasure.focus();
+    fireEvent.keyDown(secondMeasure, {
       key: 'Enter',
       shiftKey: true,
     });
@@ -347,6 +360,7 @@ describe('SheetMusicView Component', () => {
       label: 'mm. 1–2',
       playbackFraction: 0,
     });
+    expect(document.activeElement).toBe(secondMeasure);
   });
 
   it('sizes the score wrapper with its zoom so rendered dimensions actually change', () => {
