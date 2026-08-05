@@ -53,6 +53,7 @@ describe('DesktopSheetAgent', () => {
       });
       fake.emit({ type: 'chat-delta', requestId: 'request-1', text: 'Grounded answer' });
       fake.emit({ type: 'chat-done', requestId: 'request-1' });
+      fake.emit({ type: 'chat-delta', requestId: 'request-1', text: 'Late answer' });
       return { requestId: 'request-1' };
     });
     const onDelta = vi.fn();
@@ -138,6 +139,13 @@ describe('DesktopSheetAgent', () => {
         summary: 'Tool could not complete',
       });
       fake.emit({ type: 'chat-done', requestId: 'request-1' });
+      fake.emit({
+        type: 'tool-start',
+        requestId: 'request-1',
+        toolCallId: 'late-range',
+        toolName: 'read_measure_range',
+        summary: 'Late tool',
+      });
       return { requestId: 'request-1' };
     });
     const onProfileRoute = vi.fn();

@@ -335,37 +335,55 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     setError(null);
     setIsStreaming(true);
 
+    abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    const isCurrentRun = () => (
+      abortControllerRef.current === controller && !controller.signal.aborted
+    );
 
     try {
       const agent = getAgent();
       await agent.send({ history, question, context }, {
-        onDelta: (delta) => updateMessages(threadId, (current) => current.map((message) => (
-          message.id === assistantId
-            ? { ...message, content: message.content + delta }
-            : message
-        ))),
-        onStart: (provider) => updateMessages(threadId, (current) => current.map((message) => (
-          message.id === assistantId ? { ...message, provider } : message
-        ))),
-        onProfileRoute: (profiles) => updateMessages(threadId, (current) => current.map((message) => (
-          message.id === assistantId
-            ? { ...message, profileRoutes: [...new Set(profiles)] }
-            : message
-        ))),
-        onToolStart: (tool) => updateMessages(threadId, (current) => current.map((message) => (
-          message.id === assistantId
-            ? {
-                ...message,
-                toolDisplays: [
-                  ...(message.toolDisplays || []).filter((item) => item.toolCallId !== tool.toolCallId),
-                  tool,
-                ],
-              }
-            : message
-        ))),
-        onToolDone: (tool) => updateMessages(threadId, (current) => current.map((message) => {
+        onDelta: (delta) => {
+          if (!isCurrentRun()) return;
+          updateMessages(threadId, (current) => current.map((message) => (
+            message.id === assistantId
+              ? { ...message, content: message.content + delta }
+              : message
+          )));
+        },
+        onStart: (provider) => {
+          if (!isCurrentRun()) return;
+          updateMessages(threadId, (current) => current.map((message) => (
+            message.id === assistantId ? { ...message, provider } : message
+          )));
+        },
+        onProfileRoute: (profiles) => {
+          if (!isCurrentRun()) return;
+          updateMessages(threadId, (current) => current.map((message) => (
+            message.id === assistantId
+              ? { ...message, profileRoutes: [...new Set(profiles)] }
+              : message
+          )));
+        },
+        onToolStart: (tool) => {
+          if (!isCurrentRun()) return;
+          updateMessages(threadId, (current) => current.map((message) => (
+            message.id === assistantId
+              ? {
+                  ...message,
+                  toolDisplays: [
+                    ...(message.toolDisplays || []).filter((item) => item.toolCallId !== tool.toolCallId),
+                    tool,
+                  ],
+                }
+              : message
+          )));
+        },
+        onToolDone: (tool) => {
+          if (!isCurrentRun()) return;
+          updateMessages(threadId, (current) => current.map((message) => {
           if (message.id !== assistantId) return message;
           const existing = message.toolDisplays || [];
           const found = existing.some((item) => item.toolCallId === tool.toolCallId);
@@ -375,11 +393,14 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
               ? existing.map((item) => item.toolCallId === tool.toolCallId ? tool : item)
               : [...existing, tool],
           };
-        })),
+          }));
+        },
       }, controller.signal);
-      updateMessages(threadId, (current) => current.map((message) => (
-        message.id === assistantId ? { ...message, status: 'complete' } : message
-      )));
+      if (isCurrentRun()) {
+        updateMessages(threadId, (current) => current.map((message) => (
+          message.id === assistantId ? { ...message, status: 'complete' } : message
+        )));
+      }
     } catch (caught) {
       const wasStopped = caught instanceof DOMException && caught.name === 'AbortError';
       updateMessages(threadId, (current) => current.map((message) => (
@@ -395,8 +416,10 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         setError(caught instanceof Error ? caught.message : 'The agent could not respond.');
       }
     } finally {
-      if (abortControllerRef.current === controller) abortControllerRef.current = null;
-      setIsStreaming(false);
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+        setIsStreaming(false);
+      }
     }
   };
 

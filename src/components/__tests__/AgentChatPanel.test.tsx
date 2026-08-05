@@ -503,4 +503,50 @@ describe('AgentChatPanel', () => {
 
     expect(signal.aborted).toBe(true);
   });
+
+  it('aborts on file switch and ignores callbacks delivered after cancellation', async () => {
+    agentSendMock.mockImplementation((
+      _request: unknown,
+      callbacks: any,
+      signal: AbortSignal,
+    ) => new Promise<void>((_resolve, reject) => {
+      signal.addEventListener('abort', () => {
+        callbacks.onProfileRoute(['harmony']);
+        callbacks.onToolStart({
+          toolCallId: 'late-tool',
+          toolName: 'read_measure_range',
+          status: 'running',
+          summary: 'Late tool',
+        });
+        callbacks.onDelta('Late answer');
+        reject(new DOMException('Stopped', 'AbortError'));
+      }, { once: true });
+    }));
+    const props = {
+      open: true,
+      onClose: () => undefined,
+      abcCode: 'X:1\nT:Switch\nK:C\nCDEF|',
+      activeFileName: 'Switch.abc',
+      revision: 1,
+      ai,
+      onOpenSettings: () => undefined,
+    };
+    const { rerender } = render(<AgentChatPanel {...props} fileId="doc-before" />);
+    fireEvent.change(screen.getByLabelText('Ask about the current sheet'), {
+      target: { value: 'Keep streaming' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(agentSendMock).toHaveBeenCalledOnce());
+    const signal = agentSendMock.mock.calls[0][2] as AbortSignal;
+
+    await act(async () => {
+      rerender(<AgentChatPanel {...props} fileId="doc-after" />);
+      await Promise.resolve();
+    });
+
+    expect(signal.aborted).toBe(true);
+    expect(screen.queryByText('Late answer')).toBeNull();
+    expect(screen.queryByText('Late tool')).toBeNull();
+    expect(screen.queryByText('Harmony analysis')).toBeNull();
+  });
 });

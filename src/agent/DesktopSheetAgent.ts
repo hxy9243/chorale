@@ -29,6 +29,7 @@ export class DesktopSheetAgent {
     let requestId: string | null = null;
     let settle: (() => void) | null = null;
     let reject: ((error: Error) => void) | null = null;
+    let finished = false;
     const buffered: AIEvent[] = [];
     const completion = new Promise<void>((resolve, rejectPromise) => {
       settle = resolve;
@@ -36,7 +37,8 @@ export class DesktopSheetAgent {
     });
 
     const consume = (event: AIEvent) => {
-      if (!('requestId' in event) || event.requestId !== requestId) return;
+      if (finished || !('requestId' in event) || event.requestId !== requestId) return;
+      if (signal.aborted && event.type !== 'chat-error') return;
       if (event.type === 'chat-start') {
         callbacks.onStart({
           connectionId: event.connectionId,
@@ -62,8 +64,10 @@ export class DesktopSheetAgent {
           summary: event.summary,
         });
       } else if (event.type === 'chat-done') {
+        finished = true;
         settle?.();
       } else if (event.type === 'chat-error') {
+        finished = true;
         reject?.(event.code === 'aborted'
           ? new DOMException(event.message, 'AbortError')
           : new Error(event.message));
