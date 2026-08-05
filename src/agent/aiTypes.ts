@@ -1,4 +1,5 @@
 import type { ChatMessage, MusicContextSnapshot } from './types';
+import type { AgentProfileId } from '../types/document';
 
 export const AI_PROVIDER_KINDS = [
   'openai-codex',
@@ -84,6 +85,22 @@ export type AIEvent =
       providerKind: AIProviderKind;
     }
   | { type: 'chat-delta'; requestId: string; text: string }
+  | { type: 'profile-route'; requestId: string; profiles: AgentProfileId[] }
+  | {
+      type: 'tool-start';
+      requestId: string;
+      toolCallId: string;
+      toolName: string;
+      summary: string;
+    }
+  | {
+      type: 'tool-done';
+      requestId: string;
+      toolCallId: string;
+      toolName: string;
+      status: 'success' | 'error';
+      summary: string;
+    }
   | { type: 'chat-done'; requestId: string }
   | { type: 'chat-error'; requestId: string; code: AIErrorCode; message: string }
   | {

@@ -131,6 +131,13 @@ describe('SheetAgentRun provider transport', () => {
       documentId: 'document-current',
       revision: 17,
     });
+    await run.sheetTools.tools[0].execute('profile-route-test', { profiles: ['harmony'] });
+    expect(events).toContainEqual({
+      type: 'profile-route',
+      requestId: 'runtime-request',
+      profiles: ['harmony'],
+    });
+    events.length = 0;
     await run.start();
     expect(parseOnly).toHaveBeenCalledTimes(1);
 

@@ -15,6 +15,7 @@ import {
 } from '../../src/music/scoreSnapshot';
 import { createSheetTools } from './sheetTools';
 import { SHEET_AGENT_SYSTEM_PROMPT } from './systemPrompt';
+import { projectToolLifecycleEvent } from './toolEvents';
 
 export const mapAgentError = (error: unknown): { code: AIErrorCode; message: string } => {
   if (error instanceof DOMException && error.name === 'AbortError') {
@@ -90,7 +91,17 @@ export class SheetAgentRun {
       abc: request.context.abc,
       annotations: request.context.annotations,
     });
-    this.sheetTools = createSheetTools(this.scoreSnapshot);
+    this.sheetTools = createSheetTools(this.scoreSnapshot, {
+      onProfileRoute: (profiles) => {
+        if (!this.cancelled) {
+          this.emit({
+            type: 'profile-route',
+            requestId: this.requestId,
+            profiles: [...profiles],
+          });
+        }
+      },
+    });
   }
 
   async start() {
@@ -118,6 +129,12 @@ export class SheetAgentRun {
     });
 
     const unsubscribe = agent.subscribe((event) => {
+      if (
+        (event.type === 'tool_execution_start' || event.type === 'tool_execution_end')
+        && !this.cancelled
+      ) {
+        this.emit(projectToolLifecycleEvent(this.requestId, event));
+      }
       if (
         event.type === 'message_update' &&
         event.assistantMessageEvent.type === 'text_delta' &&
