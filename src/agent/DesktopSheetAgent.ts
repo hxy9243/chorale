@@ -1,5 +1,5 @@
 import type { AIEvent, AIProviderKind, SheetAgentRequest } from './aiTypes';
-import type { AgentProfileId } from '../types/document';
+import type { AgentProfileId, AnnotationProposal } from '../types/document';
 import type { ChatToolDisplay } from './types';
 
 export type ChatProvenance = {
@@ -14,6 +14,7 @@ export type SendCallbacks = {
   onProfileRoute?(profiles: AgentProfileId[]): void;
   onToolStart?(tool: ChatToolDisplay): void;
   onToolDone?(tool: ChatToolDisplay): void;
+  onProposalCreated?(proposal: AnnotationProposal): void;
 };
 
 export class DesktopSheetAgent {
@@ -63,6 +64,8 @@ export class DesktopSheetAgent {
           status: event.status,
           summary: event.summary,
         });
+      } else if (event.type === 'proposal-created') {
+        callbacks.onProposalCreated?.(event.proposal);
       } else if (event.type === 'chat-done') {
         finished = true;
         settle?.();

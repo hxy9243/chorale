@@ -2,6 +2,7 @@ import type {
   AgentProfileId,
   Annotation,
   AnnotationBase,
+  AnnotationProposal,
   FileDocument,
   MeasureSpan,
   ScoreInfo,
@@ -162,6 +163,34 @@ export const normalizeAnnotation = (value: unknown): Annotation | null => {
     if (recoveredChord) return recoveredChord;
   }
   return { ...base, kind: 'explanation' };
+};
+
+export const validateAnnotationProposal = (value: unknown): AnnotationProposal | null => {
+  if (!isRecord(value)) return null;
+  const id = nonEmptyString(value.id);
+  const runId = nonEmptyString(value.runId);
+  const documentId = nonEmptyString(value.documentId);
+  const annotation = validateAnnotation(value.annotation);
+  if (
+    !id
+    || !runId
+    || !documentId
+    || !Number.isSafeInteger(value.sourceRevision)
+    || (value.sourceRevision as number) <= 0
+    || !['proposed', 'accepted', 'rejected', 'outdated', 'unavailable'].includes(value.state as string)
+    || !annotation
+    || annotation.source !== 'assistant'
+  ) {
+    return null;
+  }
+  return {
+    id,
+    runId,
+    documentId,
+    sourceRevision: value.sourceRevision as number,
+    state: value.state as AnnotationProposal['state'],
+    annotation,
+  };
 };
 
 const normalizeScoreInfo = (value: unknown): ScoreInfo => {

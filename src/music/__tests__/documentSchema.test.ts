@@ -3,6 +3,7 @@ import {
   normalizeAnnotation,
   normalizeFileDocument,
   validateAnnotation,
+  validateAnnotationProposal,
 } from '../documentSchema';
 
 const baseAnnotation = {
@@ -90,6 +91,29 @@ describe('document schema normalization', () => {
       { id: 'chord-beat-1', position: { measure: 3, offset: { numerator: 0, denominator: 1 } } },
       { id: 'chord-beat-3', position: { measure: 3, offset: { numerator: 1, denominator: 2 } } },
     ]);
+  });
+
+  it('validates proposal metadata around a canonical assistant annotation', () => {
+    expect(validateAnnotationProposal({
+      id: 'proposal-1',
+      runId: 'run-1',
+      documentId: 'document-1',
+      sourceRevision: 3,
+      state: 'proposed',
+      annotation: { ...baseAnnotation, kind: 'explanation' },
+    })).toMatchObject({
+      id: 'proposal-1',
+      sourceRevision: 3,
+      annotation: { kind: 'explanation' },
+    });
+    expect(validateAnnotationProposal({
+      id: 'proposal-1',
+      runId: 'run-1',
+      documentId: 'document-1',
+      sourceRevision: 3,
+      state: 'proposed',
+      annotation: { ...baseAnnotation, kind: 'explanation', source: 'user' },
+    })).toBeNull();
   });
 
   it('migrates legacy annotation kinds and anchor fields', () => {

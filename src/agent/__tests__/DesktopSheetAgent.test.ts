@@ -173,6 +173,48 @@ describe('DesktopSheetAgent', () => {
     expect(fake.listeners.size).toBe(0);
   });
 
+  it('forwards server-created proposals only for the active request', async () => {
+    const fake = makeBridge();
+    window.choraleAI = fake.bridge;
+    const proposal = {
+      id: 'proposal-1',
+      runId: 'request-1',
+      documentId: 'document-1',
+      sourceRevision: 2,
+      state: 'proposed' as const,
+      annotation: {
+        id: 'annotation-1',
+        kind: 'explanation' as const,
+        span: { startMeasure: 1, endMeasure: 2 },
+        label: 'Cadence',
+        body: 'The phrase closes here.',
+        source: 'assistant' as const,
+        createdAt: '2026-08-05T00:00:00.000Z',
+        updatedAt: '2026-08-05T00:00:00.000Z',
+      },
+    };
+    vi.mocked(fake.bridge.sendChat).mockImplementation(async () => {
+      fake.emit({ type: 'proposal-created', requestId: 'request-1', proposal });
+      fake.emit({ type: 'chat-done', requestId: 'request-1' });
+      fake.emit({
+        type: 'proposal-created',
+        requestId: 'request-1',
+        proposal: { ...proposal, id: 'late-proposal' },
+      });
+      return { requestId: 'request-1' };
+    });
+    const onProposalCreated = vi.fn();
+
+    await new DesktopSheetAgent().send(
+      request,
+      { onDelta: vi.fn(), onStart: vi.fn(), onProposalCreated },
+      new AbortController().signal,
+    );
+
+    expect(onProposalCreated).toHaveBeenCalledOnce();
+    expect(onProposalCreated).toHaveBeenCalledWith(proposal);
+  });
+
   it('reports desktop-required state without a preload bridge', async () => {
     await expect(new DesktopSheetAgent().send(
       request,

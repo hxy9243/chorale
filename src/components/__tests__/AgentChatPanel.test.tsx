@@ -57,6 +57,24 @@ const ai: AIProviderState = {
   cancelCodexLogin: vi.fn(),
 };
 
+const proposal = {
+  id: 'proposal-test',
+  runId: 'request-test',
+  documentId: 'doc-proposals',
+  sourceRevision: 1,
+  state: 'proposed' as const,
+  annotation: {
+    id: 'annotation-test',
+    kind: 'explanation' as const,
+    span: { startMeasure: 1, endMeasure: 1 },
+    label: 'Opening',
+    body: 'The opening establishes the idea.',
+    source: 'assistant' as const,
+    createdAt: '2026-08-05T00:00:00.000Z',
+    updatedAt: '2026-08-05T00:00:00.000Z',
+  },
+};
+
 describe('AgentChatPanel', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -250,6 +268,45 @@ describe('AgentChatPanel', () => {
     expect(onNavigateMeasure).toHaveBeenCalledWith({ startMeasure: 1, endMeasure: 2 });
   });
 
+  it('persists server-created proposals on the assistant turn and marks them unavailable on failure', async () => {
+    agentSendMock.mockImplementation(async (_request, callbacks) => {
+      callbacks.onStart({
+        connectionId: 'openai-test',
+        providerKind: 'openai',
+        modelId: 'gpt-test',
+      });
+      callbacks.onProposalCreated(proposal);
+      throw new Error('Provider failed after proposing');
+    });
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-proposals"
+        abcCode={'X:1\nT:Proposals\nK:C\nCDEF|'}
+        activeFileName="Proposals.abc"
+        revision={1}
+        ai={ai}
+        onOpenSettings={() => undefined}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Ask about the current sheet'), {
+      target: { value: 'Suggest an annotation' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await screen.findByRole('alert');
+
+    await waitFor(() => {
+      const store = JSON.parse(localStorage.getItem(CONVERSATION_STORAGE_KEY) ?? '{}');
+      const messages = store.files['doc-proposals'].threads[0].messages;
+      const assistant = messages.find((message: { role: string }) => message.role === 'assistant');
+      expect(assistant.proposals).toEqual([{ ...proposal, state: 'unavailable' }]);
+      expect(assistant.profileRoutes).toEqual([]);
+      expect(assistant.toolDisplays).toEqual([]);
+    });
+  });
+
   it('keeps concurrent same-name score tools as separately correlated rows', async () => {
     agentSendMock.mockImplementation(async (_request, callbacks) => {
       callbacks.onStart({
@@ -314,7 +371,7 @@ describe('AgentChatPanel', () => {
 
   it('deletes the active thread and keeps one fresh thread when history becomes empty', async () => {
     localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
-      version: 2,
+      version: 3,
       files: {
         'doc-history': {
           activeThreadId: 'thread-first',
@@ -323,7 +380,14 @@ describe('AgentChatPanel', () => {
               id: 'thread-first',
               title: 'First thread',
               updatedAt: '2026-07-31T00:00:00.000Z',
-              messages: [],
+              messages: [{
+                id: 'assistant-with-proposal',
+                role: 'assistant',
+                content: 'A pending proposal.',
+                createdAt: '2026-07-31T00:00:00.000Z',
+                status: 'complete',
+                proposals: [{ ...proposal, documentId: 'doc-history' }],
+              }],
             },
             {
               id: 'thread-second',
@@ -370,6 +434,7 @@ describe('AgentChatPanel', () => {
       const saved = localStorage.getItem(CONVERSATION_STORAGE_KEY) || '';
       expect(saved).not.toContain('thread-first');
       expect(saved).not.toContain('thread-second');
+      expect(saved).not.toContain('proposal-test');
       expect(saved).toContain('New thread');
     });
   });
@@ -458,7 +523,7 @@ describe('AgentChatPanel', () => {
 
   it('uses a rounded custom thread menu and selects a thread from one chevron trigger', () => {
     localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
-      version: 2,
+      version: 3,
       files: {
         'doc-thread-menu': {
           activeThreadId: 'thread-first',
@@ -545,6 +610,10 @@ describe('AgentChatPanel', () => {
       callbacks: any,
       signal: AbortSignal,
     ) => new Promise<void>((_resolve, reject) => {
+      callbacks.onProposalCreated({
+        ...proposal,
+        documentId: 'doc-before',
+      });
       signal.addEventListener('abort', () => {
         callbacks.onProfileRoute(['harmony']);
         callbacks.onToolStart({
@@ -583,5 +652,13 @@ describe('AgentChatPanel', () => {
     expect(screen.queryByText('Late answer')).toBeNull();
     expect(screen.queryByText('Late tool')).toBeNull();
     expect(screen.queryByText('Harmony analysis')).toBeNull();
+    const previousStore = JSON.parse(localStorage.getItem(CONVERSATION_STORAGE_KEY) ?? '{}');
+    const previousMessages = previousStore.files['doc-before'].threads[0].messages;
+    const previousAssistant = previousMessages.find((message: { role: string }) => (
+      message.role === 'assistant'
+    ));
+    expect(previousAssistant.proposals).toEqual([
+      expect.objectContaining({ id: 'proposal-test', state: 'unavailable' }),
+    ]);
   });
 });

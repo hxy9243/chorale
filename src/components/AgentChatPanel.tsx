@@ -70,6 +70,32 @@ const replaceActiveThread = (
   )),
 });
 
+const markProposalsUnavailable = (message: ChatMessage): ChatMessage => ({
+  ...message,
+  proposals: (message.proposals || []).map((proposal) => (
+    proposal.state === 'proposed'
+      ? { ...proposal, state: 'unavailable' as const }
+      : proposal
+  )),
+});
+
+const markRunUnavailable = (
+  conversation: PersistedFileConversation,
+  threadId: string,
+  assistantId: string,
+): PersistedFileConversation => replaceActiveThread(conversation, threadId, (thread) => ({
+  ...thread,
+  messages: thread.messages.map((message) => (
+    message.id === assistantId
+      ? {
+          ...markProposalsUnavailable(message),
+          content: message.content || 'Response stopped.',
+          status: 'stopped',
+        }
+      : message
+  )),
+}));
+
 export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   open,
   onClose,
@@ -93,8 +119,15 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   const [threadMenuOpen, setThreadMenuOpen] = useState(false);
   const [providerPickerOpen, setProviderPickerOpen] = useState(false);
   const [textareaHeight, setTextareaHeight] = useState<number | null>(null);
+  const conversationRef = useRef(conversation);
+  conversationRef.current = conversation;
   const agentRef = useRef<DesktopSheetAgent | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const activeRunRef = useRef<{
+    fileId: string;
+    threadId: string;
+    assistantId: string;
+  } | null>(null);
   const panelRef = useRef<HTMLElement>(null);
   const composerRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -144,6 +177,16 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
 
   useEffect(() => {
     if (abortControllerRef.current) {
+      const activeRun = activeRunRef.current;
+      if (activeRun) {
+        const unavailable = markRunUnavailable(
+          conversationRef.current,
+          activeRun.threadId,
+          activeRun.assistantId,
+        );
+        conversationRef.current = unavailable;
+        saveConversation(activeRun.fileId, unavailable);
+      }
       stop();
       setIsStreaming(false);
     }
@@ -200,6 +243,17 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   }, [messages]);
 
   useEffect(() => () => {
+    const activeRun = activeRunRef.current;
+    if (activeRun) {
+      saveConversation(
+        activeRun.fileId,
+        markRunUnavailable(
+          conversationRef.current,
+          activeRun.threadId,
+          activeRun.assistantId,
+        ),
+      );
+    }
     abortControllerRef.current?.abort();
   }, []);
 
@@ -326,6 +380,9 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       content: '',
       createdAt: new Date().toISOString(),
       status: 'streaming',
+      profileRoutes: [],
+      toolDisplays: [],
+      proposals: [],
     };
     const history = activeThread.messages;
     const threadId = activeThread.id;
@@ -343,6 +400,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    activeRunRef.current = { fileId, threadId, assistantId };
     const isCurrentRun = () => (
       abortControllerRef.current === controller && !controller.signal.aborted
     );
@@ -400,6 +458,20 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
           };
           }));
         },
+        onProposalCreated: (proposal) => {
+          if (!isCurrentRun()) return;
+          updateMessages(threadId, (current) => current.map((message) => (
+            message.id === assistantId
+              ? {
+                  ...message,
+                  proposals: [
+                    ...(message.proposals || []).filter(({ id }) => id !== proposal.id),
+                    proposal,
+                  ],
+                }
+              : message
+          )));
+        },
       }, controller.signal);
       if (isCurrentRun()) {
         updateMessages(threadId, (current) => current.map((message) => (
@@ -411,7 +483,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       updateMessages(threadId, (current) => current.map((message) => (
         message.id === assistantId
           ? {
-              ...message,
+              ...markProposalsUnavailable(message),
               content: message.content || (wasStopped ? 'Response stopped.' : 'No response received.'),
               status: wasStopped ? 'stopped' : 'error',
             }
@@ -423,6 +495,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     } finally {
       if (abortControllerRef.current === controller) {
         abortControllerRef.current = null;
+        activeRunRef.current = null;
         setIsStreaming(false);
       }
     }

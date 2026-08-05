@@ -159,8 +159,8 @@ try {
           const persistedFileId = localStorage.getItem('chorale.workspace.activeFileId');
           if (persistedFileId !== activeFileId) continue;
           const timestamp = new Date().toISOString();
-          localStorage.setItem('chorale.pi-agent-conversation.v2', JSON.stringify({
-            version: 2,
+          localStorage.setItem('chorale.pi-agent-conversation.v3', JSON.stringify({
+            version: 3,
             files: {
               [activeFileId]: {
                 activeThreadId: 'thread-passage-smoke',
@@ -243,7 +243,7 @@ try {
       throw new Error(error.message + ' ' + JSON.stringify({
         activeFileId: localStorage.getItem('chorale.workspace.activeFileId'),
         chatOpen: localStorage.getItem('chorale.workspace.chatOpen'),
-        store: localStorage.getItem('chorale.pi-agent-conversation.v2'),
+        store: localStorage.getItem('chorale.pi-agent-conversation.v3'),
         assistantMessages: document.querySelectorAll('.agent-message.assistant').length,
         panel: Boolean(document.querySelector('.agent-panel')),
       }));
@@ -311,7 +311,7 @@ try {
       playTitle: document.querySelector('.main-play-buttons button')?.getAttribute('title'),
     };
     const result = { singleState, rangeState, playbackStates };
-    localStorage.removeItem('chorale.pi-agent-conversation.v2');
+    localStorage.removeItem('chorale.pi-agent-conversation.v3');
     return result;
   })()`);
   assert(
@@ -554,7 +554,7 @@ try {
     document.querySelector('[aria-label="Close settings"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 25));
     const readActiveThread = () => {
-      const store = JSON.parse(localStorage.getItem('chorale.pi-agent-conversation.v2') ?? 'null');
+      const store = JSON.parse(localStorage.getItem('chorale.pi-agent-conversation.v3') ?? 'null');
       const activeFileId = localStorage.getItem('chorale.workspace.activeFileId');
       const fileConversation = activeFileId ? store?.files?.[activeFileId] : null;
       return {

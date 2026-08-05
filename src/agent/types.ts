@@ -1,5 +1,10 @@
 import type { AIProviderKind } from './aiTypes';
-import type { AgentProfileId, Annotation, ScoreAnchor } from '../types/document';
+import type {
+  AgentProfileId,
+  Annotation,
+  AnnotationProposal,
+  ScoreAnchor,
+} from '../types/document';
 
 export type ChatToolDisplay = {
   toolCallId: string;
@@ -28,6 +33,7 @@ export type ChatMessage = {
   status?: 'streaming' | 'complete' | 'stopped' | 'error';
   profileRoutes?: AgentProfileId[];
   toolDisplays?: ChatToolDisplay[];
+  proposals?: AnnotationProposal[];
   provider?: {
     connectionId: string;
     providerKind: AIProviderKind;
@@ -54,6 +60,6 @@ export type PersistedFileConversation = {
 };
 
 export type PersistedConversationStore = {
-  version: 2;
+  version: 3;
   files: Record<string, PersistedFileConversation>;
 };
