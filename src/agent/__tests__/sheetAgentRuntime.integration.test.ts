@@ -4,7 +4,8 @@ import type { AddressInfo } from 'node:net';
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import abcjs from 'abcjs';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AIConnectionStore, type SecretCipher } from '../../../electron/ai/connectionStore';
 import {
   mapAgentError,
@@ -79,6 +80,7 @@ const request: SheetAgentRequest = {
 };
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   for (const server of servers.splice(0)) {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -115,14 +117,22 @@ describe('SheetAgentRun provider transport', () => {
     const { store, connection, model } = await createStore(`http://127.0.0.1:${port}/v1`);
     const events: AIEvent[] = [];
 
-    await new SheetAgentRun(
+    const parseOnly = vi.spyOn(abcjs, 'parseOnly');
+    const run = new SheetAgentRun(
       'runtime-request',
       request,
       connection,
       model,
       store,
       (event) => events.push(event),
-    ).start();
+    );
+    expect(run.scoreSnapshot).toMatchObject({
+      snapshotId: 'context-current',
+      documentId: 'document-current',
+      revision: 17,
+    });
+    await run.start();
+    expect(parseOnly).toHaveBeenCalledTimes(1);
 
     expect(receivedAuthorization).toBe('Bearer integration-secret');
     expect(receivedCustomHeader).toBe('grounded');

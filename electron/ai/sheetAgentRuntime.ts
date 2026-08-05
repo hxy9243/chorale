@@ -9,6 +9,10 @@ import type {
 import type { AIConnectionStore } from './connectionStore';
 import { createProviderRuntime } from './providers';
 import { formatPrompt, toAgentHistory } from '../../src/agent/promptUtils';
+import {
+  createScoreSnapshot,
+  type ScoreSnapshot,
+} from '../../src/music/scoreSnapshot';
 
 export const mapAgentError = (error: unknown): { code: AIErrorCode; message: string } => {
   if (error instanceof DOMException && error.name === 'AbortError') {
@@ -52,6 +56,7 @@ export const redactSecretValues = (message: string, secret: unknown): string => 
 };
 
 export class SheetAgentRun {
+  readonly scoreSnapshot: ScoreSnapshot;
   private agent?: Agent;
   private cancelled = false;
   private readonly requestId: string;
@@ -75,6 +80,13 @@ export class SheetAgentRun {
     this.modelOption = modelOption;
     this.store = store;
     this.emit = emit;
+    this.scoreSnapshot = createScoreSnapshot({
+      snapshotId: request.context.id,
+      documentId: request.context.documentId,
+      revision: request.context.revision,
+      abc: request.context.abc,
+      annotations: request.context.annotations,
+    });
   }
 
   async start() {
