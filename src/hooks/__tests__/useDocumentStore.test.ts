@@ -88,4 +88,37 @@ describe('useDocumentStore', () => {
       expect(result.current.documents.length).toBeGreaterThan(0);
     });
   });
+
+  it('creates, updates, and deletes annotations without changing ABC revision or history', async () => {
+    localStorage.setItem('chorale.workspace.activeFileId', sampleDoc.id);
+    vi.spyOn(storageAdapter, 'getDocuments').mockResolvedValue([sampleDoc]);
+    const { result } = renderHook(() => useDocumentStore());
+    await waitFor(() => expect(result.current.hydrationStatus).toBe('ready'));
+    const initialRevision = result.current.abcRevision;
+    const initialVersions = result.current.activeDocument?.versions;
+    const createdAt = '2026-08-05T00:00:00.000Z';
+
+    act(() => result.current.handleAddAnnotation({
+      id: 'annotation-hook',
+      kind: 'explanation',
+      span: { startMeasure: 1, endMeasure: 1 },
+      label: 'Opening',
+      body: 'Initial body.',
+      source: 'user',
+      createdAt,
+      updatedAt: createdAt,
+    }));
+    expect(result.current.activeDocument?.annotations).toHaveLength(1);
+
+    act(() => result.current.handleUpdateAnnotation({
+      ...result.current.activeDocument!.annotations[0],
+      body: 'Edited body.',
+    }));
+    expect(result.current.activeDocument?.annotations[0].body).toBe('Edited body.');
+
+    act(() => result.current.handleDeleteAnnotation('annotation-hook'));
+    expect(result.current.activeDocument?.annotations).toEqual([]);
+    expect(result.current.abcRevision).toBe(initialRevision);
+    expect(result.current.activeDocument?.versions).toBe(initialVersions);
+  });
 });

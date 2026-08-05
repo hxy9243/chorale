@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { FileDocument, ScoreAnchor } from '../types/document';
+import type { Annotation, AnnotationId, FileDocument, ScoreAnchor } from '../types/document';
 import type { MusicSample } from '../types/music';
 import { PRESET_SAMPLES } from '../data/samples';
 import { extractMusicXml, parseMusicXmlToAbc } from '../utils/xmlParser';
@@ -10,6 +10,11 @@ import {
 } from '../utils/fileSession';
 
 import { storageAdapter } from '../utils/storageAdapter';
+import {
+  appendDocumentAnnotations,
+  deleteDocumentAnnotation,
+  updateDocumentAnnotation,
+} from '../music/annotationMutations';
 
 const ACTIVE_FILE_KEY = 'chorale.workspace.activeFileId';
 const AUTOSAVE_DELAY_MS = 400;
@@ -233,6 +238,37 @@ export const useDocumentStore = () => {
     });
   }, []);
 
+  const handleAddAnnotations = useCallback((annotations: readonly Annotation[]) => {
+    if (!activeFileId) return;
+    setDocuments((current) => current.map((document) => (
+      document.id === activeFileId
+        ? appendDocumentAnnotations(document, annotations)
+        : document
+    )));
+  }, [activeFileId]);
+
+  const handleAddAnnotation = useCallback((annotation: Annotation) => {
+    handleAddAnnotations([annotation]);
+  }, [handleAddAnnotations]);
+
+  const handleUpdateAnnotation = useCallback((annotation: Annotation) => {
+    if (!activeFileId) return;
+    setDocuments((current) => current.map((document) => (
+      document.id === activeFileId
+        ? updateDocumentAnnotation(document, annotation)
+        : document
+    )));
+  }, [activeFileId]);
+
+  const handleDeleteAnnotation = useCallback((annotationId: AnnotationId) => {
+    if (!activeFileId) return;
+    setDocuments((current) => current.map((document) => (
+      document.id === activeFileId
+        ? deleteDocumentAnnotation(document, annotationId)
+        : document
+    )));
+  }, [activeFileId]);
+
   return {
     documents,
     hydrationStatus,
@@ -251,5 +287,9 @@ export const useDocumentStore = () => {
     handleProcessMusicXml,
     handleDeleteDocument,
     handleReorderDocument,
+    handleAddAnnotation,
+    handleAddAnnotations,
+    handleUpdateAnnotation,
+    handleDeleteAnnotation,
   };
 };
