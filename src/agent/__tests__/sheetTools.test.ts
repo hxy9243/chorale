@@ -93,12 +93,105 @@ describe('sheet tools', () => {
     }
   });
 
-  it('exposes only read-only score and routing capabilities', () => {
+  it('creates canonical proposals with server-controlled metadata without mutating the snapshot', async () => {
+    const created = vi.fn();
+    const ids = ['annotation-1', 'proposal-1', 'annotation-2', 'proposal-2'];
+    const snapshot = createSnapshot();
+    const registry = createSheetTools(snapshot, {
+      runId: 'run-tools',
+      createId: () => ids.shift()!,
+      now: () => '2026-08-05T03:00:00.000Z',
+      onProposalCreated: created,
+    });
+    await registry.tools[0].execute('route', { profiles: ['harmony'] });
+    const result = await registry.tools[4].execute('propose', {
+      annotations: [{
+        kind: 'chord',
+        span: { startMeasure: 1, endMeasure: 1 },
+        position: { measure: 1, offset: { numerator: 1, denominator: 2 } },
+        chordSymbol: 'G7',
+        romanNumeral: 'V7',
+        label: 'Dominant',
+        body: 'The dominant prepares the next measure.',
+        id: 'model-id-is-ignored',
+        source: 'user',
+      }, {
+        kind: 'explanation',
+        span: { startMeasure: 1, endMeasure: 2 },
+        label: 'Phrase',
+        body: 'The two measures form a short phrase.',
+      }],
+    } as any);
+
+    expect(result.details).toEqual({
+      proposedCount: 2,
+      proposalIds: ['proposal-1', 'proposal-2'],
+    });
+    expect(created).toHaveBeenNthCalledWith(1, {
+      id: 'proposal-1',
+      runId: 'run-tools',
+      documentId: 'document-tools',
+      sourceRevision: 2,
+      state: 'proposed',
+      annotation: {
+        id: 'annotation-1',
+        kind: 'chord',
+        span: { startMeasure: 1, endMeasure: 1 },
+        position: { measure: 1, offset: { numerator: 1, denominator: 2 } },
+        chordSymbol: 'G7',
+        romanNumeral: 'V7',
+        label: 'Dominant',
+        body: 'The dominant prepares the next measure.',
+        source: 'assistant',
+        agentProfiles: ['harmony'],
+        createdAt: '2026-08-05T03:00:00.000Z',
+        updatedAt: '2026-08-05T03:00:00.000Z',
+      },
+    });
+    expect(registry.state.proposedCount).toBe(2);
+    expect(snapshot.annotations).toHaveLength(1);
+  });
+
+  it('rejects invalid or over-limit proposal batches before emitting any proposal', async () => {
+    const created = vi.fn();
+    const registry = createSheetTools(createSnapshot(), { onProposalCreated: created });
+    await registry.tools[0].execute('route', { profiles: ['harmony'] });
+    const propose = registry.tools[4];
+    const explanation = (index: number) => ({
+      kind: 'explanation' as const,
+      span: { startMeasure: 1, endMeasure: 1 },
+      label: `Label ${index}`,
+      body: `Body ${index}`,
+    });
+
+    await expect(propose.execute('invalid', {
+      annotations: [{
+        kind: 'chord',
+        span: { startMeasure: 1, endMeasure: 1 },
+        position: { measure: 1, offset: { numerator: 2, denominator: 4 } },
+        chordSymbol: 'C',
+        label: 'Invalid rational',
+        body: 'This is not reduced.',
+      }],
+    })).rejects.toMatchObject({ code: 'invalid_proposals' });
+    expect(created).not.toHaveBeenCalled();
+
+    await propose.execute('first-batch', {
+      annotations: Array.from({ length: 31 }, (_, index) => explanation(index)),
+    });
+    await expect(propose.execute('over-limit', {
+      annotations: [explanation(31), explanation(32)],
+    })).rejects.toMatchObject({ code: 'proposal_limit' });
+    expect(created).toHaveBeenCalledTimes(31);
+  });
+
+  it('exposes read-only score, routing, and non-mutating proposal capabilities', () => {
     expect(createSheetTools(createSnapshot()).tools.map(({ name }) => name)).toEqual([
       'select_analysis_profile',
       'get_score_summary',
       'read_measure_range',
       'get_annotations',
+      'propose_annotations',
     ]);
   });
 });

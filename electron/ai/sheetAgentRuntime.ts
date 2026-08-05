@@ -92,12 +92,22 @@ export class SheetAgentRun {
       annotations: request.context.annotations,
     });
     this.sheetTools = createSheetTools(this.scoreSnapshot, {
+      runId: this.requestId,
       onProfileRoute: (profiles) => {
         if (!this.cancelled) {
           this.emit({
             type: 'profile-route',
             requestId: this.requestId,
             profiles: [...profiles],
+          });
+        }
+      },
+      onProposalCreated: (proposal) => {
+        if (!this.cancelled) {
+          this.emit({
+            type: 'proposal-created',
+            requestId: this.requestId,
+            proposal,
           });
         }
       },

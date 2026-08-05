@@ -60,4 +60,24 @@ describe('renderer-safe tool event projection', () => {
     });
     expect(JSON.stringify([success, failure])).not.toContain('private');
   });
+
+  it('summarizes proposal creation without forwarding proposal payloads', () => {
+    expect(projectToolLifecycleEvent('request-2', {
+      type: 'tool_execution_end',
+      toolCallId: 'proposal-call',
+      toolName: 'propose_annotations',
+      result: {
+        details: { proposedCount: 2, proposalIds: ['private-1', 'private-2'] },
+        content: [{ type: 'text', text: 'private proposal result' }],
+      },
+      isError: false,
+    })).toEqual({
+      type: 'tool-done',
+      requestId: 'request-2',
+      toolCallId: 'proposal-call',
+      toolName: 'propose_annotations',
+      status: 'success',
+      summary: 'Proposed 2 annotations',
+    });
+  });
 });

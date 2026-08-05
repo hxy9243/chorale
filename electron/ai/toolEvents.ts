@@ -17,6 +17,7 @@ export const summarizeToolStart = (event: ToolStartEvent): string => {
       : 'Reading measure range';
   }
   if (event.toolName === 'get_annotations') return 'Reading score annotations';
+  if (event.toolName === 'propose_annotations') return 'Preparing annotation proposals';
   return 'Using score tool';
 };
 
@@ -35,6 +36,12 @@ export const summarizeToolDone = (event: ToolDoneEvent): string => {
       ? event.result.details.annotations.length
       : undefined;
     return count === undefined ? 'Annotations ready' : `Found ${count} annotation${count === 1 ? '' : 's'}`;
+  }
+  if (event.toolName === 'propose_annotations') {
+    const count = integer(event.result?.details?.proposedCount);
+    return count === undefined
+      ? 'Annotation proposals ready'
+      : `Proposed ${count} annotation${count === 1 ? '' : 's'}`;
   }
   return 'Score tool complete';
 };

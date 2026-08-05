@@ -1,14 +1,22 @@
+import { randomUUID } from 'node:crypto';
 import type { AgentTool } from '@earendil-works/pi-agent-core';
 import { Type } from 'typebox';
-import type { AgentProfileId, AnnotationKind } from '../../src/types/document';
+import type {
+  AgentProfileId,
+  AnnotationKind,
+  AnnotationProposal,
+} from '../../src/types/document';
 import type { ScoreSnapshot } from '../../src/music/scoreSnapshot';
+import { validateAnnotation } from '../../src/music/documentSchema';
 import { selectAnalysisProfiles } from './agentProfiles';
 
 export type SheetToolErrorCode =
   | 'profile_required'
   | 'invalid_range'
   | 'range_too_large'
-  | 'measure_not_found';
+  | 'measure_not_found'
+  | 'invalid_proposals'
+  | 'proposal_limit';
 
 export class SheetToolValidationError extends Error {
   readonly code: SheetToolErrorCode;
@@ -28,10 +36,15 @@ export class SheetToolValidationError extends Error {
 
 export type SheetToolRunState = {
   selectedProfiles: readonly AgentProfileId[];
+  proposedCount: number;
 };
 
 export type CreateSheetToolsOptions = Readonly<{
   onProfileRoute?: (profiles: readonly AgentProfileId[]) => void;
+  onProposalCreated?: (proposal: AnnotationProposal) => void;
+  runId?: string;
+  createId?: () => string;
+  now?: () => string;
 }>;
 
 const ProfileIdSchema = Type.Union([
@@ -61,7 +74,9 @@ export const createSheetTools = (
   snapshot: ScoreSnapshot,
   options: CreateSheetToolsOptions = {},
 ): Readonly<{ tools: readonly AgentTool[]; state: SheetToolRunState }> => {
-  const state: SheetToolRunState = { selectedProfiles: Object.freeze([]) };
+  const state: SheetToolRunState = { selectedProfiles: Object.freeze([]), proposedCount: 0 };
+  const createId = options.createId ?? randomUUID;
+  const now = options.now ?? (() => new Date().toISOString());
 
   const requireProfile = () => {
     if (state.selectedProfiles.length === 0) {
@@ -181,6 +196,73 @@ export const createSheetTools = (
     },
   };
 
+  const proposeAnnotationsTool: AgentTool<typeof ProposeAnnotationsParameters> = {
+    name: 'propose_annotations',
+    label: 'Propose annotations',
+    description: 'Stage up to 32 validated score annotations for user review without changing the score.',
+    parameters: ProposeAnnotationsParameters,
+    executionMode: 'sequential',
+    execute: async (_toolCallId, params, signal) => {
+      throwIfAborted(signal);
+      requireProfile();
+      if (params.annotations.length === 0) {
+        throw new SheetToolValidationError(
+          'invalid_proposals',
+          'Propose at least one annotation.',
+        );
+      }
+      if (state.proposedCount + params.annotations.length > 32) {
+        throw new SheetToolValidationError(
+          'proposal_limit',
+          'Propose at most 32 annotations per run.',
+          {
+            proposedCount: state.proposedCount,
+            requestedCount: params.annotations.length,
+            maximumProposals: 32,
+          },
+        );
+      }
+
+      const timestamp = now();
+      const proposals = params.annotations.map((input, index): AnnotationProposal => {
+        const annotation = validateAnnotation({
+          ...input,
+          id: createId(),
+          source: 'assistant',
+          agentProfiles: [...state.selectedProfiles],
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+        if (
+          !annotation
+          || !snapshot.measureIndex.has(annotation.span.startMeasure)
+          || !snapshot.measureIndex.has(annotation.span.endMeasure)
+        ) {
+          throw new SheetToolValidationError(
+            'invalid_proposals',
+            'Every proposal must be canonical and within the current score.',
+            { proposalIndex: index, totalMeasures: snapshot.measureIndex.size },
+          );
+        }
+        return {
+          id: createId(),
+          runId: options.runId ?? snapshot.snapshotId,
+          documentId: snapshot.documentId,
+          sourceRevision: snapshot.revision,
+          state: 'proposed',
+          annotation,
+        };
+      });
+
+      state.proposedCount += proposals.length;
+      for (const proposal of proposals) options.onProposalCreated?.(proposal);
+      return jsonResult({
+        proposedCount: proposals.length,
+        proposalIds: proposals.map(({ id }) => id),
+      });
+    },
+  };
+
   return Object.freeze({
     state,
     tools: Object.freeze([
@@ -188,6 +270,7 @@ export const createSheetTools = (
       getScoreSummaryTool,
       readMeasureRangeTool,
       getAnnotationsTool,
+      proposeAnnotationsTool,
     ]),
   });
 };
@@ -207,4 +290,45 @@ const GetAnnotationsParameters = Type.Object({
   startMeasure: Type.Optional(Type.Integer({ minimum: 1 })),
   endMeasure: Type.Optional(Type.Integer({ minimum: 1 })),
   kinds: Type.Optional(Type.Array(AnnotationKindSchema, { minItems: 1, maxItems: 4 })),
+}, { additionalProperties: false });
+
+const MeasureSpanSchema = Type.Object({
+  startMeasure: Type.Integer({ minimum: 1 }),
+  endMeasure: Type.Integer({ minimum: 1 }),
+}, { additionalProperties: false });
+
+const MusicalPositionSchema = Type.Object({
+  measure: Type.Integer({ minimum: 1 }),
+  offset: Type.Object({
+    numerator: Type.Integer({ minimum: 0 }),
+    denominator: Type.Integer({ minimum: 1 }),
+  }, { additionalProperties: false }),
+}, { additionalProperties: false });
+
+const AnnotationProposalBaseSchema = {
+  span: MeasureSpanSchema,
+  label: Type.String({ minLength: 1, maxLength: 120 }),
+  body: Type.String({ minLength: 1, maxLength: 2_000 }),
+};
+
+const AnnotationProposalInputSchema = Type.Union([
+  Type.Object({
+    ...AnnotationProposalBaseSchema,
+    kind: Type.Literal('chord'),
+    position: MusicalPositionSchema,
+    chordSymbol: Type.String({ minLength: 1, maxLength: 80 }),
+    romanNumeral: Type.Optional(Type.String({ minLength: 1, maxLength: 40 })),
+  }, { additionalProperties: false }),
+  Type.Object({
+    ...AnnotationProposalBaseSchema,
+    kind: Type.Union([
+      Type.Literal('modulation'),
+      Type.Literal('voice-leading'),
+      Type.Literal('explanation'),
+    ]),
+  }, { additionalProperties: false }),
+]);
+
+const ProposeAnnotationsParameters = Type.Object({
+  annotations: Type.Array(AnnotationProposalInputSchema, { minItems: 1, maxItems: 32 }),
 }, { additionalProperties: false });

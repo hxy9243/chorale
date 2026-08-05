@@ -137,6 +137,24 @@ describe('SheetAgentRun provider transport', () => {
       requestId: 'runtime-request',
       profiles: ['harmony'],
     });
+    await run.sheetTools.tools[4].execute('proposal-test', {
+      annotations: [{
+        kind: 'explanation',
+        span: { startMeasure: 1, endMeasure: 2 },
+        label: 'Cadence',
+        body: 'The passage prepares and resolves the cadence.',
+      }],
+    });
+    expect(events).toContainEqual(expect.objectContaining({
+      type: 'proposal-created',
+      requestId: 'runtime-request',
+      proposal: expect.objectContaining({
+        runId: 'runtime-request',
+        documentId: 'document-current',
+        sourceRevision: 17,
+        state: 'proposed',
+      }),
+    }));
     events.length = 0;
     await run.start();
     expect(parseOnly).toHaveBeenCalledTimes(1);
