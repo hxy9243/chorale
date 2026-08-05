@@ -3,6 +3,7 @@ import {
   addRationalDurations,
   compareRationalDurations,
   createRationalDuration,
+  createRationalDurationFromNumber,
   isRationalDuration,
 } from '../rational';
 
@@ -29,6 +30,15 @@ describe('rational durations', () => {
     expect(isRationalDuration({ numerator: 1, denominator: -4 })).toBe(false);
     expect(isRationalDuration({ numerator: 1, denominator: 4, unit: 'beat' })).toBe(true);
     expect(isRationalDuration(null)).toBe(false);
+  });
+
+  it('recovers exact musical fractions from parser numbers', () => {
+    expect(createRationalDurationFromNumber(0.125)).toEqual({ numerator: 1, denominator: 8 });
+    expect(createRationalDurationFromNumber(0.125 * (2 / 3))).toEqual({
+      numerator: 1,
+      denominator: 12,
+    });
+    expect(() => createRationalDurationFromNumber(Number.NaN)).toThrow(/finite/);
   });
 
   it('adds and reduces durations exactly', () => {

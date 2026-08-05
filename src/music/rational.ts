@@ -52,6 +52,56 @@ export const createRationalDuration = (
   return fromBigInts(BigInt(numerator), BigInt(denominator));
 };
 
+export const createRationalDurationFromNumber = (
+  value: number,
+  maximumDenominator = 65_536,
+): RationalDuration => {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new RangeError('Rational duration value must be finite and non-negative.');
+  }
+  if (!Number.isSafeInteger(maximumDenominator) || maximumDenominator <= 0) {
+    throw new RangeError('Maximum denominator must be a positive safe integer.');
+  }
+  if (Number.isSafeInteger(value)) return createRationalDuration(value, 1);
+
+  let remainder = value;
+  let previousNumerator = 0;
+  let numerator = 1;
+  let previousDenominator = 1;
+  let denominator = 0;
+
+  while (true) {
+    const coefficient = Math.floor(remainder);
+    const nextNumerator = coefficient * numerator + previousNumerator;
+    const nextDenominator = coefficient * denominator + previousDenominator;
+    if (
+      !Number.isSafeInteger(nextNumerator)
+      || !Number.isSafeInteger(nextDenominator)
+      || nextDenominator > maximumDenominator
+    ) {
+      break;
+    }
+
+    previousNumerator = numerator;
+    numerator = nextNumerator;
+    previousDenominator = denominator;
+    denominator = nextDenominator;
+
+    if (Math.abs(numerator / denominator - value) <= Number.EPSILON * 16) {
+      return createRationalDuration(numerator, denominator);
+    }
+
+    const fractionalPart = remainder - coefficient;
+    if (fractionalPart <= Number.EPSILON) break;
+    remainder = 1 / fractionalPart;
+  }
+
+  if (denominator > 0 && Math.abs(numerator / denominator - value) <= 1e-12) {
+    return createRationalDuration(numerator, denominator);
+  }
+  throw new RangeError('Rational duration cannot be represented within the denominator limit.');
+};
+
 export const isRationalDuration = (value: unknown): value is RationalDuration => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const candidate = value as Partial<RationalDuration>;
