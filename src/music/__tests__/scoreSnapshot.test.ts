@@ -74,6 +74,43 @@ describe('score snapshot extraction', () => {
     });
   });
 
+  it('treats a pickup as written measure one and aligns with abcjs global classes', () => {
+    const score = extractScore([
+      'X:1',
+      'M:4/4',
+      'L:1/4',
+      'K:C',
+      'G | C D E F | G4 |]',
+    ].join('\n'));
+
+    expect(score.measures.map((measure) => ({
+      writtenMeasure: measure.measureNumber,
+      abcjsGlobalClass: `abcjs-mm${measure.measureNumber - 1}`,
+      eventOffsets: measure.events.map((event) => event.position),
+    }))).toEqual([
+      {
+        writtenMeasure: 1,
+        abcjsGlobalClass: 'abcjs-mm0',
+        eventOffsets: [{ measure: 1, offset: { numerator: 0, denominator: 1 } }],
+      },
+      {
+        writtenMeasure: 2,
+        abcjsGlobalClass: 'abcjs-mm1',
+        eventOffsets: [
+          { measure: 2, offset: { numerator: 0, denominator: 1 } },
+          { measure: 2, offset: { numerator: 1, denominator: 4 } },
+          { measure: 2, offset: { numerator: 1, denominator: 2 } },
+          { measure: 2, offset: { numerator: 3, denominator: 4 } },
+        ],
+      },
+      {
+        writtenMeasure: 3,
+        abcjsGlobalClass: 'abcjs-mm2',
+        eventOffsets: [{ measure: 3, offset: { numerator: 0, denominator: 1 } }],
+      },
+    ]);
+  });
+
   it('reports parser warnings as malformed ABC errors', () => {
     expect(() => extractScore('X:1\nM:broken\nK:C\nC|')).toThrow(/Malformed ABC.*meter/);
     expect(() => extractScore('')).toThrow(/empty/);
