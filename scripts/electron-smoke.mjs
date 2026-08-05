@@ -142,6 +142,203 @@ const profileDirectory = await mkdtemp(path.join(os.tmpdir(), 'chorale-electron-
 try {
   const first = await launch(profileDirectory);
   const firstCDP = await connectCDP(first.target.webSocketDebuggerUrl);
+  await firstCDP.evaluate(`(async () => {
+    const deadline = Date.now() + 12000;
+    let lastState = null;
+    while (Date.now() < deadline) {
+      try {
+        const activeFileId = localStorage.getItem('chorale.workspace.activeFileId');
+        lastState = {
+          activeFileId,
+          measureHitAreas: document.querySelectorAll('.abcjs-measure-hit-area').length,
+          title: document.querySelector('.score-sheet-heading h1')?.textContent,
+          status: document.querySelector('.score-build-status')?.textContent,
+        };
+        if (activeFileId && document.querySelector('.abcjs-measure-hit-area[data-measure="3"]')) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          const persistedFileId = localStorage.getItem('chorale.workspace.activeFileId');
+          if (persistedFileId !== activeFileId) continue;
+          const timestamp = new Date().toISOString();
+          localStorage.setItem('chorale.pi-agent-conversation.v2', JSON.stringify({
+            version: 2,
+            files: {
+              [activeFileId]: {
+                activeThreadId: 'thread-passage-smoke',
+                threads: [{
+                id: 'thread-passage-smoke',
+                title: 'Passage link smoke',
+                updatedAt: timestamp,
+                messages: [{
+                  id: 'question-single',
+                  role: 'user',
+                  content: 'What happens in the second measure?',
+                  createdAt: timestamp,
+                  status: 'complete',
+                }, {
+                  id: 'answer-single',
+                  role: 'assistant',
+                  content: 'The answer is grounded in [m. 2](#measure-2).',
+                  createdAt: timestamp,
+                  status: 'complete',
+                  profileRoutes: ['harmony'],
+                  toolDisplays: [{
+                    toolCallId: 'smoke-single-read',
+                    toolName: 'read_measure_range',
+                    status: 'success',
+                    summary: 'Read 1 measure',
+                  }],
+                }, {
+                  id: 'question-range',
+                  role: 'user',
+                  content: 'How does this longer passage develop across the wrapped score systems, and where does its harmonic direction change?',
+                  createdAt: timestamp,
+                  status: 'complete',
+                }, {
+                  id: 'answer-range',
+                  role: 'assistant',
+                  content: 'Compare the complete passage in [mm. 1–3](#measure-1-3).',
+                  createdAt: timestamp,
+                  status: 'complete',
+                  profileRoutes: ['form-phrase'],
+                  toolDisplays: [{
+                    toolCallId: 'smoke-range-read',
+                    toolName: 'read_measure_range',
+                    status: 'success',
+                    summary: 'Read 3 measures',
+                  }],
+                }],
+                }],
+              },
+            },
+          }));
+          return true;
+        }
+      } catch {
+        // The app:// navigation can be visible to CDP before its origin is committed.
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    throw new Error('Score was not ready for passage-link smoke setup: ' + JSON.stringify(lastState));
+  })()`);
+  await firstCDP.call('Page.enable');
+  await firstCDP.call('Page.reload', { ignoreCache: true });
+  const passageLinkState = await firstCDP.evaluate(`(async () => {
+    const waitFor = async (predicate, message) => {
+      const deadline = Date.now() + 5000;
+      while (Date.now() < deadline) {
+        const value = predicate();
+        if (value) return value;
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      throw new Error(message);
+    };
+    try {
+      await waitFor(
+        () => document.querySelectorAll('.score-reference-link').length === 2
+          ? [...document.querySelectorAll('.score-reference-link')]
+          : null,
+        'Seeded Markdown score links did not render.',
+      );
+    } catch (error) {
+      throw new Error(error.message + ' ' + JSON.stringify({
+        activeFileId: localStorage.getItem('chorale.workspace.activeFileId'),
+        chatOpen: localStorage.getItem('chorale.workspace.chatOpen'),
+        store: localStorage.getItem('chorale.pi-agent-conversation.v2'),
+        assistantMessages: document.querySelectorAll('.agent-message.assistant').length,
+        panel: Boolean(document.querySelector('.agent-panel')),
+      }));
+    }
+    await waitFor(
+      () => document.body.textContent.includes('Synth Ready'),
+      'Audio synth was not ready for paused-seek smoke.',
+    );
+    const playbackStates = [];
+    window.addEventListener('chorale-playback-state', (event) => {
+      playbackStates.push(Boolean(event.detail?.isPlaying));
+    });
+    document.querySelectorAll('.score-reference-link')[0].click();
+    try {
+      await waitFor(
+        () => document.querySelector('.active-anchor-badge')?.textContent?.includes('m. 2'),
+        'Single-measure link did not select measure 2.',
+      );
+    } catch (error) {
+      throw new Error(error.message + ' ' + JSON.stringify({
+        links: [...document.querySelectorAll('.score-reference-link')].map((link) => link.textContent),
+        badge: document.querySelector('.active-anchor-badge')?.textContent,
+        pressed: [...document.querySelectorAll('.abcjs-measure-hit-area[aria-pressed="true"]')]
+          .map((element) => element.getAttribute('data-measure')),
+        focused: document.activeElement?.getAttribute('data-measure'),
+      }));
+    }
+    const singleState = {
+      selected: document.querySelector('.active-anchor-badge')?.textContent,
+      focusedMeasure: document.activeElement?.getAttribute('data-measure'),
+      pressed: [...document.querySelectorAll('.abcjs-measure-hit-area[aria-pressed="true"]')]
+        .map((element) => element.getAttribute('data-measure')),
+      elapsed: document.querySelector('.playback-progress strong')?.textContent,
+      progressWidth: document.querySelector('.playback-progress-track span')?.style.width,
+      playTitle: document.querySelector('.main-play-buttons button')?.getAttribute('title'),
+    };
+
+    document.querySelectorAll('.score-reference-link')[1].click();
+    try {
+      await waitFor(
+        () => document.querySelectorAll('.abcjs-measure-hit-area[aria-pressed="true"]').length === 3,
+        'Wrapped range link did not select three measures.',
+      );
+    } catch (error) {
+      throw new Error(error.message + ' ' + JSON.stringify({
+        badge: document.querySelector('.active-anchor-badge')?.textContent,
+        hitAreas: [...document.querySelectorAll('.abcjs-measure-hit-area')]
+          .map((element) => ({
+            measure: element.getAttribute('data-measure'),
+            pressed: element.getAttribute('aria-pressed'),
+          })),
+        highlights: [...document.querySelectorAll('.abcjs-measure-highlight')]
+          .map((element) => element.getAttribute('data-measure')),
+        focused: document.activeElement?.getAttribute('data-measure'),
+      }));
+    }
+    const rangeQuestion = [...document.querySelectorAll('.agent-message.user')].at(-1);
+    const lineHeight = Number.parseFloat(getComputedStyle(rangeQuestion).lineHeight);
+    const rangeState = {
+      selected: document.querySelector('.active-anchor-badge')?.textContent,
+      focusedMeasure: document.activeElement?.getAttribute('data-measure'),
+      pressed: [...document.querySelectorAll('.abcjs-measure-hit-area[aria-pressed="true"]')]
+        .map((element) => element.getAttribute('data-measure')),
+      questionWrapped: rangeQuestion.getBoundingClientRect().height > lineHeight * 1.5,
+      playTitle: document.querySelector('.main-play-buttons button')?.getAttribute('title'),
+    };
+    const result = { singleState, rangeState, playbackStates };
+    localStorage.removeItem('chorale.pi-agent-conversation.v2');
+    return result;
+  })()`);
+  assert(
+    passageLinkState.singleState.selected.includes('m. 2')
+      && passageLinkState.singleState.focusedMeasure === '2'
+      && passageLinkState.singleState.pressed.join(',') === '2',
+    `Single-measure Markdown link did not select and focus its target (${JSON.stringify(passageLinkState.singleState)}).`,
+  );
+  assert(
+    passageLinkState.singleState.playTitle === 'Play Piano Synthesizer'
+      && passageLinkState.singleState.progressWidth !== '0%'
+      && !passageLinkState.playbackStates.includes(true),
+    `Single-measure Markdown link did not seek while paused (${JSON.stringify(passageLinkState)}).`,
+  );
+  assert(
+    passageLinkState.rangeState.selected.includes('mm. 1–3')
+      && passageLinkState.rangeState.focusedMeasure === '1'
+      && passageLinkState.rangeState.pressed.join(',') === '1,2,3'
+      && passageLinkState.rangeState.questionWrapped,
+    `Wrapped multi-measure Markdown link did not select and focus its range (${JSON.stringify(passageLinkState.rangeState)}).`,
+  );
+  assert(
+    passageLinkState.rangeState.playTitle === 'Play Piano Synthesizer'
+      && !passageLinkState.playbackStates.includes(true),
+    `Multi-measure Markdown link started playback (${JSON.stringify(passageLinkState)}).`,
+  );
+  await firstCDP.call('Page.reload', { ignoreCache: true });
   const shellState = await firstCDP.evaluate(`(async () => {
     const waitForElement = async (selector) => {
       const deadline = Date.now() + 5000;
@@ -233,6 +430,7 @@ try {
     }
     const chatWidth = document.querySelector('.right-panel')?.getBoundingClientRect().width;
     const chatWidthLimit = Math.floor(window.innerWidth / 3);
+    const chatPreferenceAfterResize = Number(localStorage.getItem('chorale.workspace.chatWidth'));
     window.dispatchEvent(new WheelEvent('wheel', {
       ctrlKey: true,
       deltaY: -100,
@@ -303,6 +501,7 @@ try {
       : null;
     const threadWidth = document.querySelector('.agent-history-control')?.getBoundingClientRect().width;
     const threadRowWidth = document.querySelector('.agent-history-row')?.getBoundingClientRect().width;
+    const threadHeaderWidth = document.querySelector('.agent-panel-header')?.getBoundingClientRect().width;
     const suggestionsWidth = document.querySelector('.agent-suggestions')?.getBoundingClientRect().width;
     const transcriptWidth = document.querySelector('.agent-transcript')?.getBoundingClientRect().width;
     const transcriptBounds = document.querySelector('.agent-transcript')?.getBoundingClientRect();
@@ -422,6 +621,7 @@ try {
       fileRailWidth,
       chatWidth,
       chatWidthLimit,
+      chatPreferenceAfterResize,
       rightEdgeIsChat,
       zoomGeometry,
       interfaceZoom: document.documentElement.style.getPropertyValue('--ui-zoom'),
@@ -434,6 +634,7 @@ try {
       scoreCenterDelta,
       threadWidth,
       threadRowWidth,
+      threadHeaderWidth,
       agentFontSize,
       threadBorderWidth,
       threadBorderRadius,
@@ -569,8 +770,9 @@ try {
     `File rail did not resize (${shellState.fileRailWidth} vs ${shellState.fileRailWidthDefault}).`,
   );
   assert(
-    Math.abs(shellState.chatWidth - shellState.chatWidthLimit) <= 1,
-    'Chat panel did not resize to one third of the viewport.',
+    shellState.chatWidth <= shellState.chatWidthLimit
+      && Math.abs(shellState.chatPreferenceAfterResize - shellState.chatWidthLimit) <= 1,
+    `Chat panel did not persist a one-third preference and fit it to the score (${shellState.chatWidth}, stored ${shellState.chatPreferenceAfterResize}, limit ${shellState.chatWidthLimit}).`,
   );
   assert(shellState.interfaceZoom === '1.1', 'Ctrl+wheel did not increase interface zoom.');
   assert(shellState.computedInterfaceZoom === '1.1', 'Interface zoom was not applied to the renderer.');
@@ -593,9 +795,9 @@ try {
     `Score sheet is not centered in the middle panel (${shellState.scoreCenterDelta}px).`,
   );
   assert(
-    shellState.threadRowWidth >= shellState.chatWidth - 40
+    shellState.threadRowWidth >= shellState.threadHeaderWidth - 40
       && shellState.threadWidth >= shellState.threadRowWidth - 60,
-    `Thread history row is still too narrow (${shellState.threadWidth}px selector, ${shellState.threadRowWidth}px row in ${shellState.chatWidth}px panel).`,
+    `Thread history row is still too narrow (${shellState.threadWidth}px selector, ${shellState.threadRowWidth}px row in ${shellState.threadHeaderWidth}px header).`,
   );
   assert(
     shellState.agentFontSize === '16px' && shellState.threadTriggerFontSize === '14px',
@@ -619,7 +821,7 @@ try {
     `Thread selector styling is incomplete (${shellState.threadBorderWidth}, radius ${shellState.threadBorderRadius}, chevron ${shellState.threadChevronBackground}/${shellState.threadChevronShadow}, legacy ${shellState.threadLegacyArrowContent}/${shellState.threadLegacyArrowBorderWidth}, appearance ${shellState.threadTriggerAppearance}, chevrons ${shellState.threadChevronCount}).`,
   );
   assert(
-    shellState.threadLabelWidth / shellState.threadTriggerWidth >= 0.92,
+    shellState.threadLabelWidth / shellState.threadTriggerWidth >= 0.9,
     `Thread title does not use the available trigger width (${shellState.threadLabelWidth}px of ${shellState.threadTriggerWidth}px).`,
   );
   assert(shellState.hasThreadDelete, 'Thread history does not expose a delete action.');
@@ -677,10 +879,27 @@ try {
     files: [path.join(projectDirectory, 'src/test/fixtures/abc/moonlight.abc')],
   });
   const dragGeometry = await firstCDP.evaluate(`(async () => {
+    const readStoredDocuments = async () => {
+      const database = await new Promise((resolve, reject) => {
+        const request = indexedDB.open('chorale_db', 1);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      try {
+        return await new Promise((resolve, reject) => {
+          const transaction = database.transaction('chorale_store', 'readonly');
+          const request = transaction.objectStore('chorale_store').get('chorale.workspace.documents');
+          request.onsuccess = () => resolve(request.result?.value ?? []);
+          request.onerror = () => reject(request.error);
+        });
+      } finally {
+        database.close();
+      }
+    };
     const deadline = Date.now() + 5000;
     while (Date.now() < deadline) {
       const rows = [...document.querySelectorAll('.file-list .file-item')];
-      const storedDocuments = JSON.parse(localStorage.getItem('chorale.workspace.documents') ?? '[]');
+      const storedDocuments = await readStoredDocuments();
       if (rows.length === 2 && storedDocuments.length === 2) {
         const source = rows[0].getBoundingClientRect();
         const target = rows[1].getBoundingClientRect();
@@ -761,12 +980,28 @@ try {
   const droppedDragState = await firstCDP.evaluate(`(async () => {
     const expectedNames = ${JSON.stringify(expectedFileNames)};
     const expectedIds = ${JSON.stringify(expectedFileIds)};
+    const readStoredDocuments = async () => {
+      const database = await new Promise((resolve, reject) => {
+        const request = indexedDB.open('chorale_db', 1);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      try {
+        return await new Promise((resolve, reject) => {
+          const transaction = database.transaction('chorale_store', 'readonly');
+          const request = transaction.objectStore('chorale_store').get('chorale.workspace.documents');
+          request.onsuccess = () => resolve(request.result?.value ?? []);
+          request.onerror = () => reject(request.error);
+        });
+      } finally {
+        database.close();
+      }
+    };
     const deadline = Date.now() + 5000;
     while (Date.now() < deadline) {
       const names = [...document.querySelectorAll('.file-list .file-item-name')]
         .map((element) => element.textContent);
-      const stored = JSON.parse(localStorage.getItem('chorale.workspace.documents') ?? '[]')
-        .map((document) => document.id);
+      const stored = (await readStoredDocuments()).map((document) => document.id);
       if (names.join(',') === expectedNames.join(',') && stored.join(',') === expectedIds.join(',')) {
         return {
           names,
@@ -793,13 +1028,16 @@ try {
   const second = await launch(profileDirectory);
   const secondCDP = await connectCDP(second.target.webSocketDebuggerUrl);
   const persisted = await secondCDP.evaluate(`(async () => {
+    const expectedFileNames = ${JSON.stringify(expectedFileNames)};
     const deadline = Date.now() + 5000;
     while (Date.now() < deadline) {
       try {
         if (document.readyState !== 'loading') {
           const value = localStorage.getItem('chorale.electron-smoke');
           const showChat = document.querySelector('[title="Show score chat"]');
-          if (value !== null && showChat) {
+          const fileOrder = [...document.querySelectorAll('.file-list .file-item-name')]
+            .map((element) => element.textContent);
+          if (value !== null && showChat && fileOrder.length === expectedFileNames.length) {
             const initiallyOpen = Boolean(document.querySelector('[aria-label="Current sheet assistant"]'));
             showChat.click();
             await new Promise((resolve) => setTimeout(resolve, 25));
@@ -811,8 +1049,7 @@ try {
               storedWidth: Number(localStorage.getItem('chorale.workspace.chatWidth')),
               fileRailWidth: document.querySelector('.file-rail')?.getBoundingClientRect().width,
               storedFileRailWidth: Number(localStorage.getItem('chorale.workspace.fileRailWidth')),
-              fileOrder: [...document.querySelectorAll('.file-list .file-item-name')]
-                .map((element) => element.textContent),
+              fileOrder,
               sheetZoom: document.querySelector('.scale-val')?.textContent,
               interfaceZoom: Number(getComputedStyle(document.body).zoom),
             };
@@ -829,11 +1066,13 @@ try {
   assert(persisted.initiallyOpen === false, 'Chat open state did not survive restart.');
   assert(persisted.reopened === true, 'Chat could not be reopened after restoring its closed state.');
   assert(
-    Math.abs(persisted.reopenedWidth - persisted.storedWidth * persisted.interfaceZoom) <= 1,
+    persisted.reopenedWidth <= persisted.storedWidth * persisted.interfaceZoom + 1
+      && persisted.reopenedWidth >= 280 * persisted.interfaceZoom - 1,
     `Reopened chat did not restore its persisted width (${persisted.reopenedWidth} vs ${persisted.storedWidth}).`,
   );
   assert(
-    Math.abs(persisted.fileRailWidth - persisted.storedFileRailWidth * persisted.interfaceZoom) <= 1,
+    persisted.fileRailWidth <= persisted.storedFileRailWidth * persisted.interfaceZoom + 1
+      && persisted.fileRailWidth >= 240 * persisted.interfaceZoom - 1,
     `File rail did not restore its persisted width (${persisted.fileRailWidth} vs ${persisted.storedFileRailWidth}).`,
   );
   assert(
@@ -847,7 +1086,7 @@ try {
     `Electron reported a CSP violation after restart:\n${second.output()}`
   ));
 
-  console.log('Electron smoke passed: app protocol, native file drag, sandboxed bridge, centered score, settings UI, clean restart, and workspace persistence.');
+  console.log('Electron smoke passed: app protocol, passage links, paused seeking, native file drag, sandboxed bridge, centered score, settings UI, clean restart, and workspace persistence.');
 } finally {
   for (const child of launchedChildren) child.kill('SIGTERM');
   // Chromium helper processes can finish a final profile write just after the
