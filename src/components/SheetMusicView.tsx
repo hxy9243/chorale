@@ -20,6 +20,7 @@ import {
   type SmoothScrollController,
 } from '../utils/autoScroll';
 import { AnnotationEditor } from './AnnotationEditor';
+import { AnnotationOverlay } from './AnnotationOverlay';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const AUTO_SCROLL_DURATION_MS = 280;
@@ -260,6 +261,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   const currentZoom = onZoomChange !== undefined ? zoom : internalZoom;
   const [transpose, setTranspose] = useState<number>(0);
   const [renderError, setRenderError] = useState<string | null>(null);
+  const [renderGeneration, setRenderGeneration] = useState(0);
   const [annotationEditor, setAnnotationEditor] = useState<
     { mode: 'manual' } | { mode: 'accepted'; annotationId: AnnotationId } | null
   >(null);
@@ -317,6 +319,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       onTuneRendered?.(null);
       measureOccurrencesRef.current = [];
       renderedTuneRef.current = null;
+      setRenderGeneration((current) => current + 1);
       return;
     }
 
@@ -411,6 +414,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       } else {
         onTuneRendered?.(null);
       }
+      setRenderGeneration((current) => current + 1);
     } catch (err: any) {
       console.error('abcjs render error:', err);
       containerRef.current.innerHTML = '';
@@ -418,6 +422,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       measureOccurrencesRef.current = [];
       renderedTuneRef.current = null;
       setRenderError(err?.message || 'Failed to render sheet music SVG.');
+      setRenderGeneration((current) => current + 1);
     }
     return () => {
       renderedContainer.removeEventListener('click', captureModifiers, true);
@@ -783,6 +788,21 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
           }}
         >
           <div ref={containerRef} id="paper" className="abcjs-paper-container" />
+          <AnnotationOverlay
+            paperRef={containerRef}
+            abcCode={abcCode}
+            annotations={annotations}
+            tune={renderedTuneRef.current}
+            renderGeneration={renderGeneration}
+            zoom={currentZoom}
+            activeAnnotationId={
+              annotationEditor?.mode === 'accepted' ? annotationEditor.annotationId : null
+            }
+            onActivate={(annotation) => {
+              onSelectAnchor?.(annotation.span);
+              setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
+            }}
+          />
         </div>
       </div>
     </div>

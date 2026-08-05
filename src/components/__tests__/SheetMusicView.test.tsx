@@ -5,6 +5,14 @@ import abcjs from 'abcjs';
 
 vi.mock('abcjs', () => ({
   default: {
+    parseOnly: vi.fn().mockReturnValue([{
+      lines: [{ staff: [{ voices: [[
+        { el_type: 'note', duration: 0.25, startChar: 30, endChar: 31, pitches: [{ pitch: 0 }] },
+        { el_type: 'bar', startChar: 38, endChar: 39 },
+      ]] }] }],
+      getMeter: () => ({ value: [{ num: '4', den: '4' }] }),
+      getKeySignature: () => ({ root: 'C' }),
+    }]),
     renderAbc: vi.fn().mockImplementation((element) => {
       if (element && typeof element !== 'string') {
         element.innerHTML = '<svg data-testid="mock-svg-paper"><path class="abcjs-note" /></svg>';
@@ -197,6 +205,74 @@ describe('SheetMusicView Component', () => {
     fireEvent.click(editButton);
     fireEvent.click(screen.getByRole('button', { name: 'Delete annotation' }));
     expect(onDeleteAnnotation).toHaveBeenCalledWith('annotation-accepted');
+  });
+
+  it('renders interactive annotations in a view-box-aligned React sibling overlay', async () => {
+    const onSelectAnchor = vi.fn();
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
+      if (!element || typeof element === 'string') return [];
+      element.innerHTML = `
+        <svg viewBox="0 0 400 140" data-testid="source-score-svg">
+          <g class="abcjs-note abcjs-mm0"></g>
+          <g class="abcjs-bar abcjs-mm0"></g>
+        </svg>
+      `;
+      const svg = element.querySelector<SVGSVGElement>('svg')!;
+      const note = element.querySelector<SVGGraphicsElement>('.abcjs-note')!;
+      const bar = element.querySelector<SVGGraphicsElement>('.abcjs-bar')!;
+      Object.defineProperty(svg, 'getBoundingClientRect', {
+        value: () => ({ left: 0, top: 0, right: 400, bottom: 140, width: 400, height: 140 }),
+      });
+      Object.defineProperty(note, 'getBBox', {
+        value: () => ({ x: 30, y: 55, width: 10, height: 12 }),
+      });
+      Object.defineProperty(bar, 'getBBox', {
+        value: () => ({ x: 180, y: 40, width: 2, height: 50 }),
+      });
+      return [{
+        getBpm: () => 120,
+        engraver: {
+          selectables: [{ absEl: { abcelem: { startChar: 30 } }, svgEl: note }],
+        },
+      }] as any;
+    });
+    const chord = {
+      id: 'overlay-chord',
+      kind: 'chord' as const,
+      span: { startMeasure: 1, endMeasure: 1 },
+      position: { measure: 1, offset: { numerator: 0, denominator: 1 } },
+      chordSymbol: 'C',
+      romanNumeral: 'I',
+      label: 'Tonic',
+      body: 'The opening tonic.',
+      source: 'assistant' as const,
+      createdAt: '2026-08-05T00:00:00.000Z',
+      updatedAt: '2026-08-05T00:00:00.000Z',
+    };
+    const { container } = render(
+      <SheetMusicView
+        abcCode={sampleAbc}
+        annotations={[chord]}
+        onSelectAnchor={onSelectAnchor}
+        onUpdateAnnotation={vi.fn()}
+        onDeleteAnnotation={vi.fn()}
+      />,
+    );
+
+    const overlayNode = await screen.findByRole('button', { name: 'Edit Tonic annotation' });
+    const paper = container.querySelector('#paper')!;
+    const layer = container.querySelector('.annotation-overlay-layer')!;
+    expect(paper.contains(layer)).toBe(false);
+    expect(paper.parentElement?.children).toContain(layer);
+    expect(container.querySelector('.annotation-overlay-system')?.getAttribute('viewBox'))
+      .toBe('0 0 400 140');
+    expect(overlayNode.getAttribute('data-annotation-id')).toBe('overlay-chord');
+
+    expect(overlayNode.getAttribute('tabindex')).toBe('0');
+    fireEvent.focus(overlayNode);
+    expect(onSelectAnchor).toHaveBeenCalledWith({ startMeasure: 1, endMeasure: 1 });
+    expect(screen.getByLabelText('Edit annotation')).toBeDefined();
+    expect(overlayNode.getAttribute('class')).toContain('active');
   });
 
   it('resolves the global measure class instead of falling back to measure one', () => {

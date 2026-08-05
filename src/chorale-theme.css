@@ -682,6 +682,89 @@ textarea:disabled,
   border-radius: 0;
 }
 
+.sheet-zoom-wrapper {
+  position: relative;
+}
+
+.annotation-overlay-layer {
+  position: absolute;
+  z-index: var(--z-raised);
+  inset: 0;
+  pointer-events: none;
+}
+
+.annotation-overlay-system {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.annotation-overlay-node {
+  color: var(--color-accent-strong);
+  opacity: 0.68;
+  outline: none;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: opacity var(--motion-fast), filter var(--motion-fast);
+}
+
+.annotation-overlay-node:hover,
+.annotation-overlay-node:focus-visible,
+.annotation-overlay-node.active {
+  opacity: 1;
+  filter: drop-shadow(0 1px 1px color-mix(in srgb, var(--color-ink) 20%, transparent));
+}
+
+.annotation-overlay-node:focus-visible > :not(title) {
+  stroke: var(--color-focus);
+  stroke-width: 2px;
+}
+
+.annotation-overlay-node text {
+  fill: currentColor;
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 650;
+  paint-order: stroke;
+  stroke: var(--color-score-paper);
+  stroke-width: 2.5px;
+  stroke-linejoin: round;
+}
+
+.annotation-overlay-node.chord text {
+  font-family: var(--font-display);
+}
+
+.annotation-overlay-node .annotation-chord-symbol {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.annotation-overlay-node .annotation-roman-numeral {
+  font-family: var(--font-serif);
+  font-size: 8px;
+  font-style: italic;
+}
+
+.annotation-overlay-node.modulation rect {
+  fill: var(--color-accent-soft);
+  stroke: var(--color-accent-strong);
+  stroke-width: 0.75px;
+}
+
+.annotation-overlay-node.voice-leading path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.25px;
+  stroke-dasharray: 3 2;
+}
+
+.annotation-overlay-node.explanation rect {
+  fill: var(--color-paper-raised);
+  stroke: currentColor;
+  stroke-width: 1px;
+}
+
 .abcjs-measure-highlight {
   fill: var(--color-accent-soft);
   stroke: none;
