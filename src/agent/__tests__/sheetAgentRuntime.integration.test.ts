@@ -142,7 +142,7 @@ describe('SheetAgentRun provider transport', () => {
     expect(receivedBody).toContain('How does this cadence resolve?');
     expect(receivedBody).toContain('select_analysis_profile');
     expect(receivedBody).toContain('read_measure_range');
-    expect(receivedBody).toContain('Before any score-specific claim');
+    expect(receivedBody).toContain('Before making any score-specific claim');
     expect(events).toContainEqual(expect.objectContaining({
       type: 'chat-start',
       requestId: 'runtime-request',
