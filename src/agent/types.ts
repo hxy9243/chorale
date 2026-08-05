@@ -1,14 +1,5 @@
 import type { AIProviderKind } from './aiTypes';
-
-export type MusicAnnotation = {
-  id: string;
-  kind: 'chord' | 'phrase' | 'harmony' | 'fingering' | 'comment' | string;
-  label: string;
-  description?: string;
-  measureStart?: number;
-  measureEnd?: number;
-  abcRange?: { start: number; end: number };
-};
+import type { Annotation } from '../types/document';
 
 export type MusicContextSnapshot = {
   id: string;
@@ -21,7 +12,7 @@ export type MusicContextSnapshot = {
     measureEnd?: number;
     abcRange?: { start: number; end: number };
   };
-  annotations?: MusicAnnotation[];
+  annotations?: Annotation[];
 };
 
 export type ChatMessage = {
