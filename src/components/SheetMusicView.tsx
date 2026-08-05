@@ -100,28 +100,34 @@ const resolveClickedMeasure = (
   return 1;
 };
 
-const highlightMeasure = (container: HTMLDivElement, anchor: ScoreAnchor | null) => {
+const highlightMeasures = (container: HTMLDivElement, anchor: ScoreAnchor | null) => {
   container.querySelectorAll('.abcjs-measure-highlight').forEach((element) => element.remove());
   if (!anchor) return;
 
-  const elements = Array.from(container.querySelectorAll<SVGGraphicsElement>(
-    `.abcjs-mm${Math.max(0, anchor.startMeasure - 1)}`,
-  )).filter((element) => typeof element.getBBox === 'function');
-  if (elements.length === 0) return;
+  for (let measure = anchor.startMeasure; measure <= anchor.endMeasure; measure += 1) {
+    const measureIndex = Math.max(0, measure - 1);
+    const elements = Array.from(container.querySelectorAll<SVGGraphicsElement>(
+      `.abcjs-mm${measureIndex}`,
+    )).filter((element) => typeof element.getBBox === 'function');
+    if (elements.length === 0) continue;
 
-  const bounds = measureHighlightBounds(container, Math.max(0, anchor.startMeasure - 1), elements);
-  const svg = elements[0].ownerSVGElement;
-  if (!svg) return;
+    const bounds = measureHighlightBounds(container, measureIndex, elements);
+    const svg = elements[0].ownerSVGElement;
+    if (!svg) continue;
 
-  const highlight = document.createElementNS(SVG_NAMESPACE, 'rect');
-  highlight.classList.add('abcjs-measure-highlight');
-  highlight.setAttribute('x', String(bounds.x));
-  highlight.setAttribute('y', String(bounds.y));
-  highlight.setAttribute('width', String(bounds.width));
-  highlight.setAttribute('height', String(bounds.height));
-  highlight.setAttribute('rx', '2');
-  highlight.setAttribute('aria-hidden', 'true');
-  svg.insertBefore(highlight, svg.firstChild);
+    const highlight = document.createElementNS(SVG_NAMESPACE, 'rect');
+    highlight.classList.add('abcjs-measure-highlight');
+    highlight.dataset.measure = String(measure);
+    highlight.setAttribute('x', String(bounds.x));
+    highlight.setAttribute('y', String(bounds.y));
+    highlight.setAttribute('width', String(bounds.width));
+    highlight.setAttribute('height', String(bounds.height));
+    highlight.setAttribute('rx', '2');
+    highlight.setAttribute('aria-hidden', 'true');
+    const firstScoreElement = Array.from(svg.children)
+      .find((element) => !element.classList.contains('abcjs-measure-highlight'));
+    svg.insertBefore(highlight, firstScoreElement || null);
+  }
 };
 
 const getRenderedMeasureCount = (container: HTMLDivElement) => {
@@ -371,7 +377,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
 
   useEffect(() => {
     if (!containerRef.current) return;
-    highlightMeasure(containerRef.current, activeAnchor);
+    highlightMeasures(containerRef.current, activeAnchor);
   }, [abcCode, activeAnchor, transpose]);
 
   const isPlayingRef = useRef<boolean>(false);

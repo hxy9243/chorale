@@ -232,6 +232,60 @@ describe('SheetMusicView Component', () => {
     expect(highlight?.getAttribute('height')).toBe('40');
   });
 
+  it('highlights every selected measure across wrapped systems', () => {
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
+      if (element && typeof element !== 'string') {
+        element.innerHTML = `
+          <svg>
+            <g class="abcjs-staff abcjs-l0"></g>
+            <g class="abcjs-note abcjs-l0 abcjs-mm0"></g>
+            <g class="abcjs-bar abcjs-l0 abcjs-mm0"></g>
+            <g class="abcjs-note abcjs-l0 abcjs-mm1"></g>
+            <g class="abcjs-bar abcjs-l0 abcjs-mm1"></g>
+            <g class="abcjs-staff abcjs-l1"></g>
+            <g class="abcjs-note abcjs-l1 abcjs-mm2"></g>
+            <g class="abcjs-bar abcjs-l1 abcjs-mm2"></g>
+            <g class="abcjs-note abcjs-l1 abcjs-mm3"></g>
+            <g class="abcjs-bar abcjs-l1 abcjs-mm3"></g>
+          </svg>
+        `;
+        element.querySelectorAll<SVGGraphicsElement>('.abcjs-staff').forEach((node, index) => {
+          Object.defineProperty(node, 'getBBox', {
+            value: () => ({ x: 10, y: 20 + index * 80, width: 220, height: 40 }),
+          });
+        });
+        for (let measure = 0; measure < 4; measure += 1) {
+          element.querySelectorAll<SVGGraphicsElement>(`.abcjs-mm${measure}`)
+            .forEach((node, index) => {
+              Object.defineProperty(node, 'getBBox', {
+                value: () => ({
+                  x: 20 + (measure % 2) * 100 + index * 60,
+                  y: 20 + Math.floor(measure / 2) * 80,
+                  width: index === 0 ? 40 : 2,
+                  height: 40,
+                }),
+              });
+            });
+        }
+      }
+      return [{ getBpm: () => 120 }] as any;
+    });
+
+    const { container } = render(
+      <SheetMusicView
+        abcCode={sampleAbc}
+        activeAnchor={{ startMeasure: 2, endMeasure: 4 }}
+      />,
+    );
+
+    const highlights = Array.from(container.querySelectorAll('.abcjs-measure-highlight'));
+    expect(highlights.map((highlight) => highlight.getAttribute('data-measure')))
+      .toEqual(['2', '3', '4']);
+    expect(highlights[0].getAttribute('y')).toBe('20');
+    expect(highlights[1].getAttribute('y')).toBe('100');
+    expect(highlights[2].getAttribute('y')).toBe('100');
+  });
+
   it('selects a measure from its full hit target on the first click', () => {
     const onSelectAnchor = vi.fn();
     vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
