@@ -197,6 +197,7 @@ describe('AudioPlayer Component', () => {
     await waitFor(() => {
       expect(mockSynthControl.seek).toHaveBeenCalledWith(2, 'seconds');
     });
+    expect(mockSynthControl.play).not.toHaveBeenCalled();
   });
 
   it('uses normalized measure progress when absolute timing is unavailable', async () => {

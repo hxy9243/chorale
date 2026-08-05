@@ -36,7 +36,6 @@ export function MarkdownMessage({
             return (
               <span
                 className="markdown-link markdown-link-disabled"
-                role="link"
                 aria-disabled="true"
               >
                 {children}

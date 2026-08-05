@@ -215,6 +215,41 @@ describe('AgentChatPanel', () => {
     expect(screen.getByText('mm. 3–5').closest('.agent-anchor-pill')).not.toBeNull();
   });
 
+  it('renders assistant Markdown measure links through the score navigation callback', async () => {
+    const onNavigateMeasure = vi.fn();
+    agentSendMock.mockImplementation(async (_request, callbacks) => {
+      callbacks.onStart({
+        connectionId: 'openai-test',
+        providerKind: 'openai',
+        modelId: 'gpt-test',
+      });
+      callbacks.onDelta('Compare **both phrases** in [mm. 2–1](#measure-2-1).');
+    });
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-markdown"
+        abcCode={'X:1\nT:Links\nK:C\nCDEF|GABc|'}
+        activeFileName="Links.abc"
+        revision={1}
+        totalMeasures={2}
+        ai={ai}
+        onOpenSettings={() => undefined}
+        onNavigateMeasure={onNavigateMeasure}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Ask about the current sheet'), {
+      target: { value: 'Compare the phrases' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText('both phrases')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'mm. 2–1' }));
+    expect(onNavigateMeasure).toHaveBeenCalledWith({ startMeasure: 1, endMeasure: 2 });
+  });
+
   it('keeps concurrent same-name score tools as separately correlated rows', async () => {
     agentSendMock.mockImplementation(async (_request, callbacks) => {
       callbacks.onStart({

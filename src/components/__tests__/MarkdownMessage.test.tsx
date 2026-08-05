@@ -51,9 +51,10 @@ describe('MarkdownMessage', () => {
     );
 
     expect(container.querySelector('a')).toBeNull();
-    expect(screen.getAllByRole('link')).toHaveLength(3);
-    expect(screen.getAllByRole('link').every((link) => link.getAttribute('aria-disabled') === 'true')).toBe(true);
-    fireEvent.click(screen.getByRole('link', { name: 'Website' }));
+    const inertLinks = container.querySelectorAll('.markdown-link-disabled');
+    expect(inertLinks).toHaveLength(3);
+    expect([...inertLinks].every((link) => link.getAttribute('aria-disabled') === 'true')).toBe(true);
+    fireEvent.click(screen.getByText('Website'));
     expect(onNavigateMeasure).not.toHaveBeenCalled();
   });
 });

@@ -34,6 +34,7 @@ import type { BuildResult, ScoreAnchor } from './types/document';
 import { parseAbcMetadata } from './utils/fileSession';
 import type { PlaybackPosition } from './utils/repeatPlayback';
 import { prepareAbcForPlayback } from './utils/abcAudio';
+import { extractScore } from './music/scoreSnapshot';
 
 const DEFAULT_SHEET_ZOOM = 100;
 
@@ -89,6 +90,7 @@ export const App: React.FC = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [buildStatus, setBuildStatus] = useState<BuildStatus>('idle');
   const [buildResult, setBuildResult] = useState<BuildResult | null>(null);
+  const [scoreNavigationAnchor, setScoreNavigationAnchor] = useState<ScoreAnchor | null>(null);
 
   const playbackPositionRef = useRef<PlaybackPosition>({
     currentSeconds: 0,
@@ -123,6 +125,13 @@ export const App: React.FC = () => {
   const scoreKey = liveMetadata.key || activeDocument?.scoreInfo.key || 'C';
   const scoreMeter = liveMetadata.meter || activeDocument?.scoreInfo.meter || '4/4';
   const scoreTempo = liveMetadata.tempoText || activeDocument?.scoreInfo.tempoText || (tunes?.[0]?.getBpm?.() ? `♩ = ${tunes[0].getBpm()}` : '♩ = 120');
+  const totalMeasures = useMemo(() => {
+    try {
+      return extractScore(abcCode).measures.length;
+    } catch {
+      return 0;
+    }
+  }, [abcCode]);
 
   const handleTuneRendered = useCallback((renderedTunes: abcjs.TuneObject[] | null) => {
     setTunes((prev) => {
@@ -136,8 +145,17 @@ export const App: React.FC = () => {
   }, []);
 
   const handleSelectAnchor = useCallback((anchor: ScoreAnchor | null) => {
+    setScoreNavigationAnchor(null);
     setActiveAnchor(anchor);
   }, [setActiveAnchor]);
+
+  const handleNavigateMeasure = useCallback((anchor: ScoreAnchor) => {
+    setScoreNavigationAnchor(anchor);
+  }, []);
+
+  useEffect(() => {
+    setScoreNavigationAnchor(null);
+  }, [activeFileId]);
 
   const getPlaybackPosition = useCallback(() => playbackPositionRef.current, []);
 
@@ -289,6 +307,7 @@ export const App: React.FC = () => {
                     <SheetMusicView
                       abcCode={canRenderScore ? abcCode : ''}
                       activeAnchor={activeAnchor}
+                      navigationAnchor={scoreNavigationAnchor}
                       onSelectAnchor={handleSelectAnchor}
                       onTuneRendered={handleTuneRendered}
                       getPlaybackPosition={getPlaybackPosition}
@@ -353,8 +372,10 @@ export const App: React.FC = () => {
             revision={abcRevision}
             annotations={activeDocument?.annotations || []}
             activeAnchor={activeAnchor}
+            totalMeasures={totalMeasures}
             ai={aiProviders}
             onOpenSettings={openSettings}
+            onNavigateMeasure={handleNavigateMeasure}
           />
         </div>
       </div>

@@ -11,6 +11,7 @@ import {
 import type { ChatMessage, ChatThread, MusicContextSnapshot, PersistedFileConversation } from '../agent/types';
 import type { Annotation, ScoreAnchor } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
+import { MarkdownMessage } from './MarkdownMessage';
 
 interface AgentChatPanelProps {
   open: boolean;
@@ -21,8 +22,10 @@ interface AgentChatPanelProps {
   revision: number;
   annotations?: Annotation[];
   activeAnchor?: ScoreAnchor | null;
+  totalMeasures?: number;
   ai: AIProviderState;
   onOpenSettings(): void;
+  onNavigateMeasure?: (anchor: ScoreAnchor) => void;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -76,8 +79,10 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   revision,
   annotations = [],
   activeAnchor = null,
+  totalMeasures = 0,
   ai,
   onOpenSettings,
+  onNavigateMeasure = () => undefined,
 }) => {
   const [conversation, setConversation] = useState<PersistedFileConversation>(() => (
     fileId ? loadConversation(fileId) : makeEmptyConversation()
@@ -573,7 +578,15 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
                 {formatAnchorLabel(message.context.selection)}
               </div>
             )}
-            <div className="agent-message-content">{message.content}</div>
+            <div className="agent-message-content">
+              {message.role === 'assistant' ? (
+                <MarkdownMessage
+                  content={message.content}
+                  totalMeasures={totalMeasures}
+                  onNavigateMeasure={onNavigateMeasure}
+                />
+              ) : message.content}
+            </div>
             {message.profileRoutes && message.profileRoutes.length > 0 && (
               <div className="agent-profile-route" aria-label="Analysis profiles">
                 {message.profileRoutes.map((profile) => (

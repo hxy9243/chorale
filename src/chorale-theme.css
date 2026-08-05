@@ -1266,6 +1266,51 @@ textarea:disabled,
   color: var(--color-ink);
 }
 
+.markdown-message > :first-child,
+.markdown-message > :first-child > :first-child {
+  margin-block-start: 0;
+}
+
+.markdown-message > :last-child,
+.markdown-message > :last-child > :last-child {
+  margin-block-end: 0;
+}
+
+.markdown-message :is(p, ul, ol, blockquote, pre, table) {
+  margin-block: var(--space-xs);
+}
+
+.markdown-message :is(ul, ol) {
+  padding-inline-start: var(--space-lg);
+}
+
+.markdown-link {
+  color: var(--color-accent-strong);
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.16em;
+}
+
+.score-reference-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.score-reference-link:focus-visible {
+  border-radius: var(--radius-control);
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+.markdown-link-disabled {
+  cursor: not-allowed;
+  text-decoration-style: dotted;
+}
+
 .agent-message-context,
 .agent-message-provider {
   border-color: var(--color-rule);

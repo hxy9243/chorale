@@ -225,6 +225,7 @@ const updateMeasureHitAreaSelection = (
 interface SheetMusicViewProps {
   abcCode: string;
   activeAnchor?: ScoreAnchor | null;
+  navigationAnchor?: ScoreAnchor | null;
   onSelectAnchor?: (anchor: ScoreAnchor | null) => void;
   onTuneRendered?: (tune: abcjs.TuneObject[] | null) => void;
   getPlaybackPosition?: () => PlaybackPosition;
@@ -235,6 +236,7 @@ interface SheetMusicViewProps {
 export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   abcCode,
   activeAnchor = null,
+  navigationAnchor = null,
   onSelectAnchor,
   onTuneRendered,
   getPlaybackPosition,
@@ -276,6 +278,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   }, [currentZoom, handleZoomChange]);
 
   const measureOccurrencesRef = useRef<MeasureOccurrence[]>([]);
+  const renderedTuneRef = useRef<abcjs.TuneObject | null>(null);
   const selectionOriginRef = useRef<{ measure: number; abcOffset?: number } | null>(null);
 
   useEffect(() => {
@@ -286,6 +289,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       setRenderError(null);
       onTuneRendered?.(null);
       measureOccurrencesRef.current = [];
+      renderedTuneRef.current = null;
       return;
     }
 
@@ -367,6 +371,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         paddingright: 15,
       });
       renderedTune = tunes?.[0] || null;
+      renderedTuneRef.current = renderedTune;
       hideSyntheticTupletRests(abcCode, tunes);
       configureAudioPlayback(abcCode, tunes);
       measureOccurrencesRef.current = renderedTune ? buildMeasureOccurrences(renderedTune) : [];
@@ -384,6 +389,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       containerRef.current.innerHTML = '';
       onTuneRendered?.(null);
       measureOccurrencesRef.current = [];
+      renderedTuneRef.current = null;
       setRenderError(err?.message || 'Failed to render sheet music SVG.');
     }
     return () => {
@@ -396,6 +402,44 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     highlightMeasures(containerRef.current, activeAnchor);
     updateMeasureHitAreaSelection(containerRef.current, activeAnchor);
   }, [abcCode, activeAnchor, transpose]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !navigationAnchor) return;
+
+    const startMeasure = navigationAnchor.startMeasure;
+    const selected = selectMeasureWithRepeats(
+      startMeasure,
+      measureOccurrencesRef.current,
+      getPlaybackPosition?.().currentSeconds || 0,
+    );
+    const measureCount = getRenderedMeasureCount(container);
+    const fallbackFraction = Math.max(0, Math.min(1, (startMeasure - 1) / measureCount));
+    const tune = renderedTuneRef.current;
+    tune?.setTiming?.(tune.getBpm?.());
+    const totalTime = tune?.getTotalTime?.();
+    const playbackSeconds = selected?.startTimeSec ?? (
+      Number.isFinite(totalTime) && totalTime! > 0
+        ? totalTime! * fallbackFraction
+        : undefined
+    );
+    const resolvedAnchor: ScoreAnchor = {
+      ...navigationAnchor,
+      label: navigationAnchor.startMeasure === navigationAnchor.endMeasure
+        ? `m. ${navigationAnchor.startMeasure}`
+        : `mm. ${navigationAnchor.startMeasure}–${navigationAnchor.endMeasure}`,
+      playbackFraction: selected?.playbackFraction ?? fallbackFraction,
+      ...(playbackSeconds !== undefined ? { playbackSeconds } : {}),
+    };
+    selectionOriginRef.current = { measure: startMeasure };
+    onSelectAnchor?.(resolvedAnchor);
+
+    const hitArea = container.querySelector<SVGElement>(
+      `.abcjs-measure-hit-area[data-measure="${startMeasure}"]`,
+    );
+    hitArea?.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+    hitArea?.focus();
+  }, [getPlaybackPosition, navigationAnchor, onSelectAnchor]);
 
   const isPlayingRef = useRef<boolean>(false);
   const isUserPausedRef = useRef<boolean>(false);

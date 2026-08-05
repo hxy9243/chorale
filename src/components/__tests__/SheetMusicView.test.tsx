@@ -460,4 +460,69 @@ describe('SheetMusicView Component', () => {
       playbackFraction: 0.5,
     }));
   });
+
+  it('resolves linked ranges in the current repeat pass, then scrolls and focuses the start', () => {
+    const onSelectAnchor = vi.fn();
+    const getPlaybackPosition = () => ({ currentSeconds: 6.1, isPlaying: false });
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
+      if (element && typeof element !== 'string') {
+        element.innerHTML = `
+          <svg>
+            <g class="abcjs-note abcjs-mm0"></g>
+            <g class="abcjs-bar abcjs-mm0"></g>
+            <g class="abcjs-note abcjs-mm1"></g>
+            <g class="abcjs-bar abcjs-mm1"></g>
+          </svg>
+        `;
+        element.querySelectorAll<SVGGraphicsElement>('[class*="abcjs-mm"]').forEach((node, index) => {
+          Object.defineProperty(node, 'getBBox', {
+            value: () => ({ x: 10 + index * 40, y: 20, width: 30, height: 24 }),
+          });
+        });
+      }
+      return [{
+        getBpm: () => 120,
+        getTotalTime: () => 8,
+        setTiming: vi.fn(),
+        noteTimings: [
+          { type: 'event', milliseconds: 0, measureNumber: 0, measureStart: true },
+          { type: 'event', milliseconds: 2_000, measureNumber: 1, measureStart: true },
+          { type: 'event', milliseconds: 4_000, measureNumber: 0, measureStart: true },
+          { type: 'event', milliseconds: 6_000, measureNumber: 1, measureStart: true },
+          { type: 'end', milliseconds: 8_000 },
+        ],
+      }] as any;
+    });
+
+    const { container, rerender } = render(
+      <SheetMusicView
+        abcCode={sampleAbc}
+        onSelectAnchor={onSelectAnchor}
+        getPlaybackPosition={getPlaybackPosition}
+      />,
+    );
+    const firstMeasure = container.querySelector<SVGElement>('[data-measure="1"]')!;
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(firstMeasure, 'scrollIntoView', { value: scrollIntoView });
+
+    rerender(
+      <SheetMusicView
+        abcCode={sampleAbc}
+        navigationAnchor={{ startMeasure: 1, endMeasure: 2 }}
+        onSelectAnchor={onSelectAnchor}
+        getPlaybackPosition={getPlaybackPosition}
+      />,
+    );
+
+    expect(onSelectAnchor).toHaveBeenLastCalledWith({
+      startMeasure: 1,
+      endMeasure: 2,
+      label: 'mm. 1–2',
+      playbackSeconds: 4,
+      playbackFraction: 0.5,
+    });
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center', inline: 'nearest' });
+    expect(document.activeElement).toBe(firstMeasure);
+    expect(getPlaybackPosition().isPlaying).toBe(false);
+  });
 });
