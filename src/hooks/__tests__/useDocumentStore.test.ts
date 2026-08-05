@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDocumentStore } from '../useDocumentStore';
 import { storageAdapter } from '../../utils/storageAdapter';
@@ -48,6 +48,25 @@ describe('useDocumentStore', () => {
 
     expect(result.current.documents).toHaveLength(1);
     expect(result.current.documents[0].name).toBe('IDBScore.abc');
+  });
+
+  it('clears the active range only when switching to another file', async () => {
+    const secondDoc: FileDocument = {
+      ...sampleDoc,
+      id: 'idb-doc-2',
+      name: 'Second.abc',
+    };
+    localStorage.setItem('chorale.workspace.activeFileId', sampleDoc.id);
+    vi.spyOn(storageAdapter, 'getDocuments').mockResolvedValue([sampleDoc, secondDoc]);
+    const { result } = renderHook(() => useDocumentStore());
+    await waitFor(() => expect(result.current.hydrationStatus).toBe('ready'));
+
+    act(() => result.current.setActiveAnchor({ startMeasure: 2, endMeasure: 4 }));
+    expect(result.current.activeAnchor).toEqual({ startMeasure: 2, endMeasure: 4 });
+
+    act(() => result.current.handleSelectFile(secondDoc.id));
+    expect(result.current.activeFileId).toBe(secondDoc.id);
+    expect(result.current.activeAnchor).toBeNull();
   });
 
   it('loads sample track safely when no IndexedDB documents exist and hydration completes', async () => {

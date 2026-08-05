@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent, createEvent } from '@testing-library/react';
+import { act, render, screen, waitFor, fireEvent, createEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import abcjs from 'abcjs';
 import App, {
@@ -308,8 +308,20 @@ describe('App Integration', () => {
       expect(screen.getByTestId('sheet-svg')).toBeDefined();
     });
 
+    const renderOptions = vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2] as any;
+    act(() => {
+      renderOptions.clickListener(
+        { startChar: 20 },
+        0,
+        'abcjs-note abcjs-mm0',
+        { measure: 0 },
+      );
+    });
+    expect(screen.getByText('m. 1')).toBeDefined();
+
     fireEvent.click(screen.getByTitle('Close assistant'));
     expect(screen.queryByLabelText('Current sheet assistant')).toBeNull();
+    expect(screen.getByText('m. 1')).toBeDefined();
 
     fireEvent.click(screen.getByTitle('Show score chat'));
     expect(screen.getByLabelText('Current sheet assistant')).toBeDefined();
