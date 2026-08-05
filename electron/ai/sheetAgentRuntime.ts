@@ -13,6 +13,7 @@ import {
   createScoreSnapshot,
   type ScoreSnapshot,
 } from '../../src/music/scoreSnapshot';
+import { createSheetTools } from './sheetTools';
 
 export const mapAgentError = (error: unknown): { code: AIErrorCode; message: string } => {
   if (error instanceof DOMException && error.name === 'AbortError') {
@@ -57,6 +58,7 @@ export const redactSecretValues = (message: string, secret: unknown): string => 
 
 export class SheetAgentRun {
   readonly scoreSnapshot: ScoreSnapshot;
+  readonly sheetTools: ReturnType<typeof createSheetTools>;
   private agent?: Agent;
   private cancelled = false;
   private readonly requestId: string;
@@ -87,6 +89,7 @@ export class SheetAgentRun {
       abc: request.context.abc,
       annotations: request.context.annotations,
     });
+    this.sheetTools = createSheetTools(this.scoreSnapshot);
   }
 
   async start() {
@@ -96,13 +99,15 @@ export class SheetAgentRun {
         systemPrompt: [
           'You are Chorale, a read-only music analysis assistant.',
           'Ground every answer in the supplied CHORALE_MUSIC_CONTEXT.',
+          'Before any score-specific claim, call select_analysis_profile and inspect the score with the read-only score tools.',
+          'Use multiple analysis profiles when the question crosses musical domains.',
           'Reference measure ranges when the notation provides enough information.',
           'Never claim to have changed the score.',
         ].join(' '),
         model,
         thinkingLevel: 'off',
         messages: toAgentHistory(this.request.history, model),
-        tools: [],
+        tools: [...this.sheetTools.tools],
       },
       streamFn: (activeModel, context, options) => (
         models.streamSimple(activeModel, context, options)
