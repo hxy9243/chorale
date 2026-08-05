@@ -174,7 +174,7 @@ describe('AgentChatPanel', () => {
     expect(screen.queryByText('Tools')).toBeNull();
   });
 
-  it('uses a full header row and shows the selected measure inside the composer', () => {
+  it('shows the active range in the composer and captured user context', async () => {
     render(
       <AgentChatPanel
         open
@@ -183,7 +183,7 @@ describe('AgentChatPanel', () => {
         abcCode={'X:1\nT:Layout\nK:C\nCDEF|'}
         activeFileName="Layout.abc"
         revision={2}
-        activeAnchor={{ startMeasure: 3, endMeasure: 3 }}
+        activeAnchor={{ startMeasure: 3, endMeasure: 5 }}
         ai={ai}
         onOpenSettings={() => undefined}
       />,
@@ -200,9 +200,19 @@ describe('AgentChatPanel', () => {
     expect(screen.queryByText('Analysis')).toBeNull();
     expect(screen.queryByText(/Selection:/)).toBeNull();
     expect(screen.queryByText('Earlier in this score')).toBeNull();
-    const selectionIndicator = screen.getByText('Selected m. 3');
+    const selectionIndicator = screen.getByText('Selected mm. 3–5');
     expect(selectionIndicator.closest('.agent-composer-anchor')).not.toBeNull();
     expect(selectionIndicator.closest('form')?.className).toContain('agent-composer');
+
+    fireEvent.change(screen.getByLabelText('Ask about the current sheet'), {
+      target: { value: 'Explain this passage' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await screen.findByText('Grounded mock response');
+
+    const request = agentSendMock.mock.calls[0][0] as SheetAgentRequest;
+    expect(request.context.selection).toEqual({ startMeasure: 3, endMeasure: 5 });
+    expect(screen.getByText('mm. 3–5').closest('.agent-anchor-pill')).not.toBeNull();
   });
 
   it('deletes the active thread and keeps one fresh thread when history becomes empty', async () => {
