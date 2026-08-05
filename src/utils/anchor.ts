@@ -4,9 +4,9 @@ export function formatAnchorLabel(anchor: ScoreAnchor | null | undefined): strin
   if (!anchor) return '';
   if (anchor.label) return anchor.label;
 
-  const measureText = anchor.endMeasure && anchor.endMeasure !== anchor.measure
-    ? `m. ${anchor.measure}–${anchor.endMeasure}`
-    : `m. ${anchor.measure}`;
+  const measureText = anchor.endMeasure !== anchor.startMeasure
+    ? `mm. ${anchor.startMeasure}–${anchor.endMeasure}`
+    : `m. ${anchor.startMeasure}`;
 
   if (anchor.beat !== undefined) {
     return `${measureText}, beat ${anchor.beat}`;
@@ -19,7 +19,7 @@ export function isSameAnchor(a: ScoreAnchor | null | undefined, b: ScoreAnchor |
   if (!a && !b) return true;
   if (!a || !b) return false;
   return (
-    a.measure === b.measure &&
+    a.startMeasure === b.startMeasure &&
     a.endMeasure === b.endMeasure &&
     a.beat === b.beat &&
     a.abcOffset === b.abcOffset

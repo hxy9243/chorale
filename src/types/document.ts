@@ -4,8 +4,8 @@ export type AnnotationId = string;
 export type RevisionNumber = number;
 
 export type ScoreAnchor = {
-  measure: number;
-  endMeasure?: number;
+  startMeasure: number;
+  endMeasure: number;
   beat?: number;
   voiceId?: string;
   abcOffset?: number;

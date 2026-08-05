@@ -105,11 +105,11 @@ const highlightMeasure = (container: HTMLDivElement, anchor: ScoreAnchor | null)
   if (!anchor) return;
 
   const elements = Array.from(container.querySelectorAll<SVGGraphicsElement>(
-    `.abcjs-mm${Math.max(0, anchor.measure - 1)}`,
+    `.abcjs-mm${Math.max(0, anchor.startMeasure - 1)}`,
   )).filter((element) => typeof element.getBBox === 'function');
   if (elements.length === 0) return;
 
-  const bounds = measureHighlightBounds(container, Math.max(0, anchor.measure - 1), elements);
+  const bounds = measureHighlightBounds(container, Math.max(0, anchor.startMeasure - 1), elements);
   const svg = elements[0].ownerSVGElement;
   if (!svg) return;
 
@@ -269,7 +269,8 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         const playbackFraction = selected?.playbackFraction ?? fallbackFraction;
 
         const newAnchor: ScoreAnchor = {
-          measure,
+          startMeasure: measure,
+          endMeasure: measure,
           abcOffset,
           label: `m. ${measure}`,
           playbackFraction,

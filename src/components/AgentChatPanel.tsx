@@ -235,8 +235,8 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     abc: abcCode,
     selection: activeAnchor
       ? {
-          measureStart: activeAnchor.measure,
-          measureEnd: activeAnchor.endMeasure || activeAnchor.measure,
+          measureStart: activeAnchor.startMeasure,
+          measureEnd: activeAnchor.endMeasure,
           abcRange:
             activeAnchor.abcOffset !== undefined
               ? { start: activeAnchor.abcOffset, end: activeAnchor.abcOffset + 1 }
@@ -518,8 +518,10 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
             {message.context?.selection && (
               <div className="agent-anchor-pill">
                 {formatAnchorLabel({
-                  measure: message.context.selection.measureStart || 1,
-                  endMeasure: message.context.selection.measureEnd,
+                  startMeasure: message.context.selection.measureStart || 1,
+                  endMeasure: message.context.selection.measureEnd
+                    || message.context.selection.measureStart
+                    || 1,
                 })}
               </div>
             )}

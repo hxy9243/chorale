@@ -109,7 +109,7 @@ describe('SheetMusicView Component', () => {
     render(
       <SheetMusicView
         abcCode={sampleAbc}
-        activeAnchor={{ measure: 5, label: 'm. 5' }}
+        activeAnchor={{ startMeasure: 5, endMeasure: 5, label: 'm. 5' }}
         onSelectAnchor={onSelectAnchor}
       />
     );
@@ -142,7 +142,8 @@ describe('SheetMusicView Component', () => {
     );
 
     expect(onSelectAnchor).toHaveBeenCalledWith({
-      measure: 4,
+      startMeasure: 4,
+      endMeasure: 4,
       abcOffset: 24,
       label: 'm. 4',
       playbackFraction: 1,
@@ -180,7 +181,7 @@ describe('SheetMusicView Component', () => {
     });
 
     const { container } = render(
-      <SheetMusicView abcCode={sampleAbc} activeAnchor={{ measure: 3 }} />,
+      <SheetMusicView abcCode={sampleAbc} activeAnchor={{ startMeasure: 3, endMeasure: 3 }} />,
     );
 
     const highlight = container.querySelector('.abcjs-measure-highlight');
@@ -221,7 +222,7 @@ describe('SheetMusicView Component', () => {
     });
 
     const { container } = render(
-      <SheetMusicView abcCode={sampleAbc} activeAnchor={{ measure: 3 }} />,
+      <SheetMusicView abcCode={sampleAbc} activeAnchor={{ startMeasure: 3, endMeasure: 3 }} />,
     );
 
     const highlight = container.querySelector('.abcjs-measure-highlight');
@@ -264,7 +265,8 @@ describe('SheetMusicView Component', () => {
     fireEvent.click(container.querySelector('[data-measure="2"]')!);
     expect(onSelectAnchor).toHaveBeenCalledOnce();
     expect(onSelectAnchor).toHaveBeenCalledWith({
-      measure: 2,
+      startMeasure: 2,
+      endMeasure: 2,
       abcOffset: undefined,
       label: 'm. 2',
       playbackFraction: 0.5,
@@ -343,7 +345,8 @@ describe('SheetMusicView Component', () => {
 
     expect(onSelectAnchor).toHaveBeenCalledWith(
       expect.objectContaining({
-        measure: 2,
+        startMeasure: 2,
+        endMeasure: 2,
         abcOffset: 37,
         label: 'm. 2',
         playbackSeconds: 6,

@@ -162,7 +162,7 @@ describe('AgentChatPanel', () => {
         abcCode={'X:1\nT:Layout\nK:C\nCDEF|'}
         activeFileName="Layout.abc"
         revision={2}
-        activeAnchor={{ measure: 3 }}
+        activeAnchor={{ startMeasure: 3, endMeasure: 3 }}
         ai={ai}
         onOpenSettings={() => undefined}
       />,

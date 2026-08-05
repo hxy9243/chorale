@@ -176,7 +176,7 @@ describe('AudioPlayer Component', () => {
     render(
       <AudioPlayer
         tunes={[mockTune]}
-        activeAnchor={{ measure: 3, beat: 2, label: 'm. 3, beat 2' }}
+        activeAnchor={{ startMeasure: 3, endMeasure: 3, beat: 2, label: 'm. 3, beat 2' }}
       />,
     );
 
@@ -190,7 +190,7 @@ describe('AudioPlayer Component', () => {
     render(
       <AudioPlayer
         tunes={[mockTune]}
-        activeAnchor={{ measure: 2, playbackSeconds: 2, label: 'm. 2' }}
+        activeAnchor={{ startMeasure: 2, endMeasure: 2, playbackSeconds: 2, label: 'm. 2' }}
       />,
     );
 
@@ -203,7 +203,7 @@ describe('AudioPlayer Component', () => {
     render(
       <AudioPlayer
         tunes={[mockTune]}
-        activeAnchor={{ measure: 2, playbackFraction: 0.5, label: 'm. 2' }}
+        activeAnchor={{ startMeasure: 2, endMeasure: 2, playbackFraction: 0.5, label: 'm. 2' }}
       />,
     );
 
@@ -296,7 +296,7 @@ describe('AudioPlayer Component', () => {
     render(
       <AudioPlayer
         tunes={[mockTune]}
-        activeAnchor={{ measure: 3, playbackSeconds: 5, label: 'm. 3' }}
+        activeAnchor={{ startMeasure: 3, endMeasure: 3, playbackSeconds: 5, label: 'm. 3' }}
       />
     );
 

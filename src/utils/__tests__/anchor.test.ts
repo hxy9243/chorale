@@ -4,16 +4,16 @@ import type { ScoreAnchor } from '../../types/document';
 
 describe('Anchor Utilities', () => {
   it('formatAnchorLabel formats single measure and measure ranges', () => {
-    const single: ScoreAnchor = { measure: 4 };
+    const single: ScoreAnchor = { startMeasure: 4, endMeasure: 4 };
     expect(formatAnchorLabel(single)).toBe('m. 4');
 
-    const range: ScoreAnchor = { measure: 5, endMeasure: 8 };
-    expect(formatAnchorLabel(range)).toBe('m. 5–8');
+    const range: ScoreAnchor = { startMeasure: 5, endMeasure: 8 };
+    expect(formatAnchorLabel(range)).toBe('mm. 5–8');
 
-    const withBeat: ScoreAnchor = { measure: 12, beat: 2 };
+    const withBeat: ScoreAnchor = { startMeasure: 12, endMeasure: 12, beat: 2 };
     expect(formatAnchorLabel(withBeat)).toBe('m. 12, beat 2');
 
-    const customLabel: ScoreAnchor = { measure: 1, label: 'Intro measure' };
+    const customLabel: ScoreAnchor = { startMeasure: 1, endMeasure: 1, label: 'Intro measure' };
     expect(formatAnchorLabel(customLabel)).toBe('Intro measure');
   });
 
@@ -23,9 +23,9 @@ describe('Anchor Utilities', () => {
   });
 
   it('isSameAnchor checks equality between anchor objects', () => {
-    const a: ScoreAnchor = { measure: 3, beat: 1 };
-    const b: ScoreAnchor = { measure: 3, beat: 1 };
-    const c: ScoreAnchor = { measure: 4, beat: 1 };
+    const a: ScoreAnchor = { startMeasure: 3, endMeasure: 3, beat: 1 };
+    const b: ScoreAnchor = { startMeasure: 3, endMeasure: 3, beat: 1 };
+    const c: ScoreAnchor = { startMeasure: 4, endMeasure: 4, beat: 1 };
 
     expect(isSameAnchor(a, b)).toBe(true);
     expect(isSameAnchor(a, c)).toBe(false);

@@ -299,7 +299,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     const totalBeats = tune.getTotalBeats?.() || 0;
     const beatsPerMeasure = tune.getBeatsPerMeasure?.() || 0;
     if (totalBeats > 0 && beatsPerMeasure > 0) {
-      const selectedBeat = Math.max(0, (anchor.measure - 1) * beatsPerMeasure + (anchor.beat || 1) - 1);
+      const selectedBeat = Math.max(0, (anchor.startMeasure - 1) * beatsPerMeasure + (anchor.beat || 1) - 1);
       const percent = Math.max(0, Math.min(1, selectedBeat / totalBeats));
       synthControllerRef.current.seek?.(percent);
       updatePlaybackPosition({ progress: percent });
