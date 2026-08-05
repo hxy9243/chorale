@@ -44,6 +44,16 @@ const normalizeMeasureSpan = (value: unknown): MeasureSpan | null => {
   return { startMeasure: startMeasure as number, endMeasure: endMeasure as number };
 };
 
+const normalizeAnnotationSpan = (value: UnknownRecord): MeasureSpan | null => {
+  const canonical = normalizeMeasureSpan(value.span);
+  if (canonical) return canonical;
+
+  const anchor = isRecord(value.anchor) ? value.anchor : {};
+  const startMeasure = anchor.startMeasure ?? anchor.measure ?? value.measureStart;
+  const endMeasure = anchor.endMeasure ?? value.measureEnd ?? startMeasure;
+  return normalizeMeasureSpan({ startMeasure, endMeasure });
+};
+
 const normalizeProfiles = (value: unknown): AgentProfileId[] | undefined => {
   if (!Array.isArray(value)) return undefined;
   const profiles = value.filter((profile): profile is AgentProfileId => (
@@ -54,9 +64,9 @@ const normalizeProfiles = (value: unknown): AgentProfileId[] | undefined => {
 
 const normalizeAnnotationBase = (value: UnknownRecord): AnnotationBase | null => {
   const id = nonEmptyString(value.id);
-  const span = normalizeMeasureSpan(value.span);
+  const span = normalizeAnnotationSpan(value);
   const label = nonEmptyString(value.label);
-  const body = nonEmptyString(value.body);
+  const body = nonEmptyString(value.body) || nonEmptyString(value.description);
   const createdAt = nonEmptyString(value.createdAt);
   const updatedAt = nonEmptyString(value.updatedAt);
   if (
@@ -89,8 +99,10 @@ export const normalizeAnnotation = (value: unknown): Annotation | null => {
   const base = normalizeAnnotationBase(value);
   if (!base) return null;
 
-  if (value.kind === 'chord') {
-    if (!isRecord(value.position)) return null;
+  if (value.kind === 'chord' || value.kind === 'harmony') {
+    if (!isRecord(value.position)) {
+      return value.kind === 'harmony' ? { ...base, kind: 'explanation' } : null;
+    }
     const measure = value.position.measure;
     const chordSymbol = nonEmptyString(value.chordSymbol);
     if (
@@ -100,7 +112,7 @@ export const normalizeAnnotation = (value: unknown): Annotation | null => {
       || !isRationalDuration(value.position.offset)
       || !chordSymbol
     ) {
-      return null;
+      return value.kind === 'harmony' ? { ...base, kind: 'explanation' } : null;
     }
     const romanNumeral = optionalString(value.romanNumeral);
     return {
@@ -117,7 +129,7 @@ export const normalizeAnnotation = (value: unknown): Annotation | null => {
     && value.kind !== 'voice-leading'
     && value.kind !== 'explanation'
   ) {
-    return null;
+    return { ...base, kind: 'explanation' };
   }
   return { ...base, kind: value.kind };
 };

@@ -53,6 +53,54 @@ describe('document schema normalization', () => {
     })).toBeNull();
   });
 
+  it('migrates legacy annotation kinds and anchor fields', () => {
+    const legacyBase = {
+      id: 'legacy-1',
+      anchor: { measure: 3, endMeasure: 5 },
+      label: 'Phrase note',
+      body: 'A legacy analysis note.',
+      source: 'assistant',
+      createdAt: '2026-08-04T00:00:00.000Z',
+      updatedAt: '2026-08-04T00:00:00.000Z',
+    };
+
+    for (const kind of ['analysis', 'phrase', 'comment', 'edit-note', 'fingering', 'future-kind']) {
+      expect(normalizeAnnotation({ ...legacyBase, kind })).toMatchObject({
+        kind: 'explanation',
+        span: { startMeasure: 3, endMeasure: 5 },
+      });
+    }
+  });
+
+  it('recovers valid legacy harmony chords and otherwise keeps their explanation', () => {
+    const legacyHarmony = {
+      id: 'legacy-harmony',
+      kind: 'harmony',
+      measureStart: 2,
+      measureEnd: 2,
+      label: 'Dominant',
+      description: 'A dominant chord.',
+      source: 'assistant',
+      createdAt: '2026-08-04T00:00:00.000Z',
+      updatedAt: '2026-08-04T00:00:00.000Z',
+    };
+
+    expect(normalizeAnnotation(legacyHarmony)).toMatchObject({
+      kind: 'explanation',
+      span: { startMeasure: 2, endMeasure: 2 },
+      body: 'A dominant chord.',
+    });
+    expect(normalizeAnnotation({
+      ...legacyHarmony,
+      chordSymbol: 'G7',
+      position: { measure: 2, offset: { numerator: 1, denominator: 4 } },
+    })).toMatchObject({
+      kind: 'chord',
+      chordSymbol: 'G7',
+      position: { measure: 2, offset: { numerator: 1, denominator: 4 } },
+    });
+  });
+
   it('normalizes a complete persisted document without mutating its input', () => {
     const input = {
       id: 'doc-1',
