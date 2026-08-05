@@ -67,7 +67,10 @@ export const App: React.FC = () => {
     handleProcessMusicXml,
     handleDeleteDocument,
     handleReorderDocument,
+    handleAddAnnotation,
     handleAddAnnotations,
+    handleUpdateAnnotation,
+    handleDeleteAnnotation,
   } = useDocumentStore();
 
   const interfaceZoom = useInterfaceZoom();
@@ -307,6 +310,7 @@ export const App: React.FC = () => {
                   <div className="score-view-wrapper">
                     <SheetMusicView
                       abcCode={canRenderScore ? abcCode : ''}
+                      annotations={activeDocument?.annotations || []}
                       activeAnchor={activeAnchor}
                       navigationAnchor={scoreNavigationAnchor}
                       onSelectAnchor={handleSelectAnchor}
@@ -314,6 +318,10 @@ export const App: React.FC = () => {
                       getPlaybackPosition={getPlaybackPosition}
                       zoom={zoom}
                       onZoomChange={(newZoom) => setZoom(clampSheetZoom(newZoom))}
+                      meter={scoreMeter}
+                      onCreateAnnotation={handleAddAnnotation}
+                      onUpdateAnnotation={handleUpdateAnnotation}
+                      onDeleteAnnotation={handleDeleteAnnotation}
                     />
                   </div>
                 </div>

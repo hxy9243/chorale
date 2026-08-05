@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SheetMusicView } from '../SheetMusicView';
 import abcjs from 'abcjs';
@@ -122,6 +122,81 @@ describe('SheetMusicView Component', () => {
     fireEvent.click(clearBtn);
     expect(onSelectAnchor).toHaveBeenCalledWith(null);
     expect(document.activeElement).toBe(clearBtn);
+  });
+
+  it('saves a manually authored annotation directly for the active range', async () => {
+    const onCreateAnnotation = vi.fn();
+    render(
+      <SheetMusicView
+        abcCode={sampleAbc}
+        activeAnchor={{ startMeasure: 2, endMeasure: 4 }}
+        meter="4/4"
+        onCreateAnnotation={onCreateAnnotation}
+      />,
+    );
+
+    const createButton = screen.getByRole('button', { name: 'Add annotation to mm. 2–4' });
+    fireEvent.click(createButton);
+    fireEvent.change(screen.getByLabelText('Label'), { target: { value: 'Sequence' } });
+    fireEvent.change(screen.getByLabelText('Explanation'), {
+      target: { value: 'The idea continues by step.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }));
+
+    await waitFor(() => expect(onCreateAnnotation).toHaveBeenCalledOnce());
+    expect(onCreateAnnotation.mock.calls[0][0]).toMatchObject({
+      kind: 'explanation',
+      span: { startMeasure: 2, endMeasure: 4 },
+      label: 'Sequence',
+      body: 'The idea continues by step.',
+      source: 'user',
+    });
+    await waitFor(() => expect(document.activeElement).toBe(createButton));
+  });
+
+  it('opens accepted annotations for explicit edit and delete actions', async () => {
+    const accepted = {
+      id: 'annotation-accepted',
+      kind: 'explanation' as const,
+      span: { startMeasure: 3, endMeasure: 5 },
+      label: 'Cadence plan',
+      body: 'The phrase moves toward closure.',
+      source: 'assistant' as const,
+      createdAt: '2026-08-05T00:00:00.000Z',
+      updatedAt: '2026-08-05T00:00:00.000Z',
+    };
+    const onSelectAnchor = vi.fn();
+    const onUpdateAnnotation = vi.fn();
+    const onDeleteAnnotation = vi.fn();
+    render(
+      <SheetMusicView
+        abcCode={sampleAbc}
+        annotations={[accepted]}
+        onSelectAnchor={onSelectAnchor}
+        onUpdateAnnotation={onUpdateAnnotation}
+        onDeleteAnnotation={onDeleteAnnotation}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('Annotations (1)'));
+    let editButton = screen.getByRole('button', { name: 'Edit Cadence plan' });
+    fireEvent.click(editButton);
+    expect(onSelectAnchor).toHaveBeenCalledWith({ startMeasure: 3, endMeasure: 5 });
+    fireEvent.change(screen.getByLabelText('Explanation'), {
+      target: { value: 'Edited accepted explanation.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }));
+    await waitFor(() => expect(onUpdateAnnotation).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'annotation-accepted',
+      body: 'Edited accepted explanation.',
+      source: 'assistant',
+    })));
+    editButton = screen.getByRole('button', { name: 'Edit Cadence plan' });
+    await waitFor(() => expect(document.activeElement).toBe(editButton));
+
+    fireEvent.click(editButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete annotation' }));
+    expect(onDeleteAnnotation).toHaveBeenCalledWith('annotation-accepted');
   });
 
   it('resolves the global measure class instead of falling back to measure one', () => {
