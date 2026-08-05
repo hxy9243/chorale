@@ -402,7 +402,7 @@ describe('SheetMusicView Component', () => {
       ],
     }] as any);
 
-    render(
+    const { container } = render(
       <SheetMusicView
         abcCode={repeatedAbc}
         onSelectAnchor={onSelectAnchor}
@@ -429,5 +429,21 @@ describe('SheetMusicView Component', () => {
         playbackFraction: 0.75,
       }),
     );
+
+    fireEvent.click(container.querySelector('.abcjs-paper-container')!, { shiftKey: true });
+    options.clickListener(
+      { startChar: 30 },
+      0,
+      'abcjs-note abcjs-mm0',
+      { measure: 0 },
+    );
+    expect(onSelectAnchor).toHaveBeenLastCalledWith(expect.objectContaining({
+      startMeasure: 1,
+      endMeasure: 2,
+      abcOffset: 30,
+      label: 'mm. 1–2',
+      playbackSeconds: 4,
+      playbackFraction: 0.5,
+    }));
   });
 });
