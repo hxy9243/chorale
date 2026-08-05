@@ -37,16 +37,33 @@ export type ScoreInfo = {
   measures?: number;
 };
 
-export type Annotation = {
+export type AgentProfileId = 'general' | 'harmony' | 'voice-leading' | 'form-phrase';
+
+export type AnnotationKind = 'chord' | 'modulation' | 'voice-leading' | 'explanation';
+
+export type AnnotationBase = {
   id: AnnotationId;
-  kind: 'analysis' | 'harmony' | 'phrase' | 'comment' | 'edit-note';
+  span: MeasureSpan;
   label: string;
   body: string;
-  anchor: ScoreAnchor;
+  source: 'user' | 'assistant';
+  agentProfiles?: AgentProfileId[];
   createdAt: string;
   updatedAt: string;
-  source: 'user' | 'assistant';
 };
+
+export type ChordAnnotation = AnnotationBase & {
+  kind: 'chord';
+  position: MusicalPosition;
+  chordSymbol: string;
+  romanNumeral?: string;
+};
+
+export type RangeAnnotation = AnnotationBase & {
+  kind: 'modulation' | 'voice-leading' | 'explanation';
+};
+
+export type Annotation = ChordAnnotation | RangeAnnotation;
 
 export type ScoreVersion = {
   revision: RevisionNumber;

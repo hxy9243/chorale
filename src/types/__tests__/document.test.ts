@@ -1,5 +1,7 @@
 import { describe, expectTypeOf, it } from 'vitest';
 import type {
+  Annotation,
+  ChordAnnotation,
   MeasureSpan,
   MusicalPosition,
   RationalDuration,
@@ -20,5 +22,36 @@ describe('shared musical document contracts', () => {
       startMeasure: number;
       endMeasure: number;
     }>();
+  });
+
+  it('requires musical position and symbol only for chord annotations', () => {
+    const chord: ChordAnnotation = {
+      id: 'annotation-1',
+      kind: 'chord',
+      span: { startMeasure: 2, endMeasure: 2 },
+      position: { measure: 2, offset: { numerator: 1, denominator: 4 } },
+      chordSymbol: 'G7',
+      romanNumeral: 'V7/V',
+      label: 'Secondary dominant',
+      body: 'Resolves to the dominant.',
+      source: 'assistant',
+      agentProfiles: ['harmony'],
+      createdAt: '2026-08-05T00:00:00.000Z',
+      updatedAt: '2026-08-05T00:00:00.000Z',
+    };
+    const explanation: Annotation = {
+      id: 'annotation-2',
+      kind: 'explanation',
+      span: { startMeasure: 2, endMeasure: 4 },
+      label: 'Sequence',
+      body: 'This idea repeats across the passage.',
+      source: 'user',
+      createdAt: '2026-08-05T00:00:00.000Z',
+      updatedAt: '2026-08-05T00:00:00.000Z',
+    };
+
+    expectTypeOf(chord).toMatchTypeOf<Annotation>();
+    expectTypeOf(chord.position).toEqualTypeOf<MusicalPosition>();
+    expectTypeOf(explanation).toMatchTypeOf<Annotation>();
   });
 });
