@@ -129,6 +129,7 @@ type VoiceState = {
   measureNumber: number;
   offset: RationalDuration;
   tupletMultiplier: number;
+  hasEvents: boolean;
 };
 
 const ZERO_DURATION = createRationalDuration(0, 1);
@@ -280,14 +281,18 @@ export const extractScore = (abc: string): ExtractedScore => {
           measureNumber: 1,
           offset: ZERO_DURATION,
           tupletMultiplier: 1,
+          hasEvents: false,
         };
 
         for (const element of voice) {
           const measure = getMeasure(state.measureNumber);
           if (element.el_type === 'bar') {
             addElementRange(measure, element);
-            state.measureNumber += 1;
-            state.offset = ZERO_DURATION;
+            if (state.hasEvents) {
+              state.measureNumber += 1;
+              state.offset = ZERO_DURATION;
+              state.hasEvents = false;
+            }
             continue;
           }
           if (element.el_type === 'key') {
@@ -323,6 +328,7 @@ export const extractScore = (abc: string): ExtractedScore => {
             ...(range ? { abcRange: range } : {}),
           };
           measure.events.push(event);
+          state.hasEvents = true;
           addElementRange(measure, element);
           state.offset = addRationalDurations(state.offset, duration);
           if (element.endTriplet) state.tupletMultiplier = 1;

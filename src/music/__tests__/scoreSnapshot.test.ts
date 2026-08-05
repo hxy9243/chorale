@@ -2,10 +2,15 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createScoreSnapshot, extractScore } from '../scoreSnapshot';
+import { isRationalDuration } from '../rational';
+
+const fixtureDirectory = resolve(process.cwd(), 'src/test/fixtures/score-snapshot');
+const readFixture = (filename: string) => (
+  readFileSync(resolve(fixtureDirectory, filename), 'utf8')
+);
 
 describe('score snapshot extraction', () => {
   it('keeps a deterministic fixture corpus for every required score shape', () => {
-    const fixtureDirectory = resolve(process.cwd(), 'src/test/fixtures/score-snapshot');
     const fixtures = readdirSync(fixtureDirectory)
       .filter((filename) => filename.endsWith('.abc'))
       .sort();
@@ -23,6 +28,92 @@ describe('score snapshot extraction', () => {
     for (const filename of fixtures) {
       const abc = readFileSync(resolve(fixtureDirectory, filename), 'utf8');
       expect(() => extractScore(abc), filename).not.toThrow();
+    }
+  });
+
+  it('verifies written numbering, exact rational time, and source ranges across the corpus', () => {
+    for (const filename of readdirSync(fixtureDirectory).filter((name) => name.endsWith('.abc'))) {
+      const abc = readFixture(filename);
+      const score = extractScore(abc);
+
+      expect(score.measures.map((measure) => measure.measureNumber), filename)
+        .toEqual(score.measures.map((_, index) => index + 1));
+      for (const measure of score.measures) {
+        expect(measure.abcSlice, filename).toBe(abc.slice(measure.abcRange.start, measure.abcRange.end));
+        for (const event of measure.events) {
+          expect(event.position.measure, filename).toBe(measure.measureNumber);
+          expect(isRationalDuration(event.position.offset), filename).toBe(true);
+          expect(isRationalDuration(event.duration), filename).toBe(true);
+          expect(event.abcRange?.start, filename).toBeGreaterThanOrEqual(measure.abcRange.start);
+          expect(event.abcRange?.end, filename).toBeLessThanOrEqual(measure.abcRange.end);
+        }
+      }
+    }
+
+    const fourFour = extractScore(readFixture('01-four-four.abc'));
+    expect(fourFour.measures[0].events.map((event) => event.position.offset)).toEqual([
+      { numerator: 0, denominator: 1 },
+      { numerator: 1, denominator: 4 },
+      { numerator: 3, denominator: 8 },
+      { numerator: 1, denominator: 2 },
+      { numerator: 3, denominator: 4 },
+      { numerator: 7, denominator: 8 },
+    ]);
+
+    const pickup = extractScore(readFixture('02-pickup.abc'));
+    expect(pickup.measures).toHaveLength(3);
+    expect(pickup.measures[0].events).toHaveLength(1);
+    expect(pickup.measures[1].events).toHaveLength(4);
+
+    const compound = extractScore(readFixture('03-compound-six-eight.abc'));
+    expect(compound.meter).toBe('6/8');
+    expect(compound.measures[0].events.at(-1)?.position.offset)
+      .toEqual({ numerator: 5, denominator: 8 });
+
+    const fractions = extractScore(readFixture('04-fractions-tuplets.abc'));
+    expect(fractions.measures[0].events.map((event) => event.duration)).toEqual([
+      { numerator: 1, denominator: 16 },
+      { numerator: 3, denominator: 16 },
+      { numerator: 1, denominator: 12 },
+      { numerator: 1, denominator: 12 },
+      { numerator: 1, denominator: 12 },
+      { numerator: 1, denominator: 4 },
+      { numerator: 1, denominator: 4 },
+    ]);
+
+    const tiesAndRests = extractScore(readFixture('05-rests-ties.abc'));
+    expect(tiesAndRests.measures[0].events[0].type).toBe('rest');
+    expect(tiesAndRests.measures[0].events.at(-1)?.tieStart).toBe(true);
+    expect(tiesAndRests.measures[1].events[0].tieEnd).toBe(true);
+
+    const voices = extractScore(readFixture('06-multiple-voices.abc'));
+    expect(voices.voices).toEqual(['upper', 'lower']);
+    expect(voices.measures[0].events.filter((event) => (
+      event.position.offset.numerator === 0
+    )).map((event) => event.voiceId)).toEqual(['lower', 'upper']);
+
+    const changes = extractScore(readFixture('07-inline-changes.abc'));
+    expect(changes.measures[1].keyChange).toBe('G');
+    expect(changes.measures[2].meterChange).toBe('6/8');
+
+    const repeats = extractScore(readFixture('08-repeats-endings.abc'));
+    expect(repeats.measures).toHaveLength(4);
+    expect(repeats.measures[0].abcSlice).toContain('|:');
+    expect(repeats.measures[0].abcSlice).toContain('|1');
+    expect(repeats.measures[1].abcSlice).toContain(':|2');
+  });
+
+  it('rejects every malformed fixture with a compact parser error', () => {
+    const invalidDirectory = resolve(
+      process.cwd(),
+      'src/test/fixtures/score-snapshot-invalid',
+    );
+    const invalidFixtures = readdirSync(invalidDirectory).sort();
+
+    expect(invalidFixtures).toEqual(['invalid-meter.abc', 'unclosed-chord.abc']);
+    for (const filename of invalidFixtures) {
+      const abc = readFileSync(resolve(invalidDirectory, filename), 'utf8');
+      expect(() => extractScore(abc), filename).toThrow(/^Malformed ABC:/);
     }
   });
 
