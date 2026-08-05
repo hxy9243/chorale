@@ -1,7 +1,31 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createScoreSnapshot, extractScore } from '../scoreSnapshot';
 
 describe('score snapshot extraction', () => {
+  it('keeps a deterministic fixture corpus for every required score shape', () => {
+    const fixtureDirectory = resolve(process.cwd(), 'src/test/fixtures/score-snapshot');
+    const fixtures = readdirSync(fixtureDirectory)
+      .filter((filename) => filename.endsWith('.abc'))
+      .sort();
+
+    expect(fixtures).toEqual([
+      '01-four-four.abc',
+      '02-pickup.abc',
+      '03-compound-six-eight.abc',
+      '04-fractions-tuplets.abc',
+      '05-rests-ties.abc',
+      '06-multiple-voices.abc',
+      '07-inline-changes.abc',
+      '08-repeats-endings.abc',
+    ]);
+    for (const filename of fixtures) {
+      const abc = readFileSync(resolve(fixtureDirectory, filename), 'utf8');
+      expect(() => extractScore(abc), filename).not.toThrow();
+    }
+  });
+
   it('extracts written measures, rational events, metadata, and source ranges', () => {
     const abc = [
       'X:1',

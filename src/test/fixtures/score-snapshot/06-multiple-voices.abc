@@ -1,0 +1,9 @@
+X:1
+T:Two Voices
+M:4/4
+L:1/4
+K:C
+V:upper clef=treble
+V:lower clef=bass
+[V:upper] C E G c | B A G F |]
+[V:lower] C, G, C E | G, D G,2 |]
