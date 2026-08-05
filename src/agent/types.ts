@@ -1,18 +1,15 @@
 import type { AIProviderKind } from './aiTypes';
-import type { Annotation } from '../types/document';
+import type { Annotation, ScoreAnchor } from '../types/document';
 
 export type MusicContextSnapshot = {
   id: string;
+  documentId: string;
   revision: number;
   capturedAt: string;
   fileName: string;
   abc: string;
-  selection?: {
-    measureStart?: number;
-    measureEnd?: number;
-    abcRange?: { start: number; end: number };
-  };
-  annotations?: Annotation[];
+  selection?: ScoreAnchor;
+  annotations: Annotation[];
 };
 
 export type ChatMessage = {

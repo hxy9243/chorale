@@ -8,7 +8,7 @@ import {
   saveConversation,
 } from '../agent/conversationStore';
 import type { ChatMessage, ChatThread, MusicContextSnapshot, PersistedFileConversation } from '../agent/types';
-import type { ScoreAnchor } from '../types/document';
+import type { Annotation, ScoreAnchor } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
 
 interface AgentChatPanelProps {
@@ -18,6 +18,7 @@ interface AgentChatPanelProps {
   abcCode: string;
   activeFileName: string;
   revision: number;
+  annotations?: Annotation[];
   activeAnchor?: ScoreAnchor | null;
   ai: AIProviderState;
   onOpenSettings(): void;
@@ -65,6 +66,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   abcCode,
   activeFileName,
   revision,
+  annotations = [],
   activeAnchor = null,
   ai,
   onOpenSettings,
@@ -229,20 +231,33 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
 
   const captureContext = (): MusicContextSnapshot => ({
     id: makeId(),
+    documentId: fileId,
     revision,
     capturedAt: new Date().toISOString(),
     fileName: activeFileName || 'Untitled score',
     abc: abcCode,
-    selection: activeAnchor
-      ? {
-          measureStart: activeAnchor.startMeasure,
-          measureEnd: activeAnchor.endMeasure,
-          abcRange:
-            activeAnchor.abcOffset !== undefined
-              ? { start: activeAnchor.abcOffset, end: activeAnchor.abcOffset + 1 }
-              : undefined,
-        }
-      : undefined,
+    selection: activeAnchor ? { ...activeAnchor } : undefined,
+    annotations: annotations.map((annotation) => (
+      annotation.kind === 'chord'
+        ? {
+            ...annotation,
+            span: { ...annotation.span },
+            position: {
+              ...annotation.position,
+              offset: { ...annotation.position.offset },
+            },
+            ...(annotation.agentProfiles
+              ? { agentProfiles: [...annotation.agentProfiles] }
+              : {}),
+          }
+        : {
+            ...annotation,
+            span: { ...annotation.span },
+            ...(annotation.agentProfiles
+              ? { agentProfiles: [...annotation.agentProfiles] }
+              : {}),
+          }
+    )),
   });
 
   const updateMessages = (threadId: string, updater: (messages: ChatMessage[]) => ChatMessage[]) => {
@@ -517,12 +532,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
             </div>
             {message.context?.selection && (
               <div className="agent-anchor-pill">
-                {formatAnchorLabel({
-                  startMeasure: message.context.selection.measureStart || 1,
-                  endMeasure: message.context.selection.measureEnd
-                    || message.context.selection.measureStart
-                    || 1,
-                })}
+                {formatAnchorLabel(message.context.selection)}
               </div>
             )}
             <div className="agent-message-content">{message.content}</div>

@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentChatPanel } from '../AgentChatPanel';
 import { CONVERSATION_STORAGE_KEY } from '../../agent/conversationStore';
 import type { AIProviderState } from '../../agent/useAIProviders';
+import type { SheetAgentRequest } from '../../agent/aiTypes';
+import type { Annotation } from '../../types/document';
 
 const agentSendMock = vi.hoisted(() => vi.fn());
 
@@ -63,6 +65,16 @@ describe('AgentChatPanel', () => {
   });
 
   it('sends the current ABC revision and persists the conversation', async () => {
+    const annotations: Annotation[] = [{
+      id: 'annotation-context',
+      kind: 'explanation',
+      span: { startMeasure: 1, endMeasure: 1 },
+      label: 'Opening',
+      body: 'Opening annotation.',
+      source: 'user',
+      createdAt: '2026-08-05T00:00:00.000Z',
+      updatedAt: '2026-08-05T00:00:00.000Z',
+    }];
     const { unmount } = render(
       <AgentChatPanel
         open
@@ -71,6 +83,7 @@ describe('AgentChatPanel', () => {
         abcCode={'X:1\nT:Edited in memory\nM:4/4\nK:C\nCDEF|'}
         activeFileName="Local edit.abc"
         revision={12}
+        annotations={annotations}
         ai={ai}
         onOpenSettings={() => undefined}
       />,
@@ -82,6 +95,14 @@ describe('AgentChatPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     await screen.findByText('Grounded mock response');
+    const request = agentSendMock.mock.calls[0][0] as SheetAgentRequest;
+    expect(request.context).toMatchObject({
+      documentId: 'doc-local-edit',
+      revision: 12,
+      annotations: [{ label: 'Opening', span: { startMeasure: 1, endMeasure: 1 } }],
+    });
+    expect(request.context.annotations).not.toBe(annotations);
+    expect(request.context.annotations[0].span).not.toBe(annotations[0].span);
     expect(screen.getByText('Local edit.abc · ABC rev 12')).toBeDefined();
 
     await waitFor(() => {

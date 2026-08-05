@@ -7,10 +7,12 @@ const request: SheetAgentRequest = {
   question: 'What is the cadence?',
   context: {
     id: 'context-1',
+    documentId: 'document-1',
     revision: 2,
     capturedAt: '2026-07-29T12:00:00.000Z',
     fileName: 'Cadence.abc',
     abc: 'X:1\nK:C\nCDEF|GABc|',
+    annotations: [],
   },
 };
 

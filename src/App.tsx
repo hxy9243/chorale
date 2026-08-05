@@ -351,6 +351,7 @@ export const App: React.FC = () => {
             abcCode={abcCode}
             activeFileName={scoreTitle}
             revision={abcRevision}
+            annotations={activeDocument?.annotations || []}
             activeAnchor={activeAnchor}
             ai={aiProviders}
             onOpenSettings={openSettings}

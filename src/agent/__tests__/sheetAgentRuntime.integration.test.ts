@@ -69,10 +69,12 @@ const request: SheetAgentRequest = {
   }],
   context: {
     id: 'context-current',
+    documentId: 'document-current',
     revision: 17,
     capturedAt: '2026-07-29T12:01:00.000Z',
     fileName: 'Cadence study.abc',
     abc: 'X:1\nT:Cadence study\nK:C\nG,CEG|G,BDF|CEGc|',
+    annotations: [],
   },
 };
 

@@ -6,10 +6,12 @@ import type { Model } from '@earendil-works/pi-ai';
 describe('promptUtils', () => {
   const sampleSnapshot: MusicContextSnapshot = {
     id: 'snap-1',
+    documentId: 'doc-1',
     fileName: 'test.abc',
     revision: 3,
     capturedAt: '2026-08-03T00:00:00.000Z',
     abc: 'X:1\nT:Test Tune\nK:C\nCDEF|',
+    annotations: [],
   };
 
   it('formats prompt with music context correctly', () => {
