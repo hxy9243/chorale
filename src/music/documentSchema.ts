@@ -94,14 +94,22 @@ const normalizeAnnotationBase = (value: UnknownRecord): AnnotationBase | null =>
   };
 };
 
-export const normalizeAnnotation = (value: unknown): Annotation | null => {
+export const validateAnnotation = (value: unknown): Annotation | null => {
   if (!isRecord(value)) return null;
+  if (
+    value.kind !== 'chord'
+    && value.kind !== 'modulation'
+    && value.kind !== 'voice-leading'
+    && value.kind !== 'explanation'
+  ) {
+    return null;
+  }
   const base = normalizeAnnotationBase(value);
   if (!base) return null;
 
-  if (value.kind === 'chord' || value.kind === 'harmony') {
+  if (value.kind === 'chord') {
     if (!isRecord(value.position)) {
-      return value.kind === 'harmony' ? { ...base, kind: 'explanation' } : null;
+      return null;
     }
     const measure = value.position.measure;
     const chordSymbol = nonEmptyString(value.chordSymbol);
@@ -112,7 +120,7 @@ export const normalizeAnnotation = (value: unknown): Annotation | null => {
       || !isRationalDuration(value.position.offset)
       || !chordSymbol
     ) {
-      return value.kind === 'harmony' ? { ...base, kind: 'explanation' } : null;
+      return null;
     }
     const romanNumeral = optionalString(value.romanNumeral);
     return {
@@ -129,9 +137,31 @@ export const normalizeAnnotation = (value: unknown): Annotation | null => {
     && value.kind !== 'voice-leading'
     && value.kind !== 'explanation'
   ) {
-    return { ...base, kind: 'explanation' };
+    return null;
   }
   return { ...base, kind: value.kind };
+};
+
+export const normalizeAnnotation = (value: unknown): Annotation | null => {
+  const canonical = validateAnnotation(value);
+  if (canonical) return canonical;
+  if (!isRecord(value)) return null;
+  if (
+    value.kind === 'chord'
+    || value.kind === 'modulation'
+    || value.kind === 'voice-leading'
+    || value.kind === 'explanation'
+  ) {
+    return null;
+  }
+  const base = normalizeAnnotationBase(value);
+  if (!base) return null;
+
+  if (value.kind === 'harmony') {
+    const recoveredChord = validateAnnotation({ ...value, kind: 'chord' });
+    if (recoveredChord) return recoveredChord;
+  }
+  return { ...base, kind: 'explanation' };
 };
 
 const normalizeScoreInfo = (value: unknown): ScoreInfo => {

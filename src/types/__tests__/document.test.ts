@@ -1,9 +1,11 @@
 import { describe, expectTypeOf, it } from 'vitest';
 import type {
   Annotation,
+  AnnotationProposal,
   ChordAnnotation,
   MeasureSpan,
   MusicalPosition,
+  ProposalState,
   RationalDuration,
   ScoreAnchor,
 } from '../document';
@@ -53,5 +55,19 @@ describe('shared musical document contracts', () => {
     expectTypeOf(chord).toMatchTypeOf<Annotation>();
     expectTypeOf(chord.position).toEqualTypeOf<MusicalPosition>();
     expectTypeOf(explanation).toMatchTypeOf<Annotation>();
+  });
+
+  it('tracks proposal identity, source revision, state, and canonical annotation', () => {
+    expectTypeOf<ProposalState>().toEqualTypeOf<
+      'proposed' | 'accepted' | 'rejected' | 'outdated' | 'unavailable'
+    >();
+    expectTypeOf<AnnotationProposal>().toMatchTypeOf<{
+      id: string;
+      runId: string;
+      documentId: string;
+      sourceRevision: number;
+      state: ProposalState;
+      annotation: Annotation;
+    }>();
   });
 });

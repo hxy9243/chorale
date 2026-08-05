@@ -65,6 +65,22 @@ export type RangeAnnotation = AnnotationBase & {
 
 export type Annotation = ChordAnnotation | RangeAnnotation;
 
+export type ProposalState =
+  | 'proposed'
+  | 'accepted'
+  | 'rejected'
+  | 'outdated'
+  | 'unavailable';
+
+export type AnnotationProposal = {
+  id: string;
+  runId: string;
+  documentId: FileId;
+  sourceRevision: RevisionNumber;
+  state: ProposalState;
+  annotation: Annotation;
+};
+
 export type ScoreVersion = {
   revision: RevisionNumber;
   abcSource: string;

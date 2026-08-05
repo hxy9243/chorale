@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeAnnotation, normalizeFileDocument } from '../documentSchema';
+import {
+  normalizeAnnotation,
+  normalizeFileDocument,
+  validateAnnotation,
+} from '../documentSchema';
 
 const baseAnnotation = {
   id: 'annotation-1',
@@ -51,6 +55,41 @@ describe('document schema normalization', () => {
       position: { measure: 5, offset: { numerator: 0, denominator: 1 } },
       chordSymbol: 'C',
     })).toBeNull();
+  });
+
+  it('strictly validates canonical annotations without applying legacy migration', () => {
+    expect(validateAnnotation({ ...baseAnnotation, kind: 'explanation' })).toMatchObject({
+      kind: 'explanation',
+      span: { startMeasure: 2, endMeasure: 4 },
+    });
+    expect(validateAnnotation({ ...baseAnnotation, kind: 'analysis' })).toBeNull();
+    expect(validateAnnotation({ ...baseAnnotation, kind: 'harmony' })).toBeNull();
+  });
+
+  it('preserves distinct rational chord onsets within the same measure', () => {
+    const annotations = [
+      {
+        ...baseAnnotation,
+        id: 'chord-beat-1',
+        kind: 'chord',
+        span: { startMeasure: 3, endMeasure: 3 },
+        position: { measure: 3, offset: { numerator: 0, denominator: 1 } },
+        chordSymbol: 'C',
+      },
+      {
+        ...baseAnnotation,
+        id: 'chord-beat-3',
+        kind: 'chord',
+        span: { startMeasure: 3, endMeasure: 3 },
+        position: { measure: 3, offset: { numerator: 1, denominator: 2 } },
+        chordSymbol: 'G7',
+      },
+    ];
+
+    expect(annotations.map(validateAnnotation)).toMatchObject([
+      { id: 'chord-beat-1', position: { measure: 3, offset: { numerator: 0, denominator: 1 } } },
+      { id: 'chord-beat-3', position: { measure: 3, offset: { numerator: 1, denominator: 2 } } },
+    ]);
   });
 
   it('migrates legacy annotation kinds and anchor fields', () => {
