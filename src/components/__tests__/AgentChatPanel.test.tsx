@@ -4,7 +4,7 @@ import { AgentChatPanel } from '../AgentChatPanel';
 import { CONVERSATION_STORAGE_KEY } from '../../agent/conversationStore';
 import type { AIProviderState } from '../../agent/useAIProviders';
 import type { SheetAgentRequest } from '../../agent/aiTypes';
-import type { Annotation } from '../../types/document';
+import type { Annotation, AnnotationProposal } from '../../types/document';
 
 const agentSendMock = vi.hoisted(() => vi.fn());
 
@@ -73,6 +73,34 @@ const proposal = {
     createdAt: '2026-08-05T00:00:00.000Z',
     updatedAt: '2026-08-05T00:00:00.000Z',
   },
+};
+
+const seedProposalThread = (
+  fileId: string,
+  proposals: AnnotationProposal[],
+  status: 'complete' | 'streaming' = 'complete',
+) => {
+  localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
+    version: 3,
+    files: {
+      [fileId]: {
+        activeThreadId: 'thread-review',
+        threads: [{
+          id: 'thread-review',
+          title: 'Review proposals',
+          updatedAt: '2026-08-05T00:00:00.000Z',
+          messages: [{
+            id: 'assistant-review',
+            role: 'assistant',
+            content: 'I found these annotations.',
+            createdAt: '2026-08-05T00:00:00.000Z',
+            status,
+            proposals,
+          }],
+        }],
+      },
+    },
+  }));
 };
 
 describe('AgentChatPanel', () => {
@@ -190,6 +218,141 @@ describe('AgentChatPanel', () => {
     expect(screen.queryByText('Analyze')).toBeNull();
     expect(screen.queryByText('Compose')).toBeNull();
     expect(screen.queryByText('Tools')).toBeNull();
+  });
+
+  it('edits and rejects staged proposals, then applies the remaining set atomically', async () => {
+    const secondProposal: AnnotationProposal = {
+      ...proposal,
+      id: 'proposal-second',
+      annotation: {
+        ...proposal.annotation,
+        id: 'annotation-second',
+        label: 'Cadence',
+        body: 'The phrase closes here.',
+      },
+    };
+    seedProposalThread('doc-proposals', [proposal, secondProposal]);
+    const onApplyAnnotations = vi.fn();
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-proposals"
+        abcCode={'X:1\nT:Review\nM:4/4\nK:C\nCDEF|'}
+        activeFileName="Review.abc"
+        revision={1}
+        ai={ai}
+        onOpenSettings={() => undefined}
+        onApplyAnnotations={onApplyAnnotations}
+      />,
+    );
+
+    expect(screen.getAllByRole('button', { name: 'Apply All' })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /^Apply$/ })).toBeNull();
+
+    const openingCard = screen.getByLabelText('Opening annotation proposal');
+    fireEvent.click(within(openingCard).getByRole('button', { name: 'Edit' }));
+    fireEvent.change(screen.getByLabelText('Explanation'), {
+      target: { value: 'Edited before acceptance.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }));
+    await waitFor(() => expect(document.activeElement).toBe(
+      within(screen.getByLabelText('Opening annotation proposal')).getByRole('button', { name: 'Edit' }),
+    ));
+
+    const cadenceCard = screen.getByLabelText('Cadence annotation proposal');
+    fireEvent.click(within(cadenceCard).getByRole('button', { name: 'Reject' }));
+    expect(within(cadenceCard).getByText('Rejected')).toBeDefined();
+    expect(within(cadenceCard).queryByText('The phrase closes here.')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply All' }));
+    expect(onApplyAnnotations).toHaveBeenCalledOnce();
+    expect(onApplyAnnotations.mock.calls[0][0]).toEqual([
+      expect.objectContaining({
+        id: 'annotation-test',
+        body: 'Edited before acceptance.',
+      }),
+    ]);
+    expect(within(screen.getByLabelText('Opening annotation proposal')).getByText('Accepted')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Apply All' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('keeps live proposal cards read-only until their run completes', async () => {
+    agentSendMock.mockImplementation((
+      _request: unknown,
+      callbacks: { onProposalCreated(value: AnnotationProposal): void },
+    ) => new Promise<void>(() => {
+      callbacks.onProposalCreated(proposal);
+    }));
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-proposals"
+        abcCode={'X:1\nT:Review\nM:4/4\nK:C\nCDEF|'}
+        activeFileName="Review.abc"
+        revision={1}
+        ai={ai}
+        onOpenSettings={() => undefined}
+        onApplyAnnotations={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('Ask about the current sheet'), {
+      target: { value: 'Suggest annotations' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    const card = await screen.findByLabelText('Opening annotation proposal');
+    expect((within(card).getByRole('button', { name: 'Edit' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((within(card).getByRole('button', { name: 'Reject' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Apply All' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('marks revision-mismatched proposals outdated and blocks review actions', async () => {
+    seedProposalThread('doc-proposals', [proposal]);
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-proposals"
+        abcCode={'X:1\nT:Changed\nM:4/4\nK:C\nCDEF|'}
+        activeFileName="Changed.abc"
+        revision={2}
+        ai={ai}
+        onOpenSettings={() => undefined}
+        onApplyAnnotations={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText('Outdated')).toBeDefined();
+    expect(screen.getByText(/Rerun analysis for the current score revision/)).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+    expect((screen.getByRole('button', { name: 'Apply All' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('applies none and identifies invalid cards when any proposed annotation collides', () => {
+    const collidingAnnotation = proposal.annotation;
+    seedProposalThread('doc-proposals', [proposal]);
+    const onApplyAnnotations = vi.fn();
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-proposals"
+        abcCode={'X:1\nT:Review\nM:4/4\nK:C\nCDEF|'}
+        activeFileName="Review.abc"
+        revision={1}
+        annotations={[collidingAnnotation]}
+        ai={ai}
+        onOpenSettings={() => undefined}
+        onApplyAnnotations={onApplyAnnotations}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply All' }));
+    expect(onApplyAnnotations).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert').textContent).toContain('Fix this proposal');
+    expect(screen.getByText('Proposed')).toBeDefined();
   });
 
   it('shows the active range in the composer and captured user context', async () => {

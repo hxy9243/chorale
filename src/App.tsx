@@ -67,6 +67,7 @@ export const App: React.FC = () => {
     handleProcessMusicXml,
     handleDeleteDocument,
     handleReorderDocument,
+    handleAddAnnotations,
   } = useDocumentStore();
 
   const interfaceZoom = useInterfaceZoom();
@@ -373,9 +374,11 @@ export const App: React.FC = () => {
             annotations={activeDocument?.annotations || []}
             activeAnchor={activeAnchor}
             totalMeasures={totalMeasures}
+            scoreMeter={scoreMeter}
             ai={aiProviders}
             onOpenSettings={openSettings}
             onNavigateMeasure={handleNavigateMeasure}
+            onApplyAnnotations={handleAddAnnotations}
           />
         </div>
       </div>

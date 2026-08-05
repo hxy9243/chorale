@@ -12,6 +12,14 @@ import type { ChatMessage, ChatThread, MusicContextSnapshot, PersistedFileConver
 import type { Annotation, ScoreAnchor } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
 import { MarkdownMessage } from './MarkdownMessage';
+import { AnnotationProposalCard } from './AnnotationProposalCard';
+import { AnnotationEditor } from './AnnotationEditor';
+import {
+  editAnnotationProposal,
+  markOutdatedProposals,
+  prepareApplyAll,
+  rejectAnnotationProposal,
+} from '../agent/proposalActions';
 
 interface AgentChatPanelProps {
   open: boolean;
@@ -23,9 +31,11 @@ interface AgentChatPanelProps {
   annotations?: Annotation[];
   activeAnchor?: ScoreAnchor | null;
   totalMeasures?: number;
+  scoreMeter?: string;
   ai: AIProviderState;
   onOpenSettings(): void;
   onNavigateMeasure?: (anchor: ScoreAnchor) => void;
+  onApplyAnnotations?: (annotations: readonly Annotation[]) => void;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -106,9 +116,11 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   annotations = [],
   activeAnchor = null,
   totalMeasures = 0,
+  scoreMeter,
   ai,
   onOpenSettings,
   onNavigateMeasure = () => undefined,
+  onApplyAnnotations,
 }) => {
   const [conversation, setConversation] = useState<PersistedFileConversation>(() => (
     fileId ? loadConversation(fileId) : makeEmptyConversation()
@@ -119,6 +131,11 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   const [threadMenuOpen, setThreadMenuOpen] = useState(false);
   const [providerPickerOpen, setProviderPickerOpen] = useState(false);
   const [textareaHeight, setTextareaHeight] = useState<number | null>(null);
+  const [editingProposal, setEditingProposal] = useState<{
+    messageId: string;
+    proposalId: string;
+  } | null>(null);
+  const [invalidProposalIds, setInvalidProposalIds] = useState<Record<string, string[]>>({});
   const conversationRef = useRef(conversation);
   conversationRef.current = conversation;
   const agentRef = useRef<DesktopSheetAgent | null>(null);
@@ -197,12 +214,31 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     setConversation(loadConversation(fileId));
     setDraft('');
     setError(null);
+    setEditingProposal(null);
+    setInvalidProposalIds({});
   }, [fileId]);
 
   useEffect(() => {
     if (!fileId) return;
     saveConversation(fileId, conversation);
   }, [conversation, fileId]);
+
+  useEffect(() => {
+    setConversation((current) => ({
+      ...current,
+      threads: current.threads.map((thread) => ({
+        ...thread,
+        messages: thread.messages.map((message) => (
+          message.proposals?.length
+            ? {
+                ...message,
+                proposals: markOutdatedProposals(message.proposals, fileId, revision),
+              }
+            : message
+        )),
+      })),
+    }));
+  }, [fileId, revision]);
 
   useEffect(() => {
     if (draft) return;
@@ -357,6 +393,73 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     });
     setDraft('');
     setError(null);
+  };
+
+  const returnToProposalEdit = (proposalId: string) => {
+    setEditingProposal(null);
+    queueMicrotask(() => {
+      const editButtons = panelRef.current?.querySelectorAll<HTMLButtonElement>('[data-proposal-edit]');
+      Array.from(editButtons || [])
+        .find((button) => button.dataset.proposalEdit === proposalId)
+        ?.focus();
+    });
+  };
+
+  const handleEditProposal = (
+    messageId: string,
+    proposalId: string,
+    annotation: Annotation,
+  ) => {
+    const message = messages.find(({ id }) => id === messageId);
+    if (!message?.proposals) return;
+    const proposals = editAnnotationProposal(message.proposals, proposalId, annotation);
+    updateMessages(activeThread.id, (current) => current.map((candidate) => (
+      candidate.id === messageId ? { ...candidate, proposals } : candidate
+    )));
+    setInvalidProposalIds((current) => ({ ...current, [messageId]: [] }));
+    returnToProposalEdit(proposalId);
+  };
+
+  const handleRejectProposal = (messageId: string, proposalId: string) => {
+    updateMessages(activeThread.id, (current) => current.map((message) => (
+      message.id === messageId && message.proposals
+        ? {
+            ...message,
+            proposals: rejectAnnotationProposal(message.proposals, proposalId),
+          }
+        : message
+    )));
+  };
+
+  const handleApplyAll = (message: ChatMessage) => {
+    if (!message.proposals) return;
+    const result = prepareApplyAll(
+      message.proposals,
+      fileId,
+      revision,
+      new Set(annotations.map(({ id }) => id)),
+    );
+    setInvalidProposalIds((current) => ({
+      ...current,
+      [message.id]: result.invalidProposalIds,
+    }));
+    if (result.status === 'outdated' || result.status === 'invalid') {
+      updateMessages(activeThread.id, (current) => current.map((candidate) => (
+        candidate.id === message.id ? { ...candidate, proposals: result.proposals } : candidate
+      )));
+      return;
+    }
+    if (result.status !== 'ready') return;
+
+    try {
+      if (!onApplyAnnotations) throw new Error('Annotation application is unavailable.');
+      onApplyAnnotations(result.annotations);
+      updateMessages(activeThread.id, (current) => current.map((candidate) => (
+        candidate.id === message.id ? { ...candidate, proposals: result.proposals } : candidate
+      )));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Annotations could not be applied.');
+    }
   };
 
   const sendMessage = async (event: React.FormEvent) => {
@@ -660,6 +763,46 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
                 />
               ) : message.content}
             </div>
+            {message.proposals && message.proposals.length > 0 && (
+              <div className="annotation-proposal-list" aria-label="Annotation proposals">
+                {message.proposals.map((proposal) => (
+                  editingProposal?.messageId === message.id
+                  && editingProposal.proposalId === proposal.id ? (
+                    <AnnotationEditor
+                      key={proposal.id}
+                      mode="proposal"
+                      initialAnnotation={proposal.annotation}
+                      defaultSpan={proposal.annotation.span}
+                      meter={scoreMeter}
+                      onSave={(annotation) => handleEditProposal(message.id, proposal.id, annotation)}
+                      onCancel={() => returnToProposalEdit(proposal.id)}
+                    />
+                  ) : (
+                    <AnnotationProposalCard
+                      key={proposal.id}
+                      proposal={proposal}
+                      readOnly={message.status === 'streaming'}
+                      invalid={invalidProposalIds[message.id]?.includes(proposal.id)}
+                      onEdit={() => {
+                        setEditingProposal({ messageId: message.id, proposalId: proposal.id });
+                      }}
+                      onReject={() => handleRejectProposal(message.id, proposal.id)}
+                    />
+                  )
+                ))}
+                <button
+                  type="button"
+                  className="annotation-apply-all"
+                  disabled={
+                    message.status === 'streaming'
+                    || !message.proposals.some(({ state }) => state === 'proposed')
+                  }
+                  onClick={() => handleApplyAll(message)}
+                >
+                  Apply All
+                </button>
+              </div>
+            )}
             {message.profileRoutes && message.profileRoutes.length > 0 && (
               <div className="agent-profile-route" aria-label="Analysis profiles">
                 {message.profileRoutes.map((profile) => (
