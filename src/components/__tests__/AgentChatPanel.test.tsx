@@ -330,6 +330,27 @@ describe('AgentChatPanel', () => {
     expect((screen.getByRole('button', { name: 'Apply All' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it('waits for document hydration before evaluating proposal staleness', async () => {
+    seedProposalThread('doc-proposals', [proposal]);
+    const props = {
+      open: true,
+      onClose: () => undefined,
+      fileId: 'doc-proposals',
+      abcCode: 'X:1\nT:Hydrating\nM:4/4\nK:C\nCDEF|',
+      activeFileName: 'Hydrating.abc',
+      ai,
+      onOpenSettings: () => undefined,
+      onApplyAnnotations: vi.fn(),
+    };
+    const { rerender } = render(<AgentChatPanel {...props} revision={0} />);
+
+    expect(screen.getByText('Proposed')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeDefined();
+    rerender(<AgentChatPanel {...props} revision={1} />);
+    expect(screen.getByText('Proposed')).toBeDefined();
+    expect(screen.queryByText('Outdated')).toBeNull();
+  });
+
   it('applies none and identifies invalid cards when any proposed annotation collides', () => {
     const collidingAnnotation = proposal.annotation;
     seedProposalThread('doc-proposals', [proposal]);
@@ -532,7 +553,13 @@ describe('AgentChatPanel', () => {
     expect(second.textContent).toBe('Read 2 measures');
   });
 
-  it('deletes the active thread and keeps one fresh thread when history becomes empty', async () => {
+  it('deletes chat history without touching accepted document annotations', async () => {
+    const acceptedAnnotation: Annotation = {
+      ...proposal.annotation,
+      id: 'accepted-document-annotation',
+      source: 'assistant',
+    };
+    const onApplyAnnotations = vi.fn();
     localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
       version: 3,
       files: {
@@ -571,8 +598,10 @@ describe('AgentChatPanel', () => {
         abcCode={'X:1\nT:History\nK:C\nCDEF|'}
         activeFileName="History.abc"
         revision={1}
+        annotations={[acceptedAnnotation]}
         ai={ai}
         onOpenSettings={() => undefined}
+        onApplyAnnotations={onApplyAnnotations}
       />,
     );
 
@@ -600,6 +629,7 @@ describe('AgentChatPanel', () => {
       expect(saved).not.toContain('proposal-test');
       expect(saved).toContain('New thread');
     });
+    expect(onApplyAnnotations).not.toHaveBeenCalled();
   });
 
   it('shows desktop-required state and gates the composer without a preload bridge', () => {

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SheetMusicView } from '../SheetMusicView';
 import abcjs from 'abcjs';
@@ -17,7 +17,7 @@ vi.mock('abcjs', () => ({
       if (element && typeof element !== 'string') {
         element.innerHTML = '<svg data-testid="mock-svg-paper"><path class="abcjs-note" /></svg>';
       }
-      return [{ getBpm: () => 120 }];
+      return [{ getBpm: () => 120 }] as any;
     }),
   },
 }));
@@ -27,6 +27,12 @@ describe('SheetMusicView Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(abcjs.renderAbc).mockImplementation((element) => {
+      if (element && typeof element !== 'string') {
+        element.innerHTML = '<svg data-testid="mock-svg-paper"><path class="abcjs-note" /></svg>';
+      }
+      return [{ getBpm: () => 120 }] as any;
+    });
   });
 
   it('renders section title and sheet music SVG container', () => {
@@ -209,7 +215,18 @@ describe('SheetMusicView Component', () => {
 
   it('renders interactive annotations in a view-box-aligned React sibling overlay', async () => {
     const onSelectAnchor = vi.fn();
-    vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
+    let sourceWidth = 400;
+    let resizeOverlay: ResizeObserverCallback | null = null;
+    const OriginalResizeObserver = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      constructor(callback: ResizeObserverCallback) {
+        resizeOverlay = callback;
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+    vi.mocked(abcjs.renderAbc).mockImplementation((element) => {
       if (!element || typeof element === 'string') return [];
       element.innerHTML = `
         <svg viewBox="0 0 400 140" data-testid="source-score-svg">
@@ -221,7 +238,14 @@ describe('SheetMusicView Component', () => {
       const note = element.querySelector<SVGGraphicsElement>('.abcjs-note')!;
       const bar = element.querySelector<SVGGraphicsElement>('.abcjs-bar')!;
       Object.defineProperty(svg, 'getBoundingClientRect', {
-        value: () => ({ left: 0, top: 0, right: 400, bottom: 140, width: 400, height: 140 }),
+        value: () => ({
+          left: 0,
+          top: 0,
+          right: sourceWidth,
+          bottom: 140,
+          width: sourceWidth,
+          height: 140,
+        }),
       });
       Object.defineProperty(note, 'getBBox', {
         value: () => ({ x: 30, y: 55, width: 10, height: 12 }),
@@ -249,13 +273,16 @@ describe('SheetMusicView Component', () => {
       createdAt: '2026-08-05T00:00:00.000Z',
       updatedAt: '2026-08-05T00:00:00.000Z',
     };
-    const { container } = render(
+    const props = {
+      abcCode: sampleAbc,
+      annotations: [chord],
+      onSelectAnchor,
+      onUpdateAnnotation: vi.fn(),
+      onDeleteAnnotation: vi.fn(),
+    };
+    const { container, rerender, unmount } = render(
       <SheetMusicView
-        abcCode={sampleAbc}
-        annotations={[chord]}
-        onSelectAnchor={onSelectAnchor}
-        onUpdateAnnotation={vi.fn()}
-        onDeleteAnnotation={vi.fn()}
+        {...props}
       />,
     );
 
@@ -273,6 +300,44 @@ describe('SheetMusicView Component', () => {
     expect(onSelectAnchor).toHaveBeenCalledWith({ startMeasure: 1, endMeasure: 1 });
     expect(screen.getByLabelText('Edit annotation')).toBeDefined();
     expect(overlayNode.getAttribute('class')).toContain('active');
+
+    const frameSpy = vi.spyOn(window, 'requestAnimationFrame');
+    frameSpy.mockClear();
+    sourceWidth = 500;
+    act(() => {
+      resizeOverlay?.([], {} as ResizeObserver);
+      resizeOverlay?.([], {} as ResizeObserver);
+    });
+    expect(frameSpy).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(
+      container.querySelector<SVGSVGElement>('.annotation-overlay-system')?.style.width,
+    ).toBe('500px'));
+
+    sourceWidth = 1_000;
+    rerender(<SheetMusicView {...props} zoom={200} />);
+    await waitFor(() => expect(
+      container.querySelector<SVGSVGElement>('.annotation-overlay-system')?.style.width,
+    ).toBe('500px'));
+
+    fireEvent.click(screen.getByTitle('Transpose up 1 semitone'));
+    await screen.findByRole('button', { name: 'Edit Tonic annotation' });
+    expect(vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2]).toMatchObject({ visualTranspose: 1 });
+
+    const switched = { ...chord, id: 'overlay-switched', label: 'Switched tonic' };
+    rerender(
+      <SheetMusicView
+        {...props}
+        abcCode={`${sampleAbc}\nG A B c |`}
+        annotations={[switched]}
+        zoom={200}
+      />,
+    );
+    expect(await screen.findByRole('button', { name: 'Edit Switched tonic annotation' })).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Edit Tonic annotation' })).toBeNull();
+
+    unmount();
+    frameSpy.mockRestore();
+    globalThis.ResizeObserver = OriginalResizeObserver;
   });
 
   it('resolves the global measure class instead of falling back to measure one', () => {

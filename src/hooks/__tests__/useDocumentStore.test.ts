@@ -121,4 +121,49 @@ describe('useDocumentStore', () => {
     expect(result.current.abcRevision).toBe(initialRevision);
     expect(result.current.activeDocument?.versions).toBe(initialVersions);
   });
+
+  it('rehydrates accepted and manual annotations after an autosaved reload', async () => {
+    vi.restoreAllMocks();
+    localStorage.setItem('chorale.workspace.activeFileId', sampleDoc.id);
+    await storageAdapter.saveDocuments([sampleDoc]);
+    const first = renderHook(() => useDocumentStore());
+    await waitFor(() => expect(first.result.current.hydrationStatus).toBe('ready'));
+
+    act(() => first.result.current.handleAddAnnotations([
+      {
+        id: 'annotation-manual-persisted',
+        kind: 'explanation',
+        span: { startMeasure: 1, endMeasure: 1 },
+        label: 'Manual note',
+        body: 'Created directly by the user.',
+        source: 'user',
+        createdAt: '2026-08-05T00:00:00.000Z',
+        updatedAt: '2026-08-05T00:00:00.000Z',
+      },
+      {
+        id: 'annotation-accepted-persisted',
+        kind: 'chord',
+        span: { startMeasure: 1, endMeasure: 1 },
+        position: { measure: 1, offset: { numerator: 1, denominator: 4 } },
+        chordSymbol: 'G7',
+        label: 'Accepted dominant',
+        body: 'Accepted from an assistant proposal.',
+        source: 'assistant',
+        createdAt: '2026-08-05T00:00:00.000Z',
+        updatedAt: '2026-08-05T00:00:00.000Z',
+      },
+    ]));
+    await waitFor(() => expect(first.result.current.saveStatus).toBe('saved'), { timeout: 2_000 });
+    expect((await storageAdapter.getDocuments())[0].annotations).toHaveLength(2);
+    first.unmount();
+
+    const reloaded = renderHook(() => useDocumentStore());
+    await waitFor(() => expect(reloaded.result.current.hydrationStatus).toBe('ready'));
+    expect(reloaded.result.current.activeDocument?.annotations.map(({ id }) => id)).toEqual([
+      'annotation-manual-persisted',
+      'annotation-accepted-persisted',
+    ]);
+    expect(reloaded.result.current.abcRevision).toBe(sampleDoc.revision);
+    expect(reloaded.result.current.activeDocument?.versions).toEqual(sampleDoc.versions);
+  });
 });

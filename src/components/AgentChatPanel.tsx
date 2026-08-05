@@ -224,6 +224,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   }, [conversation, fileId]);
 
   useEffect(() => {
+    if (!fileId || revision <= 0) return;
     setConversation((current) => ({
       ...current,
       threads: current.threads.map((thread) => ({

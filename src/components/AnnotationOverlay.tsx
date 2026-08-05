@@ -306,6 +306,10 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
   useEffect(() => {
     const paper = paperRef.current;
     if (!paper) return;
+    if (annotations.length === 0 || !abcCode.trim()) {
+      setLayout({ systems: [], placements: [] });
+      return;
+    }
     const schedule = () => {
       if (frameRef.current !== null) return;
       frameRef.current = window.requestAnimationFrame(() => {

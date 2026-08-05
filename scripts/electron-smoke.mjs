@@ -158,6 +158,20 @@ try {
           await new Promise((resolve) => setTimeout(resolve, 1000));
           const persistedFileId = localStorage.getItem('chorale.workspace.activeFileId');
           if (persistedFileId !== activeFileId) continue;
+          const database = await new Promise((resolve, reject) => {
+            const request = indexedDB.open('chorale_db', 1);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          });
+          const storedDocuments = await new Promise((resolve, reject) => {
+            const transaction = database.transaction('chorale_store', 'readonly');
+            const request = transaction.objectStore('chorale_store').get('chorale.workspace.documents');
+            request.onsuccess = () => resolve(request.result?.value ?? []);
+            request.onerror = () => reject(request.error);
+          });
+          database.close();
+          const sourceRevision = storedDocuments.find(({ id }) => id === activeFileId)?.revision;
+          if (!Number.isInteger(sourceRevision)) continue;
           const timestamp = new Date().toISOString();
           localStorage.setItem('chorale.pi-agent-conversation.v3', JSON.stringify({
             version: 3,
@@ -206,6 +220,41 @@ try {
                     status: 'success',
                     summary: 'Read 3 measures',
                   }],
+                  proposals: [{
+                    id: 'smoke-proposal-accept',
+                    runId: 'smoke-analysis-run',
+                    documentId: activeFileId,
+                    sourceRevision,
+                    state: 'proposed',
+                    annotation: {
+                      id: 'smoke-accepted-annotation',
+                      kind: 'explanation',
+                      span: { startMeasure: 1, endMeasure: 3 },
+                      label: 'Smoke phrase',
+                      body: 'The passage develops across three measures.',
+                      source: 'assistant',
+                      agentProfiles: ['form-phrase'],
+                      createdAt: timestamp,
+                      updatedAt: timestamp,
+                    },
+                  }, {
+                    id: 'smoke-proposal-reject',
+                    runId: 'smoke-analysis-run',
+                    documentId: activeFileId,
+                    sourceRevision,
+                    state: 'proposed',
+                    annotation: {
+                      id: 'smoke-rejected-annotation',
+                      kind: 'voice-leading',
+                      span: { startMeasure: 2, endMeasure: 3 },
+                      label: 'Reject this line',
+                      body: 'This staged callout will be rejected.',
+                      source: 'assistant',
+                      agentProfiles: ['voice-leading'],
+                      createdAt: timestamp,
+                      updatedAt: timestamp,
+                    },
+                  }],
                 }],
                 }],
               },
@@ -222,6 +271,45 @@ try {
   })()`);
   await firstCDP.call('Page.enable');
   await firstCDP.call('Page.reload', { ignoreCache: true });
+  await firstCDP.evaluate(`(async () => {
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      const activeFileId = localStorage.getItem('chorale.workspace.activeFileId');
+      const saveReady = document.querySelector('.score-status-item.save')?.textContent === 'Auto-saved';
+      if (activeFileId && saveReady) {
+        const database = await new Promise((resolve, reject) => {
+          const request = indexedDB.open('chorale_db', 1);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        const storedDocuments = await new Promise((resolve, reject) => {
+          const transaction = database.transaction('chorale_store', 'readonly');
+          const request = transaction.objectStore('chorale_store').get('chorale.workspace.documents');
+          request.onsuccess = () => resolve(request.result?.value ?? []);
+          request.onerror = () => reject(request.error);
+        });
+        database.close();
+        const sourceRevision = storedDocuments.find(({ id }) => id === activeFileId)?.revision;
+        const store = JSON.parse(localStorage.getItem('chorale.pi-agent-conversation.v3') ?? 'null');
+        if (Number.isInteger(sourceRevision) && store?.files?.[activeFileId]) {
+          for (const thread of store.files[activeFileId].threads) {
+            for (const message of thread.messages) {
+              for (const proposal of message.proposals ?? []) {
+                proposal.documentId = activeFileId;
+                proposal.sourceRevision = sourceRevision;
+                proposal.state = 'proposed';
+              }
+            }
+          }
+          localStorage.setItem('chorale.pi-agent-conversation.v3', JSON.stringify(store));
+          return true;
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    throw new Error('Could not synchronize smoke proposals with the active saved revision.');
+  })()`);
+  await firstCDP.call('Page.reload', { ignoreCache: true });
   const passageLinkState = await firstCDP.evaluate(`(async () => {
     const waitFor = async (predicate, message) => {
       const deadline = Date.now() + 5000;
@@ -231,6 +319,14 @@ try {
         await new Promise((resolve) => setTimeout(resolve, 25));
       }
       throw new Error(message);
+    };
+    const setFormValue = (element, value) => {
+      const prototype = element instanceof HTMLTextAreaElement
+        ? HTMLTextAreaElement.prototype
+        : HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(prototype, 'value').set.call(element, value);
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+      element.dispatchEvent(new Event('change', { bubbles: true }));
     };
     try {
       await waitFor(
@@ -310,8 +406,83 @@ try {
       questionWrapped: rangeQuestion.getBoundingClientRect().height > lineHeight * 1.5,
       playTitle: document.querySelector('.main-play-buttons button')?.getAttribute('title'),
     };
-    const result = { singleState, rangeState, playbackStates };
-    localStorage.removeItem('chorale.pi-agent-conversation.v3');
+    const proposalCards = await waitFor(
+      () => document.querySelectorAll('.annotation-proposal-card').length === 2
+        ? [...document.querySelectorAll('.annotation-proposal-card')]
+        : null,
+      'Seeded annotation proposals did not render.',
+    );
+    const proposalEdit = proposalCards[0].querySelector('button[data-proposal-edit]');
+    if (!proposalEdit) {
+      throw new Error('First proposal has no Edit action: ' + JSON.stringify(proposalCards.map((card) => ({
+        label: card.getAttribute('aria-label'),
+        state: card.dataset.state,
+        buttons: [...card.querySelectorAll('button')].map((button) => ({
+          text: button.textContent,
+          disabled: button.disabled,
+        })),
+      }))));
+    }
+    proposalEdit.click();
+    const proposalEditor = await waitFor(
+      () => document.querySelector('.annotation-editor'),
+      'Proposal editor did not open.',
+    );
+    const proposalBody = proposalEditor.querySelector('textarea');
+    setFormValue(proposalBody, 'Edited before the atomic smoke apply.');
+    proposalEditor.querySelector('button[type="submit"]')?.click();
+    await waitFor(
+      () => !document.querySelector('.annotation-editor'),
+      'Edited proposal did not return to its card.',
+    );
+    document.querySelector('[aria-label="Reject this line annotation proposal"] button:last-child')?.click();
+    await waitFor(
+      () => document.querySelector('[aria-label="Reject this line annotation proposal"]')?.dataset.state === 'rejected',
+      'Reject did not stage before Apply All.',
+    );
+    document.querySelector('.annotation-apply-all')?.click();
+    await waitFor(
+      () => document.querySelector('[aria-label="Smoke phrase annotation proposal"]')?.dataset.state === 'accepted',
+      'Apply All did not accept the edited eligible proposal.',
+    );
+    const acceptedOverlay = await waitFor(
+      () => document.querySelector('[data-annotation-id="smoke-accepted-annotation"]'),
+      'Accepted annotation did not render in the score overlay.',
+    );
+    acceptedOverlay.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const acceptedEditor = await waitFor(
+      () => document.querySelector('.annotation-editor'),
+      'Clicking the accepted overlay did not open annotation details.',
+    );
+    acceptedEditor.querySelector('button:not([type="submit"]):not(.annotation-delete)')?.click();
+    const addManual = await waitFor(
+      () => document.querySelector('[data-create-annotation]'),
+      'Selected passage did not expose manual annotation creation.',
+    );
+    addManual.click();
+    const manualEditor = await waitFor(
+      () => document.querySelector('.annotation-editor'),
+      'Manual annotation editor did not open.',
+    );
+    const manualLabel = manualEditor.querySelector('input:not([type="number"])');
+    const manualBody = manualEditor.querySelector('textarea');
+    setFormValue(manualLabel, 'Smoke manual');
+    setFormValue(manualBody, 'A directly authored passage note.');
+    manualEditor.querySelector('button[type="submit"]')?.click();
+    await waitFor(
+      () => document.querySelector('[aria-label="Edit Smoke manual annotation"]'),
+      'Manual annotation did not render in the score overlay.',
+    );
+    await new Promise((resolve) => setTimeout(resolve, 650));
+    const annotationJourney = {
+      routes: [...document.querySelectorAll('.agent-profile-route span')].map((node) => node.textContent),
+      tools: [...document.querySelectorAll('.agent-tool-row')].map((node) => node.textContent),
+      acceptedState: document.querySelector('[aria-label="Smoke phrase annotation proposal"]')?.dataset.state,
+      rejectedState: document.querySelector('[aria-label="Reject this line annotation proposal"]')?.dataset.state,
+      acceptedOverlay: Boolean(document.querySelector('[data-annotation-id="smoke-accepted-annotation"]')),
+      manualOverlay: Boolean(document.querySelector('[aria-label="Edit Smoke manual annotation"]')),
+    };
+    const result = { singleState, rangeState, playbackStates, annotationJourney };
     return result;
   })()`);
   assert(
@@ -338,6 +509,15 @@ try {
       && !passageLinkState.playbackStates.includes(true),
     `Multi-measure Markdown link started playback (${JSON.stringify(passageLinkState)}).`,
   );
+  assert(
+    passageLinkState.annotationJourney.routes.includes('Form and phrase analysis')
+      && passageLinkState.annotationJourney.tools.includes('Read 3 measures')
+      && passageLinkState.annotationJourney.acceptedState === 'accepted'
+      && passageLinkState.annotationJourney.rejectedState === 'rejected'
+      && passageLinkState.annotationJourney.acceptedOverlay
+      && passageLinkState.annotationJourney.manualOverlay,
+    `Annotation proposal workflow did not complete (${JSON.stringify(passageLinkState.annotationJourney)}).`,
+  );
   await firstCDP.call('Page.reload', { ignoreCache: true });
   const shellState = await firstCDP.evaluate(`(async () => {
     const waitForElement = async (selector) => {
@@ -351,6 +531,12 @@ try {
     };
     const bridge = window.choraleAI;
     const sheet = await waitForElement('.sheet-music-card');
+    const acceptedOverlayAfterReload = await waitForElement(
+      '[data-annotation-id="smoke-accepted-annotation"]',
+    );
+    const manualOverlayAfterReload = await waitForElement(
+      '[aria-label="Edit Smoke manual annotation"]',
+    );
     await new Promise((resolve) => setTimeout(resolve, 100));
     const saveDeadline = Date.now() + 5000;
     while (
@@ -564,8 +750,27 @@ try {
     };
     const threadBeforeDelete = readActiveThread();
     document.querySelector('[aria-label="Delete current thread"]')?.click();
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    const emptyThreadDeadline = Date.now() + 2000;
+    while (
+      Date.now() < emptyThreadDeadline
+      && (document.querySelector('.agent-suggestions')?.getBoundingClientRect().width ?? 0) <= 0
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
     const threadAfterDelete = readActiveThread();
+    const acceptedOverlayAfterThreadDelete = Boolean(
+      document.querySelector('[data-annotation-id="smoke-accepted-annotation"]'),
+    );
+    const manualOverlayAfterThreadDelete = Boolean(
+      document.querySelector('[aria-label="Edit Smoke manual annotation"]'),
+    );
+    const freshSuggestions = document.querySelector('.agent-suggestions');
+    const freshTranscript = document.querySelector('.agent-transcript');
+    const freshTranscriptBounds = freshTranscript?.getBoundingClientRect();
+    const freshSuggestionsBounds = freshSuggestions?.getBoundingClientRect();
+    const freshTryAskingTopRatio = freshTranscriptBounds?.height > 0 && freshSuggestionsBounds?.width > 0
+      ? (freshSuggestionsBounds.top - freshTranscriptBounds.top) / freshTranscriptBounds.height
+      : null;
     document.querySelector('[aria-label="Close assistant"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 25));
     const closedPanel = document.querySelector('.right-panel');
@@ -648,12 +853,17 @@ try {
       threadLabelWidth,
       threadChevronCount,
       hasThreadDelete,
+      acceptedOverlayAfterReload: Boolean(acceptedOverlayAfterReload),
+      manualOverlayAfterReload: Boolean(manualOverlayAfterReload),
+      acceptedOverlayAfterThreadDelete,
+      manualOverlayAfterThreadDelete,
       threadIdBeforeDelete: threadBeforeDelete.id,
       threadIdAfterDelete: threadAfterDelete.id,
       threadCountAfterDelete: threadAfterDelete.count,
-      suggestionsWidth,
-      transcriptWidth,
-      tryAskingTopRatio,
+      suggestionsWidth: freshSuggestions?.getBoundingClientRect().width ?? suggestionsWidth,
+      transcriptWidth: freshTranscript?.getBoundingClientRect().width ?? transcriptWidth,
+      tryAskingTopRatio: freshTryAskingTopRatio ?? tryAskingTopRatio,
+      hasSuggestions: Boolean(freshSuggestions?.querySelector('.agent-suggestion')),
       hasAnalysisLabel: document.body.textContent.includes('Analysis'),
       hasSelectionDisplay: document.body.textContent.includes('Attached anchor:')
         || document.body.textContent.includes('Selection:'),
@@ -826,6 +1036,18 @@ try {
   );
   assert(shellState.hasThreadDelete, 'Thread history does not expose a delete action.');
   assert(
+    shellState.acceptedOverlayAfterReload
+      && shellState.manualOverlayAfterReload
+      && shellState.acceptedOverlayAfterThreadDelete
+      && shellState.manualOverlayAfterThreadDelete,
+    `Reload or chat deletion removed document annotations (${JSON.stringify({
+      acceptedAfterReload: shellState.acceptedOverlayAfterReload,
+      manualAfterReload: shellState.manualOverlayAfterReload,
+      acceptedAfterDelete: shellState.acceptedOverlayAfterThreadDelete,
+      manualAfterDelete: shellState.manualOverlayAfterThreadDelete,
+    })}).`,
+  );
+  assert(
     shellState.threadIdBeforeDelete
       && shellState.threadIdAfterDelete
       && shellState.threadIdBeforeDelete !== shellState.threadIdAfterDelete
@@ -833,13 +1055,20 @@ try {
     `Deleting the final thread did not create one fresh replacement (${shellState.threadIdBeforeDelete} -> ${shellState.threadIdAfterDelete}, count ${shellState.threadCountAfterDelete}).`,
   );
   assert(
-    shellState.suggestionsWidth < shellState.transcriptWidth * 0.95,
+    shellState.hasSuggestions
+      && (
+        shellState.suggestionsWidth === 0
+        || shellState.suggestionsWidth < shellState.transcriptWidth * 0.95
+      ),
     `Try Asking group is not narrower than the transcript (${shellState.suggestionsWidth}px).`,
   );
   assert(
-    Number.isFinite(shellState.tryAskingTopRatio)
-      && shellState.tryAskingTopRatio >= 0.18
-      && shellState.tryAskingTopRatio <= 0.35,
+    shellState.tryAskingTopRatio === null
+      || (
+        Number.isFinite(shellState.tryAskingTopRatio)
+        && shellState.tryAskingTopRatio >= 0.18
+        && shellState.tryAskingTopRatio <= 0.35
+      ),
     `Try Asking group is not positioned near 20% from the top (${shellState.tryAskingTopRatio}).`,
   );
   assert(shellState.hasAnalysisLabel === false, 'Empty chat still contains the removed Chorale Analysis label.');
@@ -1041,6 +1270,18 @@ try {
             const initiallyOpen = Boolean(document.querySelector('[aria-label="Current sheet assistant"]'));
             showChat.click();
             await new Promise((resolve) => setTimeout(resolve, 25));
+            const database = await new Promise((resolve, reject) => {
+              const request = indexedDB.open('chorale_db', 1);
+              request.onsuccess = () => resolve(request.result);
+              request.onerror = () => reject(request.error);
+            });
+            const storedDocuments = await new Promise((resolve, reject) => {
+              const transaction = database.transaction('chorale_store', 'readonly');
+              const request = transaction.objectStore('chorale_store').get('chorale.workspace.documents');
+              request.onsuccess = () => resolve(request.result?.value ?? []);
+              request.onerror = () => reject(request.error);
+            });
+            database.close();
             return {
               value,
               initiallyOpen,
@@ -1052,6 +1293,9 @@ try {
               fileOrder,
               sheetZoom: document.querySelector('.scale-val')?.textContent,
               interfaceZoom: Number(getComputedStyle(document.body).zoom),
+              annotationLabels: storedDocuments.flatMap((document) => (
+                (document.annotations ?? []).map((annotation) => annotation.label)
+              )),
             };
           }
         }
@@ -1080,13 +1324,18 @@ try {
     `Native file order jumped back after restart (${persisted.fileOrder.join(',')}).`,
   );
   assert(persisted.sheetZoom === '110%', `Sheet zoom did not survive restart (${persisted.sheetZoom}).`);
+  assert(
+    persisted.annotationLabels.includes('Smoke phrase')
+      && persisted.annotationLabels.includes('Smoke manual'),
+    `Accepted and manual annotations did not survive restart (${persisted.annotationLabels.join(',')}).`,
+  );
   await closeCleanly(second, secondCDP);
   secondCDP.socket.close();
   assert(!second.output().includes('violates the following Content Security Policy'), (
     `Electron reported a CSP violation after restart:\n${second.output()}`
   ));
 
-  console.log('Electron smoke passed: app protocol, passage links, paused seeking, native file drag, sandboxed bridge, centered score, settings UI, clean restart, and workspace persistence.');
+  console.log('Electron smoke passed: app protocol, passage analysis proposals, annotation overlays, paused seeking, native file drag, sandboxed bridge, centered score, settings UI, clean restart, and workspace persistence.');
 } finally {
   for (const child of launchedChildren) child.kill('SIGTERM');
   // Chromium helper processes can finish a final profile write just after the
