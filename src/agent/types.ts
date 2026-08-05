@@ -1,16 +1,16 @@
 import type { AIProviderKind } from './aiTypes';
 import type { Annotation, ScoreAnchor } from '../types/document';
 
-export type MusicContextSnapshot = {
+export type MusicContextSnapshot = Readonly<{
   id: string;
   documentId: string;
   revision: number;
   capturedAt: string;
   fileName: string;
   abc: string;
-  selection?: ScoreAnchor;
-  annotations: Annotation[];
-};
+  selection?: Readonly<ScoreAnchor>;
+  annotations: readonly Annotation[];
+}>;
 
 export type ChatMessage = {
   id: string;

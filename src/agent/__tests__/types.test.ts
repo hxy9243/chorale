@@ -5,6 +5,6 @@ import type { MusicContextSnapshot } from '../types';
 describe('agent transport contracts', () => {
   it('reuses the canonical document annotation type', () => {
     expectTypeOf<NonNullable<MusicContextSnapshot['annotations']>>()
-      .toEqualTypeOf<Annotation[]>();
+      .toEqualTypeOf<readonly Annotation[]>();
   });
 });

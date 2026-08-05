@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Plus, Send, Square, Trash2, X } from 'lucide-react';
 import { DesktopSheetAgent } from '../agent/DesktopSheetAgent';
+import { createMusicContextSnapshot } from '../agent/musicContext';
 import type { AIProviderState } from '../agent/useAIProviders';
 import {
   loadConversation,
@@ -229,35 +230,15 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     };
   }, [providerPickerOpen, threadMenuOpen]);
 
-  const captureContext = (): MusicContextSnapshot => ({
+  const captureContext = (): MusicContextSnapshot => createMusicContextSnapshot({
     id: makeId(),
     documentId: fileId,
     revision,
     capturedAt: new Date().toISOString(),
     fileName: activeFileName || 'Untitled score',
     abc: abcCode,
-    selection: activeAnchor ? { ...activeAnchor } : undefined,
-    annotations: annotations.map((annotation) => (
-      annotation.kind === 'chord'
-        ? {
-            ...annotation,
-            span: { ...annotation.span },
-            position: {
-              ...annotation.position,
-              offset: { ...annotation.position.offset },
-            },
-            ...(annotation.agentProfiles
-              ? { agentProfiles: [...annotation.agentProfiles] }
-              : {}),
-          }
-        : {
-            ...annotation,
-            span: { ...annotation.span },
-            ...(annotation.agentProfiles
-              ? { agentProfiles: [...annotation.agentProfiles] }
-              : {}),
-          }
-    )),
+    selection: activeAnchor,
+    annotations,
   });
 
   const updateMessages = (threadId: string, updater: (messages: ChatMessage[]) => ChatMessage[]) => {
