@@ -4,21 +4,117 @@ import type {
   SheetAgentRequest,
 } from '../src/agent/aiTypes';
 import { isAIProviderKind } from '../src/agent/aiTypes';
+import type { ChatMessage, MusicContextSnapshot } from '../src/agent/types';
+import type { Annotation, ScoreAnchor } from '../src/types/document';
+import { normalizeAnnotation } from '../src/music/documentSchema';
 
 const MAX_CHAT_HISTORY = 200;
 const MAX_ABC_LENGTH = 2_000_000;
 const MAX_QUESTION_LENGTH = 20_000;
 const MAX_HISTORY_CONTENT_LENGTH = 500_000;
+const MAX_ANNOTATIONS = 2_000;
+const MAX_ANNOTATION_LABEL_LENGTH = 500;
+const MAX_ANNOTATION_BODY_LENGTH = 50_000;
+const MAX_MEASURE_NUMBER = 1_000_000;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => (
   typeof value === 'object' && value !== null && !Array.isArray(value)
 );
 
-const isOptionalFiniteNumber = (value: unknown) => (
-  value === undefined || (typeof value === 'number' && Number.isFinite(value))
+const boundedString = (value: unknown, maximumLength: number) => (
+  typeof value === 'string' && value.length > 0 && value.length <= maximumLength
 );
 
-const validateMusicContext = (value: unknown) => {
+const validateAnchor = (value: unknown, allowLegacy = false): ScoreAnchor => {
+  if (!isRecord(value)) throw new Error('Invalid music selection context.');
+  const startMeasure = value.startMeasure ?? (allowLegacy ? value.measureStart : undefined);
+  const endMeasure = value.endMeasure ?? (allowLegacy ? value.measureEnd ?? startMeasure : undefined);
+  if (
+    !Number.isSafeInteger(startMeasure)
+    || !Number.isSafeInteger(endMeasure)
+    || (startMeasure as number) <= 0
+    || (endMeasure as number) < (startMeasure as number)
+    || (endMeasure as number) > MAX_MEASURE_NUMBER
+  ) {
+    throw new Error('Invalid music selection context.');
+  }
+
+  const optionalFinite = (candidate: unknown) => (
+    candidate === undefined || (typeof candidate === 'number' && Number.isFinite(candidate))
+  );
+  if (
+    !optionalFinite(value.beat)
+    || !optionalFinite(value.playbackSeconds)
+    || !optionalFinite(value.playbackFraction)
+    || (value.beat !== undefined && (value.beat as number) <= 0)
+    || (value.playbackSeconds !== undefined && (value.playbackSeconds as number) < 0)
+    || (
+      value.playbackFraction !== undefined
+      && ((value.playbackFraction as number) < 0 || (value.playbackFraction as number) > 1)
+    )
+    || (value.abcOffset !== undefined && (!Number.isSafeInteger(value.abcOffset) || (value.abcOffset as number) < 0))
+    || (value.voiceId !== undefined && !boundedString(value.voiceId, 300))
+    || (value.label !== undefined && !boundedString(value.label, 500))
+  ) {
+    throw new Error('Invalid music selection context.');
+  }
+
+  const legacyRange = allowLegacy && isRecord(value.abcRange) ? value.abcRange : undefined;
+  const abcOffset = value.abcOffset ?? legacyRange?.start;
+  return {
+    startMeasure: startMeasure as number,
+    endMeasure: endMeasure as number,
+    ...(value.beat !== undefined ? { beat: value.beat as number } : {}),
+    ...(value.voiceId !== undefined ? { voiceId: value.voiceId as string } : {}),
+    ...(Number.isSafeInteger(abcOffset) && (abcOffset as number) >= 0
+      ? { abcOffset: abcOffset as number }
+      : {}),
+    ...(value.playbackSeconds !== undefined
+      ? { playbackSeconds: value.playbackSeconds as number }
+      : {}),
+    ...(value.playbackFraction !== undefined
+      ? { playbackFraction: value.playbackFraction as number }
+      : {}),
+    ...(value.label !== undefined ? { label: value.label as string } : {}),
+  };
+};
+
+const validateAnnotation = (value: unknown): Annotation => {
+  const normalized = normalizeAnnotation(value);
+  if (!normalized || !isRecord(value) || value.kind !== normalized.kind) {
+    throw new Error('Invalid music annotation context.');
+  }
+  if (
+    normalized.id.length > 300
+    || normalized.createdAt.length > 100
+    || normalized.updatedAt.length > 100
+    || normalized.label.length > MAX_ANNOTATION_LABEL_LENGTH
+    || normalized.body.length > MAX_ANNOTATION_BODY_LENGTH
+    || normalized.span.endMeasure > MAX_MEASURE_NUMBER
+    || (
+      value.agentProfiles !== undefined
+      && (
+        !Array.isArray(value.agentProfiles)
+        || value.agentProfiles.length !== normalized.agentProfiles?.length
+      )
+    )
+    || (
+      normalized.kind === 'chord'
+      && (
+        normalized.chordSymbol.length > 100
+        || (normalized.romanNumeral?.length || 0) > 100
+      )
+    )
+  ) {
+    throw new Error('Invalid music annotation context.');
+  }
+  return normalized;
+};
+
+const validateMusicContext = (
+  value: unknown,
+  legacyDocumentId?: string,
+): MusicContextSnapshot => {
   if (
     isRecord(value) &&
     typeof value.abc === 'string' &&
@@ -28,37 +124,38 @@ const validateMusicContext = (value: unknown) => {
   }
   if (
     !isRecord(value) ||
-    typeof value.id !== 'string' ||
-    typeof value.revision !== 'number' ||
-    !Number.isFinite(value.revision) ||
-    value.revision < 0 ||
-    typeof value.capturedAt !== 'string' ||
-    typeof value.fileName !== 'string' ||
-    value.fileName.length > 500 ||
+    !boundedString(value.id, 300) ||
+    !(boundedString(value.documentId, 300) || legacyDocumentId) ||
+    !Number.isSafeInteger(value.revision) ||
+    (value.revision as number) <= 0 ||
+    !boundedString(value.capturedAt, 100) ||
+    !boundedString(value.fileName, 500) ||
     typeof value.abc !== 'string'
   ) {
     throw new Error('Invalid music context.');
   }
-  if (value.selection !== undefined) {
-    if (
-      !isRecord(value.selection) ||
-      !isOptionalFiniteNumber(value.selection.measureStart) ||
-      !isOptionalFiniteNumber(value.selection.measureEnd)
-    ) {
-      throw new Error('Invalid music selection context.');
-    }
-    if (
-      value.selection.abcRange !== undefined &&
-      (
-        !isRecord(value.selection.abcRange) ||
-        !isOptionalFiniteNumber(value.selection.abcRange.start) ||
-        !isOptionalFiniteNumber(value.selection.abcRange.end)
-      )
-    ) {
-      throw new Error('Invalid ABC range context.');
-    }
+  const allowLegacy = Boolean(legacyDocumentId);
+  if (!allowLegacy && !Array.isArray(value.annotations)) {
+    throw new Error('Invalid music annotation context.');
   }
-  return value;
+  const rawAnnotations = Array.isArray(value.annotations) ? value.annotations : [];
+  if (rawAnnotations.length > MAX_ANNOTATIONS) {
+    throw new Error('Music annotation context exceeds the supported limits.');
+  }
+  return {
+    id: value.id as string,
+    documentId: boundedString(value.documentId, 300)
+      ? value.documentId as string
+      : legacyDocumentId!,
+    revision: value.revision as number,
+    capturedAt: value.capturedAt as string,
+    fileName: value.fileName as string,
+    abc: value.abc,
+    ...(value.selection !== undefined
+      ? { selection: validateAnchor(value.selection, allowLegacy) }
+      : {}),
+    annotations: rawAnnotations.map(validateAnnotation),
+  };
 };
 
 export const assertShortId = (value: unknown, label: string) => {
@@ -127,15 +224,16 @@ export const validateChatRequest = (value: unknown): SheetAgentRequest => {
   ) {
     throw new Error('Chat request exceeds the supported limits.');
   }
-  validateMusicContext(value.context);
+  const context = validateMusicContext(value.context);
   let historyContentLength = 0;
+  const history: ChatMessage[] = [];
   for (const message of value.history) {
     if (
       !isRecord(message) ||
       (message.role !== 'user' && message.role !== 'assistant') ||
-      typeof message.id !== 'string' ||
+      !boundedString(message.id, 300) ||
       typeof message.content !== 'string' ||
-      typeof message.createdAt !== 'string' ||
+      !boundedString(message.createdAt, 100) ||
       (
         message.status !== undefined &&
         !['streaming', 'complete', 'stopped', 'error'].includes(String(message.status))
@@ -144,13 +242,22 @@ export const validateChatRequest = (value: unknown): SheetAgentRequest => {
       throw new Error('Invalid chat history.');
     }
     historyContentLength += message.content.length;
+    let messageContext: MusicContextSnapshot | undefined;
     if (message.context !== undefined) {
-      const historyContext = validateMusicContext(message.context);
-      historyContentLength += String(historyContext.abc).length;
+      messageContext = validateMusicContext(message.context, context.documentId);
+      historyContentLength += messageContext.abc.length;
     }
     if (historyContentLength > MAX_HISTORY_CONTENT_LENGTH) {
       throw new Error('Chat history exceeds the supported limits.');
     }
+    history.push({
+      ...(message as unknown as ChatMessage),
+      ...(messageContext ? { context: messageContext } : {}),
+    });
   }
-  return value as unknown as SheetAgentRequest;
+  return {
+    question: value.question,
+    history,
+    context,
+  };
 };
