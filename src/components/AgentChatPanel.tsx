@@ -31,6 +31,13 @@ const SUGGESTED_QUESTIONS = [
   'Suggest a simpler reharmonization',
 ] as const;
 
+const PROFILE_NAMES = {
+  general: 'General analysis',
+  harmony: 'Harmony analysis',
+  'voice-leading': 'Voice-leading analysis',
+  'form-phrase': 'Form and phrase analysis',
+} as const;
+
 const DEFAULT_TEXTAREA_HEIGHT = 80;
 const COMPOSER_MAX_PANEL_RATIO = 0.35;
 const KEYBOARD_RESIZE_STEP = 16;
@@ -342,6 +349,33 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         onStart: (provider) => updateMessages(threadId, (current) => current.map((message) => (
           message.id === assistantId ? { ...message, provider } : message
         ))),
+        onProfileRoute: (profiles) => updateMessages(threadId, (current) => current.map((message) => (
+          message.id === assistantId
+            ? { ...message, profileRoutes: [...new Set(profiles)] }
+            : message
+        ))),
+        onToolStart: (tool) => updateMessages(threadId, (current) => current.map((message) => (
+          message.id === assistantId
+            ? {
+                ...message,
+                toolDisplays: [
+                  ...(message.toolDisplays || []).filter((item) => item.toolCallId !== tool.toolCallId),
+                  tool,
+                ],
+              }
+            : message
+        ))),
+        onToolDone: (tool) => updateMessages(threadId, (current) => current.map((message) => {
+          if (message.id !== assistantId) return message;
+          const existing = message.toolDisplays || [];
+          const found = existing.some((item) => item.toolCallId === tool.toolCallId);
+          return {
+            ...message,
+            toolDisplays: found
+              ? existing.map((item) => item.toolCallId === tool.toolCallId ? tool : item)
+              : [...existing, tool],
+          };
+        })),
       }, controller.signal);
       updateMessages(threadId, (current) => current.map((message) => (
         message.id === assistantId ? { ...message, status: 'complete' } : message
@@ -517,6 +551,27 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
               </div>
             )}
             <div className="agent-message-content">{message.content}</div>
+            {message.profileRoutes && message.profileRoutes.length > 0 && (
+              <div className="agent-profile-route" aria-label="Analysis profiles">
+                {message.profileRoutes.map((profile) => (
+                  <span key={profile}>{PROFILE_NAMES[profile]}</span>
+                ))}
+              </div>
+            )}
+            {message.toolDisplays && message.toolDisplays.length > 0 && (
+              <div className="agent-tool-list" aria-label="Score tool activity">
+                {message.toolDisplays.map((tool) => (
+                  <div
+                    className="agent-tool-row"
+                    data-status={tool.status}
+                    data-tool-call-id={tool.toolCallId}
+                    key={tool.toolCallId}
+                  >
+                    {tool.summary}
+                  </div>
+                ))}
+              </div>
+            )}
             {message.provider && (
               <div className="agent-message-provider">
                 {message.provider.providerKind} · {message.provider.modelId}

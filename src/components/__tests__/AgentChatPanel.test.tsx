@@ -215,6 +215,68 @@ describe('AgentChatPanel', () => {
     expect(screen.getByText('mm. 3–5').closest('.agent-anchor-pill')).not.toBeNull();
   });
 
+  it('keeps concurrent same-name score tools as separately correlated rows', async () => {
+    agentSendMock.mockImplementation(async (_request, callbacks) => {
+      callbacks.onStart({
+        connectionId: 'openai-test',
+        providerKind: 'openai',
+        modelId: 'gpt-test',
+      });
+      callbacks.onProfileRoute(['harmony', 'voice-leading']);
+      callbacks.onToolStart({
+        toolCallId: 'range-a',
+        toolName: 'read_measure_range',
+        status: 'running',
+        summary: 'Reading mm. 1–2',
+      });
+      callbacks.onToolStart({
+        toolCallId: 'range-b',
+        toolName: 'read_measure_range',
+        status: 'running',
+        summary: 'Reading mm. 3–4',
+      });
+      callbacks.onToolDone({
+        toolCallId: 'range-b',
+        toolName: 'read_measure_range',
+        status: 'success',
+        summary: 'Read 2 measures',
+      });
+      callbacks.onToolDone({
+        toolCallId: 'range-a',
+        toolName: 'read_measure_range',
+        status: 'error',
+        summary: 'Tool could not complete',
+      });
+      callbacks.onDelta('Answer');
+    });
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-tools"
+        abcCode={'X:1\nT:Tools\nK:C\nCDEF|'}
+        activeFileName="Tools.abc"
+        revision={1}
+        ai={ai}
+        onOpenSettings={() => undefined}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('Ask about the current sheet'), {
+      target: { value: 'Analyze the passage' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await screen.findByText('Answer');
+
+    expect(screen.getByText('Harmony analysis')).toBeDefined();
+    expect(screen.getByText('Voice-leading analysis')).toBeDefined();
+    const first = document.querySelector<HTMLElement>('[data-tool-call-id="range-a"]')!;
+    const second = document.querySelector<HTMLElement>('[data-tool-call-id="range-b"]')!;
+    expect(first.dataset.status).toBe('error');
+    expect(first.textContent).toBe('Tool could not complete');
+    expect(second.dataset.status).toBe('success');
+    expect(second.textContent).toBe('Read 2 measures');
+  });
+
   it('deletes the active thread and keeps one fresh thread when history becomes empty', async () => {
     localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
       version: 2,

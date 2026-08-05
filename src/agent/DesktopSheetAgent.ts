@@ -1,4 +1,6 @@
 import type { AIEvent, AIProviderKind, SheetAgentRequest } from './aiTypes';
+import type { AgentProfileId } from '../types/document';
+import type { ChatToolDisplay } from './types';
 
 export type ChatProvenance = {
   connectionId: string;
@@ -6,9 +8,12 @@ export type ChatProvenance = {
   modelId: string;
 };
 
-type SendCallbacks = {
+export type SendCallbacks = {
   onDelta(delta: string): void;
   onStart(provenance: ChatProvenance): void;
+  onProfileRoute?(profiles: AgentProfileId[]): void;
+  onToolStart?(tool: ChatToolDisplay): void;
+  onToolDone?(tool: ChatToolDisplay): void;
 };
 
 export class DesktopSheetAgent {
@@ -40,6 +45,22 @@ export class DesktopSheetAgent {
         });
       } else if (event.type === 'chat-delta') {
         callbacks.onDelta(event.text);
+      } else if (event.type === 'profile-route') {
+        callbacks.onProfileRoute?.(event.profiles);
+      } else if (event.type === 'tool-start') {
+        callbacks.onToolStart?.({
+          toolCallId: event.toolCallId,
+          toolName: event.toolName,
+          status: 'running',
+          summary: event.summary,
+        });
+      } else if (event.type === 'tool-done') {
+        callbacks.onToolDone?.({
+          toolCallId: event.toolCallId,
+          toolName: event.toolName,
+          status: event.status,
+          summary: event.summary,
+        });
       } else if (event.type === 'chat-done') {
         settle?.();
       } else if (event.type === 'chat-error') {

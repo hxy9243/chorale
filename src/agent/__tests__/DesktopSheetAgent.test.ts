@@ -98,6 +98,73 @@ describe('DesktopSheetAgent', () => {
     expect(fake.listeners.size).toBe(0);
   });
 
+  it('correlates concurrent same-name tool calls by Pi toolCallId', async () => {
+    const fake = makeBridge();
+    window.choraleAI = fake.bridge;
+    vi.mocked(fake.bridge.sendChat).mockImplementation(async () => {
+      fake.emit({
+        type: 'profile-route',
+        requestId: 'request-1',
+        profiles: ['harmony', 'voice-leading'],
+      });
+      fake.emit({
+        type: 'tool-start',
+        requestId: 'request-1',
+        toolCallId: 'range-a',
+        toolName: 'read_measure_range',
+        summary: 'Reading mm. 1–2',
+      });
+      fake.emit({
+        type: 'tool-start',
+        requestId: 'request-1',
+        toolCallId: 'range-b',
+        toolName: 'read_measure_range',
+        summary: 'Reading mm. 3–4',
+      });
+      fake.emit({
+        type: 'tool-done',
+        requestId: 'request-1',
+        toolCallId: 'range-b',
+        toolName: 'read_measure_range',
+        status: 'success',
+        summary: 'Read 2 measures',
+      });
+      fake.emit({
+        type: 'tool-done',
+        requestId: 'request-1',
+        toolCallId: 'range-a',
+        toolName: 'read_measure_range',
+        status: 'error',
+        summary: 'Tool could not complete',
+      });
+      fake.emit({ type: 'chat-done', requestId: 'request-1' });
+      return { requestId: 'request-1' };
+    });
+    const onProfileRoute = vi.fn();
+    const onToolStart = vi.fn();
+    const onToolDone = vi.fn();
+
+    await new DesktopSheetAgent().send(
+      request,
+      {
+        onDelta: vi.fn(),
+        onStart: vi.fn(),
+        onProfileRoute,
+        onToolStart,
+        onToolDone,
+      },
+      new AbortController().signal,
+    );
+
+    expect(onProfileRoute).toHaveBeenCalledWith(['harmony', 'voice-leading']);
+    expect(onToolStart.mock.calls.map(([tool]) => tool.toolCallId)).toEqual(['range-a', 'range-b']);
+    expect(onToolDone.mock.calls.map(([tool]) => [tool.toolCallId, tool.status])).toEqual([
+      ['range-b', 'success'],
+      ['range-a', 'error'],
+    ]);
+    expect(fake.listeners.size).toBe(0);
+  });
+
   it('reports desktop-required state without a preload bridge', async () => {
     await expect(new DesktopSheetAgent().send(
       request,

@@ -1,5 +1,12 @@
 import type { AIProviderKind } from './aiTypes';
-import type { Annotation, ScoreAnchor } from '../types/document';
+import type { AgentProfileId, Annotation, ScoreAnchor } from '../types/document';
+
+export type ChatToolDisplay = {
+  toolCallId: string;
+  toolName: string;
+  status: 'running' | 'success' | 'error';
+  summary: string;
+};
 
 export type MusicContextSnapshot = Readonly<{
   id: string;
@@ -19,6 +26,8 @@ export type ChatMessage = {
   createdAt: string;
   context?: MusicContextSnapshot;
   status?: 'streaming' | 'complete' | 'stopped' | 'error';
+  profileRoutes?: AgentProfileId[];
+  toolDisplays?: ChatToolDisplay[];
   provider?: {
     connectionId: string;
     providerKind: AIProviderKind;
