@@ -127,7 +127,7 @@ export const App: React.FC = () => {
   const scoreTempo = liveMetadata.tempoText || activeDocument?.scoreInfo.tempoText || (tunes?.[0]?.getBpm?.() ? `♩ = ${tunes[0].getBpm()}` : '♩ = 120');
   const totalMeasures = useMemo(() => {
     try {
-      return extractScore(abcCode).measures.length;
+      return extractScore(prepareAbcForPlayback(abcCode)).measures.length;
     } catch {
       return 0;
     }
