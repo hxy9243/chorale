@@ -1,5 +1,10 @@
 import abcjs from 'abcjs';
-import type { MusicalPosition, RationalDuration } from '../types/document';
+import type {
+  AgentProfileId,
+  Annotation,
+  MusicalPosition,
+  RationalDuration,
+} from '../types/document';
 import {
   addRationalDurations,
   compareRationalDurations,
@@ -43,6 +48,36 @@ export type ExtractedScore = Readonly<{
   tempoText?: string;
   voices: readonly string[];
   measures: readonly WrittenMeasure[];
+}>;
+
+export type ReadonlyLookup<Key, Value> = Readonly<{
+  size: number;
+  get(key: Key): Value | undefined;
+  has(key: Key): boolean;
+  entries(): IterableIterator<[Key, Value]>;
+  keys(): IterableIterator<Key>;
+  values(): IterableIterator<Value>;
+  [Symbol.iterator](): IterableIterator<[Key, Value]>;
+}>;
+
+export type ScoreSnapshot = ExtractedScore & Readonly<{
+  snapshotId: string;
+  documentId: string;
+  revision: number;
+  abc: string;
+  annotations: readonly Annotation[];
+  measureIndex: ReadonlyLookup<number, WrittenMeasure>;
+  eventIndex: ReadonlyLookup<number, readonly MeasuredScoreEvent[]>;
+  sourceIndex: ReadonlyLookup<number, readonly MeasuredScoreEvent[]>;
+  annotationIndex: ReadonlyLookup<number, readonly Annotation[]>;
+}>;
+
+export type CreateScoreSnapshotInput = Readonly<{
+  snapshotId: string;
+  documentId: string;
+  revision: number;
+  abc: string;
+  annotations: readonly Annotation[];
 }>;
 
 type ParsedPitch = {
@@ -151,6 +186,64 @@ const addElementRange = (measure: MutableMeasure, element: ParsedElement) => {
 const warningText = (warnings: string[]) => warnings
   .map((warning) => warning.replace(/<[^>]+>/g, ''))
   .join('; ');
+
+const createReadonlyLookup = <Key, Value>(
+  entries: Iterable<readonly [Key, Value]>,
+): ReadonlyLookup<Key, Value> => {
+  const map = new Map<Key, Value>(entries);
+  return Object.freeze({
+    get size() { return map.size; },
+    get: (key: Key) => map.get(key),
+    has: (key: Key) => map.has(key),
+    entries: () => map.entries(),
+    keys: () => map.keys(),
+    values: () => map.values(),
+    [Symbol.iterator]: () => map[Symbol.iterator](),
+  });
+};
+
+const cloneAnnotation = (annotation: Annotation): Annotation => {
+  const copiedBase = {
+    span: Object.freeze({ ...annotation.span }),
+    ...(annotation.agentProfiles
+      ? { agentProfiles: Object.freeze([...annotation.agentProfiles]) as AgentProfileId[] }
+      : {}),
+  };
+  return annotation.kind === 'chord'
+    ? Object.freeze({
+        ...annotation,
+        ...copiedBase,
+        position: Object.freeze({
+          ...annotation.position,
+          offset: Object.freeze({ ...annotation.position.offset }),
+        }),
+      })
+    : Object.freeze({ ...annotation, ...copiedBase });
+};
+
+const freezeExtractedScore = (score: ExtractedScore): ExtractedScore => {
+  const measures = score.measures.map((measure) => Object.freeze({
+    ...measure,
+    abcRange: Object.freeze({ ...measure.abcRange }),
+    events: Object.freeze(measure.events.map((event) => Object.freeze({
+      ...event,
+      position: Object.freeze({
+        ...event.position,
+        offset: Object.freeze({ ...event.position.offset }),
+      }),
+      duration: Object.freeze({ ...event.duration }),
+      ...(event.pitches
+        ? { pitches: Object.freeze(event.pitches.map((pitch) => Object.freeze({ ...pitch }))) }
+        : {}),
+      ...(event.abcRange ? { abcRange: Object.freeze({ ...event.abcRange }) } : {}),
+    }))),
+  }));
+  return Object.freeze({
+    ...score,
+    voices: Object.freeze([...score.voices]),
+    measures: Object.freeze(measures),
+  });
+};
 
 export const extractScore = (abc: string): ExtractedScore => {
   if (!abc.trim()) throw new Error('ABC source is empty.');
@@ -272,4 +365,54 @@ export const extractScore = (abc: string): ExtractedScore => {
     voices: encounteredVoiceIds.length ? encounteredVoiceIds : ['voice-1'],
     measures: writtenMeasures,
   };
+};
+
+export const createScoreSnapshot = (input: CreateScoreSnapshotInput): ScoreSnapshot => {
+  if (!input.snapshotId.trim() || !input.documentId.trim()) {
+    throw new Error('Score snapshot identity is required.');
+  }
+  if (!Number.isInteger(input.revision) || input.revision <= 0) {
+    throw new Error('Score snapshot revision must be a positive integer.');
+  }
+
+  const score = freezeExtractedScore(extractScore(input.abc));
+  const annotations = Object.freeze(input.annotations.map(cloneAnnotation));
+  const measureIndex = createReadonlyLookup(
+    score.measures.map((measure) => [measure.measureNumber, measure] as const),
+  );
+  const eventIndex = createReadonlyLookup(
+    score.measures.map((measure) => [measure.measureNumber, measure.events] as const),
+  );
+  const sourceEvents = new Map<number, MeasuredScoreEvent[]>();
+  for (const measure of score.measures) {
+    for (const event of measure.events) {
+      if (!event.abcRange) continue;
+      const indexed = sourceEvents.get(event.abcRange.start) || [];
+      indexed.push(event);
+      sourceEvents.set(event.abcRange.start, indexed);
+    }
+  }
+  const sourceIndex = createReadonlyLookup(
+    [...sourceEvents].map(([start, events]) => [start, Object.freeze(events)] as const),
+  );
+  const annotationIndex = createReadonlyLookup(score.measures.map((measure) => [
+    measure.measureNumber,
+    Object.freeze(annotations.filter((annotation) => (
+      annotation.span.startMeasure <= measure.measureNumber
+      && annotation.span.endMeasure >= measure.measureNumber
+    ))),
+  ] as const));
+
+  return Object.freeze({
+    ...score,
+    snapshotId: input.snapshotId,
+    documentId: input.documentId,
+    revision: input.revision,
+    abc: input.abc,
+    annotations,
+    measureIndex,
+    eventIndex,
+    sourceIndex,
+    annotationIndex,
+  });
 };

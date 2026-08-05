@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractScore } from '../scoreSnapshot';
+import { createScoreSnapshot, extractScore } from '../scoreSnapshot';
 
 describe('score snapshot extraction', () => {
   it('extracts written measures, rational events, metadata, and source ranges', () => {
@@ -114,5 +114,44 @@ describe('score snapshot extraction', () => {
   it('reports parser warnings as malformed ABC errors', () => {
     expect(() => extractScore('X:1\nM:broken\nK:C\nC|')).toThrow(/Malformed ABC.*meter/);
     expect(() => extractScore('')).toThrow(/empty/);
+  });
+
+  it('builds one immutable runtime snapshot with reusable lookup indexes', () => {
+    const annotation = {
+      id: 'annotation-1',
+      kind: 'explanation' as const,
+      span: { startMeasure: 1, endMeasure: 2 },
+      label: 'Opening',
+      body: 'Opening explanation.',
+      source: 'assistant' as const,
+      agentProfiles: ['general' as const],
+      createdAt: '2026-08-05T00:00:00.000Z',
+      updatedAt: '2026-08-05T00:00:00.000Z',
+    };
+    const snapshot = createScoreSnapshot({
+      snapshotId: 'snapshot-1',
+      documentId: 'document-1',
+      revision: 3,
+      abc: 'X:1\nM:4/4\nL:1/4\nK:C\nC D E F | G4 |]',
+      annotations: [annotation],
+    });
+    annotation.label = 'Mutated after capture';
+
+    expect(snapshot).toMatchObject({
+      snapshotId: 'snapshot-1',
+      documentId: 'document-1',
+      revision: 3,
+    });
+    expect(snapshot.measureIndex.get(1)).toBe(snapshot.measures[0]);
+    expect(snapshot.eventIndex.get(2)).toBe(snapshot.measures[1].events);
+    expect(snapshot.sourceIndex.get(snapshot.measures[0].events[0].abcRange!.start))
+      .toContain(snapshot.measures[0].events[0]);
+    expect(snapshot.annotationIndex.get(1)?.[0].label).toBe('Opening');
+    expect(snapshot.annotationIndex.get(2)?.[0]).toBe(snapshot.annotations[0]);
+    expect(Object.isFrozen(snapshot)).toBe(true);
+    expect(Object.isFrozen(snapshot.measures[0].events[0].position.offset)).toBe(true);
+    expect(Object.isFrozen(snapshot.annotations[0].span)).toBe(true);
+    expect('set' in snapshot.measureIndex).toBe(false);
+    expect(() => (snapshot.measures as unknown[]).push({})).toThrow();
   });
 });
