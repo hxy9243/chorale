@@ -1,11 +1,23 @@
+import type { RationalDuration } from '../music/rational';
+
+export type { RationalDuration } from '../music/rational';
+
 export type FileId = string;
 export type ChatThreadId = string;
 export type AnnotationId = string;
 export type RevisionNumber = number;
 
-export type ScoreAnchor = {
+export type MusicalPosition = {
+  measure: number;
+  offset: RationalDuration;
+};
+
+export type MeasureSpan = {
   startMeasure: number;
   endMeasure: number;
+};
+
+export type ScoreAnchor = MeasureSpan & {
   beat?: number;
   voiceId?: string;
   abcOffset?: number;
