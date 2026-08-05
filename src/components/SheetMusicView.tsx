@@ -134,9 +134,30 @@ const getRenderedMeasureCount = (container: HTMLDivElement) => {
   return indexes.length > 0 ? Math.max(...indexes) + 1 : 1;
 };
 
+type SelectionModifiers = Readonly<{
+  shiftKey: boolean;
+  altKey: boolean;
+  ctrlKey: boolean;
+  metaKey: boolean;
+}>;
+
+const selectionModifiers = (event: MouseEvent | KeyboardEvent): SelectionModifiers => ({
+  shiftKey: event.shiftKey,
+  altKey: event.altKey,
+  ctrlKey: event.ctrlKey,
+  metaKey: event.metaKey,
+});
+
+const NO_SELECTION_MODIFIERS: SelectionModifiers = {
+  shiftKey: false,
+  altKey: false,
+  ctrlKey: false,
+  metaKey: false,
+};
+
 const installMeasureHitAreas = (
   container: HTMLDivElement,
-  onSelectMeasure: (measure: number) => void,
+  onSelectMeasure: (measure: number, modifiers: SelectionModifiers) => void,
 ) => {
   container.querySelectorAll('.abcjs-measure-hit-area').forEach((element) => element.remove());
   const measureCount = getRenderedMeasureCount(container);
@@ -168,12 +189,12 @@ const installMeasureHitAreas = (
     hitArea.setAttribute('aria-label', `Select measure ${measure}`);
     hitArea.addEventListener('click', (event) => {
       event.stopPropagation();
-      onSelectMeasure(measure);
+      onSelectMeasure(measure, selectionModifiers(event));
     });
     hitArea.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       event.preventDefault();
-      onSelectMeasure(measure);
+      onSelectMeasure(measure, selectionModifiers(event));
     });
     svg.appendChild(hitArea);
   }
@@ -233,6 +254,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   }, [currentZoom, handleZoomChange]);
 
   const measureOccurrencesRef = useRef<MeasureOccurrence[]>([]);
+  const selectionOriginRef = useRef<{ measure: number; abcOffset?: number } | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -245,20 +267,37 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       return;
     }
 
+    let capturedModifiers = NO_SELECTION_MODIFIERS;
+    const captureModifiers = (event: MouseEvent) => {
+      capturedModifiers = selectionModifiers(event);
+    };
+    const renderedContainer = containerRef.current;
+    renderedContainer.addEventListener('click', captureModifiers, true);
+
     try {
       setRenderError(null);
       containerRef.current.innerHTML = '';
       let renderedTune: abcjs.TuneObject | null = null;
-      const selectMeasure = (measure: number, abcOffset?: number) => {
+      const selectMeasure = (
+        measure: number,
+        abcOffset?: number,
+        modifiers: SelectionModifiers = NO_SELECTION_MODIFIERS,
+      ) => {
+        const extending = modifiers.shiftKey && selectionOriginRef.current !== null;
+        if (!extending) selectionOriginRef.current = { measure, abcOffset };
+        const origin = selectionOriginRef.current || { measure, abcOffset };
+        const startMeasure = Math.min(origin.measure, measure);
+        const endMeasure = Math.max(origin.measure, measure);
+        const startAbcOffset = startMeasure === measure ? abcOffset : origin.abcOffset;
         const occurrences = measureOccurrencesRef.current;
         const selected = selectMeasureWithRepeats(
-          measure,
+          startMeasure,
           occurrences,
           getPlaybackPosition?.().currentSeconds || 0,
         );
 
         const measureCount = getRenderedMeasureCount(containerRef.current!);
-        const fallbackFraction = Math.max(0, Math.min(1, (measure - 1) / measureCount));
+        const fallbackFraction = Math.max(0, Math.min(1, (startMeasure - 1) / measureCount));
         renderedTune?.setTiming?.(renderedTune.getBpm?.());
         const totalTime = renderedTune?.getTotalTime?.();
         const playbackSeconds = selected?.startTimeSec ?? (
@@ -269,10 +308,12 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         const playbackFraction = selected?.playbackFraction ?? fallbackFraction;
 
         const newAnchor: ScoreAnchor = {
-          startMeasure: measure,
-          endMeasure: measure,
-          abcOffset,
-          label: `m. ${measure}`,
+          startMeasure,
+          endMeasure,
+          abcOffset: startAbcOffset,
+          label: startMeasure === endMeasure
+            ? `m. ${startMeasure}`
+            : `mm. ${startMeasure}–${endMeasure}`,
           playbackFraction,
           ...(playbackSeconds !== undefined ? { playbackSeconds } : {}),
         };
@@ -293,7 +334,8 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         clickListener: (abcElem: any, _tuneNumber, classes, analysis) => {
           if (!abcElem) return;
           const measure = resolveClickedMeasure(abcElem, classes, analysis);
-          selectMeasure(measure, abcElem.startChar);
+          selectMeasure(measure, abcElem.startChar, capturedModifiers);
+          capturedModifiers = NO_SELECTION_MODIFIERS;
         },
         visualTranspose: visualTranspose,
         foregroundColor: '#000000',
@@ -306,7 +348,9 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       hideSyntheticTupletRests(abcCode, tunes);
       configureAudioPlayback(abcCode, tunes);
       measureOccurrencesRef.current = renderedTune ? buildMeasureOccurrences(renderedTune) : [];
-      installMeasureHitAreas(containerRef.current, (measure) => selectMeasure(measure));
+      installMeasureHitAreas(containerRef.current, (measure, modifiers) => (
+        selectMeasure(measure, undefined, modifiers)
+      ));
 
       if (tunes && tunes.length > 0 && onTuneRendered) {
         onTuneRendered(tunes);
@@ -320,6 +364,9 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       measureOccurrencesRef.current = [];
       setRenderError(err?.message || 'Failed to render sheet music SVG.');
     }
+    return () => {
+      renderedContainer.removeEventListener('click', captureModifiers, true);
+    };
   }, [abcCode, getPlaybackPosition, onSelectAnchor, onTuneRendered, transpose]);
 
   useEffect(() => {

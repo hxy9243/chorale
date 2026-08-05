@@ -271,6 +271,28 @@ describe('SheetMusicView Component', () => {
       label: 'm. 2',
       playbackFraction: 0.5,
     });
+
+    fireEvent.click(container.querySelector('[data-measure="1"]')!, { shiftKey: true });
+    expect(onSelectAnchor).toHaveBeenLastCalledWith({
+      startMeasure: 1,
+      endMeasure: 2,
+      abcOffset: undefined,
+      label: 'mm. 1–2',
+      playbackFraction: 0,
+    });
+
+    fireEvent.click(container.querySelector('[data-measure="1"]')!);
+    fireEvent.keyDown(container.querySelector('[data-measure="2"]')!, {
+      key: 'Enter',
+      shiftKey: true,
+    });
+    expect(onSelectAnchor).toHaveBeenLastCalledWith({
+      startMeasure: 1,
+      endMeasure: 2,
+      abcOffset: undefined,
+      label: 'mm. 1–2',
+      playbackFraction: 0,
+    });
   });
 
   it('sizes the score wrapper with its zoom so rendered dimensions actually change', () => {
