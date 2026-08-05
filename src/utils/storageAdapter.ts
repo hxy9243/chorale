@@ -1,4 +1,5 @@
 import type { FileDocument } from '../types/document';
+import { normalizeFileDocument } from '../music/documentSchema';
 import { limitScoreVersions } from './fileSession';
 
 const DB_NAME = 'chorale_db';
@@ -42,11 +43,14 @@ const getIDB = (): Promise<IDBDatabase> => {
   return dbPromise;
 };
 
-const normalizeDocuments = (documents: FileDocument[]): FileDocument[] => (
-  documents.map((document) => ({
-    ...document,
-    versions: limitScoreVersions(Array.isArray(document.versions) ? document.versions : []),
-  }))
+const normalizeDocuments = (documents: unknown[]): FileDocument[] => (
+  documents.flatMap((value) => {
+    const document = normalizeFileDocument(value);
+    return document ? [{
+      ...document,
+      versions: limitScoreVersions(document.versions),
+    }] : [];
+  })
 );
 
 export const storageAdapter = {
@@ -58,7 +62,7 @@ export const storageAdapter = {
     if (!hasIndexedDB()) {
       const memoryDocuments = memoryStore.get(DOCUMENTS_STORAGE_KEY);
       return Array.isArray(memoryDocuments)
-        ? normalizeDocuments(memoryDocuments as FileDocument[])
+        ? normalizeDocuments(memoryDocuments)
         : [];
     }
 

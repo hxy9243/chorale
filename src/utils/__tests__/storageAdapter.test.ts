@@ -41,6 +41,22 @@ describe('storageAdapter', () => {
     expect(localStorage.getItem('chorale.workspace.documents')).toBeNull();
   });
 
+  it('normalizes memory documents before returning them', async () => {
+    vi.stubGlobal('indexedDB', undefined);
+    await storageAdapter.saveDocuments([{
+      ...sampleDoc,
+      annotations: [{ kind: 'chord', chordSymbol: '', position: null }] as never,
+      chats: undefined as never,
+    }]);
+
+    const docs = await storageAdapter.getDocuments();
+
+    expect(docs).toHaveLength(1);
+    expect(docs[0].annotations).toEqual([]);
+    expect(docs[0].chats).toEqual([]);
+    expect(docs[0]).not.toBe(sampleDoc);
+  });
+
   it('rejects the save when IndexedDB cannot be opened', async () => {
     vi.stubGlobal('indexedDB', {
       open: vi.fn(() => {
@@ -51,5 +67,40 @@ describe('storageAdapter', () => {
     await expect(storageAdapter.saveDocuments([sampleDoc])).rejects.toThrow(
       'IndexedDB open failed',
     );
+  });
+
+  it('normalizes IndexedDB documents before returning them', async () => {
+    const getRequest: Record<string, unknown> = {};
+    const database = {
+      transaction: vi.fn(() => ({
+        objectStore: () => ({
+          get: () => {
+            queueMicrotask(() => {
+              getRequest.result = {
+                value: [{ ...sampleDoc, annotations: undefined, versions: undefined }],
+              };
+              (getRequest.onsuccess as () => void)();
+            });
+            return getRequest;
+          },
+        }),
+      })),
+    };
+    const openRequest: Record<string, unknown> = {};
+    vi.stubGlobal('indexedDB', {
+      open: vi.fn(() => {
+        queueMicrotask(() => {
+          openRequest.result = database;
+          (openRequest.onsuccess as () => void)();
+        });
+        return openRequest;
+      }),
+    });
+
+    const docs = await storageAdapter.getDocuments();
+
+    expect(docs).toHaveLength(1);
+    expect(docs[0]).toMatchObject({ annotations: [], versions: [] });
+    expect(database.transaction).toHaveBeenCalledWith('chorale_store', 'readonly');
   });
 });
