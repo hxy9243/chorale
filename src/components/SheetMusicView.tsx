@@ -94,12 +94,14 @@ const resolveClickedMeasure = (
   abcElem: { measureNumber?: number } | null | undefined,
   classes = '',
   analysis?: { measure?: number },
-) => {
+): number | null => {
   const globalMeasure = classes.match(/(?:^|\s)abcjs-mm(\d+)(?:\s|$)/);
   if (globalMeasure) return Number(globalMeasure[1]) + 1;
   if (typeof analysis?.measure === 'number') return analysis.measure + 1;
   if (typeof abcElem?.measureNumber === 'number') return abcElem.measureNumber + 1;
-  return 1;
+  // Cannot resolve measure — returning null prevents clobbering selectionOriginRef
+  // with a bogus measure 1 when clicking on staff lines, barlines, or whitespace.
+  return null;
 };
 
 const highlightMeasures = (container: HTMLDivElement, anchor: ScoreAnchor | null) => {
@@ -161,6 +163,30 @@ const NO_SELECTION_MODIFIERS: SelectionModifiers = {
   altKey: false,
   ctrlKey: false,
   metaKey: false,
+};
+
+/**
+ * Given a client-space coordinate, finds which rendered measure hit area contains
+ * that point and returns its 1-based measure number. Returns null if the point
+ * is outside all hit areas (e.g. between systems or in the page margin).
+ */
+const resolveMeasureFromClientXY = (
+  container: HTMLDivElement,
+  clientX: number,
+  clientY: number,
+): number | null => {
+  const hitAreas = container.querySelectorAll<SVGElement>('.abcjs-measure-hit-area');
+  for (const hitArea of Array.from(hitAreas)) {
+    const rect = hitArea.getBoundingClientRect();
+    if (
+      clientX >= rect.left && clientX <= rect.right
+      && clientY >= rect.top && clientY <= rect.bottom
+    ) {
+      const measure = Number(hitArea.dataset.measure);
+      return Number.isFinite(measure) && measure > 0 ? measure : null;
+    }
+  }
+  return null;
 };
 
 const installMeasureHitAreas = (
@@ -324,11 +350,21 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     }
 
     let capturedModifiers = NO_SELECTION_MODIFIERS;
+    // True when a hit area click handler already called selectMeasure for this
+    // event. The abcjs clickListener fires after (its coordinate hit-testing can
+    // resolve the wrong measure in SVG coordinate space), so we skip it in that
+    // case. Reset to false at the start of every new click by captureModifiers.
+    let hitAreaJustHandled = false;
     const captureModifiers = (event: MouseEvent) => {
       capturedModifiers = selectionModifiers(event);
+      hitAreaJustHandled = false;
     };
     const renderedContainer = containerRef.current;
     renderedContainer.addEventListener('click', captureModifiers, true);
+
+    // Defined here (outside try) so the cleanup return can reference it.
+    // Registered inside the try (below) after hit areas are installed.
+    let handleContainerFallbackClick: (event: MouseEvent) => void = () => {};
 
     try {
       setRenderError(null);
@@ -388,10 +424,16 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         },
         add_classes: true,
         clickListener: (abcElem: any, _tuneNumber, classes, analysis) => {
+          // If a hit area already handled this click (and set hitAreaJustHandled),
+          // abcjs's SVG coordinate hit-testing is unreliable and may resolve a
+          // different measure, so we skip it entirely.
+          if (hitAreaJustHandled) return;
+          const modifiersToUse = capturedModifiers;
+          capturedModifiers = NO_SELECTION_MODIFIERS;
           if (!abcElem) return;
           const measure = resolveClickedMeasure(abcElem, classes, analysis);
-          selectMeasure(measure, abcElem.startChar, capturedModifiers);
-          capturedModifiers = NO_SELECTION_MODIFIERS;
+          if (measure === null) return;
+          selectMeasure(measure, abcElem.startChar, modifiersToUse);
         },
         visualTranspose: visualTranspose,
         foregroundColor: '#000000',
@@ -405,9 +447,27 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       hideSyntheticTupletRests(abcCode, tunes);
       configureAudioPlayback(abcCode, tunes);
       measureOccurrencesRef.current = renderedTune ? buildMeasureOccurrences(renderedTune) : [];
-      installMeasureHitAreas(containerRef.current, (measure, modifiers) => (
-        selectMeasure(measure, undefined, modifiers)
-      ));
+      installMeasureHitAreas(containerRef.current, (measure, modifiers) => {
+        // Mark that the hit area handled this click so the abcjs clickListener
+        // (which may fire after with wrong SVG-space coordinates) gets skipped.
+        hitAreaJustHandled = true;
+        selectMeasure(measure, undefined, modifiers);
+      });
+
+      // Fallback: catch clicks that bubbled up without being stopped by a hit area.
+      // This happens when the user clicks on a barline, staff line, rest, system
+      // margin, or any other spot abcjs doesn't fire a clickListener for.
+      // Without this, those clicks silently leave selectionOriginRef stale, so the
+      // next shift-click range starts from the wrong measure.
+      // NOTE: hit areas call stopPropagation, so this handler only fires for clicks
+      // that the hit area didn't catch — zero double-calls for normal clicks.
+      handleContainerFallbackClick = (event: MouseEvent) => {
+        const measure = resolveMeasureFromClientXY(renderedContainer, event.clientX, event.clientY);
+        if (measure !== null) {
+          selectMeasure(measure, undefined, selectionModifiers(event));
+        }
+      };
+      renderedContainer.addEventListener('click', handleContainerFallbackClick, false);
 
       if (tunes && tunes.length > 0 && onTuneRendered) {
         onTuneRendered(tunes);
@@ -426,6 +486,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     }
     return () => {
       renderedContainer.removeEventListener('click', captureModifiers, true);
+      renderedContainer.removeEventListener('click', handleContainerFallbackClick, false);
     };
   }, [abcCode, getPlaybackPosition, onSelectAnchor, onTuneRendered, transpose]);
 
@@ -433,6 +494,25 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     if (!containerRef.current) return;
     highlightMeasures(containerRef.current, activeAnchor);
     updateMeasureHitAreaSelection(containerRef.current, activeAnchor);
+    // Keep selectionOriginRef consistent with the displayed anchor so that
+    // shift-clicks always extend from the correct measure even after external
+    // navigation, file switch, or annotation-driven anchor changes.
+    if (!activeAnchor) {
+      selectionOriginRef.current = null;
+    } else {
+      const originMeasure = selectionOriginRef.current?.measure;
+      const isOriginInsideAnchor = (
+        originMeasure !== undefined
+        && originMeasure >= activeAnchor.startMeasure
+        && originMeasure <= activeAnchor.endMeasure
+      );
+      if (!isOriginInsideAnchor) {
+        selectionOriginRef.current = {
+          measure: activeAnchor.startMeasure,
+          abcOffset: activeAnchor.abcOffset,
+        };
+      }
+    }
   }, [abcCode, activeAnchor, transpose]);
 
   useEffect(() => {
