@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, Plus, Send, Square, Trash2, X } from 'lucide-react';
 import { DesktopSheetAgent } from '../agent/DesktopSheetAgent';
 import { createMusicContextSnapshot } from '../agent/musicContext';
+import { prepareAbcForPlayback } from '../utils/abcAudio';
 import type { AIProviderState } from '../agent/useAIProviders';
 import {
   loadConversation,
@@ -339,7 +340,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     revision,
     capturedAt: new Date().toISOString(),
     fileName: activeFileName || 'Untitled score',
-    abc: abcCode,
+    abc: prepareAbcForPlayback(abcCode),
     selection: activeAnchor,
     annotations,
   });
@@ -594,7 +595,9 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
           : message
       )));
       if (!wasStopped) {
-        setError(caught instanceof Error ? caught.message : 'The agent could not respond.');
+        const rawMessage = caught instanceof Error ? caught.message : 'The agent could not respond.';
+        const formattedMessage = rawMessage.replace(/^Error invoking remote method '[^']+': Error:\s*/, '');
+        setError(formattedMessage);
       }
     } finally {
       if (abortControllerRef.current === controller) {

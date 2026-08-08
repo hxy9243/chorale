@@ -231,6 +231,43 @@ describe('score snapshot extraction', () => {
     expect(() => extractScore('')).toThrow(/empty/);
   });
 
+  it('handles inline tempo directives, staff changes, and hairpins without throwing Malformed ABC', () => {
+    const abcWithDirectives = [
+      'X:1',
+      'T:Tempo and Directives',
+      'M:4/4',
+      'L:1/4',
+      'Q:1/4=120',
+      'K:C',
+      '[Q:1/4=140] C D [I:staff +1] E F | G A B c |]',
+    ].join('\n');
+
+    expect(() => extractScore(abcWithDirectives)).not.toThrow();
+    const snapshot = createScoreSnapshot({
+      snapshotId: 'snap-dir',
+      documentId: 'doc-dir',
+      revision: 1,
+      abc: abcWithDirectives,
+      annotations: [],
+    });
+    expect(snapshot.measures).toHaveLength(2);
+  });
+
+  it('allows non-fatal line warnings when measures are successfully extracted', () => {
+    const abcWithLineWarning = [
+      'X:1',
+      'T:Line Warning Test',
+      'M:4/4',
+      'L:1/4',
+      'K:C',
+      'C D E F | G A B c | % Line 6 note',
+    ].join('\n');
+
+    expect(() => extractScore(abcWithLineWarning)).not.toThrow();
+    const score = extractScore(abcWithLineWarning);
+    expect(score.measures).toHaveLength(2);
+  });
+
   it('builds one immutable runtime snapshot with reusable lookup indexes', () => {
     const annotation = {
       id: 'annotation-1',

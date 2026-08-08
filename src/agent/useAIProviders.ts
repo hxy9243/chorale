@@ -35,14 +35,22 @@ const messageFromError = (error: unknown) => (
   error instanceof Error ? error.message : 'The AI provider operation failed.'
 );
 
+const getBridge = () => (typeof window === 'undefined' ? undefined : window.choraleAI);
+
 export const useAIProviders = (): AIProviderState => {
-  const bridge = typeof window === 'undefined' ? undefined : window.choraleAI;
+  const [bridge, setBridge] = useState(getBridge);
   const [loading, setLoading] = useState(Boolean(bridge));
   const [connections, setConnections] = useState<AIConnectionPublic[]>([]);
   const [selection, setSelectionState] = useState<AISelection | null>(null);
   const [modelsByConnection, setModelsByConnection] = useState<Record<string, AIModelOption[]>>({});
   const [oauth, setOAuth] = useState<OAuthState | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const current = getBridge();
+    setBridge(current);
+    setLoading(Boolean(current));
+  }, []);
 
   const reload = useCallback(async () => {
     if (!bridge) return;

@@ -11,6 +11,7 @@ import {
   createRationalDuration,
   createRationalDurationFromNumber,
 } from './rational';
+import { prepareAbcForPlayback } from '../utils/abcAudio';
 
 export type AbcSourceRange = Readonly<{ start: number; end: number }>;
 
@@ -249,11 +250,15 @@ const freezeExtractedScore = (score: ExtractedScore): ExtractedScore => {
 export const extractScore = (abc: string): ExtractedScore => {
   if (!abc.trim()) throw new Error('ABC source is empty.');
 
-  const parsed = abcjs.parseOnly(abc) as unknown as ParsedTune[];
+  const prepared = prepareAbcForPlayback(abc);
+  const parsed = abcjs.parseOnly(prepared) as unknown as ParsedTune[];
   const tune = parsed[0];
   if (!tune) throw new Error('ABC source did not contain a tune.');
-  if (tune.warnings?.length) {
-    throw new Error(`Malformed ABC: ${warningText(tune.warnings)}`);
+  const fatalWarnings = tune.warnings?.filter((warning) => (
+    /meter|chord|key|parse|unclosed|cannot|invalid|bad|error|illegal/i.test(warning)
+  ));
+  if (fatalWarnings && fatalWarnings.length > 0) {
+    throw new Error(`Malformed ABC: ${warningText(fatalWarnings)}`);
   }
 
   const declaredVoiceIds = collectDeclaredVoiceIds(abc);
@@ -360,6 +365,10 @@ export const extractScore = (abc: string): ExtractedScore => {
         ...(measure.meterChange ? { meterChange: measure.meterChange } : {}),
       };
     });
+
+  if (writtenMeasures.length === 0) {
+    throw new Error(`Malformed ABC: ${warningText(tune.warnings?.length ? tune.warnings : ['No measures found in tune.'])}`);
+  }
 
   const tempoText = abc.match(/^Q:\s*(.+)$/m)?.[1]?.trim();
   return {
