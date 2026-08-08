@@ -1,92 +1,63 @@
 # Score Surface Spec
 
-Date: 2026-07-28  
-Source: Figma file `Chorale — Chat with Music Sheet · V1`
+Date: 2026-08-05
+Source: `spec/agent-analysis-and-annotations.md`
 
 ## 1. Goal
 
-Define how the rendered score behaves as the primary reading, annotation, and interaction surface.
+Keep the score the primary reading surface while adding continuous passage selection, chat navigation, and lightweight annotation overlays.
 
-## 2. Score presentation
+## 2. Existing presentation invariants
 
-The score surface supports continuous-scroll reading with automatic playback centering.
+- abcjs renders responsive continuous SVG systems.
+- Score metadata and build/save status remain visible.
+- Score zoom remains independently persisted and centered without clipping.
+- Playback auto-centering and its manual-scroll pause behavior remain intact.
+- Existing transpose, playback cursor, repeat selection, and first-click hit-area behavior must not regress.
 
-Expected presentation:
+## 3. Continuous range selection
 
-- score title, composer, key, meter, and tempo header row at the top of the score sheet
-- autosave, SVG-build, and audio-build status grouped directly under the title and composer
-- continuous vertical staff systems rendered via SVG (`abcjs`)
-- visible measure numbers on the left of systems
-- zoom space reservation (`zoom: currentZoom/100`, `width: ${currentZoom}%`, `marginInline: auto`) ensuring scaled score SVGs do not clip container bounds
-- score zoom persisted in local storage (`chorale.workspace.sheetZoom`) and restored independently from the global interface zoom
-- score sheet and rendered notation centered within the middle score pane at every zoom ratio
-- auto-centering playback line: during audio playback, the score smooth-scrolls to keep the active playback line centered; manual user scroll/touch/key input pauses auto-centering for 2 seconds before resuming
+- Single click selects one written measure.
+- Shift-click and the keyboard equivalent extend one inclusive continuous range.
+- Reverse selection normalizes to `startMeasure <= endMeasure`.
+- Each selected measure receives a highlight, including across system wraps.
+- Hit areas continue to work on notation and staff whitespace.
+- Selection seeks or starts playback from `startMeasure` using the current repeat-aware occurrence.
+- File switch clears the active range; disconnected ranges are unsupported.
 
-## 3. Selection behavior
+## 4. Overlay ownership
 
-The score supports anchored selection of a measure or location across repeat passes.
+```text
+score paper wrapper
+├── abcjs container             owned by abcjs
+└── annotation overlay layer   owned by React
+```
 
-Selection rules:
+React must not render children into the abcjs-owned container. The sibling overlay creates transparent SVG layers aligned to the rendered abcjs SVGs and copies their view boxes. Geometry is recomputed after render, wrap, zoom, transpose, and resize.
 
-- selected measure is visually emphasized with a faint warm highlight (`abcjs-measure-highlight`)
-- selecting a measure resolves the specific repeat pass occurrence based on current playback timestamp (`selectMeasureWithRepeats`), preventing cascading repeat jumps or DOM re-rendering
-- selection updates the shared `ScoreAnchor` and hands off into playback, chat, and annotations
-- measure selection uses an interactive hit layer (`abcjs-measure-hit-area`) placed above notation so clicks on staff lines or whitespace select measures reliably on first attempt
+The overlay background ignores pointer events. Annotation elements are pointer-interactive, keyboard focusable, and expose meaningful accessible names.
 
-## 4. Harmonic & Multi-Measure Annotation Overlays
+## 5. Annotation tracks
 
-The score surface renders structured annotation layers overlaying the notation SVG.
+- **Chord:** chord symbol and optional Roman numeral above the staff at its persisted `measure + rational offset`.
+- **Modulation:** ribbon across the annotated transition span.
+- **Voice leading:** compact textual callout below the passage; note-to-note arrows are deferred.
+- **Explanation:** range marker plus highlighted side sticker containing the full body.
 
-### 4.1 Annotation Categories & Data Structures
+`annotationLayout` is a pure projection from canonical annotations and rendered indexes to SVG-local placement. ABC source offsets and SVG coordinates are ephemeral lookup data and are never persisted as annotation identity.
 
-- **Key & Modulation Spans**: Identifies key centers and modulations over single or multi-measure ranges (e.g. `[ C Major: m.1–8 ] ➔ [ G Major (V): m.9–16 ]`).
-- **Roman Numeral Analysis (RNA)**: Harmonic analysis tokens placed beneath beat/chord locations (e.g., `I`, `IV`, `V7/IV`, `vi`, `I6/4`, `V7`, `I`).
-- **Chord Symbols**: Lead-sheet chord notation rendered above the top staff (e.g. `C`, `G7`, `Am`).
-- **Multi-Measure Structural Passages**: Bracketed ranges marking phrases, sections, or cadences (e.g., `Antecedent Phrase (m.1–4)`, `Authentic Cadence (m.8)`).
+All tracks use a restrained shared palette and focused/unfocused states. Focusing an annotation also activates its score span and opens Edit/Delete detail actions.
 
-### 4.2 Visual Layout Tracks & Aesthetics
+## 6. Chat-reference navigation
 
-Annotations are positioned relative to rendered SVG staff measure coordinates (`.abcjs-m0`, `.abcjs-m1`):
+A valid `#measure-N` or `#measure-N-M` chat reference:
 
-1. **Top Ribbon (Key Modulation Track)**: Continuous horizontal pill banner above the treble clef staff representing key regions across measure ranges.
-2. **Above-Staff Track (Chord Symbols)**: Standard lead-sheet chord markings aligned with beat offsets.
-3. **Below-Staff Track (Roman Numerals & Cadences)**: Textbook-styled analysis row placed beneath the lowest voice staff per system, aligned beat-by-beat.
-4. **Multi-Measure Span Rectangles**: Subtle pastel/glassmorphic translucent bounding highlight rectangles covering specified measure bounds (`m.start` through `m.end`), adapting smoothly to system wrapping.
+1. activates the referenced range;
+2. scrolls `startMeasure` into view;
+3. moves keyboard focus to the score surface;
+4. seeks paused playback to `startMeasure` using repeat-aware behavior;
+5. does not start playback.
 
-### 4.3 User Interactions with Annotations
+## 7. Toolbar
 
-- **Selection**: Clicking any annotation pill, Roman numeral, or multi-measure highlight selects the corresponding measure range, updates the shared `ScoreAnchor`, and reflects in Chat & Playback.
-- **Expansion & Collapsing**:
-  - *Collapsed View*: Compact inline pills/tokens (`V7/IV`, `Modulation: G Major`).
-  - *Expanded View*: Clicking opens a popover card or expands the inline analysis track to show pitch-class breakdown, voice-leading notes, author (`user` vs `assistant`), and a handoff action *"Discuss with AI Agent"*.
-  - *Global / Category Toggle*: Toolbar controls allow toggling visibility for individual tracks (`Key Modulations`, `Roman Numerals`, `Chord Symbols`, `User Comments`).
-
-## 5. Score toolbar
-
-Score-facing display controls float in a compact rounded panel at the upper center of the score. The panel is highly translucent at rest, surfaces temporarily during score scrolling, and becomes clearest on hover or keyboard focus, so it remains available without reading as another header.
-
-Expected controls:
-
-- key transposition controls (-1, +1 semitone, reset)
-- zoom controls (-10%, +10%, percentage readout, wheel zoom with Ctrl/Cmd)
-- annotation layer toggles (Key/Modulation, Roman Numerals, Chords, Freeform)
-- active anchor badge with clear selection button
-
-The toolbar belongs to the score workspace. ABC editor visibility belongs to the left **Tools** panel, and the score surface does not expose parallel `Score` / `ABC code` tabs.
-
-## 6. Relationship to current implementation
-
-The current implementation provides:
-
-- rendered ABC SVG notation with responsive layout
-- zoom controls with space reservation for container bounds
-- key transposition controls
-- repeat-aware global measure selection and non-destructive measure highlights
-- auto-centering playback line with user scroll-pause behavior
-- anchor handoff to playback and chat
-
-The design still requires:
-
-- inline multi-measure annotation overlay & Roman numeral track rendering
-- annotation expansion/collapsing popover cards
-- layer visibility toggles in score toolbar
+Existing transpose and zoom controls remain. The active-range badge gains a clear action. Annotation-layer toggles may expose Chords, Modulations, Voice Leading, and Explanations without introducing parallel score/editor navigation.

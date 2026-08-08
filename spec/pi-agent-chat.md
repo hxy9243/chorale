@@ -1,171 +1,131 @@
-# Chat With Music Sheet & Agent Tooling
+# Chat With Music Sheet and Agent Tooling
 
-Date: 2026-07-29
-Status: Electron transport and provider selection implemented; agent tools remain follow-up work
+Date: 2026-08-05
+Status: Existing transport retained; passage-aware workflow approved for implementation
 
 ## 1. Goal
 
-Make chat a score-aware workspace panel that can analyze, reference, annotate, and propose structural mutations against the active file and the user's current musical anchor.
-
-The product is a file-scoped analysis and editing surface attached to the same state as the score, ABC editor, and playback dock.
+Chat is a passage-aware Music Tutor attached to the active score file. Students and hobbyists can ask theory questions, see internal profile routing and tool progress, receive grounded Markdown with score references, and review annotation proposals.
 
 ## 2. Product rules
 
-- Chat belongs to the active file, not to the app globally.
-- Provider/model selection is global across files and threads.
-- Current score anchor is first-class chat context.
-- Grounded answers reference score data, pitch structures, and harmonic annotations.
-- Durable score and annotation mutations outlive the chat thread that created them.
-- Agent tool execution is transparently displayed to the user via inline execution indicators and review cards.
-- Chat Panel is drag-resizable (280px–680px width) with persistent position in workspace grid.
+- Chat history belongs to the active file; provider/model selection remains global.
+- Prompt send captures an immutable `MusicContextSnapshot` containing ABC, document identity and revision, active range, and canonical annotations.
+- One visible Music Tutor internally selects predefined analysis profiles.
+- Passage-specific claims require registered score tools.
+- Tool calls never mutate a document.
+- Accepted annotations outlive the thread that created them.
+- Existing provider settings, streaming, cancellation, error mapping, panel resize, and desktop-only production behavior remain unchanged.
 
-## 3. Chat panel structure
-
-The panel provides four vertical zones and a left resize handle:
+## 3. Panel structure
 
 ### Header
 
-- thread title and history selector
-- active file subtitle
-- a custom-styled history row below the title row; its flexible selector has one visible chevron (the native arrow is suppressed), and its transparent text field, border, history icon, and option colors use the same control language as the rest of Chorale
-- an adjacent delete action removes the active thread, selects the nearest remaining thread, and creates a fresh empty thread when the final thread is deleted
-- the bottom-left **Settings** action opens AI provider settings directly
-- close action; persistent header button allows reopening chat
-- panel drag-to-resize handle on left border (minimum 280px, maximum one third of the viewport, default 392px when space allows)
-- the composer remains anchored to the bottom of the panel while the transcript scrolls
-- panel width and open/closed state persist across close/reopen and renderer refresh
+- Thread title/history selector and active-file subtitle.
+- Thread deletion, AI settings, and close actions.
+- Existing resizable and persisted panel behavior.
 
 ### Conversation
 
-- user prompt bubbles
-- assistant response messages with markdown formatting
-- visible tool execution indicators (`Executing analyze_harmonic_cadence...`)
-- interactive mutation review cards (Diff view for proposed ABC edits or Annotation additions)
-- chat content uses approximately 12 pt as its default reading size
-- empty state places the slightly narrower `Try asking` group about 20% down from the transcript top and does not repeat a `Chorale / Analysis` brand card
+- User prompts with their captured range chip.
+- Visible profile route such as `Harmony analysis`.
+- Tool rows correlated by `toolCallId` with compact start/success/error summaries.
+- Sanitized CommonMark/GFM assistant messages.
+- Inline proposal cards with individual Edit and Reject.
+- One Apply All action for the assistant turn; no individual Apply buttons.
 
 ### Composer
 
-- compact global provider/model popover
-- prompt input area
-- send prompt action
-- stop action while a response is streaming
+- Existing provider/model selector.
+- Active range chip such as `mm. 5–8`.
+- Prompt input, send action, and streaming stop action.
 
-### Thread model
+## 4. Context and runtime snapshots
 
-Conversation history is per-file in versioned renderer local storage. Switching files loads the corresponding chat thread automatically. Each assistant message records:
+The renderer sends `MusicContextSnapshot`, a validated transport DTO. `annotations` is a required copied `Annotation[]`; no separate `MusicAnnotation` model exists.
 
-```ts
-{
-  connectionId: string;
-  providerKind: AIProviderKind;
-  modelId: string;
-}
+Electron constructs one immutable normalized `ScoreSnapshot` per request. Every profile and score tool in that request uses the same snapshot. The main process, not React, owns parsing and tool execution.
+
+## 5. Profiles and tools
+
+The mandatory routing tool is `select_analysis_profile`. Profiles are `general`, `harmony`, `voice-leading`, and `form-phrase`; multiple profiles may be selected.
+
+The score tool suite is:
+
+- `get_score_summary`
+- `read_measure_range`
+- `get_annotations`
+- `propose_annotations`
+
+`read_measure_range` returns exact rational musical positions and is capped at 32 measures per call. `propose_annotations` is capped at 32 proposals per run. There is no agent removal, ABC mutation, metadata mutation, or navigation tool.
+
+## 6. Proposal review
+
+Proposal cards remain read-only until the run completes.
+
+- Edit validates and updates one staged proposal.
+- Reject collapses and excludes one proposal.
+- Apply All validates every remaining proposal and applies all or none in one renderer transaction.
+- A file or revision mismatch labels pending proposals **Outdated** and disables their actions.
+- Failed or aborted runs label unapplied proposals unavailable.
+
+Applying annotations does not increment the ABC revision. Deleting a chat thread deletes its pending proposal records but not accepted annotations.
+
+## 7. Markdown and links
+
+Raw HTML is disabled and there is no `dangerouslySetInnerHTML` rendering path.
+
+```md
+[m. 5](#measure-5)
+[mm. 5–8](#measure-5-8)
 ```
 
-This provenance is retained when the global selection later changes or the connection is deleted.
+A valid score link:
 
-## 4. Agent Tool Suite
+1. activates its normalized `ScoreAnchor` range;
+2. scrolls and focuses `startMeasure`;
+3. seeks paused playback to the range start with repeat-aware occurrence behavior;
+4. never starts playback automatically.
 
-The Pi Agent operates with a native JSON tool registry (`tools: [...]` in `@earendil-works/pi-agent-core`).
+Other Markdown links are visually highlighted but non-navigating. External URL opening is deferred.
 
-### 4.1 Read & Query Tools
+## 8. IPC events
 
-- **`get_score_structure`**: Returns key, meter, tempo, measure count, time signatures, and voice declarations.
-- **`read_abc_range`**: `{ startMeasure: number, endMeasure: number }` -> returns exact ABC source text for target measures.
-- **`get_annotations`**: Returns all active harmonic, key modulation, and Roman numeral annotations on the file.
-
-### 4.2 Annotation & Analysis Mutation Tools
-
-- **`add_annotation`**: `{ range: { startMeasure, endMeasure }, kind: 'key-change'|'roman-numeral'|'chord-symbol'|'phrase-structure', label: string, harmonicData?: { key?, romanNumeral?, chordSymbol? }, body: string }` -> attaches a new harmonic annotation track or badge to the score.
-- **`update_annotation`**: `{ id: string, ... }` -> modifies existing annotation fields.
-- **`delete_annotation`**: `{ id: string }` -> removes an annotation.
-
-### 4.3 ABC Score Mutation Tools
-
-- **`replace_abc_range`**: `{ startMeasure: number, endMeasure: number, newAbcSnippet: string, rationale: string }` -> proposes measure-level ABC edits (e.g. reharmonization, transposition, rhythm correction).
-- **`set_score_metadata`**: `{ title?, composer?, tempo?, key? }` -> modifies ABC header metadata.
-
-### 4.4 Navigation & UI Tools
-
-- **`navigate_to_measure`**: `{ measure: number, beat?: number }` -> programmatically updates `ScoreAnchor` and smooth-scrolls the score view to bring target measures into focus.
-
-## 5. Review & Proposal Workflow for Agent Mutations
-
-To prevent destructive or unexpected score edits:
-
-1. **Tool Trigger**: When the agent calls a mutating tool (`replace_abc_range` or `add_annotation`), execution outputs a non-blocking **Proposal Review Card** into the conversation stream.
-2. **Visual Diff**:
-   - For ABC edits: Side-by-side or inline unified diff showing original measure ABC vs proposed measure ABC.
-   - For Annotations: Visual badge preview showing proposed Roman numerals / key modulation range.
-3. **User Action**:
-   - **Apply**: Commits the mutation into `FileSessionController`, creating a new durable `ScoreVersion` revision.
-   - **Reject**: Dismisses the proposal card without modifying score state.
-
-## 6. Context contract
+The existing chat and OAuth event contracts remain. Passage tooling adds:
 
 ```ts
-type ChatContext = {
-  fileId: string;
-  fileName: string;
-  revision: number;
-  abc: string;
-  scoreInfo?: ScoreInfo;
-  activeAnchor?: ScoreAnchor | null;
-  selectedRange?: {
-    measureStart: number;
-    measureEnd?: number;
-    abcStart?: number;
-    abcEnd?: number;
-  };
-  visibleAnnotations: ExtendedAnnotation[];
-  availableTools: ScoreToolName[];
-  selection: AISelection;
-};
+type PassageAIEvent =
+  | {
+      type: 'profile-route';
+      requestId: string;
+      profiles: AgentProfileId[];
+    }
+  | {
+      type: 'tool-start';
+      requestId: string;
+      toolCallId: string;
+      toolName: string;
+      summary: string;
+    }
+  | {
+      type: 'tool-done';
+      requestId: string;
+      toolCallId: string;
+      toolName: string;
+      status: 'success' | 'error';
+      summary: string;
+    }
+  | {
+      type: 'proposal-created';
+      requestId: string;
+      proposal: AnnotationProposal;
+    };
 ```
 
-Minimum requirement:
+The main process projects Pi's built-in tool lifecycle into these events. Display summaries never contain full score results, credentials, or arbitrary raw error payloads.
 
-- every prompt send captures the current file revision
-- every send includes the active anchor (if selected)
-- assistant answers cite measure anchors
-- agent responses can issue structured tool calls
+Renderer events are matched by `requestId`; tool rows are additionally matched by `toolCallId`. Stop, file switch, unmount, reload, or window destruction aborts the run and causes late events to be ignored.
 
-## 7. Electron transport contract
+## 9. Conversation storage
 
-`PiSheetAgent` runs in Electron’s main process. React sends a `SheetAgentRequest` through the typed preload bridge and receives:
-
-```ts
-type AIEvent =
-  | { type: 'chat-start'; requestId: string; connectionId: string; modelId: string; providerKind: AIProviderKind }
-  | { type: 'chat-delta'; requestId: string; text: string }
-  | { type: 'chat-done'; requestId: string }
-  | { type: 'chat-error'; requestId: string; code: AIErrorCode; message: string }
-  | { type: 'oauth-update'; flowId: string; status: string; details?: OAuthUpdateDetails };
-```
-
-- Events are matched to request or OAuth flow IDs.
-- The renderer subscribes before sending, buffers early events until it receives the request ID, and removes its listener when the request settles or the component unmounts.
-- Stop, file switch, panel unmount, reload, and window destruction abort Pi and the upstream request.
-- A missing or invalid global provider/model selection disables the composer.
-- When the preload bridge is absent, the panel displays “AI providers require the Chorale desktop app” and does not instantiate Pi or attempt a direct provider request.
-- The production implementation has no silent faux-provider fallback.
-
-## 8. Implementation status
-
-Current branch provides:
-
-- file-scoped chat panel with toggle control in header
-- horizontal drag-to-resize functionality (280px–680px)
-- per-file transcript persistence
-- active score anchor attachment in the captured request context without a persistent selection banner or composer chip
-- Electron IPC-backed Pi streaming and cancellation
-- six provider kinds and multiple named connections
-- global provider/model selector and cached model catalogs
-- assistant-message provider provenance
-- desktop-required browser state
-
-Planned next steps:
-
-- Tool execution handler with reviewable proposal card UI
-- Annotation tool bindings linked to score surface overlays
+The per-file conversation schema advances from version 2 to version 3 to persist proposal state, profile routes, and compact tool metadata. Version-2 data migrates with empty/default values. Accepted annotations remain in IndexedDB-backed `FileDocument`, not in the chat store.

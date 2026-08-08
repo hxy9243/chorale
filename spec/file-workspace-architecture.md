@@ -1,101 +1,67 @@
 # File Workspace Architecture
 
-Date: 2026-07-28  
-Source: Figma frame `Chorale / Functional implementation overview`
+Date: 2026-08-05
+Source: Existing workspace architecture plus `spec/agent-analysis-and-annotations.md`
 
 ## 1. Goal
 
-Define the implementation architecture for Chorale's frontend workspace state, persistence boundaries, and rendering pipelines.
+Define ownership, persistence, and process boundaries for the passage-aware Music Tutor without weakening Chorale's existing file, score, playback, or provider behavior.
 
-## 2. Runtime architecture
+## 2. Runtime layers
 
-The system is structured into six cooperating layers:
+### Renderer UI
 
-### UI layer
+- Files rail, score/editor workspace, playback dock, and chat panel.
+- React-owned range state, proposal review state, and annotation overlays.
+- No score parsing, provider credentials, or Pi tool execution.
 
-Owns visible workspace composition:
+### Document store
 
-- files rail (collapsible, drag-resizable 160px–420px)
-- score and ABC split (drag-resizable 320px–720px)
-- playback dock (max-width 800px)
-- chat panel (drag-resizable 280px–680px)
+- Active file identity and canonical `FileDocument` values.
+- Shared `ScoreAnchor` range using `startMeasure` and `endMeasure`.
+- Annotation CRUD mutations and existing debounced IndexedDB autosave.
+- ABC changes alone increment document revision and create `ScoreVersion` records.
 
-The UI layer renders from domain document state.
+### Shared music libraries
 
-### FileSessionController & Utilities (`utils/fileSession.ts`)
+- `src/music/rational.ts`: exact duration normalization and comparison.
+- `src/music/scoreSnapshot.ts`: pure written-measure/event extraction and runtime indexes.
+- `src/music/documentSchema.ts`: persisted document and annotation normalization.
+- `src/music/annotationLayout.ts`: pure musical-position-to-overlay placement.
 
-Owns session state and document helper operations for the open file:
+These modules are independent of React and Electron UI code.
 
-- active file identity
-- current revision counter
-- active score anchor
-- document version limiting (`limitScoreVersions`, max 10 revisions)
-- view preferences (pane widths and visibility states)
+### abcjs render and playback pipeline
 
-### FileDocument store
+- abcjs exclusively owns its score DOM.
+- Existing audio preparation, repeat occurrences, cursor tracking, and playback timing remain.
+- React owns a sibling overlay layer and derives its geometry from the current render.
 
-Owns file content and durable objects:
+### Renderer-to-main context
 
-- source ABC text
-- score metadata (`title`, `composer`, `key`, `meter`, `tempoText`)
-- annotations
-- chat threads
-- stored revisions (`ScoreVersion[]`)
+`MusicContextSnapshot` is a validated serialized DTO containing document ID, revision, raw ABC, selection, and canonical annotations. It remains distinct from the main-process runtime model.
 
-### ABC render and audio pipeline (`utils/abcAudio.ts`, `utils/repeatPlayback.ts`)
+### Electron agent runtime
 
-Owns revision-based derived outputs:
+- Validates `MusicContextSnapshot` at the IPC boundary.
+- Constructs one immutable `ScoreSnapshot` per request.
+- Runs one visible Music Tutor with internal profile modules.
+- Exposes routing plus four score tools.
+- Projects Pi tool lifecycle into correlated renderer-safe events.
+- Never mutates `FileDocument` directly.
 
-- ABC syntax validation (debounced 140ms)
-- rendered SVG score output (`abcjs.renderAbc`)
-- WebAudio synth preparation and audio timing fixes
-- repeat occurrence indexing and score cursor tracking
+### Persistence
 
-### Chat orchestrator and score tools (`components/AgentChatPanel.tsx`)
+- `FileDocument` values, including accepted annotations, remain in IndexedDB.
+- Active-file and workspace preferences remain in their existing stores.
+- File-scoped conversation history remains in versioned local storage and advances from version 2 to version 3.
 
-Owns AI conversation and score interaction:
-
-- reading active file context and active `ScoreAnchor`
-- proposing score metadata, annotation, or ABC edits
-- per-file chat message history persistence
-
-### Local Storage Repository
-
-Owns workspace persistence:
-
-- file document snapshots (`chorale.workspace.documents`)
-- active file ID (`chorale.workspace.activeFileId`)
-- editor preferences (`chorale.workspace.editorVisible`, `chorale.workspace.editorWidth`)
-- debounced autosave (400ms delay)
-
-## 3. Core invariants
-
-### Shared-anchor invariant
-
-Playback, chat, and score selection reference the same `ScoreAnchor` object.
-
-### Revision invariant
-
-Rendered score, validation state, and synth state correspond to the same committed source revision.
-
-### Durability & History invariant
-
-Document revisions are capped at 10 versions per document to prevent storage exhaustion while preserving undo capability.
-
-### User Scroll Pause invariant
-
-Auto-centering score scroll pauses for 2 seconds whenever manual user scrolling is detected.
-
-## 4. TypeScript contracts (`src/types/document.ts`)
+## 3. Core data contracts
 
 ```ts
-type FileId = string;
-type ChatThreadId = string;
-type AnnotationId = string;
-type RevisionNumber = number;
-
 type ScoreAnchor = {
-  measure: number;
+  startMeasure: number;
+  endMeasure: number;
   beat?: number;
   voiceId?: string;
   abcOffset?: number;
@@ -104,64 +70,77 @@ type ScoreAnchor = {
   label?: string;
 };
 
-type ScoreInfo = {
-  title?: string;
-  subtitle?: string;
-  composer?: string;
-  key?: string;
-  meter?: string;
-  tempoText?: string;
-  measures?: number;
+type RationalDuration = {
+  numerator: number;
+  denominator: number;
 };
 
-type Annotation = {
-  id: AnnotationId;
-  kind: 'analysis' | 'harmony' | 'phrase' | 'comment' | 'edit-note';
+type MusicalPosition = {
+  measure: number;
+  offset: RationalDuration;
+};
+
+type AnnotationKind =
+  | 'chord'
+  | 'modulation'
+  | 'voice-leading'
+  | 'explanation';
+
+type AnnotationBase = {
+  id: string;
+  span: { startMeasure: number; endMeasure: number };
   label: string;
   body: string;
-  anchor: ScoreAnchor;
+  source: 'user' | 'assistant';
+  agentProfiles?: AgentProfileId[];
   createdAt: string;
   updatedAt: string;
-  source: 'user' | 'assistant';
 };
 
-type ScoreVersion = {
-  revision: RevisionNumber;
-  abcSource: string;
-  createdAt: string;
-  reason: 'import' | 'manual-edit' | 'tool-apply' | 'restore';
-};
-
-type FileDocument = {
-  id: FileId;
-  name: string;
-  sourceType: 'musicxml' | 'mxl' | 'abc';
-  abcSource: string;
-  revision: RevisionNumber;
-  scoreInfo: ScoreInfo;
-  annotations: Annotation[];
-  chats: ChatThreadSummary[];
-  versions: ScoreVersion[];
-};
-
-type BuildResult = {
-  fileId: FileId;
-  revision: RevisionNumber;
-  validation: 'valid' | 'invalid';
-  errors: Array<{ message: string; line?: number; column?: number }>;
-  renderedTuneCount: number;
-  hasPlayback: boolean;
-};
+type Annotation =
+  | AnnotationBase & {
+      kind: 'chord';
+      position: MusicalPosition;
+      chordSymbol: string;
+      romanNumeral?: string;
+    }
+  | AnnotationBase & {
+      kind: 'modulation' | 'voice-leading' | 'explanation';
+    };
 ```
 
-## 5. Persistence guidance
+The same canonical `Annotation` type crosses document, context, IPC validation, runtime snapshot, tools, and overlay boundaries. Legacy annotation records are normalized at load time before React consumes them.
 
-Current local storage layout:
+## 4. State invariants
 
-- `chorale.workspace.documents`: JSON array of `FileDocument` snapshots
-- `chorale.workspace.activeFileId`: string ID of active document
-- `chorale.workspace.editorVisible`: boolean pane toggle
-- `chorale.workspace.editorWidth`: clamped width in pixels (320–720)
-- `chorale.chat.threads.${fileId}`: per-file chat transcript history
+- `startMeasure <= endMeasure`; a single selection uses equal values.
+- Playback and chat-link navigation use `startMeasure` for a range.
+- Prompt snapshots never change after send.
+- One request creates one parsed `ScoreSnapshot`; tools do not reparse the score.
+- Tools and tool events cannot mutate document state.
+- Apply All validates all eligible proposals and commits all or none in one renderer transaction.
+- Pending proposals are actionable only when document ID and revision still match; otherwise they display Outdated.
+- Annotation edits do not create ABC revisions.
+- Deleting chat cannot delete accepted document annotations.
+- abcjs and React never own the same DOM subtree.
 
-Document changes auto-save with a 400ms debounce. Revision history is trimmed to 10 entries per document.
+## 5. Normalization and migration
+
+- `storageAdapter.getDocuments()` invokes pure `normalizeFileDocument` for IndexedDB and memory paths.
+- `useDocumentStore` owns UI state and mutations, not schema migration.
+- Legacy annotation kinds normalize to the canonical four-kind model.
+- Conversation v2 migrates to v3 with empty/default proposal, profile-route, and tool-display metadata.
+- No IndexedDB object-store migration is needed because annotations remain inline.
+
+## 6. Failure boundaries
+
+- Invalid ABC or invalid normalized score data prevents passage tools from running.
+- IPC validation rejects malformed ranges, rational values, annotations, and oversized fields.
+- Provider and tool errors are summarized without exposing credentials or full score payloads.
+- Request and tool events are correlated by `requestId` and `toolCallId`.
+- Abort, file switch, chat close, reload, or window destruction causes late events to be ignored.
+- Failed autosave retains in-memory data and surfaces the existing save error.
+
+## 7. Deferred architecture
+
+The current data model deliberately omits analysis fingerprints, stale annotation state, dependency tracking, regeneration metadata, agent-initiated deletion, and agent-authored ABC mutations. Those require a separate next-sprint design rather than dormant fields in the MVP schema.

@@ -1,6 +1,6 @@
 # Chorale Design Spec Index
 
-Date: 2026-07-28  
+Date: 2026-08-05
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 This directory splits the design into category-specific specs instead of keeping the entire workspace design in one file.
@@ -8,17 +8,20 @@ This directory splits the design into category-specific specs instead of keeping
 ## Core design specs
 
 - [workspace-layout.md](./workspace-layout.md): top-level workspace structure, header, file rail, resizable sidebars, and central layout
-- [score-surface.md](./score-surface.md): rendered score behavior, multi-measure annotations, key modulation ribbons, Roman numeral analysis tracks, auto-centering playback, and score UI
+- [score-surface.md](./score-surface.md): rendered score behavior, continuous range selection, React-owned annotation overlays, auto-centering playback, and score UI
 - [interaction-model.md](./interaction-model.md): shared `ScoreAnchor` model, repeat-pass resolution, user scroll-pause, and cross-surface interaction flows
 - [abc-editor.md](./abc-editor.md): split-pane editor behavior, draggable divider, validation state, and synchronization requirements
 - [playback-dock.md](./playback-dock.md): playback UI, WebAudio volume/mute controls, seek behavior, and score-cursor alignment
-- [pi-agent-chat.md](./pi-agent-chat.md): resizable chat panel, per-file thread model, context envelope, agent tool registry, and proposal review workflows
+- [pi-agent-chat.md](./pi-agent-chat.md): resizable chat panel, per-file thread model, immutable context envelope, agent tool status, Markdown links, and proposal review
 - [settings-and-auth.md](./settings-and-auth.md): settings modal, custom API endpoint configuration (OpenAI/Anthropic/Ollama/OpenRouter), ChatGPT OAuth authentication, and safe credential storage
 - [file-workspace-architecture.md](./file-workspace-architecture.md): runtime architecture, debounced persistence boundaries, contracts, and invariants
 
 ## Supporting specs
 
 - [pi-agent-feasibility.md](./pi-agent-feasibility.md): prototype feasibility findings for the Pi adapter path
+- [agent-analysis-and-annotations.md](./agent-analysis-and-annotations.md): authoritative product scope, shared contracts, acceptance criteria, and verification strategy for the passage-aware Music Tutor
+- [agent-tools-and-profiles.md](./agent-tools-and-profiles.md): internal profile registry, immutable `ScoreSnapshot`, score tools, and IPC events
+- [annotations-and-proposals.md](./annotations-and-proposals.md): canonical annotation schema, atomic Apply All lifecycle, editing, persistence, and overlay ownership
 
 ## Product summary
 
@@ -29,8 +32,8 @@ The design direction is a file-owned music workspace where score viewing, ABC ed
 - split score and ABC workspace with drag-resizable panes
 - auto-centering playback line with user scroll pause behavior
 - repeat-aware measure selection avoiding unnecessary DOM re-renders
-- structured multi-measure harmonic annotation layer (key modulations, Roman numeral analysis tracks, chord symbols)
-- AI agent runtime equipped with reading, mutation, and annotation tool suites with user proposal review cards
+- structured annotation layers for chord symbols/Roman numerals, modulation, voice leading, and explanations
+- one visible Music Tutor with internal profiles, immutable read-only score tools, and reviewable annotation proposals
 - user-configurable AI authentication (custom API endpoints, API keys, ChatGPT subscription OAuth)
 
 ## Implemented workspace features
@@ -49,6 +52,8 @@ The design direction is a file-owned music workspace where score viewing, ABC ed
 
 ## Specified target features
 
-- [ ] Inline document annotation overlay rendering on notation surface (key ribbons, Roman numeral track, multi-measure spans)
-- [ ] Agent tool handler implementation (`annotate_harmonies`, `replace_abc_range`, `navigate_to_measure`)
-- [ ] Explicit proposal-and-review UI card for AI-suggested ABC edits and annotations
+- [ ] Continuous written-measure range selection and chat context chip
+- [ ] Internal analysis profiles plus read-only score tools (`get_score_summary`, `read_measure_range`, `get_annotations`, `propose_annotations`)
+- [ ] Sanitized Markdown responses with interactive measure links and non-navigating highlighted external links
+- [ ] React-owned annotation overlays for chord, modulation, voice-leading, and explanation annotations
+- [ ] Proposal review with individual Edit/Reject and one atomic turn-level Apply All
