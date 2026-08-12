@@ -1,6 +1,7 @@
 # Annotations and Proposals Implementation Spec
 
 Date: 2026-08-05
+Updated: 2026-08-12
 Status: Approved for implementation in shared music libraries and renderer UI
 
 ## 1. Purpose
@@ -147,6 +148,16 @@ Deleting a chat thread removes pending proposal records but never deletes accept
 
 Manual annotations save directly and bypass proposal state. Agent-initiated deletion is not supported.
 
+Accepted/manual annotation editing lives in the persistent annotation rail beside the score, never
+in a top-of-sheet form. Every accepted range card has a 44px pen control with an accessible tooltip.
+The selected card is replaced by `AnnotationEditor` in place. A chord badge opens the same editor
+temporarily in the rail. Manual creation opens there after the user selects a passage.
+
+All persisted fields remain editable: kind, measure range, label, body, and chord position/symbol
+fields. Save is silent, keeps the passage selected, and reports failures inline. Escape cancels.
+Save, Cancel, and Delete return focus to the initiating control when it still exists, or to the rail
+heading after a kind change or deletion.
+
 ## 6. Overlay architecture
 
 ```text
@@ -161,16 +172,30 @@ The overlay layer creates transparent SVGs aligned with each abcjs SVG. It copie
 
 The overlay background uses `pointer-events: none`; annotation nodes use `pointer-events: auto` and are keyboard focusable.
 
-### 6.1 Tracks
+### 6.1 Score badges and annotation rail
 
-- **Chord:** chord symbol and optional Roman numeral above the staff at `position`.
-- **Modulation:** ribbon across the annotated transition span.
-- **Voice leading:** compact textual callout below the passage.
-- **Explanation:** range marker plus highlighted side sticker for the body.
+- **Chord:** a 20px chord symbol, optional Roman numeral, and visible edit glyph in a square,
+  borderless badge above the staff at `position`.
+- **Modulation, voice leading, and explanation:** square, borderless cards in the persistent rail.
+  They do not render in the score SVG.
 
 Chord layout resolves `measure + rational offset` to a parsed event and then to the current abcjs timing/selectable element. ABC source offsets may be used as ephemeral lookup hints but are never the persisted identity. If no exact rendered event exists, layout uses adjacent onset geometry within the same measure and falls back to the measure bounds.
 
-All tracks share a restrained palette and focused/unfocused states. Clicking or focusing an annotation activates its score span and opens its detail view.
+Chord badge widths come from actual SVG text bounds. Intersecting intervals are packed into stable,
+deterministic vertical lanes with a guaranteed gap. The maximum required lane count feeds back into
+abcjs `stafftopmargin` and `staffsep`, reserving physical space between systems. React continues to
+own the overlay as a sibling of `#paper`.
+
+The rail sorts cards by start measure, end measure, kind, creation timestamp, and source order.
+Collapsed cards show the label and at most two body lines. Activating a card expands its full body,
+collapses the previously expanded card, selects and reveals its span, and keeps focus in the rail.
+The score/rail layout uses two-thirds/one-third tracks at container widths of at least 52rem and
+stacks below that threshold.
+
+Semantic Nordic Ledger tokens provide warning surfaces for modulation, success surfaces for voice
+leading, and accent surfaces for explanations and chords. Selected cards use a stronger matching
+fill plus visible “Selected” text and a check icon, so state never relies on color alone. Annotation
+surfaces are square, borderless, and shadowless.
 
 ## 7. Conversation persistence
 
@@ -186,5 +211,8 @@ Accepted annotations are durable document data. Proposal records are chat data. 
 - Revision or file mismatch renders Outdated and disables actions.
 - Failed/aborted runs render proposals Unavailable.
 - Overlay geometry remains aligned after wrap, zoom, transpose, and resize.
+- Measured chord badge bounds never intersect and abcjs spacing reflects the required lane count.
+- Range cards remain score-sorted, two-line clamped by default, single-expanded, and keyboard usable.
+- Range annotations stay out of score SVGs and chord editing appears temporarily in the rail.
 - Manual and accepted annotations survive reload and Electron restart.
 - Chat deletion cannot remove accepted annotations.

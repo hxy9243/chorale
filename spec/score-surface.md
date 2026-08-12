@@ -1,6 +1,7 @@
 # Score Surface Spec
 
 Date: 2026-08-05
+Updated: 2026-08-12
 Source: `spec/agent-analysis-and-annotations.md`
 
 ## 1. Goal
@@ -37,16 +38,32 @@ React must not render children into the abcjs-owned container. The sibling overl
 
 The overlay background ignores pointer events. Annotation elements are pointer-interactive, keyboard focusable, and expose meaningful accessible names.
 
-## 5. Annotation tracks
+## 5. Annotation score badges and rail
 
-- **Chord:** chord symbol and optional Roman numeral above the staff at its persisted `measure + rational offset`.
-- **Modulation:** ribbon across the annotated transition span.
-- **Voice leading:** compact textual callout below the passage; note-to-note arrows are deferred.
-- **Explanation:** range marker plus highlighted side sticker containing the full body.
+- **Chord:** a collision-free 20px badge above the staff at its persisted `measure + rational offset`.
+  The badge may include a Roman numeral and always exposes a visible edit glyph.
+- **Modulation, voice leading, and explanation:** cards in the annotation rail; they do not render in
+  the score SVG. Note-to-note voice-leading arrows remain deferred.
 
 `annotationLayout` is a pure projection from canonical annotations and rendered indexes to SVG-local placement. ABC source offsets and SVG coordinates are ephemeral lookup data and are never persisted as annotation identity.
 
-All tracks use a restrained shared palette and focused/unfocused states. Focusing an annotation also activates its score span and opens Edit/Delete detail actions.
+Actual chord text bounds determine badge widths. A deterministic interval packer assigns overlapping
+badges to vertical lanes with a fixed gap. The required lane count updates abcjs `stafftopmargin` and
+`staffsep`, so annotation room is part of score geometry rather than an overlapping layer.
+
+The score surface is a responsive `minmax(0, 2fr) / minmax(0, 1fr)` notation/rail grid. Below a 52rem
+container width, the rail stacks under notation. This preserves at least half of the available width
+for notation at all wide layouts.
+
+Range cards are score-sorted, show two lines when collapsed, and allow one expanded card at a time.
+Activating a card selects and reveals its passage without moving focus into the score. Type-specific
+Nordic Ledger surfaces distinguish modulation, voice leading, and explanations. Stronger selected
+fills are paired with text and an icon. All annotation surfaces are square, borderless, and
+shadowless.
+
+Editing and manual creation happen in the rail. Range editors replace their cards in place; chord
+editors appear temporarily in the rail. Focusing a badge or card exposes focus styling only; click,
+Enter, or Space activates it.
 
 ## 6. Chat-reference navigation
 
@@ -60,4 +77,6 @@ A valid `#measure-N` or `#measure-N-M` chat reference:
 
 ## 7. Toolbar
 
-Existing transpose and zoom controls remain. The active-range badge gains a clear action. Annotation-layer toggles may expose Chords, Modulations, Voice Leading, and Explanations without introducing parallel score/editor navigation.
+Existing transpose and zoom controls remain. The active-range badge retains its clear action. The
+annotation rail is the single accepted/manual annotation navigation and editing surface; proposal
+review cards remain in chat.

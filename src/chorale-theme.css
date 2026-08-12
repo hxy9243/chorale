@@ -5688,3 +5688,83 @@ body,
     transition-duration: 0ms;
   }
 }
+
+/* Annotation redesign · semantic Nordic Ledger surfaces */
+.annotation-overlay-node.chord {
+  color: var(--color-annotation-chord-ink);
+}
+
+.annotation-overlay-node.chord .annotation-chord-background {
+  fill: var(--color-annotation-chord-surface);
+  stroke: none;
+}
+
+.annotation-overlay-node.chord.active {
+  color: var(--color-annotation-chord-selected-ink);
+}
+
+.annotation-overlay-node.chord.active .annotation-chord-background {
+  fill: var(--color-annotation-chord-selected);
+}
+
+.annotation-rail-card.annotation-modulation {
+  background: var(--color-annotation-modulation-surface);
+  color: var(--color-annotation-modulation-ink);
+}
+
+.annotation-rail-card.annotation-voice-leading {
+  background: var(--color-annotation-voice-surface);
+  color: var(--color-annotation-voice-ink);
+}
+
+.annotation-rail-card.annotation-explanation {
+  background: var(--color-annotation-explanation-surface);
+  color: var(--color-annotation-explanation-ink);
+}
+
+.annotation-rail-card.annotation-modulation[data-selected="true"] {
+  background: var(--color-annotation-modulation-selected);
+  color: var(--color-annotation-modulation-selected-ink);
+}
+
+.annotation-rail-card.annotation-voice-leading[data-selected="true"] {
+  background: var(--color-annotation-voice-selected);
+  color: var(--color-annotation-voice-selected-ink);
+}
+
+.annotation-rail-card.annotation-explanation[data-selected="true"] {
+  background: var(--color-annotation-explanation-selected);
+  color: var(--color-annotation-explanation-selected-ink);
+}
+
+.annotation-rail-card :is(.annotation-card-meta, .annotation-card-body),
+.annotation-rail-card[data-selected="true"] .annotation-card-selected {
+  color: inherit;
+}
+
+.annotation-rail-card,
+.annotation-card-row,
+.annotation-card-toggle,
+.annotation-card-edit,
+.annotation-rail-create,
+.annotation-rail-transient-editor,
+.annotation-card-editor,
+.annotation-edit-tooltip,
+.annotation-rail .annotation-editor,
+.annotation-rail .annotation-editor :is(button, input, select, textarea, fieldset) {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.annotation-rail-card,
+.annotation-card-toggle,
+.annotation-card-edit,
+.annotation-rail-transient-editor,
+.annotation-card-editor {
+  border: 0;
+}
+
+.annotation-rail-create {
+  background: var(--color-annotation-explanation-selected);
+  color: var(--color-annotation-explanation-selected-ink);
+}
