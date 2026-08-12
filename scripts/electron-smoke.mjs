@@ -670,6 +670,11 @@ try {
     document.querySelector('#settings-tab-appearance')?.click();
     await new Promise((resolve) => setTimeout(resolve, 25));
     const appearanceRect = document.querySelector('.ai-settings-modal')?.getBoundingClientRect();
+    document.querySelector('#settings-tab-diagnostics')?.click();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const diagnosticsRect = document.querySelector('.ai-settings-modal')?.getBoundingClientRect();
+    const diagnosticsTitle = document.querySelector('#settings-panel-diagnostics h3')?.textContent;
+    const diagnosticsOpenButton = document.querySelector('#settings-panel-diagnostics button')?.textContent?.trim();
     document.querySelector('#settings-tab-about')?.click();
     await new Promise((resolve) => setTimeout(resolve, 25));
     const aboutRect = document.querySelector('.ai-settings-modal')?.getBoundingClientRect();
@@ -811,12 +816,14 @@ try {
       settingsPreservedToolsPanel,
       settingsTabsDirection,
       settingsHasSubtitle,
-      settingsFrames: [settingsRect, appearanceRect, aboutRect].map((rect) => rect && ({
+      settingsFrames: [settingsRect, appearanceRect, diagnosticsRect, aboutRect].map((rect) => rect && ({
         x: rect.x,
         y: rect.y,
         width: rect.width,
         height: rect.height,
       })),
+      diagnosticsTitle,
+      diagnosticsOpenButton,
       providerCount: provider?.querySelectorAll('option').length ?? 0,
       sheetZoomBefore,
       sheetZoomAfter,
@@ -942,6 +949,7 @@ try {
   assert(shellState.hasNodeProcess === false, 'Renderer unexpectedly exposes Node process.');
   assert(shellState.bridgeMethods.includes('sendChat'), 'Typed preload bridge is unavailable.');
   assert(shellState.bridgeMethods.includes('startCodexLogin'), 'Codex bridge method is unavailable.');
+  assert(shellState.bridgeMethods.includes('openTraceDirectory'), 'Agent trace bridge method is unavailable.');
   assert(Array.isArray(shellState.connections), 'Connection listing did not cross the preload bridge.');
   assert(shellState.connections.length === 0, 'Electron smoke profile was not isolated.');
   assert(shellState.settingsTitle === 'Settings', 'Settings modal did not open.');
@@ -954,6 +962,11 @@ try {
     `Settings tabs are not vertical (${shellState.settingsTabsDirection}).`,
   );
   assert(shellState.settingsHasSubtitle === false, 'Settings header still contains a subtitle.');
+  assert(
+    shellState.diagnosticsTitle === 'Agent conversation traces'
+      && shellState.diagnosticsOpenButton === 'Open agent trace folder',
+    `Agent trace settings are incomplete (${shellState.diagnosticsTitle}/${shellState.diagnosticsOpenButton}).`,
+  );
   assert(
     shellState.settingsFrames.every((frame) => (
       frame

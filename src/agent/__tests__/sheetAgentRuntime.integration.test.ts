@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import abcjs from 'abcjs';
@@ -13,6 +13,7 @@ import {
   SheetAgentRun,
 } from '../../../electron/ai/sheetAgentRuntime';
 import type { AIEvent, AIModelOption, SheetAgentRequest } from '../aiTypes';
+import { JSONLAgentTraceStore } from '../../../electron/ai/agentTrace';
 
 const directories: string[] = [];
 const servers: Server[] = [];
@@ -50,7 +51,7 @@ const createStore = async (baseUrl: string) => {
     source: 'live',
   };
   await store.updateModels(connection.id, [model]);
-  return { store, connection: store.getConnection(connection.id)!, model };
+  return { directory, store, connection: store.getConnection(connection.id)!, model };
 };
 
 const request: SheetAgentRequest = {
@@ -114,8 +115,9 @@ describe('SheetAgentRun provider transport', () => {
       });
     });
     const port = await listen(server);
-    const { store, connection, model } = await createStore(`http://127.0.0.1:${port}/v1`);
+    const { directory, store, connection, model } = await createStore(`http://127.0.0.1:${port}/v1`);
     const events: AIEvent[] = [];
+    const traceDirectory = path.join(directory, 'agent-traces');
 
     const parseOnly = vi.spyOn(abcjs, 'parseOnly');
     const run = new SheetAgentRun(
@@ -125,6 +127,7 @@ describe('SheetAgentRun provider transport', () => {
       model,
       store,
       (event) => events.push(event),
+      new JSONLAgentTraceStore(traceDirectory),
     );
     expect(run.scoreSnapshot).toMatchObject({
       snapshotId: 'context-current',
@@ -176,6 +179,26 @@ describe('SheetAgentRun provider transport', () => {
     expect(events.filter((event) => event.type === 'chat-delta').map((event) => event.text).join(''))
       .toBe('The dominant resolves to tonic.');
     expect(events.at(-1)).toEqual({ type: 'chat-done', requestId: 'runtime-request' });
+
+    const traceFiles = await readdir(traceDirectory);
+    expect(traceFiles).toHaveLength(1);
+    const traceText = await readFile(path.join(traceDirectory, traceFiles[0]), 'utf8');
+    const traceRecords = traceText.trimEnd().split('\n').map((line) => JSON.parse(line));
+    expect(traceRecords.map((record) => record.event)).toContain('run-start');
+    expect(traceRecords.map((record) => record.event)).toContain('provider-request');
+    expect(traceRecords.map((record) => record.event)).toContain('provider-response');
+    expect(traceRecords.map((record) => record.event)).toContain('agent-event');
+    expect(traceRecords.at(-1)).toMatchObject({
+      event: 'run-end',
+      data: {
+        status: 'complete',
+        selectedProfiles: ['harmony'],
+      },
+    });
+    expect(traceText).toContain('Before making any score-specific claim');
+    expect(traceText).toContain('How does this cadence resolve?');
+    expect(traceText).toContain('The dominant resolves to tonic.');
+    expect(traceText).not.toContain('integration-secret');
   });
 
   it('aborts an in-flight upstream request', async () => {

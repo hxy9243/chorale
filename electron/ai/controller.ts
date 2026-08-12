@@ -15,6 +15,7 @@ import {
 } from './providers';
 import { SheetAgentRun } from './sheetAgentRuntime';
 import type { CodexOAuthAdapter } from './codexOAuth';
+import type { AgentTraceStore } from './agentTrace';
 
 type OAuthFlow = {
   controller: AbortController;
@@ -45,10 +46,19 @@ export class AIController {
 
   private readonly store: AIConnectionStore;
   private readonly codexOAuth: CodexOAuthAdapter;
+  private readonly traceStore?: AgentTraceStore;
+  private readonly openDirectory?: (directory: string) => Promise<string>;
 
-  constructor(store: AIConnectionStore, codexOAuth: CodexOAuthAdapter) {
+  constructor(
+    store: AIConnectionStore,
+    codexOAuth: CodexOAuthAdapter,
+    traceStore?: AgentTraceStore,
+    openDirectory?: (directory: string) => Promise<string>,
+  ) {
     this.store = store;
     this.codexOAuth = codexOAuth;
+    this.traceStore = traceStore;
+    this.openDirectory = openDirectory;
   }
 
   listConnections() {
@@ -131,6 +141,15 @@ export class AIController {
       }
     }
     await this.store.setSelection(selection);
+  }
+
+  async openTraceDirectory() {
+    if (!this.traceStore || !this.openDirectory) {
+      throw new Error('Agent traces are available in the Chorale desktop app.');
+    }
+    await this.traceStore.ensureDirectory();
+    const error = await this.openDirectory(this.traceStore.directory);
+    if (error) throw new Error(`Could not open the agent trace folder: ${error}`);
   }
 
   async logoutConnection(id: string) {
@@ -223,6 +242,7 @@ export class AIController {
       model,
       this.store,
       emit,
+      this.traceStore,
     );
     this.activeRuns.set(requestId, run);
     void run.start().finally(() => this.activeRuns.delete(requestId));

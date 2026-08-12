@@ -4,6 +4,7 @@ import {
   net,
   protocol,
   session,
+  shell,
 } from 'electron';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -12,6 +13,8 @@ import { AIController } from './ai/controller';
 import { ElectronCodexOAuthAdapter } from './ai/codexOAuth';
 import { ElectronSecretCipher } from './ai/electronCipher';
 import { registerAIIPC } from './ipc';
+import { JSONLAgentTraceStore } from './ai/agentTrace';
+import { resolveChoraleDataPaths } from './dataPaths';
 
 protocol.registerSchemesAsPrivileged([{
   scheme: 'app',
@@ -121,12 +124,16 @@ app.whenReady().then(async () => {
     callback(false);
   });
 
-  const store = new AIConnectionStore(
-    path.join(app.getPath('userData'), 'chorale-data'),
-    new ElectronSecretCipher(),
-  );
+  const dataPaths = resolveChoraleDataPaths(app.getPath('userData'));
+  const store = new AIConnectionStore(dataPaths.root, new ElectronSecretCipher());
   await store.initialize();
-  controller = new AIController(store, new ElectronCodexOAuthAdapter());
+  const traceStore = new JSONLAgentTraceStore(dataPaths.agentTraces);
+  controller = new AIController(
+    store,
+    new ElectronCodexOAuthAdapter(),
+    traceStore,
+    (directory) => shell.openPath(directory),
+  );
   removeIPCHandlers = registerAIIPC(controller, () => mainWindow);
   await createWindow();
 

@@ -49,6 +49,27 @@ npm run dev:electron
 
 Electron is required for AI provider credentials, model discovery, OpenAI Codex login, and provider-backed chat.
 
+### Debug agent conversations
+
+Every desktop chat request writes one local `.jsonl` trace beneath Chorale's OS user-data directory. Open **Settings → Agent traces → Open agent trace folder** to locate the files. Each line is a timestamped event with a stable `schemaVersion`, `sequence`, and `requestId`.
+
+The trace covers:
+
+- `run-start`: the system prompt, Pi agent identity, selected provider/model, thinking level, profile modules, tool schemas, rebuilt history, current prompt, and immutable music context;
+- `provider-request` / `provider-response`: the exact payload sent on every model turn and response status metadata;
+- `agent-event`: complete messages plus tool arguments/results and profile-tool output (streaming text deltas are intentionally omitted because `message_end` and `run-end` contain the completed messages);
+- `run-end`: completion/error state, selected profiles, and the full final agent transcript.
+
+For example:
+
+```bash
+jq 'select(.event == "run-start") | .data | {agent, model, systemPrompt, currentPrompt}' <trace>.jsonl
+jq 'select(.event == "provider-request") | .data.payload' <trace>.jsonl
+jq 'select(.event == "run-end") | .data.messages' <trace>.jsonl
+```
+
+Trace files contain score and conversation content verbatim and are not encrypted. Stored provider credentials and sensitive response headers are redacted. Renderer conversation persistence remains a separate, display-oriented localStorage record and is not a full model trace.
+
 ### Run Unit Test Suite
 ```bash
 npm test

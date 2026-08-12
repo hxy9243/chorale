@@ -57,4 +57,37 @@ describe('MarkdownMessage', () => {
     fireEvent.click(screen.getByText('Website'));
     expect(onNavigateMeasure).not.toHaveBeenCalled();
   });
+
+  it('renders completed think tags as collapsed quoted traces', () => {
+    const { container } = render(
+      <MarkdownMessage
+        content={'<think>Check the **dominant** first.</think>\n\nThe cadence resolves.'}
+        totalMeasures={8}
+        onNavigateMeasure={vi.fn()}
+      />,
+    );
+
+    const trace = container.querySelector('details.agent-thinking-trace');
+    expect(trace).not.toBeNull();
+    expect(trace?.hasAttribute('open')).toBe(false);
+    expect(trace?.querySelector('summary')?.textContent).toBe('Thinking');
+    expect(trace?.querySelector('blockquote')?.textContent).toContain('Check the dominant first.');
+    expect(screen.getByText('The cadence resolves.')).toBeDefined();
+    expect(container.textContent).not.toContain('<think>');
+  });
+
+  it('keeps an unfinished streaming think block expanded', () => {
+    const { container } = render(
+      <MarkdownMessage
+        content="<think>Following the inner voices"
+        totalMeasures={8}
+        onNavigateMeasure={vi.fn()}
+      />,
+    );
+
+    const trace = container.querySelector('details.agent-thinking-trace');
+    expect(trace?.hasAttribute('open')).toBe(true);
+    expect(trace?.querySelector('summary')?.textContent).toBe('Thinking…');
+    expect(trace?.querySelector('blockquote')?.textContent).toContain('Following the inner voices');
+  });
 });

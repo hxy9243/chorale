@@ -119,6 +119,7 @@ export type ChoraleAIBridge = {
   getCachedModels(connectionId: string): Promise<AIModelOption[]>;
   getSelection(): Promise<AISelection | null>;
   setSelection(selection: AISelection | null): Promise<void>;
+  openTraceDirectory(): Promise<void>;
   startCodexLogin(): Promise<{ flowId: string }>;
   cancelCodexLogin(flowId: string): Promise<void>;
   logoutConnection(connectionId: string): Promise<void>;

@@ -26,6 +26,7 @@ const bridge: ChoraleAIBridge = {
   setSelection: (selection: AISelection | null) => (
     ipcRenderer.invoke(AI_IPC.setSelection, selection)
   ),
+  openTraceDirectory: () => ipcRenderer.invoke(AI_IPC.openTraceDirectory),
   startCodexLogin: () => ipcRenderer.invoke(AI_IPC.startCodexLogin),
   cancelCodexLogin: (flowId: string) => (
     ipcRenderer.invoke(AI_IPC.cancelCodexLogin, flowId)

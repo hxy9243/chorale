@@ -6,6 +6,7 @@ export const AI_IPC = {
   getCachedModels: 'chorale-ai:get-cached-models',
   getSelection: 'chorale-ai:get-selection',
   setSelection: 'chorale-ai:set-selection',
+  openTraceDirectory: 'chorale-ai:open-trace-directory',
   startCodexLogin: 'chorale-ai:start-codex-login',
   cancelCodexLogin: 'chorale-ai:cancel-codex-login',
   logoutConnection: 'chorale-ai:logout-connection',

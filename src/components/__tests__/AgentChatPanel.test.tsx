@@ -53,6 +53,7 @@ const ai: AIProviderState = {
   deleteConnection: vi.fn(),
   refreshModels: vi.fn(),
   setSelection: vi.fn(),
+  openTraceDirectory: vi.fn(async () => undefined),
   startCodexLogin: vi.fn(),
   cancelCodexLogin: vi.fn(),
 };

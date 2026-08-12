@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ExternalLink, KeyRound, RefreshCw, Trash2, X } from 'lucide-react';
+import { ExternalLink, FolderOpen, KeyRound, RefreshCw, Trash2, X } from 'lucide-react';
 import type { AIConnectionPublic, AIProviderKind, SaveAIConnectionInput } from '../agent/aiTypes';
 import type { AIProviderState } from '../agent/useAIProviders';
 
@@ -11,11 +11,12 @@ type AISettingsModalProps = {
   onInterfaceZoomChange(value: number): void;
 };
 
-type SettingsTab = 'providers' | 'appearance' | 'about';
+type SettingsTab = 'providers' | 'appearance' | 'diagnostics' | 'about';
 
 const SETTINGS_TABS: Array<{ id: SettingsTab; label: string }> = [
   { id: 'providers', label: 'API providers' },
   { id: 'appearance', label: 'Appearance' },
+  { id: 'diagnostics', label: 'Agent traces' },
   { id: 'about', label: 'About' },
 ];
 
@@ -421,6 +422,35 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({
               />
               <button type="button" onClick={() => onInterfaceZoomChange(100)}>Reset to 100%</button>
             </div>
+          </section>
+        )}
+
+        {activeTab === 'diagnostics' && (
+          <section
+            className="ai-settings-single-panel ai-agent-traces"
+            id="settings-panel-diagnostics"
+            role="tabpanel"
+            aria-labelledby="settings-tab-diagnostics"
+          >
+            <h3>Agent conversation traces</h3>
+            <p>Each desktop agent request is saved as a separate JSONL event stream.</p>
+            <div className="ai-trace-details">
+              <p>Traces include the system prompt, selected provider and model, profile definitions and routing, exact provider payloads, score context, tool arguments and results, and the final agent transcript.</p>
+              <p><strong>Private data:</strong> trace files contain your score and conversation verbatim. Saved credentials and sensitive response headers are redacted, but the files themselves are not encrypted.</p>
+              <button
+                type="button"
+                onClick={() => void ai.openTraceDirectory()
+                  .then(() => setMessage('Opened the agent trace folder.'))
+                  .catch((error) => setMessage(
+                    error instanceof Error ? error.message : 'Could not open the agent trace folder.',
+                  ))}
+                disabled={!ai.desktopAvailable}
+              >
+                <FolderOpen size={15} /> Open agent trace folder
+              </button>
+              {!ai.desktopAvailable && <p className="ai-muted">Trace capture is available only in the desktop app.</p>}
+            </div>
+            {message && <div className="ai-settings-message" role="status">{message}</div>}
           </section>
         )}
 

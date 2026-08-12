@@ -27,6 +27,7 @@ export type AIProviderState = {
   deleteConnection(connectionId: string): Promise<void>;
   refreshModels(connectionId: string): Promise<AIModelOption[]>;
   setSelection(selection: AISelection | null): Promise<void>;
+  openTraceDirectory(): Promise<void>;
   startCodexLogin(): Promise<void>;
   cancelCodexLogin(): Promise<void>;
 };
@@ -118,6 +119,11 @@ export const useAIProviders = (): AIProviderState => {
     setSelectionState(nextSelection);
   }, [bridge]);
 
+  const openTraceDirectory = useCallback(async () => {
+    if (!bridge) throw new Error('Agent traces require the Chorale desktop app.');
+    await bridge.openTraceDirectory();
+  }, [bridge]);
+
   const startCodexLogin = useCallback(async () => {
     if (!bridge) throw new Error('AI providers require the Chorale desktop app.');
     const result = await bridge.startCodexLogin();
@@ -147,6 +153,7 @@ export const useAIProviders = (): AIProviderState => {
     deleteConnection,
     refreshModels,
     setSelection,
+    openTraceDirectory,
     startCodexLogin,
     cancelCodexLogin,
   }), [
@@ -162,6 +169,7 @@ export const useAIProviders = (): AIProviderState => {
     deleteConnection,
     refreshModels,
     setSelection,
+    openTraceDirectory,
     startCodexLogin,
     cancelCodexLogin,
   ]);

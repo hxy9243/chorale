@@ -60,6 +60,7 @@ export const registerAIIPC = (
   handle(AI_IPC.setSelection, 1, (_event, selection: unknown) => (
     controller.setSelection(validateSelection(selection))
   ));
+  handle(AI_IPC.openTraceDirectory, 0, () => controller.openTraceDirectory());
   handle(AI_IPC.startCodexLogin, 0, (event) => controller.startCodexLogin(emit(event)));
   handle(AI_IPC.cancelCodexLogin, 1, (_event, flowId: unknown) => (
     controller.cancelCodexLogin(assertShortId(flowId, 'OAuth flow ID'))

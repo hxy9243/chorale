@@ -28,6 +28,7 @@ const makeAIState = (overrides: Partial<AIProviderState> = {}): AIProviderState 
   deleteConnection: vi.fn(),
   refreshModels: vi.fn(),
   setSelection: vi.fn(),
+  openTraceDirectory: vi.fn(async () => undefined),
   startCodexLogin: vi.fn(),
   cancelCodexLogin: vi.fn(),
   ...overrides,
@@ -149,6 +150,18 @@ describe('AISettingsModal', () => {
     expect(screen.getAllByText('Chorale')).toHaveLength(2);
     expect(screen.getByText('Release')).toBeDefined();
     expect(screen.getByText('v0.0.0')).toBeDefined();
+  });
+
+  it('opens the desktop JSONL trace folder without exposing implementation paths', async () => {
+    const ai = makeAIState();
+    render(<AISettingsModal open onClose={() => undefined} ai={ai} {...zoomProps} />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Agent traces' }));
+    expect(screen.queryByText(/\.tsx?$/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Open agent trace folder' }));
+
+    await waitFor(() => expect(ai.openTraceDirectory).toHaveBeenCalledOnce());
+    expect(screen.getByText('Opened the agent trace folder.')).toBeDefined();
   });
 
   it('keeps every settings section inside the same dialog frame', () => {
