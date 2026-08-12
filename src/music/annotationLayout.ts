@@ -66,6 +66,17 @@ export type ChordStaffSpacing = Readonly<{
   staffsep: number;
 }>;
 
+export type AnnotationRailCardAnchor = Readonly<{
+  id: string;
+  targetY: number;
+  height: number;
+}>;
+
+export type PositionedAnnotationRailCard = AnnotationRailCardAnchor & Readonly<{
+  top: number;
+  bottom: number;
+}>;
+
 export type AnnotationLayoutInput = Readonly<{
   annotations: readonly Annotation[];
   systems: readonly RenderedScoreSystem[];
@@ -79,6 +90,7 @@ export const CHORD_BADGE_HEIGHT = 38;
 export const CHORD_BADGE_GAP = 6;
 const BASE_STAFF_SEPARATION = 61;
 const CHORD_STAFF_CLEARANCE = 12;
+export const ANNOTATION_RAIL_CARD_GAP = 12;
 
 export const packChordBadgeIntervals = (
   intervals: readonly ChordBadgeInterval[],
@@ -172,6 +184,70 @@ export const chordStaffSpacing = (): ChordStaffSpacing => {
     stafftopmargin: reservedHeight + CHORD_STAFF_CLEARANCE,
     staffsep: BASE_STAFF_SEPARATION + reservedHeight + CHORD_STAFF_CLEARANCE,
   };
+};
+
+export const packAnnotationRailCards = (
+  anchors: readonly AnnotationRailCardAnchor[],
+  gap = ANNOTATION_RAIL_CARD_GAP,
+  minTop = 0,
+): PositionedAnnotationRailCard[] => {
+  const positioned = new Map<string, PositionedAnnotationRailCard>();
+  const ordered = anchors
+    .map((anchor, sourceIndex) => ({ anchor, sourceIndex }))
+    .sort((left, right) => (
+      left.anchor.targetY - right.anchor.targetY || left.sourceIndex - right.sourceIndex
+    ));
+
+  const flushCluster = (
+    cluster: Array<Readonly<{
+      anchor: AnnotationRailCardAnchor;
+      desiredTop: number;
+      packedTop: number;
+      height: number;
+    }>>,
+  ) => {
+    if (cluster.length === 0) return;
+    const averageDisplacement = cluster.reduce(
+      (total, item) => total + item.packedTop - item.desiredTop,
+      0,
+    ) / cluster.length;
+    const shift = Math.max(-averageDisplacement, minTop - cluster[0].packedTop);
+    for (const item of cluster) {
+      const top = item.packedTop + shift;
+      positioned.set(item.anchor.id, {
+        ...item.anchor,
+        height: item.height,
+        top,
+        bottom: top + item.height,
+      });
+    }
+  };
+
+  let cluster: Array<Readonly<{
+    anchor: AnnotationRailCardAnchor;
+    desiredTop: number;
+    packedTop: number;
+    height: number;
+  }>> = [];
+  let packedBottom = -Infinity;
+  for (const { anchor } of ordered) {
+    const height = Math.max(0, anchor.height);
+    const desiredTop = anchor.targetY - height / 2;
+    if (cluster.length > 0 && desiredTop >= packedBottom + gap) {
+      flushCluster(cluster);
+      cluster = [];
+      packedBottom = -Infinity;
+    }
+    const packedTop = Math.max(desiredTop, packedBottom + gap);
+    cluster.push({ anchor, desiredTop, packedTop, height });
+    packedBottom = packedTop + height;
+  }
+  flushCluster(cluster);
+
+  return anchors.flatMap((anchor) => {
+    const result = positioned.get(anchor.id);
+    return result ? [result] : [];
+  });
 };
 
 const equalPosition = (left: MusicalPosition, right: MusicalPosition) => (

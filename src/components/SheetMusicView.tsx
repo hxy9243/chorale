@@ -25,7 +25,7 @@ import {
   type SmoothScrollController,
 } from '../utils/autoScroll';
 import { AnnotationEditor } from './AnnotationEditor';
-import { AnnotationOverlay } from './AnnotationOverlay';
+import { AnnotationOverlay, type AnnotationRailGeometry } from './AnnotationOverlay';
 import { chordStaffSpacing } from '../music/annotationLayout';
 import { AnnotationRail } from './AnnotationRail';
 
@@ -290,6 +290,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const sheetViewportRef = useRef<HTMLDivElement>(null);
   const [internalZoom, setInternalZoom] = useState<number>(zoom);
   const currentZoom = onZoomChange !== undefined ? zoom : internalZoom;
   const [transpose, setTranspose] = useState<number>(0);
@@ -298,6 +299,24 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   const [annotationEditor, setAnnotationEditor] = useState<
     { mode: 'manual' } | { mode: 'accepted'; annotationId: AnnotationId } | null
   >(null);
+  const [annotationRailGeometry, setAnnotationRailGeometry] = useState<AnnotationRailGeometry>({
+    anchorYByAnnotationId: {},
+    scoreHeight: 0,
+  });
+
+  const handleAnnotationRailGeometry = React.useCallback((geometry: AnnotationRailGeometry) => {
+    setAnnotationRailGeometry((current) => {
+      const keys = Object.keys(geometry.anchorYByAnnotationId);
+      if (
+        current.scoreHeight === geometry.scoreHeight
+        && keys.length === Object.keys(current.anchorYByAnnotationId).length
+        && keys.every((key) => (
+          current.anchorYByAnnotationId[key] === geometry.anchorYByAnnotationId[key]
+        ))
+      ) return current;
+      return geometry;
+    });
+  }, []);
 
   useEffect(() => {
     setAnnotationEditor(null);
@@ -320,6 +339,44 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       setInternalZoom(clamped);
     }
   }, [onZoomChange]);
+
+  React.useLayoutEffect(() => {
+    const viewport = sheetViewportRef.current;
+    if (!viewport) return;
+    let frame: number | null = null;
+    let attempts = 0;
+    const center = () => {
+      frame = null;
+      const content = viewport.firstElementChild;
+      if (!(content instanceof HTMLElement)) return;
+      const viewportRect = viewport.getBoundingClientRect();
+      const contentRect = content.getBoundingClientRect();
+      const delta = contentRect.left + contentRect.width / 2
+        - (viewportRect.left + viewportRect.width / 2);
+      if (Math.abs(delta) <= 0.5 || attempts >= 4) return;
+      viewport.scrollLeft += delta;
+      attempts += 1;
+      frame = window.requestAnimationFrame(center);
+    };
+    const schedule = () => {
+      if (frame !== null) return;
+      attempts = 0;
+      frame = window.requestAnimationFrame(center);
+    };
+    schedule();
+    if (typeof ResizeObserver === 'undefined') {
+      return () => {
+        if (frame !== null) window.cancelAnimationFrame(frame);
+      };
+    }
+    const observer = new ResizeObserver(schedule);
+    observer.observe(viewport);
+    if (viewport.firstElementChild) observer.observe(viewport.firstElementChild);
+    return () => {
+      observer.disconnect();
+      if (frame !== null) window.cancelAnimationFrame(frame);
+    };
+  }, [currentZoom, renderGeneration]);
 
   useEffect(() => {
     const element = cardRef.current;
@@ -845,8 +902,9 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       )}
 
       <div className="sheet-annotation-layout">
+        <div className="sheet-layout-balance" aria-hidden="true" />
         <div className="sheet-notation-column">
-          <div className="sheet-viewport">
+          <div ref={sheetViewportRef} className="sheet-viewport">
             <div
               className="sheet-zoom-wrapper"
               style={{
@@ -866,6 +924,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                 activeAnnotationId={
                   annotationEditor?.mode === 'accepted' ? annotationEditor.annotationId : null
                 }
+                onRangeGeometry={handleAnnotationRailGeometry}
                 onActivate={(annotation) => {
                   onSelectAnchor?.(annotation.span);
                   setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
@@ -874,23 +933,37 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
             </div>
           </div>
         </div>
-        <AnnotationRail
-          annotations={annotations}
-          activeAnchorLabel={formatAnchorLabel(activeAnchor)}
-          canCreate={Boolean(onCreateAnnotation)}
-          editing={annotationEditor}
-          editor={annotationEditorNode}
-          onSelect={selectRangeAnnotation}
-          onCreate={() => setAnnotationEditor({ mode: 'manual' })}
-          onEdit={(annotation) => {
-            onSelectAnchor?.(annotation.span);
-            const hitArea = containerRef.current?.querySelector<SVGElement>(
-              `.abcjs-measure-hit-area[data-measure="${annotation.span.startMeasure}"]`,
-            );
-            hitArea?.scrollIntoView?.({ block: 'center', inline: 'nearest' });
-            setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
-          }}
-        />
+        <div className="annotation-rail-viewport">
+          <div
+            className="annotation-rail-zoom"
+            data-score-zoom={currentZoom}
+            style={{
+              zoom: currentZoom / 100,
+              width: '100%',
+              marginInline: 'auto',
+            }}
+          >
+            <AnnotationRail
+              annotations={annotations}
+              activeAnchorLabel={formatAnchorLabel(activeAnchor)}
+              canCreate={Boolean(onCreateAnnotation)}
+              editing={annotationEditor}
+              editor={annotationEditorNode}
+              anchorYByAnnotationId={annotationRailGeometry.anchorYByAnnotationId}
+              scoreHeight={annotationRailGeometry.scoreHeight}
+              onSelect={selectRangeAnnotation}
+              onCreate={() => setAnnotationEditor({ mode: 'manual' })}
+              onEdit={(annotation) => {
+                onSelectAnchor?.(annotation.span);
+                const hitArea = containerRef.current?.querySelector<SVGElement>(
+                  `.abcjs-measure-hit-area[data-measure="${annotation.span.startMeasure}"]`,
+                );
+                hitArea?.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+                setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
+              }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

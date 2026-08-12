@@ -5383,8 +5383,28 @@ body,
   align-items: start;
 }
 
+.sheet-layout-balance {
+  display: none;
+}
+
 .sheet-notation-column {
   min-width: 0;
+}
+
+.sheet-notation-column .abcjs-paper-container > svg {
+  display: block;
+  margin-inline: auto;
+}
+
+.annotation-rail-viewport {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.annotation-rail-zoom {
+  min-width: 0;
+  transform-origin: top left;
 }
 
 .annotation-rail {
@@ -5423,6 +5443,13 @@ body,
   color: var(--color-muted);
   font-size: var(--text-base);
   line-height: 1.5;
+}
+
+.annotation-rail-actions {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  gap: var(--space-2xs);
 }
 
 .annotation-rail-count {
@@ -5564,28 +5591,55 @@ body,
   outline-offset: -3px;
 }
 
-@container (min-width: 52rem) {
+@container (min-width: 64rem) {
   .sheet-annotation-layout {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    grid-template-columns: minmax(14rem, 1fr) minmax(0, 4fr) minmax(14rem, 1fr);
+  }
+
+  .sheet-layout-balance {
+    display: block;
+    grid-column: 1;
+  }
+
+  .sheet-notation-column {
+    grid-column: 2;
+  }
+
+  .annotation-rail-viewport {
+    grid-column: 3;
   }
 
   .annotation-rail {
     position: sticky;
     top: var(--space-md);
+    min-height: var(--annotation-score-height, auto);
     max-height: calc(100dvh - (2 * var(--space-md)));
     overflow-y: auto;
+  }
+
+  .annotation-rail-list[data-score-aligned="true"] {
+    position: relative;
+    min-height: var(--annotation-list-height);
+  }
+
+  .annotation-rail-list[data-score-aligned="true"] .annotation-rail-card {
+    position: absolute;
+    right: 0;
+    left: 0;
   }
 }
 
 /* Annotation redesign · in-place rail controls */
 .annotation-rail-create {
   display: inline-flex;
+  position: relative;
+  width: 2.75rem;
   min-height: 2.75rem;
-  max-width: 100%;
+  flex: none;
   align-items: center;
-  gap: var(--space-xs);
-  margin-block-end: var(--space-md);
-  padding: var(--space-xs) var(--space-sm);
+  justify-content: center;
+  margin: 0;
+  padding: 0;
   border: 0;
   border-radius: 0;
   background: var(--color-accent);
@@ -5594,6 +5648,16 @@ body,
   font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.annotation-rail-create span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .annotation-rail-create svg {
