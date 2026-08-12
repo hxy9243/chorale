@@ -243,11 +243,11 @@ describe('SheetMusicView Component', () => {
   it('renders interactive annotations in a view-box-aligned React sibling overlay', async () => {
     const onSelectAnchor = vi.fn();
     let sourceWidth = 400;
-    let resizeOverlay: ResizeObserverCallback | null = null;
+    const resizeObservers: ResizeObserverCallback[] = [];
     const OriginalResizeObserver = globalThis.ResizeObserver;
     globalThis.ResizeObserver = class {
       constructor(callback: ResizeObserverCallback) {
-        resizeOverlay = callback;
+        resizeObservers.push(callback);
       }
       observe() {}
       unobserve() {}
@@ -332,9 +332,15 @@ describe('SheetMusicView Component', () => {
       .toBe('0 0 400 140');
     expect(overlayNode.getAttribute('data-annotation-id')).toBe('overlay-chord');
     expect(container.querySelector('.sheet-annotation-layout')).not.toBeNull();
+    expect(container.querySelector('.sheet-layout-balance')).not.toBeNull();
     expect(container.querySelector('.annotation-overlay-node.explanation')).toBeNull();
     expect(container.querySelector('.annotation-card-toggle')?.getAttribute('aria-expanded'))
       .toBe('false');
+    await waitFor(() => expect(
+      container.querySelector('[data-annotation-id="overlay-explanation"]')
+        ?.getAttribute('data-annotation-anchor-y'),
+    ).toBe('65'));
+    expect((container.querySelector('.annotation-rail-zoom') as HTMLElement).style.zoom).toBe('1');
 
     expect(overlayNode.getAttribute('tabindex')).toBe('0');
     fireEvent.focus(overlayNode);
@@ -364,10 +370,13 @@ describe('SheetMusicView Component', () => {
     frameSpy.mockClear();
     sourceWidth = 500;
     act(() => {
-      resizeOverlay?.([], {} as ResizeObserver);
-      resizeOverlay?.([], {} as ResizeObserver);
+      resizeObservers.forEach((observer) => {
+        observer([], {} as ResizeObserver);
+        observer([], {} as ResizeObserver);
+      });
     });
-    expect(frameSpy).toHaveBeenCalledTimes(1);
+    expect(frameSpy.mock.calls.length).toBeGreaterThan(0);
+    expect(frameSpy.mock.calls.length).toBeLessThanOrEqual(resizeObservers.length);
     await waitFor(() => expect(
       container.querySelector<SVGSVGElement>('.annotation-overlay-system')?.style.width,
     ).toBe('500px'));

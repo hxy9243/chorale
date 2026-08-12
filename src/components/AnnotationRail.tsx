@@ -1,6 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, PenLine, Plus } from 'lucide-react';
 import type { Annotation, AnnotationId, RangeAnnotation } from '../types/document';
+import {
+  ANNOTATION_RAIL_CARD_GAP,
+  packAnnotationRailCards,
+} from '../music/annotationLayout';
 
 export type AnnotationRailEditor =
   | Readonly<{ mode: 'manual' }>
@@ -12,6 +16,8 @@ interface AnnotationRailProps {
   canCreate: boolean;
   editing: AnnotationRailEditor | null;
   editor: React.ReactNode;
+  anchorYByAnnotationId?: Readonly<Record<string, number>>;
+  scoreHeight?: number;
   onSelect(annotation: RangeAnnotation, initiator: HTMLButtonElement): void;
   onCreate(initiator: HTMLButtonElement): void;
   onEdit(annotation: RangeAnnotation, initiator: HTMLButtonElement): void;
@@ -54,6 +60,8 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({
   canCreate,
   editing,
   editor,
+  anchorYByAnnotationId = {},
+  scoreHeight = 0,
   onSelect,
   onCreate,
   onEdit,
@@ -61,6 +69,14 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({
   const rangeAnnotations = useMemo(() => sortRangeAnnotations(annotations), [annotations]);
   const [expandedId, setExpandedId] = useState<AnnotationId | null>(null);
   const [dismissedTooltipId, setDismissedTooltipId] = useState<AnnotationId | null>(null);
+  const railRef = useRef<HTMLElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef(new Map<AnnotationId, HTMLElement>());
+  const [cardLayout, setCardLayout] = useState<Readonly<{
+    aligned: boolean;
+    listHeight: number;
+    topByAnnotationId: Readonly<Record<string, number>>;
+  }>>({ aligned: false, listHeight: 0, topByAnnotationId: {} });
 
   useEffect(() => {
     if (expandedId && !rangeAnnotations.some(({ id }) => id === expandedId)) {
@@ -68,30 +84,88 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({
     }
   }, [expandedId, rangeAnnotations]);
 
+  useLayoutEffect(() => {
+    const rail = railRef.current;
+    const list = listRef.current;
+    if (!rail || !list) return;
+    let frame: number | null = null;
+    const measure = () => {
+      frame = null;
+      const listTop = list.offsetTop;
+      const anchors = rangeAnnotations.flatMap((annotation) => {
+        const targetY = anchorYByAnnotationId[annotation.id];
+        const card = cardRefs.current.get(annotation.id);
+        return Number.isFinite(targetY) && card
+          ? [{ id: annotation.id, targetY: targetY - listTop, height: card.offsetHeight }]
+          : [];
+      });
+      const aligned = anchors.length > 0 && anchors.length === rangeAnnotations.length;
+      const packed = aligned
+        ? packAnnotationRailCards(anchors, ANNOTATION_RAIL_CARD_GAP, -listTop)
+        : [];
+      const topByAnnotationId = Object.fromEntries(packed.map(({ id, top }) => [id, top]));
+      const packedBottom = packed.reduce((bottom, card) => Math.max(bottom, card.bottom), 0);
+      const listHeight = aligned
+        ? Math.max(0, scoreHeight - listTop, packedBottom)
+        : 0;
+      setCardLayout((current) => {
+        const keys = Object.keys(topByAnnotationId);
+        if (
+          current.aligned === aligned
+          && current.listHeight === listHeight
+          && keys.length === Object.keys(current.topByAnnotationId).length
+          && keys.every((key) => current.topByAnnotationId[key] === topByAnnotationId[key])
+        ) return current;
+        return { aligned, listHeight, topByAnnotationId };
+      });
+    };
+    const schedule = () => {
+      if (frame !== null) return;
+      frame = window.requestAnimationFrame(measure);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(schedule);
+    observer.observe(rail);
+    observer.observe(list);
+    cardRefs.current.forEach((card) => observer.observe(card));
+    return () => {
+      observer.disconnect();
+      if (frame !== null) window.cancelAnimationFrame(frame);
+    };
+  }, [anchorYByAnnotationId, editing, expandedId, rangeAnnotations, scoreHeight]);
+
   return (
-    <aside className="annotation-rail" aria-labelledby="annotation-rail-title">
+    <aside
+      ref={railRef}
+      className="annotation-rail"
+      aria-labelledby="annotation-rail-title"
+      style={{ '--annotation-score-height': `${scoreHeight}px` } as React.CSSProperties}
+    >
       <header className="annotation-rail-header">
         <div>
           <h4 id="annotation-rail-title" data-annotation-rail-heading tabIndex={-1}>Annotations</h4>
-          <p>Notes linked to passages in the score.</p>
+          <p>Notes tied to score passages.</p>
         </div>
-        <span className="annotation-rail-count" aria-label={`${rangeAnnotations.length} range annotations`}>
-          {rangeAnnotations.length}
-        </span>
+        <div className="annotation-rail-actions">
+          <span className="annotation-rail-count" aria-label={`${rangeAnnotations.length} range annotations`}>
+            {rangeAnnotations.length}
+          </span>
+          {canCreate && activeAnchorLabel && (
+            <button
+              type="button"
+              className="annotation-rail-create"
+              data-create-annotation
+              aria-label={`Add annotation to ${activeAnchorLabel}`}
+              title={`Add annotation to ${activeAnchorLabel}`}
+              onClick={(event) => onCreate(event.currentTarget)}
+            >
+              <Plus aria-hidden="true" />
+              <span>Add to {activeAnchorLabel}</span>
+            </button>
+          )}
+        </div>
       </header>
-
-      {canCreate && activeAnchorLabel && (
-        <button
-          type="button"
-          className="annotation-rail-create"
-          data-create-annotation
-          aria-label={`Add annotation to ${activeAnchorLabel}`}
-          onClick={(event) => onCreate(event.currentTarget)}
-        >
-          <Plus aria-hidden="true" />
-          <span>Add to {activeAnchorLabel}</span>
-        </button>
-      )}
 
       {editing?.mode === 'manual' && (
         <section className="annotation-rail-transient-editor" aria-label="New annotation">
@@ -112,16 +186,30 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({
           <span>Select measures to add a modulation, voice-leading note, or explanation.</span>
         </div>
       ) : (
-        <div className="annotation-rail-list">
+        <div
+          ref={listRef}
+          className="annotation-rail-list"
+          data-score-aligned={cardLayout.aligned ? 'true' : 'false'}
+          style={{ '--annotation-list-height': `${cardLayout.listHeight}px` } as React.CSSProperties}
+        >
           {rangeAnnotations.map((annotation) => {
             const expanded = expandedId === annotation.id;
             const bodyId = `annotation-body-${annotation.id}`;
             return (
               <article
                 key={annotation.id}
+                ref={(element) => {
+                  if (element) cardRefs.current.set(annotation.id, element);
+                  else cardRefs.current.delete(annotation.id);
+                }}
                 className={`annotation-rail-card annotation-${annotation.kind}`}
+                data-annotation-id={annotation.id}
                 data-annotation-kind={annotation.kind}
+                data-annotation-anchor-y={anchorYByAnnotationId[annotation.id]}
                 data-selected={expanded ? 'true' : 'false'}
+                style={cardLayout.aligned ? {
+                  top: `${cardLayout.topByAnnotationId[annotation.id]}px`,
+                } : undefined}
               >
                 {editing?.mode === 'accepted' && editing.annotationId === annotation.id ? (
                   <section className="annotation-card-editor" aria-label={`${annotation.label} editor`}>

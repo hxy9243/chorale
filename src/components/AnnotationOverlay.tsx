@@ -32,7 +32,13 @@ type PositionedSystem = RenderedScoreSystem & Readonly<{
 
 type OverlayLayout = Readonly<{
   systems: PositionedSystem[];
+  measures: RenderedMeasureGeometry[];
   placements: AnnotationPlacement[];
+}>;
+
+export type AnnotationRailGeometry = Readonly<{
+  anchorYByAnnotationId: Readonly<Record<string, number>>;
+  scoreHeight: number;
 }>;
 
 interface AnnotationOverlayProps {
@@ -44,6 +50,7 @@ interface AnnotationOverlayProps {
   zoom: number;
   activeAnnotationId?: string | null;
   onActivate(annotation: Annotation, initiator: SVGGElement): void;
+  onRangeGeometry?(geometry: AnnotationRailGeometry): void;
 }
 
 const safeBounds = (element: SVGGraphicsElement): SvgLocalBounds | null => {
@@ -129,7 +136,7 @@ const captureLayout = (
 ): OverlayLayout => {
   const wrapper = paper.parentElement;
   if (!wrapper || !abcCode.trim() || annotations.length === 0) {
-    return { systems: [], placements: [] };
+    return { systems: [], measures: [], placements: [] };
   }
   const scale = zoom / 100 || 1;
   const wrapperRect = wrapper.getBoundingClientRect();
@@ -216,7 +223,49 @@ const captureLayout = (
 
   return {
     systems,
+    measures,
     placements: projectAnnotations({ annotations, systems, measures, events }),
+  };
+};
+
+const localYToWrapperY = (system: PositionedSystem, localY: number) => {
+  const [, viewBoxY = 0, , viewBoxHeight = system.height] = system.viewBox
+    .split(/[ ,]+/)
+    .map(Number);
+  const scale = viewBoxHeight > 0 ? system.height / viewBoxHeight : 1;
+  return system.top + (localY - viewBoxY) * scale;
+};
+
+const rangeGeometry = (
+  layout: OverlayLayout,
+  annotations: readonly Annotation[],
+): AnnotationRailGeometry => {
+  const systems = new Map(layout.systems.map((system) => [system.id, system]));
+  const anchorYByAnnotationId: Record<string, number> = {};
+  for (const annotation of annotations) {
+    if (annotation.kind === 'chord') continue;
+    const centers = layout.measures.flatMap((measure) => {
+      if (
+        measure.measure < annotation.span.startMeasure
+        || measure.measure > annotation.span.endMeasure
+      ) return [];
+      const system = systems.get(measure.systemId);
+      return system
+        ? [localYToWrapperY(system, measure.bounds.y + measure.bounds.height / 2)]
+        : [];
+    });
+    if (centers.length > 0) {
+      anchorYByAnnotationId[annotation.id] = (
+        Math.min(...centers) + Math.max(...centers)
+      ) / 2;
+    }
+  }
+  return {
+    anchorYByAnnotationId,
+    scoreHeight: layout.systems.reduce(
+      (height, system) => Math.max(height, system.top + system.height),
+      0,
+    ),
   };
 };
 
@@ -331,21 +380,21 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
   zoom,
   activeAnnotationId = null,
   onActivate,
+  onRangeGeometry,
 }) => {
-  const [layout, setLayout] = useState<OverlayLayout>({ systems: [], placements: [] });
+  const [layout, setLayout] = useState<OverlayLayout>({
+    systems: [],
+    measures: [],
+    placements: [],
+  });
   const [chordWidths, setChordWidths] = useState<Record<string, number>>({});
   const frameRef = useRef<number | null>(null);
   const measurementRefs = useRef(new Map<string, SVGGElement>());
-  const chordAnnotations = useMemo(
-    () => annotations.filter((annotation) => annotation.kind === 'chord'),
-    [annotations],
-  );
-
   useEffect(() => {
     const paper = paperRef.current;
     if (!paper) return;
-    if (chordAnnotations.length === 0 || !abcCode.trim()) {
-      setLayout({ systems: [], placements: [] });
+    if (annotations.length === 0 || !abcCode.trim()) {
+      setLayout({ systems: [], measures: [], placements: [] });
       return;
     }
     const schedule = () => {
@@ -353,9 +402,9 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
       frameRef.current = window.requestAnimationFrame(() => {
         frameRef.current = null;
         try {
-          setLayout(captureLayout(paper, abcCode, chordAnnotations, tune, zoom));
+          setLayout(captureLayout(paper, abcCode, annotations, tune, zoom));
         } catch {
-          setLayout({ systems: [], placements: [] });
+          setLayout({ systems: [], measures: [], placements: [] });
         }
       });
     };
@@ -374,7 +423,11 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
       if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
       frameRef.current = null;
     };
-  }, [abcCode, chordAnnotations, paperRef, renderGeneration, tune, zoom]);
+  }, [abcCode, annotations, paperRef, renderGeneration, tune, zoom]);
+
+  useEffect(() => {
+    onRangeGeometry?.(rangeGeometry(layout, annotations));
+  }, [annotations, layout, onRangeGeometry]);
 
   useLayoutEffect(() => {
     const widths: Record<string, number> = {};
@@ -459,8 +512,10 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
                 </g>
               ))}
           </g>
-          {layout.placements.filter(({ systemId }) => systemId === system.id).map((placement) => {
-            const annotation = annotationForPlacement(chordAnnotations, placement);
+          {layout.placements.filter(({ systemId, track }) => (
+            systemId === system.id && track === 'chord'
+          )).map((placement) => {
+            const annotation = annotationForPlacement(annotations, placement);
             if (!annotation) return null;
             const packedChord = placement.track === 'chord'
               ? packedChordById.get(placement.id)

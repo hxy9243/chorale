@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Annotation } from '../../types/document';
 import {
   chordStaffSpacing,
+  packAnnotationRailCards,
   packChordBadgeIntervals,
   projectAnnotations,
   requiredChordLaneCount,
@@ -99,6 +100,24 @@ describe('annotation layout projection', () => {
 
   it('always reserves one fixed chord band so annotations cannot reflow the score', () => {
     expect(chordStaffSpacing()).toEqual({ stafftopmargin: 50, staffsep: 111 });
+  });
+
+  it('packs rail cards close to their measure centers without vertical overlap', () => {
+    const packed = packAnnotationRailCards([
+      { id: 'first', targetY: 100, height: 80 },
+      { id: 'same-system', targetY: 120, height: 60 },
+      { id: 'later-system', targetY: 300, height: 40 },
+    ]);
+
+    expect(packed[0]).toMatchObject({ top: 29, bottom: 109 });
+    expect(packed[1]).toMatchObject({ top: 121, bottom: 181 });
+    expect(packed[2]).toMatchObject({ top: 280, bottom: 320 });
+    expect(packed[1].top - packed[0].bottom).toBe(12);
+    expect(packAnnotationRailCards([
+      { id: 'first', targetY: 100, height: 80 },
+      { id: 'same-system', targetY: 120, height: 60 },
+      { id: 'later-system', targetY: 300, height: 40 },
+    ])).toEqual(packed);
   });
 
   it('uses one onset for simultaneous voices and interpolates missing rendered onsets', () => {

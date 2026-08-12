@@ -91,6 +91,33 @@ describe('AnnotationRail', () => {
     expect(screen.getByLabelText('0 range annotations')).toBeDefined();
   });
 
+  it('positions range cards against their rendered measure heights', () => {
+    const anchorYByAnnotationId = {
+      modulation: 120,
+      explanation: 240,
+      voice: 360,
+      later: 480,
+    };
+    const { container } = render(
+      <AnnotationRail
+        {...inertProps}
+        annotations={rangeAnnotations}
+        anchorYByAnnotationId={anchorYByAnnotationId}
+        scoreHeight={600}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    const list = container.querySelector<HTMLElement>('.annotation-rail-list')!;
+    expect(list.dataset.scoreAligned).toBe('true');
+    expect(list.style.getPropertyValue('--annotation-list-height')).toBe('600px');
+    for (const [id, anchorY] of Object.entries(anchorYByAnnotationId)) {
+      const card = container.querySelector<HTMLElement>(`[data-annotation-id="${id}"]`)!;
+      expect(card.dataset.annotationAnchorY).toBe(String(anchorY));
+      expect(card.style.top).toBe(`${anchorY}px`);
+    }
+  });
+
   it('offers 44px edit controls and replaces the chosen card with its editor', () => {
     const onEdit = vi.fn();
     const { rerender } = render(

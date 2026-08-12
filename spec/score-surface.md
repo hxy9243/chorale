@@ -52,15 +52,20 @@ badges horizontally with a fixed gap while keeping one baseline per rendered sys
 `stafftopmargin` and `staffsep` values always reserve the chord band, so annotation measurement never
 feeds back into score geometry or makes systems jump.
 
-The score surface is a responsive `minmax(0, 2fr) / minmax(0, 1fr)` notation/rail grid. Below a 52rem
-container width, the rail stacks under notation. This preserves at least half of the available width
-for notation at all wide layouts.
+At container widths of at least 64rem, the score surface uses symmetric
+`minmax(14rem, 1fr) / minmax(0, 4fr) / minmax(14rem, 1fr)` tracks: an empty balancing track,
+centered notation, and the annotation rail. Below that threshold, the rail stacks beneath notation.
+This keeps notation on the exact score-surface centerline and gives it roughly two-thirds of wide
+layouts.
 
 Range cards are score-sorted, show two lines when collapsed, and allow one expanded card at a time.
 Activating a card selects and reveals its passage without moving focus into the score. Type-specific
 Nordic Ledger surfaces distinguish modulation, voice leading, and explanations. Stronger selected
 fills are paired with text and an icon. All annotation surfaces are square, borderless, and
-shadowless.
+shadowless. The rail shares the notation zoom factor. Card centers target the vertical center of
+their rendered measure spans; measured card heights are packed with a fixed gap when targets are
+close together. Zoom does not change the rail's grid allocation, and the notation viewport recenters
+its horizontal scroll after zoom or rendered-size changes.
 
 Editing and manual creation happen in the rail. Range editors replace their cards in place; chord
 editors appear temporarily in the rail. Focusing a badge or card exposes focus styling only; click,
