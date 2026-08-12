@@ -5471,6 +5471,7 @@ body,
   color: inherit;
   font: inherit;
   text-align: start;
+  white-space: normal;
   cursor: pointer;
 }
 
@@ -5487,12 +5488,20 @@ body,
 }
 
 .annotation-card-label {
+  display: -webkit-box;
   min-width: 0;
+  overflow: hidden;
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   font-family: var(--font-display);
   font-size: var(--text-md);
   font-weight: 700;
   line-height: 1.2;
+}
+
+.annotation-card-toggle[aria-expanded="true"] .annotation-card-label {
+  display: block;
 }
 
 .annotation-card-chevron {
@@ -5632,7 +5641,7 @@ body,
   color: var(--color-paper);
   font-size: var(--text-sm);
   font-weight: 600;
-  pointer-events: none;
+  pointer-events: auto;
   transition: opacity var(--dur-short) var(--ease-out);
 }
 
@@ -5767,4 +5776,25 @@ body,
 .annotation-rail-create {
   background: var(--color-annotation-explanation-selected);
   color: var(--color-annotation-explanation-selected-ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .annotation-card-toggle:hover,
+  .annotation-card-edit:hover,
+  .annotation-rail-create:hover {
+    opacity: 0.82;
+  }
+}
+
+.annotation-card-toggle:active,
+.annotation-card-edit:active,
+.annotation-rail-create:active {
+  opacity: 0.65;
+}
+
+.annotation-card-toggle:disabled,
+.annotation-card-edit:disabled,
+.annotation-rail-create:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }

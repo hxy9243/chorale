@@ -371,7 +371,9 @@ try {
     const setFormValue = (element, value) => {
       const prototype = element instanceof HTMLTextAreaElement
         ? HTMLTextAreaElement.prototype
-        : HTMLInputElement.prototype;
+        : element instanceof HTMLSelectElement
+          ? HTMLSelectElement.prototype
+          : HTMLInputElement.prototype;
       Object.getOwnPropertyDescriptor(prototype, 'value').set.call(element, value);
       element.dispatchEvent(new Event('input', { bubbles: true }));
       element.dispatchEvent(new Event('change', { bubbles: true }));
@@ -493,42 +495,91 @@ try {
       () => document.querySelector('[aria-label="Smoke phrase annotation proposal"]')?.dataset.state === 'accepted',
       'Apply All did not accept the edited eligible proposal.',
     );
-    const acceptedOverlay = await waitFor(
-      () => document.querySelector('[data-annotation-id="smoke-accepted-annotation"]'),
-      'Accepted annotation did not render in the score overlay.',
+    const acceptedEdit = await waitFor(
+      () => document.querySelector('[data-edit-annotation="smoke-accepted-annotation"]'),
+      'Accepted range annotation did not render in the annotation rail.',
     );
-    acceptedOverlay.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    acceptedEdit.click();
     const acceptedEditor = await waitFor(
-      () => document.querySelector('.annotation-editor'),
-      'Clicking the accepted overlay did not open annotation details.',
+      () => document.querySelector('.annotation-card-editor .annotation-editor'),
+      'Clicking the accepted range card did not open its in-place editor.',
     );
-    acceptedEditor.querySelector('button:not([type="submit"]):not(.annotation-delete)')?.click();
+    setFormValue(acceptedEditor.querySelector('textarea'), 'Edited and persisted in the rail.');
+    acceptedEditor.querySelector('button[type="submit"]')?.click();
+    await waitFor(
+      () => !document.querySelector('.annotation-card-editor .annotation-editor'),
+      'Saving the accepted range annotation did not restore its card.',
+    );
     const addManual = await waitFor(
       () => document.querySelector('[data-create-annotation]'),
       'Selected passage did not expose manual annotation creation.',
     );
-    addManual.click();
-    const manualEditor = await waitFor(
-      () => document.querySelector('.annotation-editor'),
-      'Manual annotation editor did not open.',
-    );
-    const manualLabel = manualEditor.querySelector('input:not([type="number"])');
-    const manualBody = manualEditor.querySelector('textarea');
-    setFormValue(manualLabel, 'Smoke manual');
-    setFormValue(manualBody, 'A directly authored passage note.');
-    manualEditor.querySelector('button[type="submit"]')?.click();
+    const createChord = async (label, symbol, roman) => {
+      addManual.click();
+      const manualEditor = await waitFor(
+        () => document.querySelector('.annotation-rail-transient-editor .annotation-editor'),
+        'Manual annotation editor did not open in the rail.',
+      );
+      setFormValue(manualEditor.querySelector('select'), 'chord');
+      const fieldFor = (labelText, selector) => [...manualEditor.querySelectorAll('label')]
+        .find((labelElement) => labelElement.textContent.trim().startsWith(labelText))
+        ?.querySelector(selector);
+      const chordFields = await waitFor(
+        () => fieldFor('Chord symbol', 'input')
+          ? {
+              symbol: fieldFor('Chord symbol', 'input'),
+              roman: fieldFor('Roman numeral (optional)', 'input'),
+              label: fieldFor('Label', 'input'),
+              body: fieldFor('Explanation', 'textarea'),
+            }
+          : null,
+        'Chord fields did not appear in the manual rail editor.',
+      );
+      setFormValue(chordFields.symbol, symbol);
+      setFormValue(chordFields.roman, roman);
+      setFormValue(chordFields.label, label);
+      setFormValue(chordFields.body, 'A directly authored chord annotation.');
+      manualEditor.querySelector('button[type="submit"]')?.click();
+      await waitFor(
+        () => document.querySelector('[aria-label="Edit ' + label + ' annotation"]'),
+        'Manual chord annotation did not render above the score.',
+      );
+      await waitFor(
+        () => !document.querySelector('.annotation-rail-transient-editor .annotation-editor'),
+        'Manual chord editor did not close after Save.',
+      );
+    };
+    await createChord('Smoke manual', 'Cmaj7', 'I7');
+    await createChord('Smoke manual two', 'G7', 'V7');
     await waitFor(
       () => document.querySelector('[aria-label="Edit Smoke manual annotation"]'),
-      'Manual annotation did not render in the score overlay.',
+      'Manual chord annotation did not remain in the score overlay.',
     );
     await new Promise((resolve) => setTimeout(resolve, 650));
+    const chordBadges = [...document.querySelectorAll('.annotation-overlay-node.chord')];
+    const chordBounds = chordBadges.map((badge) => (
+      badge.querySelector('.annotation-chord-background')?.getBoundingClientRect()
+    ));
+    const intersections = chordBounds.flatMap((left, leftIndex) => (
+      chordBounds.slice(leftIndex + 1).filter((right) => (
+        left && right
+        && left.left < right.right
+        && left.right > right.left
+        && left.top < right.bottom
+        && left.bottom > right.top
+      )).map(() => leftIndex)
+    ));
     const annotationJourney = {
       routes: [...document.querySelectorAll('.agent-profile-route span')].map((node) => node.textContent),
       tools: [...document.querySelectorAll('.agent-tool-row')].map((node) => node.textContent),
       acceptedState: document.querySelector('[aria-label="Smoke phrase annotation proposal"]')?.dataset.state,
       rejectedState: document.querySelector('[aria-label="Reject this line annotation proposal"]')?.dataset.state,
-      acceptedOverlay: Boolean(document.querySelector('[data-annotation-id="smoke-accepted-annotation"]')),
+      acceptedRail: Boolean(document.querySelector('[data-edit-annotation="smoke-accepted-annotation"]')),
+      acceptedBody: document.querySelector('[data-annotation-kind="explanation"] .annotation-card-body')?.textContent,
       manualOverlay: Boolean(document.querySelector('[aria-label="Edit Smoke manual annotation"]')),
+      chordBadgeCount: chordBadges.length,
+      chordLaneCount: new Set(chordBadges.map((badge) => badge.dataset.chordLane)).size,
+      chordIntersections: intersections.length,
     };
     const result = { singleState, rangeState, playbackStates, annotationJourney };
     return result;
@@ -562,8 +613,12 @@ try {
       && passageLinkState.annotationJourney.tools.includes('Read 3 measures')
       && passageLinkState.annotationJourney.acceptedState === 'accepted'
       && passageLinkState.annotationJourney.rejectedState === 'rejected'
-      && passageLinkState.annotationJourney.acceptedOverlay
-      && passageLinkState.annotationJourney.manualOverlay,
+      && passageLinkState.annotationJourney.acceptedRail
+      && passageLinkState.annotationJourney.acceptedBody === 'Edited and persisted in the rail.'
+      && passageLinkState.annotationJourney.manualOverlay
+      && passageLinkState.annotationJourney.chordBadgeCount >= 2
+      && passageLinkState.annotationJourney.chordLaneCount >= 2
+      && passageLinkState.annotationJourney.chordIntersections === 0,
     `Annotation proposal workflow did not complete (${JSON.stringify(passageLinkState.annotationJourney)}).`,
   );
   await firstCDP.call('Page.reload', { ignoreCache: true });
@@ -579,8 +634,8 @@ try {
     };
     const bridge = window.choraleAI;
     const sheet = await waitForElement('.sheet-music-card');
-    const acceptedOverlayAfterReload = await waitForElement(
-      '[data-annotation-id="smoke-accepted-annotation"]',
+    const acceptedRailAfterReload = await waitForElement(
+      '[data-edit-annotation="smoke-accepted-annotation"]',
     );
     const manualOverlayAfterReload = await waitForElement(
       '[aria-label="Edit Smoke manual annotation"]',
@@ -811,8 +866,8 @@ try {
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
     const threadAfterDelete = readActiveThread();
-    const acceptedOverlayAfterThreadDelete = Boolean(
-      document.querySelector('[data-annotation-id="smoke-accepted-annotation"]'),
+    const acceptedRailAfterThreadDelete = Boolean(
+      document.querySelector('[data-edit-annotation="smoke-accepted-annotation"]'),
     );
     const manualOverlayAfterThreadDelete = Boolean(
       document.querySelector('[aria-label="Edit Smoke manual annotation"]'),
@@ -908,9 +963,9 @@ try {
       threadLabelWidth,
       threadChevronCount,
       hasThreadDelete,
-      acceptedOverlayAfterReload: Boolean(acceptedOverlayAfterReload),
+      acceptedRailAfterReload: Boolean(acceptedRailAfterReload),
       manualOverlayAfterReload: Boolean(manualOverlayAfterReload),
-      acceptedOverlayAfterThreadDelete,
+      acceptedRailAfterThreadDelete,
       manualOverlayAfterThreadDelete,
       threadIdBeforeDelete: threadBeforeDelete.id,
       threadIdAfterDelete: threadAfterDelete.id,
@@ -1097,14 +1152,14 @@ try {
   );
   assert(shellState.hasThreadDelete, 'Thread history does not expose a delete action.');
   assert(
-    shellState.acceptedOverlayAfterReload
+    shellState.acceptedRailAfterReload
       && shellState.manualOverlayAfterReload
-      && shellState.acceptedOverlayAfterThreadDelete
+      && shellState.acceptedRailAfterThreadDelete
       && shellState.manualOverlayAfterThreadDelete,
     `Reload or chat deletion removed document annotations (${JSON.stringify({
-      acceptedAfterReload: shellState.acceptedOverlayAfterReload,
+      acceptedAfterReload: shellState.acceptedRailAfterReload,
       manualAfterReload: shellState.manualOverlayAfterReload,
-      acceptedAfterDelete: shellState.acceptedOverlayAfterThreadDelete,
+      acceptedAfterDelete: shellState.acceptedRailAfterThreadDelete,
       manualAfterDelete: shellState.manualOverlayAfterThreadDelete,
     })}).`,
   );
@@ -1357,6 +1412,8 @@ try {
               annotationLabels: storedDocuments.flatMap((document) => (
                 (document.annotations ?? []).map((annotation) => annotation.label)
               )),
+              annotations: storedDocuments.flatMap((document) => document.annotations ?? [])
+                .map((annotation) => ({ label: annotation.label, body: annotation.body })),
             };
           }
         }
@@ -1387,7 +1444,12 @@ try {
   assert(persisted.sheetZoom === '110%', `Sheet zoom did not survive restart (${persisted.sheetZoom}).`);
   assert(
     persisted.annotationLabels.includes('Smoke phrase')
-      && persisted.annotationLabels.includes('Smoke manual'),
+      && persisted.annotationLabels.includes('Smoke manual')
+      && persisted.annotationLabels.includes('Smoke manual two')
+      && persisted.annotations.some((annotation) => (
+        annotation.label === 'Smoke phrase'
+        && annotation.body === 'Edited and persisted in the rail.'
+      )),
     `Accepted and manual annotations did not survive restart (${persisted.annotationLabels.join(',')}).`,
   );
   await closeCleanly(second, secondCDP);
@@ -1396,7 +1458,7 @@ try {
     `Electron reported a CSP violation after restart:\n${second.output()}`
   ));
 
-  console.log('Electron smoke passed: app protocol, passage analysis proposals, annotation overlays, paused seeking, native file drag, sandboxed bridge, centered score, settings UI, clean restart, and workspace persistence.');
+  console.log('Electron smoke passed: proposal lifecycle, in-place annotation rail editing, collision-free chord badges, paused seeking, chat-deletion isolation, clean restart, and workspace persistence.');
 } finally {
   for (const child of launchedChildren) child.kill('SIGTERM');
   // Chromium helper processes can finish a final profile write just after the

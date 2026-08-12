@@ -85,10 +85,11 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({
           type="button"
           className="annotation-rail-create"
           data-create-annotation
+          aria-label={`Add annotation to ${activeAnchorLabel}`}
           onClick={(event) => onCreate(event.currentTarget)}
         >
           <Plus aria-hidden="true" />
-          Add annotation to {activeAnchorLabel}
+          <span>Add to {activeAnchorLabel}</span>
         </button>
       )}
 
