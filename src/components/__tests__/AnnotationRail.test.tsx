@@ -40,8 +40,16 @@ const rangeAnnotations: Annotation[] = [
 ];
 
 describe('AnnotationRail', () => {
+  const inertProps = {
+    canCreate: false,
+    editing: null,
+    editor: null,
+    onCreate: vi.fn(),
+    onEdit: vi.fn(),
+  } as const;
+
   it('excludes chords and sorts range annotations in score order', () => {
-    render(<AnnotationRail annotations={rangeAnnotations} onSelect={vi.fn()} />);
+    render(<AnnotationRail {...inertProps} annotations={rangeAnnotations} onSelect={vi.fn()} />);
     const cards = screen.getAllByRole('article');
     expect(cards.map((card) => card.getAttribute('data-annotation-kind'))).toEqual([
       'modulation',
@@ -54,7 +62,7 @@ describe('AnnotationRail', () => {
 
   it('clamps cards by default and expands only the selected card', () => {
     const onSelect = vi.fn();
-    render(<AnnotationRail annotations={rangeAnnotations} onSelect={onSelect} />);
+    render(<AnnotationRail {...inertProps} annotations={rangeAnnotations} onSelect={onSelect} />);
     const first = screen.getByRole('button', { name: /modulation label/i });
     const second = screen.getByRole('button', { name: /explanation label/i });
 
@@ -77,9 +85,71 @@ describe('AnnotationRail', () => {
   });
 
   it('renders a persistent, instructive empty state', () => {
-    render(<AnnotationRail annotations={[]} onSelect={vi.fn()} />);
+    render(<AnnotationRail {...inertProps} annotations={[]} onSelect={vi.fn()} />);
     expect(screen.getByRole('complementary', { name: 'Annotations' })).toBeDefined();
     expect(screen.getByText('No range annotations yet.')).toBeDefined();
     expect(screen.getByLabelText('0 range annotations')).toBeDefined();
+  });
+
+  it('offers 44px edit controls and replaces the chosen card with its editor', () => {
+    const onEdit = vi.fn();
+    const { rerender } = render(
+      <AnnotationRail
+        {...inertProps}
+        annotations={rangeAnnotations}
+        onSelect={vi.fn()}
+        onEdit={onEdit}
+      />,
+    );
+    const editButtons = screen.getAllByRole('button', { name: 'Edit annotation' });
+    expect(editButtons).toHaveLength(4);
+    expect(editButtons[0].querySelector('[role="tooltip"]')?.textContent).toBe('Edit annotation');
+    fireEvent.click(editButtons[0]);
+    expect(onEdit).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'modulation' }),
+      editButtons[0],
+    );
+
+    rerender(
+      <AnnotationRail
+        {...inertProps}
+        annotations={rangeAnnotations}
+        editing={{ mode: 'accepted', annotationId: 'modulation' }}
+        editor={<form aria-label="Inline test editor">Fields</form>}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('form', { name: 'Inline test editor' })).toBeDefined();
+    expect(screen.getAllByRole('button', { name: 'Edit annotation' })).toHaveLength(3);
+  });
+
+  it('puts manual creation in the rail for the selected passage', () => {
+    const onCreate = vi.fn();
+    const { rerender } = render(
+      <AnnotationRail
+        {...inertProps}
+        annotations={[]}
+        activeAnchorLabel="mm. 2–4"
+        canCreate
+        onCreate={onCreate}
+        onSelect={vi.fn()}
+      />,
+    );
+    const createButton = screen.getByRole('button', { name: 'Add annotation to mm. 2–4' });
+    fireEvent.click(createButton);
+    expect(onCreate).toHaveBeenCalledWith(createButton);
+
+    rerender(
+      <AnnotationRail
+        {...inertProps}
+        annotations={[]}
+        activeAnchorLabel="mm. 2–4"
+        canCreate
+        editing={{ mode: 'manual' }}
+        editor={<form aria-label="Create inline annotation">Fields</form>}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('form', { name: 'Create inline annotation' })).toBeDefined();
   });
 });

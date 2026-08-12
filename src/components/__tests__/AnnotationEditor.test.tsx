@@ -110,4 +110,74 @@ describe('AnnotationEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete annotation' }));
     expect(onDelete).toHaveBeenCalledOnce();
   });
+
+  it('edits every persisted field and supports changing a chord into a range annotation', async () => {
+    const onSave = vi.fn();
+    render(
+      <AnnotationEditor
+        mode="accepted"
+        initialAnnotation={{
+          id: 'annotation-chord',
+          kind: 'chord',
+          span: { startMeasure: 2, endMeasure: 2 },
+          position: { measure: 2, offset: { numerator: 1, denominator: 4 } },
+          chordSymbol: 'G7',
+          romanNumeral: 'V7',
+          label: 'Dominant',
+          body: 'Prepares tonic.',
+          source: 'assistant',
+          createdAt: '2026-08-05T00:00:00.000Z',
+          updatedAt: '2026-08-05T00:00:00.000Z',
+        }}
+        defaultSpan={{ startMeasure: 2, endMeasure: 2 }}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Chord symbol')).toBeDefined();
+    fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'voice-leading' } });
+    fireEvent.change(screen.getByLabelText('Start measure'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('End measure'), { target: { value: '4' } });
+    fireEvent.change(screen.getByLabelText('Label'), { target: { value: 'Outer voices' } });
+    fireEvent.change(screen.getByLabelText('Explanation'), {
+      target: { value: 'The outer voices move in contrary motion.' },
+    });
+    expect(screen.queryByLabelText('Chord symbol')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'annotation-chord',
+      kind: 'voice-leading',
+      span: { startMeasure: 2, endMeasure: 4 },
+      label: 'Outer voices',
+      body: 'The outer voices move in contrary motion.',
+      source: 'assistant',
+    })));
+  });
+
+  it('keeps delete failures inline', async () => {
+    const onDelete = vi.fn().mockRejectedValue(new Error('Annotation delete failed'));
+    render(
+      <AnnotationEditor
+        mode="accepted"
+        initialAnnotation={{
+          id: 'annotation-1',
+          kind: 'explanation',
+          span: { startMeasure: 1, endMeasure: 1 },
+          label: 'Opening',
+          body: 'Opening explanation.',
+          source: 'user',
+          createdAt: '2026-08-05T00:00:00.000Z',
+          updatedAt: '2026-08-05T00:00:00.000Z',
+        }}
+        defaultSpan={{ startMeasure: 1, endMeasure: 1 }}
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+        onDelete={onDelete}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Delete annotation' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Annotation delete failed');
+  });
 });

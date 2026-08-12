@@ -45,7 +45,7 @@ interface AnnotationOverlayProps {
   renderGeneration: number;
   zoom: number;
   activeAnnotationId?: string | null;
-  onActivate(annotation: Annotation): void;
+  onActivate(annotation: Annotation, initiator: SVGGElement): void;
   onRequiredLaneCount?(laneCount: number): void;
 }
 
@@ -230,18 +230,18 @@ const annotationForPlacement = (
 
 const handleKeyboardActivation = (
   event: React.KeyboardEvent<SVGGElement>,
-  activate: () => void,
+  activate: (initiator: SVGGElement) => void,
 ) => {
   if (event.key !== 'Enter' && event.key !== ' ') return;
   event.preventDefault();
-  activate();
+  activate(event.currentTarget);
 };
 
 const PlacementNode: React.FC<{
   placement: AnnotationPlacement;
   active: boolean;
   chordBadge?: Readonly<{ width: number; lane: number }>;
-  onActivate(): void;
+  onActivate(initiator: SVGGElement): void;
 }> = ({ placement, active, chordBadge, onActivate }) => {
   const common = {
     className: `annotation-overlay-node ${placement.track} ${active ? 'active' : 'inactive'}`,
@@ -249,7 +249,8 @@ const PlacementNode: React.FC<{
     tabIndex: 0,
     'aria-label': `Edit ${placement.label} annotation`,
     'data-annotation-id': placement.annotationId,
-    onClick: onActivate,
+    'data-edit-annotation': placement.annotationId,
+    onClick: (event: React.MouseEvent<SVGGElement>) => onActivate(event.currentTarget),
     onKeyDown: (event: React.KeyboardEvent<SVGGElement>) => handleKeyboardActivation(event, onActivate),
   };
 
@@ -474,7 +475,7 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
                 placement={placement}
                 active={placement.annotationId === activeAnnotationId}
                 chordBadge={packedChord && { width: packedChord.width, lane: packedChord.lane }}
-                onActivate={() => onActivate(annotation)}
+                onActivate={(initiator) => onActivate(annotation, initiator)}
               />
             );
           })}
