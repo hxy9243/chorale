@@ -154,6 +154,8 @@ describe('Auto-Centering Playing Line with User Scroll Override', () => {
       bottom: 540 - scoreCanvas.scrollTop,
       height: 40,
     } as DOMRect);
+    vi.mocked(window.requestAnimationFrame).mockClear();
+    cancelSpy.mockClear();
 
     act(() => {
       window.dispatchEvent(new CustomEvent('chorale-playback-state', { detail: { isPlaying: true } }));
