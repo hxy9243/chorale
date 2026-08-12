@@ -297,10 +297,21 @@ describe('SheetMusicView Component', () => {
 
     expect(overlayNode.getAttribute('tabindex')).toBe('0');
     fireEvent.focus(overlayNode);
+    expect(onSelectAnchor).not.toHaveBeenCalled();
+    fireEvent.click(overlayNode);
     expect(onSelectAnchor).toHaveBeenCalledWith({ startMeasure: 1, endMeasure: 1 });
     expect(screen.getByLabelText('Edit annotation')).toBeDefined();
     expect(overlayNode.getAttribute('class')).toContain('active');
+    expect(overlayNode.querySelector('.annotation-chord-symbol')?.textContent).toBe('C');
+    expect(overlayNode.querySelector('.annotation-roman-numeral')?.textContent).toBe('I');
+    expect(overlayNode.querySelector('.annotation-chord-background')).not.toBeNull();
+    await waitFor(() => expect(vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2]).toMatchObject({
+      format: { stafftopmargin: 50, staffsep: 111 },
+    }));
 
+    await act(async () => {
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    });
     const frameSpy = vi.spyOn(window, 'requestAnimationFrame');
     frameSpy.mockClear();
     sourceWidth = 500;

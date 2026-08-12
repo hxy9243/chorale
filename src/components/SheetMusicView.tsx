@@ -21,6 +21,7 @@ import {
 } from '../utils/autoScroll';
 import { AnnotationEditor } from './AnnotationEditor';
 import { AnnotationOverlay } from './AnnotationOverlay';
+import { chordStaffSpacing } from '../music/annotationLayout';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const AUTO_SCROLL_DURATION_MS = 280;
@@ -288,6 +289,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   const [transpose, setTranspose] = useState<number>(0);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [renderGeneration, setRenderGeneration] = useState(0);
+  const [chordLaneCount, setChordLaneCount] = useState(0);
   const [annotationEditor, setAnnotationEditor] = useState<
     { mode: 'manual' } | { mode: 'accepted'; annotationId: AnnotationId } | null
   >(null);
@@ -413,6 +415,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       };
 
       const visualTranspose = transpose;
+      const spacing = chordStaffSpacing(chordLaneCount);
       const tunes = abcjs.renderAbc(containerRef.current, prepareAbcForPlayback(abcCode), {
         responsive: 'resize',
         scale: 1,
@@ -422,6 +425,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
           maxSpacing: 3,
           preferredMeasuresPerLine: 4,
         },
+        format: spacing,
         add_classes: true,
         clickListener: (abcElem: any, _tuneNumber, classes, analysis) => {
           // If a hit area already handled this click (and set hitAreaJustHandled),
@@ -488,7 +492,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       renderedContainer.removeEventListener('click', captureModifiers, true);
       renderedContainer.removeEventListener('click', handleContainerFallbackClick, false);
     };
-  }, [abcCode, getPlaybackPosition, onSelectAnchor, onTuneRendered, transpose]);
+  }, [abcCode, chordLaneCount, getPlaybackPosition, onSelectAnchor, onTuneRendered, transpose]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -878,6 +882,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
             activeAnnotationId={
               annotationEditor?.mode === 'accepted' ? annotationEditor.annotationId : null
             }
+            onRequiredLaneCount={setChordLaneCount}
             onActivate={(annotation) => {
               onSelectAnchor?.(annotation.span);
               setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });

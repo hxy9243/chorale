@@ -46,6 +46,24 @@ export type AnnotationPlacement = Readonly<{
   romanNumeral?: string;
 }>;
 
+export type ChordBadgeInterval = Readonly<{
+  id: string;
+  systemId: string;
+  centerX: number;
+  width: number;
+}>;
+
+export type PackedChordBadge = ChordBadgeInterval & Readonly<{
+  lane: number;
+  left: number;
+  right: number;
+}>;
+
+export type ChordStaffSpacing = Readonly<{
+  stafftopmargin: number;
+  staffsep: number;
+}>;
+
 export type AnnotationLayoutInput = Readonly<{
   annotations: readonly Annotation[];
   systems: readonly RenderedScoreSystem[];
@@ -54,6 +72,60 @@ export type AnnotationLayoutInput = Readonly<{
 }>;
 
 const rationalValue = ({ numerator, denominator }: RationalDuration) => numerator / denominator;
+
+export const CHORD_BADGE_HEIGHT = 38;
+export const CHORD_BADGE_GAP = 6;
+const BASE_STAFF_SEPARATION = 61;
+const CHORD_STAFF_CLEARANCE = 12;
+
+export const packChordBadgeIntervals = (
+  intervals: readonly ChordBadgeInterval[],
+  gap = CHORD_BADGE_GAP,
+): PackedChordBadge[] => {
+  const packed = new Map<string, PackedChordBadge>();
+  const bySystem = new Map<string, ChordBadgeInterval[]>();
+
+  for (const interval of intervals) {
+    const group = bySystem.get(interval.systemId) || [];
+    group.push(interval);
+    bySystem.set(interval.systemId, group);
+  }
+
+  for (const group of bySystem.values()) {
+    const laneRightEdges: number[] = [];
+    const ordered = [...group].sort((left, right) => (
+      left.centerX - right.centerX || left.id.localeCompare(right.id)
+    ));
+    for (const interval of ordered) {
+      const width = Math.max(1, interval.width);
+      const left = interval.centerX - width / 2;
+      const right = interval.centerX + width / 2;
+      let lane = laneRightEdges.findIndex((laneRight) => left >= laneRight + gap);
+      if (lane === -1) lane = laneRightEdges.length;
+      laneRightEdges[lane] = right;
+      packed.set(interval.id, { ...interval, width, lane, left, right });
+    }
+  }
+
+  return intervals.flatMap((interval) => {
+    const result = packed.get(interval.id);
+    return result ? [result] : [];
+  });
+};
+
+export const requiredChordLaneCount = (badges: readonly PackedChordBadge[]) => (
+  badges.reduce((count, badge) => Math.max(count, badge.lane + 1), 0)
+);
+
+export const chordStaffSpacing = (laneCount: number): ChordStaffSpacing => {
+  const lanes = Math.max(0, Math.floor(laneCount));
+  if (lanes === 0) return { stafftopmargin: 0, staffsep: BASE_STAFF_SEPARATION };
+  const reservedHeight = lanes * CHORD_BADGE_HEIGHT + (lanes - 1) * CHORD_BADGE_GAP;
+  return {
+    stafftopmargin: reservedHeight + CHORD_STAFF_CLEARANCE,
+    staffsep: BASE_STAFF_SEPARATION + reservedHeight + CHORD_STAFF_CLEARANCE,
+  };
+};
 
 const equalPosition = (left: MusicalPosition, right: MusicalPosition) => (
   left.measure === right.measure
@@ -190,7 +262,7 @@ export const projectAnnotations = ({
       systemId: measure.systemId,
       track: 'chord',
       x: horizontalEventPosition(annotation.position, events, measure),
-      y: Math.max(1, measure.bounds.y - 28),
+      y: measure.bounds.y,
       width: 1,
       height: 24,
       label: annotation.label,

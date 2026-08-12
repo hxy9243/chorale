@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { Annotation } from '../../types/document';
-import { projectAnnotations, type AnnotationLayoutInput } from '../annotationLayout';
+import {
+  chordStaffSpacing,
+  packChordBadgeIntervals,
+  projectAnnotations,
+  requiredChordLaneCount,
+  type AnnotationLayoutInput,
+} from '../annotationLayout';
 
 const stamp = '2026-08-05T00:00:00.000Z';
 const base = {
@@ -72,6 +78,32 @@ describe('annotation layout projection', () => {
       { annotationId: 'chord-half', x: 115 },
       { annotationId: 'compound-beat-two', x: 275 },
     ]);
+  });
+
+  it('packs measured chord widths into stable lanes with a guaranteed gap', () => {
+    const badges = [
+      { id: 'wide', systemId: 'system-1', centerX: 100, width: 80 },
+      { id: 'same-onset', systemId: 'system-1', centerX: 100, width: 52 },
+      { id: 'adjacent', systemId: 'system-1', centerX: 172, width: 52 },
+      { id: 'next-system', systemId: 'system-2', centerX: 100, width: 80 },
+    ];
+
+    const packed = packChordBadgeIntervals(badges, 6);
+    expect(packed.map(({ id, lane, left, right }) => ({ id, lane, left, right }))).toEqual([
+      { id: 'wide', lane: 1, left: 60, right: 140 },
+      { id: 'same-onset', lane: 0, left: 74, right: 126 },
+      { id: 'adjacent', lane: 0, left: 146, right: 198 },
+      { id: 'next-system', lane: 0, left: 60, right: 140 },
+    ]);
+    expect(packed[2].left - packed[1].right).toBeGreaterThanOrEqual(6);
+    expect(requiredChordLaneCount(packed)).toBe(2);
+    expect(packChordBadgeIntervals(badges, 6)).toEqual(packed);
+  });
+
+  it('reserves staff space from the required chord lane count', () => {
+    expect(chordStaffSpacing(0)).toEqual({ stafftopmargin: 0, staffsep: 61 });
+    expect(chordStaffSpacing(1)).toEqual({ stafftopmargin: 50, staffsep: 111 });
+    expect(chordStaffSpacing(2)).toEqual({ stafftopmargin: 94, staffsep: 155 });
   });
 
   it('uses one onset for simultaneous voices and interpolates missing rendered onsets', () => {
