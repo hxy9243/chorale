@@ -1,7 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import abcjs from 'abcjs';
 import { ZoomIn, ZoomOut, RotateCcw, SlidersHorizontal, Tag, X } from 'lucide-react';
-import type { Annotation, AnnotationId, ScoreAnchor } from '../types/document';
+import type {
+  Annotation,
+  AnnotationId,
+  RangeAnnotation,
+  ScoreAnchor,
+} from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
 import {
   configureAudioPlayback,
@@ -22,6 +27,7 @@ import {
 import { AnnotationEditor } from './AnnotationEditor';
 import { AnnotationOverlay } from './AnnotationOverlay';
 import { chordStaffSpacing } from '../music/annotationLayout';
+import { AnnotationRail } from './AnnotationRail';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const AUTO_SCROLL_DURATION_MS = 280;
@@ -715,6 +721,18 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     });
   };
 
+  const selectRangeAnnotation = React.useCallback((
+    annotation: RangeAnnotation,
+    initiator: HTMLButtonElement,
+  ) => {
+    onSelectAnchor?.(annotation.span);
+    const hitArea = containerRef.current?.querySelector<SVGElement>(
+      `.abcjs-measure-hit-area[data-measure="${annotation.span.startMeasure}"]`,
+    );
+    hitArea?.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+    queueMicrotask(() => initiator.focus({ preventScroll: true }));
+  }, [onSelectAnchor]);
+
   return (
     <div ref={cardRef} className="sheet-music-card glass-panel">
       {/* ... header & controls ... */}
@@ -862,33 +880,38 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         </div>
       )}
 
-      <div className="sheet-viewport">
-        <div
-          className="sheet-zoom-wrapper"
-          style={{
-            zoom: currentZoom / 100,
-            width: `${currentZoom}%`,
-            marginInline: 'auto',
-          }}
-        >
-          <div ref={containerRef} id="paper" className="abcjs-paper-container" />
-          <AnnotationOverlay
-            paperRef={containerRef}
-            abcCode={abcCode}
-            annotations={annotations}
-            tune={renderedTuneRef.current}
-            renderGeneration={renderGeneration}
-            zoom={currentZoom}
-            activeAnnotationId={
-              annotationEditor?.mode === 'accepted' ? annotationEditor.annotationId : null
-            }
-            onRequiredLaneCount={setChordLaneCount}
-            onActivate={(annotation) => {
-              onSelectAnchor?.(annotation.span);
-              setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
-            }}
-          />
+      <div className="sheet-annotation-layout">
+        <div className="sheet-notation-column">
+          <div className="sheet-viewport">
+            <div
+              className="sheet-zoom-wrapper"
+              style={{
+                zoom: currentZoom / 100,
+                width: `${currentZoom}%`,
+                marginInline: 'auto',
+              }}
+            >
+              <div ref={containerRef} id="paper" className="abcjs-paper-container" />
+              <AnnotationOverlay
+                paperRef={containerRef}
+                abcCode={abcCode}
+                annotations={annotations}
+                tune={renderedTuneRef.current}
+                renderGeneration={renderGeneration}
+                zoom={currentZoom}
+                activeAnnotationId={
+                  annotationEditor?.mode === 'accepted' ? annotationEditor.annotationId : null
+                }
+                onRequiredLaneCount={setChordLaneCount}
+                onActivate={(annotation) => {
+                  onSelectAnchor?.(annotation.span);
+                  setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
+                }}
+              />
+            </div>
+          </div>
         </div>
+        <AnnotationRail annotations={annotations} onSelect={selectRangeAnnotation} />
       </div>
     </div>
   );
