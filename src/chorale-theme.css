@@ -5369,3 +5369,201 @@ body,
   stroke: var(--color-focus);
   stroke-width: 3px;
 }
+
+/* Annotation redesign · responsive score and reading rail */
+.sheet-music-card {
+  container-type: inline-size;
+}
+
+.sheet-annotation-layout {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
+  align-items: start;
+}
+
+.sheet-notation-column {
+  min-width: 0;
+}
+
+.annotation-rail {
+  min-width: 0;
+  padding: var(--space-md);
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+}
+
+.annotation-rail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-block-end: var(--space-md);
+}
+
+.annotation-rail-header h4,
+.annotation-rail-header p,
+.annotation-rail-empty p,
+.annotation-rail-empty span {
+  margin: 0;
+}
+
+.annotation-rail-header h4 {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.annotation-rail-header p,
+.annotation-rail-empty span {
+  max-width: 45ch;
+  margin-block-start: var(--space-2xs);
+  color: var(--color-muted);
+  font-size: var(--text-base);
+  line-height: 1.5;
+}
+
+.annotation-rail-count {
+  display: grid;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  place-items: center;
+  background: var(--color-paper-3);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.annotation-rail-empty {
+  padding: var(--space-lg) var(--space-md);
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+.annotation-rail-empty p {
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+
+.annotation-rail-list {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.annotation-rail-card {
+  min-width: 0;
+  overflow: clip;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+.annotation-card-toggle {
+  display: grid;
+  width: 100%;
+  min-height: 2.75rem;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  border: 0;
+  border-radius: 0;
+  background: var(--color-transparent);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.annotation-card-heading,
+.annotation-card-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.annotation-card-heading {
+  justify-content: space-between;
+}
+
+.annotation-card-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.annotation-card-chevron {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+}
+
+.annotation-card-toggle[aria-expanded="true"] .annotation-card-chevron {
+  transform: rotate(180deg);
+}
+
+.annotation-card-meta {
+  flex-wrap: wrap;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.annotation-card-meta > span + span::before {
+  margin-inline-end: var(--space-xs);
+  content: "·";
+}
+
+.annotation-card-selected {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  color: var(--color-accent-strong);
+  font-family: var(--font-body);
+  font-weight: 700;
+}
+
+.annotation-card-selected svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.annotation-card-body {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-ink-2);
+  font-size: var(--text-base);
+  line-height: 1.55;
+}
+
+.annotation-card-body.collapsed {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.annotation-card-body.expanded {
+  display: block;
+}
+
+.annotation-card-toggle:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: -3px;
+}
+
+@container (min-width: 52rem) {
+  .sheet-annotation-layout {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+
+  .annotation-rail {
+    position: sticky;
+    top: var(--space-md);
+    max-height: calc(100dvh - (2 * var(--space-md)));
+    overflow-y: auto;
+  }
+}

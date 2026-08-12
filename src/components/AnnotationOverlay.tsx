@@ -342,11 +342,15 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
   const [chordWidths, setChordWidths] = useState<Record<string, number>>({});
   const frameRef = useRef<number | null>(null);
   const measurementRefs = useRef(new Map<string, SVGGElement>());
+  const chordAnnotations = useMemo(
+    () => annotations.filter((annotation) => annotation.kind === 'chord'),
+    [annotations],
+  );
 
   useEffect(() => {
     const paper = paperRef.current;
     if (!paper) return;
-    if (annotations.length === 0 || !abcCode.trim()) {
+    if (chordAnnotations.length === 0 || !abcCode.trim()) {
       setLayout({ systems: [], placements: [] });
       return;
     }
@@ -355,7 +359,7 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
       frameRef.current = window.requestAnimationFrame(() => {
         frameRef.current = null;
         try {
-          setLayout(captureLayout(paper, abcCode, annotations, tune, zoom));
+          setLayout(captureLayout(paper, abcCode, chordAnnotations, tune, zoom));
         } catch {
           setLayout({ systems: [], placements: [] });
         }
@@ -376,7 +380,7 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
       if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
       frameRef.current = null;
     };
-  }, [abcCode, annotations, paperRef, renderGeneration, tune, zoom]);
+  }, [abcCode, chordAnnotations, paperRef, renderGeneration, tune, zoom]);
 
   useLayoutEffect(() => {
     const widths: Record<string, number> = {};
@@ -458,7 +462,7 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
               ))}
           </g>
           {layout.placements.filter(({ systemId }) => systemId === system.id).map((placement) => {
-            const annotation = annotationForPlacement(annotations, placement);
+            const annotation = annotationForPlacement(chordAnnotations, placement);
             if (!annotation) return null;
             const packedChord = placement.track === 'chord'
               ? packedChordById.get(placement.id)

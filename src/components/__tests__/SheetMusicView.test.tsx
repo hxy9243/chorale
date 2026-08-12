@@ -273,9 +273,19 @@ describe('SheetMusicView Component', () => {
       createdAt: '2026-08-05T00:00:00.000Z',
       updatedAt: '2026-08-05T00:00:00.000Z',
     };
+    const rangeNote = {
+      id: 'overlay-explanation',
+      kind: 'explanation' as const,
+      span: { startMeasure: 1, endMeasure: 1 },
+      label: 'Phrase shape',
+      body: 'The opening phrase establishes the score context.',
+      source: 'assistant' as const,
+      createdAt: '2026-08-05T00:00:01.000Z',
+      updatedAt: '2026-08-05T00:00:01.000Z',
+    };
     const props = {
       abcCode: sampleAbc,
-      annotations: [chord],
+      annotations: [chord, rangeNote],
       onSelectAnchor,
       onUpdateAnnotation: vi.fn(),
       onDeleteAnnotation: vi.fn(),
@@ -294,6 +304,10 @@ describe('SheetMusicView Component', () => {
     expect(container.querySelector('.annotation-overlay-system')?.getAttribute('viewBox'))
       .toBe('0 0 400 140');
     expect(overlayNode.getAttribute('data-annotation-id')).toBe('overlay-chord');
+    expect(container.querySelector('.sheet-annotation-layout')).not.toBeNull();
+    expect(container.querySelector('.annotation-overlay-node.explanation')).toBeNull();
+    expect(container.querySelector('.annotation-card-toggle')?.getAttribute('aria-expanded'))
+      .toBe('false');
 
     expect(overlayNode.getAttribute('tabindex')).toBe('0');
     fireEvent.focus(overlayNode);
@@ -308,6 +322,11 @@ describe('SheetMusicView Component', () => {
     await waitFor(() => expect(vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2]).toMatchObject({
       format: { stafftopmargin: 50, staffsep: 111 },
     }));
+
+    const rangeCard = container.querySelector<HTMLButtonElement>('.annotation-card-toggle')!;
+    fireEvent.click(rangeCard);
+    expect(rangeCard.getAttribute('aria-expanded')).toBe('true');
+    expect(onSelectAnchor).toHaveBeenLastCalledWith({ startMeasure: 1, endMeasure: 1 });
 
     await act(async () => {
       await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
