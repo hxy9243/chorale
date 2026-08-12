@@ -5407,6 +5407,7 @@ body,
 }
 
 .sheet-notation-column {
+  position: relative;
   width: var(--score-notation-width);
   min-width: var(--score-notation-width);
   grid-column: 2;

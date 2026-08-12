@@ -517,6 +517,19 @@ try {
     const chordBounds = chordBadges.map((badge) => (
       badge.querySelector('.annotation-chord-background')?.getBoundingClientRect()
     ));
+    const overlaySystemAlignmentErrors = [...document.querySelectorAll('.annotation-overlay-system')]
+      .map((overlay, index) => {
+        const score = document.querySelectorAll('#paper > svg')[index];
+        if (!score) return Number.POSITIVE_INFINITY;
+        const overlayBounds = overlay.getBoundingClientRect();
+        const scoreBounds = score.getBoundingClientRect();
+        return Math.max(
+          Math.abs(overlayBounds.left - scoreBounds.left),
+          Math.abs(overlayBounds.top - scoreBounds.top),
+          Math.abs(overlayBounds.width - scoreBounds.width),
+          Math.abs(overlayBounds.height - scoreBounds.height),
+        );
+      });
     const intersections = chordBounds.flatMap((left, leftIndex) => (
       chordBounds.slice(leftIndex + 1).filter((right) => (
         left && right
@@ -551,6 +564,9 @@ try {
       chordBaselinesAligned: [...chordBaselinesBySystem.values()]
         .every((baselines) => baselines.size === 1),
       chordIntersections: intersections.length,
+      overlaySystemAlignmentErrors,
+      chordOverlayAligned: overlaySystemAlignmentErrors.length > 0
+        && overlaySystemAlignmentErrors.every((error) => error <= 1),
       scoreGeometryStable: JSON.stringify(scoreGeometryBeforeChords)
         === JSON.stringify(scoreGeometryAfterChords),
     };
@@ -593,6 +609,7 @@ try {
       && passageLinkState.annotationJourney.chordLaneCount === 1
       && passageLinkState.annotationJourney.chordBaselinesAligned
       && passageLinkState.annotationJourney.chordIntersections === 0
+      && passageLinkState.annotationJourney.chordOverlayAligned
       && passageLinkState.annotationJourney.scoreGeometryStable,
     `Annotation proposal workflow did not complete (${JSON.stringify(passageLinkState.annotationJourney)}).`,
   );
