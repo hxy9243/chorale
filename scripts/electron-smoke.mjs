@@ -514,6 +514,11 @@ try {
       () => document.querySelector('[data-create-annotation]'),
       'Selected passage did not expose manual annotation creation.',
     );
+    const scoreGeometryBeforeChords = [...document.querySelectorAll('#paper > svg')]
+      .map((svg) => {
+        const rect = svg.getBoundingClientRect();
+        return { top: rect.top, height: rect.height };
+      });
     const createChord = async (label, symbol, roman) => {
       addManual.click();
       const manualEditor = await waitFor(
@@ -569,6 +574,18 @@ try {
         && left.bottom > right.top
       )).map(() => leftIndex)
     ));
+    const chordBaselinesBySystem = new Map();
+    chordBadges.forEach((badge) => {
+      const system = badge.closest('.annotation-overlay-system')?.getAttribute('aria-label');
+      const baselines = chordBaselinesBySystem.get(system) || new Set();
+      baselines.add(badge.dataset.chordBaseline);
+      chordBaselinesBySystem.set(system, baselines);
+    });
+    const scoreGeometryAfterChords = [...document.querySelectorAll('#paper > svg')]
+      .map((svg) => {
+        const rect = svg.getBoundingClientRect();
+        return { top: rect.top, height: rect.height };
+      });
     const annotationJourney = {
       routes: [...document.querySelectorAll('.agent-profile-route span')].map((node) => node.textContent),
       tools: [...document.querySelectorAll('.agent-tool-row')].map((node) => node.textContent),
@@ -579,7 +596,11 @@ try {
       manualOverlay: Boolean(document.querySelector('[aria-label="Edit Smoke manual annotation"]')),
       chordBadgeCount: chordBadges.length,
       chordLaneCount: new Set(chordBadges.map((badge) => badge.dataset.chordLane)).size,
+      chordBaselinesAligned: [...chordBaselinesBySystem.values()]
+        .every((baselines) => baselines.size === 1),
       chordIntersections: intersections.length,
+      scoreGeometryStable: JSON.stringify(scoreGeometryBeforeChords)
+        === JSON.stringify(scoreGeometryAfterChords),
     };
     const result = { singleState, rangeState, playbackStates, annotationJourney };
     return result;
@@ -617,8 +638,10 @@ try {
       && passageLinkState.annotationJourney.acceptedBody === 'Edited and persisted in the rail.'
       && passageLinkState.annotationJourney.manualOverlay
       && passageLinkState.annotationJourney.chordBadgeCount >= 2
-      && passageLinkState.annotationJourney.chordLaneCount >= 2
-      && passageLinkState.annotationJourney.chordIntersections === 0,
+      && passageLinkState.annotationJourney.chordLaneCount === 1
+      && passageLinkState.annotationJourney.chordBaselinesAligned
+      && passageLinkState.annotationJourney.chordIntersections === 0
+      && passageLinkState.annotationJourney.scoreGeometryStable,
     `Annotation proposal workflow did not complete (${JSON.stringify(passageLinkState.annotationJourney)}).`,
   );
   await firstCDP.call('Page.reload', { ignoreCache: true });
@@ -649,6 +672,8 @@ try {
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
     const sheetZoomBefore = sheet?.querySelector('.scale-val')?.textContent;
+    const annotationRailZoomBefore = sheet
+      ?.querySelector('.annotation-rail-zoom')?.getAttribute('data-score-zoom');
     sheet?.dispatchEvent(new WheelEvent('wheel', {
       bubbles: true,
       ctrlKey: true,
@@ -657,7 +682,43 @@ try {
     }));
     await new Promise((resolve) => setTimeout(resolve, 25));
     const sheetZoomAfter = sheet?.querySelector('.scale-val')?.textContent;
+    const annotationRailZoomAfter = sheet
+      ?.querySelector('.annotation-rail-zoom')?.getAttribute('data-score-zoom');
     const interfaceZoomAfterSheet = document.documentElement.style.getPropertyValue('--ui-zoom');
+    const annotationLayoutBounds = sheet?.querySelector('.sheet-annotation-layout')
+      ?.getBoundingClientRect();
+    const notationBounds = sheet?.querySelector('.sheet-notation-column')?.getBoundingClientRect();
+    const annotationNotationCenterDelta = annotationLayoutBounds && notationBounds
+      ? Math.abs(
+        (annotationLayoutBounds.left + annotationLayoutBounds.width / 2)
+        - (notationBounds.left + notationBounds.width / 2)
+      )
+      : null;
+    const sheetViewport = sheet?.querySelector('.sheet-viewport');
+    const sheetZoomContent = sheetViewport?.firstElementChild;
+    const sheetViewportBounds = sheetViewport?.getBoundingClientRect();
+    const sheetZoomContentBounds = sheetZoomContent?.getBoundingClientRect();
+    const sheetZoomCenterDelta = sheetViewportBounds && sheetZoomContentBounds
+      ? Math.abs(
+        (sheetViewportBounds.left + sheetViewportBounds.width / 2)
+        - (sheetZoomContentBounds.left + sheetZoomContentBounds.width / 2)
+      )
+      : null;
+    const annotationRailViewportBounds = sheet
+      ?.querySelector('.annotation-rail-viewport')?.getBoundingClientRect();
+    const annotationRailBounds = sheet?.querySelector('.annotation-rail')?.getBoundingClientRect();
+    const annotationRailContained = annotationRailViewportBounds && annotationRailBounds
+      ? annotationRailBounds.left >= annotationRailViewportBounds.left - 1
+        && annotationRailBounds.right <= annotationRailViewportBounds.right + 1
+      : null;
+    const alignedAnnotationList = sheet?.querySelector('.annotation-rail-list');
+    const annotationMeasureAlignment = {
+      aligned: alignedAnnotationList?.getAttribute('data-score-aligned'),
+      anchorY: Number(
+        sheet?.querySelector('[data-annotation-id="smoke-accepted-annotation"]')
+          ?.getAttribute('data-annotation-anchor-y'),
+      ),
+    };
 
     const fileRailWidthDefault = document.querySelector('.file-rail')?.getBoundingClientRect().width;
     const expectedFileRailWidth = Math.max(240, Math.min(560, Math.round(window.innerWidth / 4)));
@@ -930,6 +991,12 @@ try {
       providerCount: provider?.querySelectorAll('option').length ?? 0,
       sheetZoomBefore,
       sheetZoomAfter,
+      annotationRailZoomBefore,
+      annotationRailZoomAfter,
+      annotationNotationCenterDelta,
+      sheetZoomCenterDelta,
+      annotationRailContained,
+      annotationMeasureAlignment,
       interfaceZoomAfterSheet,
       fileRailWidthDefault,
       expectedFileRailWidth,
@@ -1085,6 +1152,29 @@ try {
   assert(
     shellState.sheetZoomAfter === '110%',
     `Ctrl+wheel over the sheet did not zoom only the sheet (${shellState.sheetZoomAfter}).`,
+  );
+  assert(
+    shellState.annotationRailZoomBefore === '100'
+      && shellState.annotationRailZoomAfter === '110',
+    `Annotation rail did not follow sheet zoom (${shellState.annotationRailZoomBefore} -> ${shellState.annotationRailZoomAfter}).`,
+  );
+  assert(
+    shellState.annotationNotationCenterDelta !== null
+      && shellState.annotationNotationCenterDelta <= 1,
+    `Notation did not remain on the sheet centerline (${shellState.annotationNotationCenterDelta}).`,
+  );
+  assert(
+    shellState.sheetZoomCenterDelta !== null && shellState.sheetZoomCenterDelta <= 1,
+    `Zoomed notation did not remain centered in its viewport (${shellState.sheetZoomCenterDelta}).`,
+  );
+  assert(
+    shellState.annotationRailContained,
+    'The zoomed annotation rail escaped its allocated side track.',
+  );
+  assert(
+    shellState.annotationMeasureAlignment.aligned === 'true'
+      && Number.isFinite(shellState.annotationMeasureAlignment.anchorY),
+    `Annotation rail did not align cards to rendered measure geometry (${JSON.stringify(shellState.annotationMeasureAlignment)}).`,
   );
   assert(shellState.interfaceZoomAfterSheet === '1', 'Sheet zoom unexpectedly changed interface zoom.');
   assert(
