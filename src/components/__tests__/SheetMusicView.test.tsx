@@ -334,6 +334,7 @@ describe('SheetMusicView Component', () => {
     expect(container.querySelector('.sheet-annotation-layout')).not.toBeNull();
     expect(container.querySelector('.sheet-layout-balance')).not.toBeNull();
     const zoomScene = container.querySelector<HTMLElement>('.sheet-zoom-wrapper')!;
+    expect(zoomScene.parentElement?.classList.contains('sheet-scene-positioner')).toBe(true);
     expect(zoomScene.style.zoom).toBe('1');
     expect(zoomScene.getAttribute('data-score-zoom')).toBe('100');
     expect(zoomScene.contains(container.querySelector('.sheet-notation-column'))).toBe(true);
