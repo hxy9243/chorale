@@ -44,7 +44,13 @@ const ai: AIProviderState = {
   }],
   selection: { connectionId: 'openai-test', modelId: 'gpt-test' },
   modelsByConnection: {
-    'openai-test': [{ id: 'gpt-test', name: 'GPT Test', source: 'live' }],
+    'openai-test': [{
+      id: 'gpt-test',
+      name: 'GPT Test',
+      source: 'live',
+      reasoning: true,
+      thinkingLevels: ['off', 'minimal', 'low', 'medium', 'high'],
+    }],
   },
   oauth: null,
   error: null,
@@ -176,6 +182,42 @@ describe('AgentChatPanel', () => {
     expect(screen.getAllByText('What changed?').length).toBeGreaterThan(0);
     expect(screen.getByText('Grounded mock response')).toBeDefined();
     expect(screen.getByText('Local edit.abc · ABC rev 12')).toBeDefined();
+  });
+
+  it('configures and persists the selected thinking level for chat requests', async () => {
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-thinking-level"
+        abcCode={'X:1\nT:Thinking\nK:C\nCDEF|'}
+        activeFileName="Thinking.abc"
+        revision={1}
+        ai={ai}
+        onOpenSettings={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', {
+      name: 'Choose AI provider, model, and thinking level',
+    }));
+    const thinkingLevel = screen.getByLabelText('Thinking level');
+    expect([...thinkingLevel.querySelectorAll('option')].map(({ textContent }) => textContent)).toEqual([
+      'Off',
+      'Minimal',
+      'Low',
+      'Medium',
+      'High',
+    ]);
+    fireEvent.change(thinkingLevel, { target: { value: 'medium' } });
+    fireEvent.change(screen.getByLabelText('Ask about the current sheet'), {
+      target: { value: 'Think through the cadence' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await screen.findByText('Grounded mock response');
+    expect((agentSendMock.mock.calls[0][0] as SheetAgentRequest).thinkingLevel).toBe('medium');
+    expect(localStorage.getItem('chorale.agent.thinkingLevel')).toBe('medium');
   });
 
   it('disables start new thread button when conversation is empty and does not create empty threads', () => {
@@ -704,15 +746,17 @@ describe('AgentChatPanel', () => {
       />,
     );
 
-    const picker = screen.getByRole('button', { name: 'Choose AI provider and model' });
+    const picker = screen.getByRole('button', {
+      name: 'Choose AI provider, model, and thinking level',
+    });
     fireEvent.click(picker);
     expect(picker.getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByRole('dialog', { name: 'AI model selection' })).toBeDefined();
+    expect(screen.getByRole('dialog', { name: 'AI chat configuration' })).toBeDefined();
 
     fireEvent.focus(screen.getByLabelText('Ask about the current sheet'));
 
     expect(picker.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.queryByRole('dialog', { name: 'AI model selection' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'AI chat configuration' })).toBeNull();
   });
 
   it('uses a rounded custom thread menu and selects a thread from one chevron trigger', () => {

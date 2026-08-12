@@ -5,6 +5,7 @@ import type { AIEvent, ChoraleAIBridge, SheetAgentRequest } from '../aiTypes';
 const request: SheetAgentRequest = {
   history: [],
   question: 'What is the cadence?',
+  thinkingLevel: 'off',
   context: {
     id: 'context-1',
     documentId: 'document-1',

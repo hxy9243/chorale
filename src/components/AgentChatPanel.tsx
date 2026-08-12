@@ -5,6 +5,10 @@ import { createMusicContextSnapshot } from '../agent/musicContext';
 import { prepareAbcForPlayback } from '../utils/abcAudio';
 import type { AIProviderState } from '../agent/useAIProviders';
 import {
+  type AIThinkingLevel,
+  isAIThinkingLevel,
+} from '../agent/aiTypes';
+import {
   loadConversation,
   makeEmptyConversation,
   saveConversation,
@@ -55,6 +59,25 @@ const PROFILE_NAMES = {
 const DEFAULT_TEXTAREA_HEIGHT = 80;
 const COMPOSER_MAX_PANEL_RATIO = 0.35;
 const KEYBOARD_RESIZE_STEP = 16;
+const THINKING_LEVEL_STORAGE_KEY = 'chorale.agent.thinkingLevel';
+const THINKING_LEVEL_LABELS: Record<AIThinkingLevel, string> = {
+  off: 'Off',
+  minimal: 'Minimal',
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  xhigh: 'Extra high',
+  max: 'Maximum',
+};
+
+const loadThinkingLevel = (): AIThinkingLevel => {
+  try {
+    const stored = window.localStorage.getItem(THINKING_LEVEL_STORAGE_KEY);
+    return isAIThinkingLevel(stored) ? stored : 'off';
+  } catch {
+    return 'off';
+  }
+};
 
 const makeId = () => crypto.randomUUID();
 
@@ -132,6 +155,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   const [threadMenuOpen, setThreadMenuOpen] = useState(false);
   const [providerPickerOpen, setProviderPickerOpen] = useState(false);
   const [textareaHeight, setTextareaHeight] = useState<number | null>(null);
+  const [thinkingLevel, setThinkingLevel] = useState<AIThinkingLevel>(loadThinkingLevel);
   const [editingProposal, setEditingProposal] = useState<{
     messageId: string;
     proposalId: string;
@@ -223,6 +247,14 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     if (!fileId) return;
     saveConversation(fileId, conversation);
   }, [conversation, fileId]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(THINKING_LEVEL_STORAGE_KEY, thinkingLevel);
+    } catch {
+      // Keep the session-level choice usable when browser storage is unavailable.
+    }
+  }, [thinkingLevel]);
 
   useEffect(() => {
     if (!fileId || revision <= 0) return;
@@ -512,7 +544,12 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
 
     try {
       const agent = getAgent();
-      await agent.send({ history, question, context }, {
+      await agent.send({
+        history,
+        question,
+        context,
+        thinkingLevel: effectiveThinkingLevel,
+      }, {
         onDelta: (delta) => {
           if (!isCurrentRun()) return;
           updateMessages(threadId, (current) => current.map((message) => (
@@ -617,6 +654,15 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     ? (ai.modelsByConnection[selectedConnection.id] ?? [])
     : [];
   const selectedModel = selectedModels.find((model) => model.id === ai.selection?.modelId);
+  const modelSupportsThinking = selectedModel?.reasoning === true;
+  const supportedThinkingLevels: AIThinkingLevel[] = modelSupportsThinking
+    ? (selectedModel.thinkingLevels ?? ['off', 'minimal', 'low', 'medium', 'high'])
+    : ['off'];
+  const effectiveThinkingLevel: AIThinkingLevel = supportedThinkingLevels.includes(thinkingLevel)
+    ? thinkingLevel
+    : supportedThinkingLevels.includes('medium')
+      ? 'medium'
+      : supportedThinkingLevels[0] ?? 'off';
   const providerReady = (
     ai.desktopAvailable &&
     selectedConnection?.status === 'ready' &&
@@ -856,7 +902,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
               ref={providerTriggerRef}
               type="button"
               className="agent-provider-trigger"
-              aria-label="Choose AI provider and model"
+              aria-label="Choose AI provider, model, and thinking level"
               aria-haspopup="dialog"
               aria-expanded={providerPickerOpen}
               aria-controls="agent-provider-popover"
@@ -870,7 +916,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
               <ChevronDown size={14} aria-hidden="true" />
             </button>
             {providerPickerOpen && (
-            <div className="agent-provider-popover" id="agent-provider-popover" role="dialog" aria-label="AI model selection">
+            <div className="agent-provider-popover" id="agent-provider-popover" role="dialog" aria-label="AI chat configuration">
               <label>
                 Provider
                 <select
@@ -910,6 +956,26 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
                   ))}
                 </select>
               </label>
+              <label>
+                Thinking level
+                <select
+                  aria-label="Thinking level"
+                  value={effectiveThinkingLevel}
+                  disabled={!modelSupportsThinking}
+                  onChange={(event) => {
+                    if (isAIThinkingLevel(event.target.value)) {
+                      setThinkingLevel(event.target.value);
+                    }
+                  }}
+                >
+                  {supportedThinkingLevels.map((level) => (
+                    <option key={level} value={level}>{THINKING_LEVEL_LABELS[level]}</option>
+                  ))}
+                </select>
+              </label>
+              {!modelSupportsThinking && selectedModel && (
+                <p className="agent-provider-note">This model does not advertise thinking support.</p>
+              )}
               <button type="button" onClick={() => {
                 setProviderPickerOpen(false);
                 onOpenSettings();

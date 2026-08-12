@@ -3,7 +3,7 @@ import type {
   SaveAIConnectionInput,
   SheetAgentRequest,
 } from '../src/agent/aiTypes';
-import { isAIProviderKind } from '../src/agent/aiTypes';
+import { isAIProviderKind, isAIThinkingLevel } from '../src/agent/aiTypes';
 import type { ChatMessage, MusicContextSnapshot } from '../src/agent/types';
 import type { Annotation, ScoreAnchor } from '../src/types/document';
 import { normalizeAnnotation } from '../src/music/documentSchema';
@@ -255,9 +255,12 @@ export const validateChatRequest = (value: unknown): SheetAgentRequest => {
       ...(messageContext ? { context: messageContext } : {}),
     });
   }
+  const thinkingLevel = value.thinkingLevel ?? 'off';
+  if (!isAIThinkingLevel(thinkingLevel)) throw new Error('Invalid thinking level.');
   return {
     question: value.question,
     history,
     context,
+    thinkingLevel,
   };
 };

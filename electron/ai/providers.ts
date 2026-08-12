@@ -1,6 +1,7 @@
 import {
   createModels,
   createProvider,
+  getSupportedThinkingLevels,
   type Api,
   type Credential,
   type CredentialInfo,
@@ -116,6 +117,7 @@ const optionFromCatalogModel = (model: Model<Api>, source: AIModelOption['source
   contextWindow: model.contextWindow,
   maxTokens: model.maxTokens,
   reasoning: model.reasoning,
+  thinkingLevels: getSupportedThinkingLevels(model),
 });
 
 type UnknownModelInput = {

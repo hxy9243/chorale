@@ -95,6 +95,16 @@ const summarizeResponseHeaders = (headers: Record<string, string>) => Object.fro
 
 const shouldPersistAgentEvent = (event: AgentEvent) => event.type !== 'message_update';
 
+export const projectAssistantDelta = (event: AgentEvent): string | undefined => {
+  if (event.type !== 'message_update') return undefined;
+  const update = event.assistantMessageEvent;
+  if (update.type === 'text_delta') return update.delta;
+  if (update.type === 'thinking_end' && update.content.trim()) {
+    return `<think>\n${update.content}\n</think>\n\n`;
+  }
+  return undefined;
+};
+
 export class SheetAgentRun {
   readonly scoreSnapshot: ScoreSnapshot;
   readonly sheetTools: ReturnType<typeof createSheetTools>;
@@ -156,6 +166,7 @@ export class SheetAgentRun {
 
   async start() {
     const { models, model } = createProviderRuntime(this.connection, this.modelOption, this.store);
+    const thinkingLevel = model.reasoning ? this.request.thinkingLevel : 'off';
     const initialHistory = toAgentHistory(this.request.history, model);
     const currentPrompt = formatPrompt(this.request.question, this.request.context);
     let trace: AgentTraceRun | undefined;
@@ -177,7 +188,8 @@ export class SheetAgentRun {
         connection: this.connection,
         model: describeModel(model),
         modelSelection: this.modelOption,
-        thinkingLevel: 'off',
+        thinkingLevel,
+        requestedThinkingLevel: this.request.thinkingLevel,
         systemPrompt: SHEET_AGENT_SYSTEM_PROMPT,
         profiles: Object.values(AGENT_PROFILE_REGISTRY),
         tools: describeTools(this.sheetTools.tools),
@@ -193,7 +205,7 @@ export class SheetAgentRun {
       initialState: {
         systemPrompt: SHEET_AGENT_SYSTEM_PROMPT,
         model,
-        thinkingLevel: 'off',
+        thinkingLevel,
         messages: initialHistory,
         tools: [...this.sheetTools.tools],
       },
@@ -234,15 +246,12 @@ export class SheetAgentRun {
       ) {
         this.emit(projectToolLifecycleEvent(this.requestId, event));
       }
-      if (
-        event.type === 'message_update' &&
-        event.assistantMessageEvent.type === 'text_delta' &&
-        !this.cancelled
-      ) {
+      const assistantDelta = projectAssistantDelta(event);
+      if (assistantDelta !== undefined && !this.cancelled) {
         this.emit({
           type: 'chat-delta',
           requestId: this.requestId,
-          text: event.assistantMessageEvent.delta,
+          text: assistantDelta,
         });
       }
     });

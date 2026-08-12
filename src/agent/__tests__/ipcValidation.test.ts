@@ -69,6 +69,27 @@ describe('AI IPC validation', () => {
     })).toThrow('history');
   });
 
+  it('accepts supported thinking levels, defaults old requests to off, and rejects unknown values', () => {
+    const baseRequest = {
+      question: 'Analyze this',
+      history: [],
+      context: {
+        id: 'context',
+        documentId: 'document',
+        revision: 1,
+        capturedAt: '2026-08-12T00:00:00.000Z',
+        fileName: 'Test.abc',
+        abc: 'X:1\nK:C\nC|',
+        annotations: [],
+      },
+    };
+
+    expect(validateChatRequest({ ...baseRequest, thinkingLevel: 'high' }).thinkingLevel).toBe('high');
+    expect(validateChatRequest(baseRequest).thinkingLevel).toBe('off');
+    expect(() => validateChatRequest({ ...baseRequest, thinkingLevel: 'unlimited' }))
+      .toThrow('thinking level');
+  });
+
   it('normalizes bounded ranges and canonical annotations', () => {
     const request = validateChatRequest({
       question: 'Analyze this range',

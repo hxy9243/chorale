@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Credential } from '@earendil-works/pi-ai';
-import { isAIProviderKind } from '../../src/agent/aiTypes';
+import { isAIProviderKind, isAIThinkingLevel } from '../../src/agent/aiTypes';
 import type {
   AIConnectionPublic,
   AIConnectionStatus,
@@ -78,7 +78,11 @@ const isModelOption = (value: unknown): value is AIModelOption => (
   (value.source === 'live' || value.source === 'pi-catalog') &&
   (value.contextWindow === undefined || typeof value.contextWindow === 'number') &&
   (value.maxTokens === undefined || typeof value.maxTokens === 'number') &&
-  (value.reasoning === undefined || typeof value.reasoning === 'boolean')
+  (value.reasoning === undefined || typeof value.reasoning === 'boolean') &&
+  (
+    value.thinkingLevels === undefined ||
+    (Array.isArray(value.thinkingLevels) && value.thinkingLevels.every(isAIThinkingLevel))
+  )
 );
 
 const isStoredConnection = (value: unknown): value is StoredConnection => (

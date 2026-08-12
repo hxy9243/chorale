@@ -1763,6 +1763,12 @@ textarea:disabled,
   background: var(--color-paper-raised);
 }
 
+.agent-provider-note {
+  margin: var(--space-xs) 0 0;
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+
 /* Settings: same system, no separate visual dialect. */
 .ai-modal-backdrop {
   position: fixed;

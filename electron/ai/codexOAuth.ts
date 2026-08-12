@@ -1,5 +1,5 @@
 import { shell } from 'electron';
-import { createModels, type Credential } from '@earendil-works/pi-ai';
+import { createModels, getSupportedThinkingLevels, type Credential } from '@earendil-works/pi-ai';
 import type { AIModelOption, OAuthUpdateDetails } from '../../src/agent/aiTypes';
 import { getCodexProvider } from './providers';
 
@@ -62,6 +62,7 @@ export class ElectronCodexOAuthAdapter implements CodexOAuthAdapter {
         contextWindow: model.contextWindow,
         maxTokens: model.maxTokens,
         reasoning: model.reasoning,
+        thinkingLevels: getSupportedThinkingLevels(model),
       })),
     };
   }

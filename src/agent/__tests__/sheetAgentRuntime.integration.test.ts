@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AIConnectionStore, type SecretCipher } from '../../../electron/ai/connectionStore';
 import {
   mapAgentError,
+  projectAssistantDelta,
   redactSecretValues,
   SheetAgentRun,
 } from '../../../electron/ai/sheetAgentRuntime';
@@ -49,6 +50,7 @@ const createStore = async (baseUrl: string) => {
     id: 'chorale-test-model',
     name: 'Chorale Test Model',
     source: 'live',
+    reasoning: true,
   };
   await store.updateModels(connection.id, [model]);
   return { directory, store, connection: store.getConnection(connection.id)!, model };
@@ -56,6 +58,7 @@ const createStore = async (baseUrl: string) => {
 
 const request: SheetAgentRequest = {
   question: 'How does this cadence resolve?',
+  thinkingLevel: 'low',
   history: [{
     id: 'history-user',
     role: 'user',
@@ -197,6 +200,9 @@ describe('SheetAgentRun provider transport', () => {
     });
     expect(traceText).toContain('Before making any score-specific claim');
     expect(traceText).toContain('How does this cadence resolve?');
+    expect(traceRecords.find((record) => record.event === 'run-start')).toMatchObject({
+      data: { thinkingLevel: 'low', requestedThinkingLevel: 'low' },
+    });
     expect(traceText).toContain('The dominant resolves to tonic.');
     expect(traceText).not.toContain('integration-secret');
   });
@@ -246,6 +252,23 @@ describe('SheetAgentRun provider transport', () => {
       requestId: 'abort-request',
       code: 'aborted',
     }));
+  });
+});
+
+describe('assistant stream projection', () => {
+  it('wraps completed provider thinking as a quoted chat trace', () => {
+    expect(projectAssistantDelta({
+      type: 'message_update',
+      assistantMessageEvent: {
+        type: 'thinking_end',
+        contentIndex: 0,
+        content: 'Check the inner voices.',
+        partial: {},
+      },
+      message: {},
+    } as unknown as Parameters<typeof projectAssistantDelta>[0])).toBe(
+      '<think>\nCheck the inner voices.\n</think>\n\n',
+    );
   });
 });
 

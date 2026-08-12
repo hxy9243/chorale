@@ -26,6 +26,17 @@ export type AIConnectionPublic = {
   modelsUpdatedAt?: string;
 };
 
+export const AI_THINKING_LEVELS = [
+  'off',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+] as const;
+export type AIThinkingLevel = (typeof AI_THINKING_LEVELS)[number];
+
 export type AIModelOption = {
   id: string;
   name: string;
@@ -33,6 +44,7 @@ export type AIModelOption = {
   contextWindow?: number;
   maxTokens?: number;
   reasoning?: boolean;
+  thinkingLevels?: AIThinkingLevel[];
 };
 
 export type AISelection = {
@@ -54,6 +66,7 @@ export type SheetAgentRequest = {
   history: ChatMessage[];
   question: string;
   context: MusicContextSnapshot;
+  thinkingLevel: AIThinkingLevel;
 };
 
 export type AIErrorCode =
@@ -130,4 +143,8 @@ export type ChoraleAIBridge = {
 
 export const isAIProviderKind = (value: unknown): value is AIProviderKind => (
   typeof value === 'string' && AI_PROVIDER_KINDS.includes(value as AIProviderKind)
+);
+
+export const isAIThinkingLevel = (value: unknown): value is AIThinkingLevel => (
+  typeof value === 'string' && AI_THINKING_LEVELS.includes(value as AIThinkingLevel)
 );
