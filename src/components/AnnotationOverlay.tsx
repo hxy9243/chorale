@@ -1,9 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import abcjs from 'abcjs';
+import { PenLine } from 'lucide-react';
 import type { Annotation } from '../types/document';
 import { extractScore, type MeasuredScoreEvent } from '../music/scoreSnapshot';
 import {
   projectAnnotations,
+  CHORD_BADGE_GAP,
+  CHORD_BADGE_HEIGHT,
+  packChordBadgeIntervals,
+  requiredChordLaneCount,
   type AnnotationPlacement,
   type RenderedEventGeometry,
   type RenderedMeasureGeometry,
@@ -41,6 +46,7 @@ interface AnnotationOverlayProps {
   zoom: number;
   activeAnnotationId?: string | null;
   onActivate(annotation: Annotation): void;
+  onRequiredLaneCount?(laneCount: number): void;
 }
 
 const safeBounds = (element: SVGGraphicsElement): SvgLocalBounds | null => {
@@ -234,8 +240,9 @@ const handleKeyboardActivation = (
 const PlacementNode: React.FC<{
   placement: AnnotationPlacement;
   active: boolean;
+  chordBadge?: Readonly<{ width: number; lane: number }>;
   onActivate(): void;
-}> = ({ placement, active, onActivate }) => {
+}> = ({ placement, active, chordBadge, onActivate }) => {
   const common = {
     className: `annotation-overlay-node ${placement.track} ${active ? 'active' : 'inactive'}`,
     role: 'button',
@@ -243,18 +250,48 @@ const PlacementNode: React.FC<{
     'aria-label': `Edit ${placement.label} annotation`,
     'data-annotation-id': placement.annotationId,
     onClick: onActivate,
-    onFocus: onActivate,
     onKeyDown: (event: React.KeyboardEvent<SVGGElement>) => handleKeyboardActivation(event, onActivate),
   };
 
-  if (placement.track === 'chord') {
+  if (placement.track === 'chord' && chordBadge) {
+    const top = placement.y
+      - 8
+      - CHORD_BADGE_HEIGHT * (chordBadge.lane + 1)
+      - CHORD_BADGE_GAP * chordBadge.lane;
+    const left = placement.x - chordBadge.width / 2;
+    const textCenter = left + (chordBadge.width - 26) / 2;
     return (
-      <g {...common} transform={`translate(${placement.x} ${placement.y})`}>
+      <g {...common} data-chord-lane={chordBadge.lane}>
         <title>{placement.body}</title>
-        <text className="annotation-chord-symbol" textAnchor="middle">{placement.chordSymbol}</text>
+        <rect
+          className="annotation-chord-background"
+          x={left}
+          y={top}
+          width={chordBadge.width}
+          height={CHORD_BADGE_HEIGHT}
+        />
+        <text
+          className="annotation-chord-symbol"
+          x={textCenter}
+          y={top + (placement.romanNumeral ? 20 : 25)}
+          textAnchor="middle"
+        >{placement.chordSymbol}</text>
         {placement.romanNumeral && (
-          <text className="annotation-roman-numeral" y="11" textAnchor="middle">{placement.romanNumeral}</text>
+          <text
+            className="annotation-roman-numeral"
+            x={textCenter}
+            y={top + 34}
+            textAnchor="middle"
+          >{placement.romanNumeral}</text>
         )}
+        <PenLine
+          className="annotation-chord-edit-glyph"
+          x={left + chordBadge.width - 20}
+          y={top + 12}
+          width={14}
+          height={14}
+          aria-hidden="true"
+        />
       </g>
     );
   }
@@ -299,9 +336,12 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
   zoom,
   activeAnnotationId = null,
   onActivate,
+  onRequiredLaneCount,
 }) => {
   const [layout, setLayout] = useState<OverlayLayout>({ systems: [], placements: [] });
+  const [chordWidths, setChordWidths] = useState<Record<string, number>>({});
   const frameRef = useRef<number | null>(null);
+  const measurementRefs = useRef(new Map<string, SVGGElement>());
 
   useEffect(() => {
     const paper = paperRef.current;
@@ -338,6 +378,48 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
     };
   }, [abcCode, annotations, paperRef, renderGeneration, tune, zoom]);
 
+  useLayoutEffect(() => {
+    const widths: Record<string, number> = {};
+    for (const placement of layout.placements) {
+      if (placement.track !== 'chord') continue;
+      const measured = safeBounds(measurementRefs.current.get(placement.id)!);
+      const fallback = Math.max(
+        placement.chordSymbol?.length || 0,
+        placement.romanNumeral?.length || 0,
+      ) * 12;
+      widths[placement.id] = Math.max(54, (measured?.width || fallback) + 38);
+    }
+    setChordWidths((current) => {
+      const keys = Object.keys(widths);
+      if (
+        keys.length === Object.keys(current).length
+        && keys.every((key) => current[key] === widths[key])
+      ) return current;
+      return widths;
+    });
+  }, [layout]);
+
+  const packedChords = useMemo(() => packChordBadgeIntervals(
+    layout.placements.flatMap((placement) => (
+      placement.track === 'chord' && chordWidths[placement.id]
+        ? [{
+            id: placement.id,
+            systemId: placement.systemId,
+            centerX: placement.x,
+            width: chordWidths[placement.id],
+          }]
+        : []
+    )),
+  ), [chordWidths, layout.placements]);
+  const packedChordById = useMemo(
+    () => new Map(packedChords.map((badge) => [badge.id, badge])),
+    [packedChords],
+  );
+
+  useEffect(() => {
+    onRequiredLaneCount?.(requiredChordLaneCount(packedChords));
+  }, [onRequiredLaneCount, packedChords]);
+
   return (
     <div className="annotation-overlay-layer" aria-label="Score annotation overlay">
       {layout.systems.map((system) => (
@@ -353,14 +435,41 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
             height: `${system.height}px`,
           }}
         >
+          <g className="annotation-chord-measurements" aria-hidden="true">
+            {layout.placements
+              .filter(({ systemId, track }) => systemId === system.id && track === 'chord')
+              .map((placement) => (
+                <g
+                  key={`measure:${placement.id}`}
+                  ref={(element) => {
+                    if (element) measurementRefs.current.set(placement.id, element);
+                    else measurementRefs.current.delete(placement.id);
+                  }}
+                >
+                  <text className="annotation-chord-symbol" textAnchor="middle">
+                    {placement.chordSymbol}
+                  </text>
+                  {placement.romanNumeral && (
+                    <text className="annotation-roman-numeral" y="16" textAnchor="middle">
+                      {placement.romanNumeral}
+                    </text>
+                  )}
+                </g>
+              ))}
+          </g>
           {layout.placements.filter(({ systemId }) => systemId === system.id).map((placement) => {
             const annotation = annotationForPlacement(annotations, placement);
             if (!annotation) return null;
+            const packedChord = placement.track === 'chord'
+              ? packedChordById.get(placement.id)
+              : undefined;
+            if (placement.track === 'chord' && !packedChord) return null;
             return (
               <PlacementNode
                 key={placement.id}
                 placement={placement}
                 active={placement.annotationId === activeAnnotationId}
+                chordBadge={packedChord && { width: packedChord.width, lane: packedChord.lane }}
                 onActivate={() => onActivate(annotation)}
               />
             );

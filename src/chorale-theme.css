@@ -5310,3 +5310,62 @@ body,
     transition-duration: 0ms;
   }
 }
+
+/* Annotation redesign · collision-free score chords */
+.annotation-chord-measurements {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.annotation-chord-measurements text,
+.annotation-overlay-node.chord text {
+  stroke: none;
+  paint-order: normal;
+}
+
+.annotation-overlay-node.chord {
+  color: var(--color-accent-strong);
+  opacity: 1;
+  filter: none;
+}
+
+.annotation-overlay-node.chord .annotation-chord-background {
+  fill: var(--color-accent-soft);
+  stroke: none;
+}
+
+.annotation-overlay-node.chord .annotation-chord-symbol,
+.annotation-chord-measurements .annotation-chord-symbol {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.annotation-overlay-node.chord .annotation-roman-numeral,
+.annotation-chord-measurements .annotation-roman-numeral {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.annotation-chord-edit-glyph {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2px;
+}
+
+.annotation-overlay-node.chord.active {
+  color: var(--color-accent-ink);
+  filter: none;
+}
+
+.annotation-overlay-node.chord.active .annotation-chord-background {
+  fill: var(--color-accent);
+}
+
+.annotation-overlay-node.chord:focus-visible .annotation-chord-background {
+  stroke: var(--color-focus);
+  stroke-width: 3px;
+}
