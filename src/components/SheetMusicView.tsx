@@ -295,7 +295,6 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   const [transpose, setTranspose] = useState<number>(0);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [renderGeneration, setRenderGeneration] = useState(0);
-  const [chordLaneCount, setChordLaneCount] = useState(0);
   const [annotationEditor, setAnnotationEditor] = useState<
     { mode: 'manual' } | { mode: 'accepted'; annotationId: AnnotationId } | null
   >(null);
@@ -421,7 +420,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       };
 
       const visualTranspose = transpose;
-      const spacing = chordStaffSpacing(chordLaneCount);
+      const spacing = chordStaffSpacing();
       const tunes = abcjs.renderAbc(containerRef.current, prepareAbcForPlayback(abcCode), {
         responsive: 'resize',
         scale: 1,
@@ -498,7 +497,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       renderedContainer.removeEventListener('click', captureModifiers, true);
       renderedContainer.removeEventListener('click', handleContainerFallbackClick, false);
     };
-  }, [abcCode, chordLaneCount, getPlaybackPosition, onSelectAnchor, onTuneRendered, transpose]);
+  }, [abcCode, getPlaybackPosition, onSelectAnchor, onTuneRendered, transpose]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -867,7 +866,6 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                 activeAnnotationId={
                   annotationEditor?.mode === 'accepted' ? annotationEditor.annotationId : null
                 }
-                onRequiredLaneCount={setChordLaneCount}
                 onActivate={(annotation) => {
                   onSelectAnchor?.(annotation.span);
                   setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });

@@ -5,10 +5,8 @@ import type { Annotation } from '../types/document';
 import { extractScore, type MeasuredScoreEvent } from '../music/scoreSnapshot';
 import {
   projectAnnotations,
-  CHORD_BADGE_GAP,
   CHORD_BADGE_HEIGHT,
   packChordBadgeIntervals,
-  requiredChordLaneCount,
   type AnnotationPlacement,
   type RenderedEventGeometry,
   type RenderedMeasureGeometry,
@@ -46,7 +44,6 @@ interface AnnotationOverlayProps {
   zoom: number;
   activeAnnotationId?: string | null;
   onActivate(annotation: Annotation, initiator: SVGGElement): void;
-  onRequiredLaneCount?(laneCount: number): void;
 }
 
 const safeBounds = (element: SVGGraphicsElement): SvgLocalBounds | null => {
@@ -240,7 +237,7 @@ const handleKeyboardActivation = (
 const PlacementNode: React.FC<{
   placement: AnnotationPlacement;
   active: boolean;
-  chordBadge?: Readonly<{ width: number; lane: number }>;
+  chordBadge?: Readonly<{ width: number; lane: number; left: number }>;
   onActivate(initiator: SVGGElement): void;
 }> = ({ placement, active, chordBadge, onActivate }) => {
   const common = {
@@ -255,14 +252,11 @@ const PlacementNode: React.FC<{
   };
 
   if (placement.track === 'chord' && chordBadge) {
-    const top = placement.y
-      - 8
-      - CHORD_BADGE_HEIGHT * (chordBadge.lane + 1)
-      - CHORD_BADGE_GAP * chordBadge.lane;
-    const left = placement.x - chordBadge.width / 2;
+    const top = placement.y - 8 - CHORD_BADGE_HEIGHT;
+    const left = chordBadge.left;
     const textCenter = left + (chordBadge.width - 26) / 2;
     return (
-      <g {...common} data-chord-lane={chordBadge.lane}>
+      <g {...common} data-chord-lane={chordBadge.lane} data-chord-baseline={top}>
         <title>{placement.body}</title>
         <rect
           className="annotation-chord-background"
@@ -337,7 +331,6 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
   zoom,
   activeAnnotationId = null,
   onActivate,
-  onRequiredLaneCount,
 }) => {
   const [layout, setLayout] = useState<OverlayLayout>({ systems: [], placements: [] });
   const [chordWidths, setChordWidths] = useState<Record<string, number>>({});
@@ -407,23 +400,27 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
   const packedChords = useMemo(() => packChordBadgeIntervals(
     layout.placements.flatMap((placement) => (
       placement.track === 'chord' && chordWidths[placement.id]
-        ? [{
-            id: placement.id,
-            systemId: placement.systemId,
-            centerX: placement.x,
-            width: chordWidths[placement.id],
-          }]
+        ? (() => {
+            const system = layout.systems.find(({ id }) => id === placement.systemId);
+            const [viewBoxX = 0, , viewBoxWidth = system?.width || 0] = (system?.viewBox || '')
+              .split(/[ ,]+/)
+              .map(Number);
+            return [{
+              id: placement.id,
+              systemId: placement.systemId,
+              centerX: placement.x,
+              width: chordWidths[placement.id],
+              minX: viewBoxX,
+              maxX: viewBoxX + viewBoxWidth,
+            }];
+          })()
         : []
     )),
-  ), [chordWidths, layout.placements]);
+  ), [chordWidths, layout.placements, layout.systems]);
   const packedChordById = useMemo(
     () => new Map(packedChords.map((badge) => [badge.id, badge])),
     [packedChords],
   );
-
-  useEffect(() => {
-    onRequiredLaneCount?.(requiredChordLaneCount(packedChords));
-  }, [onRequiredLaneCount, packedChords]);
 
   return (
     <div className="annotation-overlay-layer" aria-label="Score annotation overlay">
@@ -474,7 +471,11 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
                 key={placement.id}
                 placement={placement}
                 active={placement.annotationId === activeAnnotationId}
-                chordBadge={packedChord && { width: packedChord.width, lane: packedChord.lane }}
+                chordBadge={packedChord && {
+                  width: packedChord.width,
+                  lane: packedChord.lane,
+                  left: packedChord.left,
+                }}
                 onActivate={(initiator) => onActivate(annotation, initiator)}
               />
             );
