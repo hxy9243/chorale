@@ -127,6 +127,19 @@ export const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
     }
   };
 
+  const handleDelete = async () => {
+    if (!onDelete) return;
+    try {
+      setSaving(true);
+      setError(null);
+      await onDelete();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Annotation could not be deleted.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <form
       className="annotation-editor"
@@ -273,7 +286,7 @@ export const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
       {error && <div className="annotation-editor-error" role="alert">{error}</div>}
       <div className="annotation-editor-actions">
         {onDelete && (
-          <button type="button" className="annotation-delete" onClick={() => void onDelete()} disabled={saving}>
+          <button type="button" className="annotation-delete" onClick={() => void handleDelete()} disabled={saving}>
             Delete annotation
           </button>
         )}

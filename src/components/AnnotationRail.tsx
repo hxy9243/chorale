@@ -1,10 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, PenLine, Plus } from 'lucide-react';
 import type { Annotation, AnnotationId, RangeAnnotation } from '../types/document';
+
+export type AnnotationRailEditor =
+  | Readonly<{ mode: 'manual' }>
+  | Readonly<{ mode: 'accepted'; annotationId: AnnotationId }>;
 
 interface AnnotationRailProps {
   annotations: readonly Annotation[];
+  activeAnchorLabel?: string | null;
+  canCreate: boolean;
+  editing: AnnotationRailEditor | null;
+  editor: React.ReactNode;
   onSelect(annotation: RangeAnnotation, initiator: HTMLButtonElement): void;
+  onCreate(initiator: HTMLButtonElement): void;
+  onEdit(annotation: RangeAnnotation, initiator: HTMLButtonElement): void;
 }
 
 const KIND_ORDER: Record<RangeAnnotation['kind'], number> = {
@@ -38,9 +48,19 @@ const measureLabel = ({ startMeasure, endMeasure }: RangeAnnotation['span']) => 
   startMeasure === endMeasure ? `m. ${startMeasure}` : `mm. ${startMeasure}–${endMeasure}`
 );
 
-export const AnnotationRail: React.FC<AnnotationRailProps> = ({ annotations, onSelect }) => {
+export const AnnotationRail: React.FC<AnnotationRailProps> = ({
+  annotations,
+  activeAnchorLabel,
+  canCreate,
+  editing,
+  editor,
+  onSelect,
+  onCreate,
+  onEdit,
+}) => {
   const rangeAnnotations = useMemo(() => sortRangeAnnotations(annotations), [annotations]);
   const [expandedId, setExpandedId] = useState<AnnotationId | null>(null);
+  const [dismissedTooltipId, setDismissedTooltipId] = useState<AnnotationId | null>(null);
 
   useEffect(() => {
     if (expandedId && !rangeAnnotations.some(({ id }) => id === expandedId)) {
@@ -52,7 +72,7 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({ annotations, onS
     <aside className="annotation-rail" aria-labelledby="annotation-rail-title">
       <header className="annotation-rail-header">
         <div>
-          <h4 id="annotation-rail-title">Annotations</h4>
+          <h4 id="annotation-rail-title" data-annotation-rail-heading tabIndex={-1}>Annotations</h4>
           <p>Notes linked to passages in the score.</p>
         </div>
         <span className="annotation-rail-count" aria-label={`${rangeAnnotations.length} range annotations`}>
@@ -60,7 +80,32 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({ annotations, onS
         </span>
       </header>
 
-      {rangeAnnotations.length === 0 ? (
+      {canCreate && activeAnchorLabel && (
+        <button
+          type="button"
+          className="annotation-rail-create"
+          data-create-annotation
+          onClick={(event) => onCreate(event.currentTarget)}
+        >
+          <Plus aria-hidden="true" />
+          Add annotation to {activeAnchorLabel}
+        </button>
+      )}
+
+      {editing?.mode === 'manual' && (
+        <section className="annotation-rail-transient-editor" aria-label="New annotation">
+          {editor}
+        </section>
+      )}
+
+      {editing?.mode === 'accepted'
+        && annotations.find(({ id }) => id === editing.annotationId)?.kind === 'chord' && (
+        <section className="annotation-rail-transient-editor" aria-label="Chord annotation editor">
+          {editor}
+        </section>
+      )}
+
+      {rangeAnnotations.length === 0 && !editing ? (
         <div className="annotation-rail-empty">
           <p>No range annotations yet.</p>
           <span>Select measures to add a modulation, voice-leading note, or explanation.</span>
@@ -77,36 +122,60 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({ annotations, onS
                 data-annotation-kind={annotation.kind}
                 data-selected={expanded ? 'true' : 'false'}
               >
-                <button
-                  type="button"
-                  className="annotation-card-toggle"
-                  aria-expanded={expanded}
-                  aria-controls={bodyId}
-                  onClick={(event) => {
-                    setExpandedId(annotation.id);
-                    onSelect(annotation, event.currentTarget);
-                  }}
-                >
-                  <span className="annotation-card-heading">
-                    <span className="annotation-card-label">{annotation.label}</span>
-                    <ChevronDown className="annotation-card-chevron" aria-hidden="true" />
-                  </span>
-                  <span className="annotation-card-meta">
-                    <span>{KIND_LABEL[annotation.kind]}</span>
-                    <span>{measureLabel(annotation.span)}</span>
-                    {expanded && (
-                      <span className="annotation-card-selected">
-                        <Check aria-hidden="true" /> Selected
+                {editing?.mode === 'accepted' && editing.annotationId === annotation.id ? (
+                  <section className="annotation-card-editor" aria-label={`${annotation.label} editor`}>
+                    {editor}
+                  </section>
+                ) : (
+                  <div className="annotation-card-row">
+                    <button
+                      type="button"
+                      className="annotation-card-toggle"
+                      aria-expanded={expanded}
+                      aria-controls={bodyId}
+                      onClick={(event) => {
+                        setExpandedId(annotation.id);
+                        onSelect(annotation, event.currentTarget);
+                      }}
+                    >
+                      <span className="annotation-card-heading">
+                        <span className="annotation-card-label">{annotation.label}</span>
+                        <ChevronDown className="annotation-card-chevron" aria-hidden="true" />
                       </span>
-                    )}
-                  </span>
-                  <span
-                    id={bodyId}
-                    className={`annotation-card-body ${expanded ? 'expanded' : 'collapsed'}`}
-                  >
-                    {annotation.body}
-                  </span>
-                </button>
+                      <span className="annotation-card-meta">
+                        <span>{KIND_LABEL[annotation.kind]}</span>
+                        <span>{measureLabel(annotation.span)}</span>
+                        {expanded && (
+                          <span className="annotation-card-selected">
+                            <Check aria-hidden="true" /> Selected
+                          </span>
+                        )}
+                      </span>
+                      <span
+                        id={bodyId}
+                        className={`annotation-card-body ${expanded ? 'expanded' : 'collapsed'}`}
+                      >
+                        {annotation.body}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="annotation-card-edit"
+                      data-edit-annotation={annotation.id}
+                      data-tooltip-dismissed={dismissedTooltipId === annotation.id ? 'true' : 'false'}
+                      aria-label="Edit annotation"
+                      onFocus={() => setDismissedTooltipId(null)}
+                      onMouseLeave={() => setDismissedTooltipId(null)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') setDismissedTooltipId(annotation.id);
+                      }}
+                      onClick={(event) => onEdit(annotation, event.currentTarget)}
+                    >
+                      <PenLine aria-hidden="true" />
+                      <span className="annotation-edit-tooltip" role="tooltip">Edit annotation</span>
+                    </button>
+                  </div>
+                )}
               </article>
             );
           })}

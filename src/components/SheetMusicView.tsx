@@ -710,14 +710,16 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
 
   const closeAnnotationEditor = (returnTarget: 'manual' | AnnotationId) => {
     setAnnotationEditor(null);
-    queueMicrotask(() => {
+    window.requestAnimationFrame(() => {
       const attribute = returnTarget === 'manual'
         ? '[data-create-annotation]'
         : '[data-edit-annotation]';
-      const buttons = cardRef.current?.querySelectorAll<HTMLButtonElement>(attribute);
-      Array.from(buttons || []).find((button) => (
-        returnTarget === 'manual' || button.dataset.editAnnotation === returnTarget
-      ))?.focus();
+      const controls = cardRef.current?.querySelectorAll<HTMLElement>(attribute);
+      const target = Array.from(controls || []).find((control) => (
+        returnTarget === 'manual' || control.dataset.editAnnotation === returnTarget
+      ));
+      (target || cardRef.current?.querySelector<HTMLElement>('[data-annotation-rail-heading]'))
+        ?.focus({ preventScroll: true });
     });
   };
 
@@ -732,6 +734,38 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     hitArea?.scrollIntoView?.({ block: 'center', inline: 'nearest' });
     queueMicrotask(() => initiator.focus({ preventScroll: true }));
   }, [onSelectAnchor]);
+
+  const annotationEditorNode = annotationEditor?.mode === 'manual' && activeAnchor ? (
+    <AnnotationEditor
+      mode="manual"
+      defaultSpan={activeAnchor}
+      meter={meter}
+      onSave={(annotation) => {
+        if (!onCreateAnnotation) throw new Error('Annotation creation is unavailable.');
+        onCreateAnnotation(annotation);
+        closeAnnotationEditor('manual');
+      }}
+      onCancel={() => closeAnnotationEditor('manual')}
+    />
+  ) : annotationEditor?.mode === 'accepted' && editedAnnotation ? (
+    <AnnotationEditor
+      mode="accepted"
+      initialAnnotation={editedAnnotation}
+      defaultSpan={editedAnnotation.span}
+      meter={meter}
+      onSave={(annotation) => {
+        if (!onUpdateAnnotation) throw new Error('Annotation editing is unavailable.');
+        onUpdateAnnotation(annotation);
+        closeAnnotationEditor(annotation.id);
+      }}
+      onCancel={() => closeAnnotationEditor(editedAnnotation.id)}
+      onDelete={() => {
+        if (!onDeleteAnnotation) throw new Error('Annotation deletion is unavailable.');
+        onDeleteAnnotation(editedAnnotation.id);
+        closeAnnotationEditor(editedAnnotation.id);
+      }}
+    />
+  ) : null;
 
   return (
     <div ref={cardRef} className="sheet-music-card glass-panel">
@@ -811,75 +845,6 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         </div>
       )}
 
-      {(activeAnchor || annotations.length > 0 || annotationEditor) && (
-        <div className="annotation-direct-workspace" aria-label="Score annotations">
-          <div className="annotation-direct-toolbar">
-            {activeAnchor && onCreateAnnotation && (
-              <button
-                type="button"
-                data-create-annotation
-                onClick={() => setAnnotationEditor({ mode: 'manual' })}
-              >
-                Add annotation to {formatAnchorLabel(activeAnchor)}
-              </button>
-            )}
-            {annotations.length > 0 && (
-              <details className="annotation-index">
-                <summary>Annotations ({annotations.length})</summary>
-                <ul aria-label="Accepted annotations">
-                  {annotations.map((annotation) => (
-                    <li key={annotation.id}>
-                      <button
-                        type="button"
-                        data-edit-annotation={annotation.id}
-                        onClick={() => {
-                          onSelectAnchor?.(annotation.span);
-                          setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
-                        }}
-                      >
-                        Edit {annotation.label}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            )}
-          </div>
-          {annotationEditor?.mode === 'manual' && activeAnchor && (
-            <AnnotationEditor
-              mode="manual"
-              defaultSpan={activeAnchor}
-              meter={meter}
-              onSave={(annotation) => {
-                if (!onCreateAnnotation) throw new Error('Annotation creation is unavailable.');
-                onCreateAnnotation(annotation);
-                closeAnnotationEditor('manual');
-              }}
-              onCancel={() => closeAnnotationEditor('manual')}
-            />
-          )}
-          {annotationEditor?.mode === 'accepted' && editedAnnotation && (
-            <AnnotationEditor
-              mode="accepted"
-              initialAnnotation={editedAnnotation}
-              defaultSpan={editedAnnotation.span}
-              meter={meter}
-              onSave={(annotation) => {
-                if (!onUpdateAnnotation) throw new Error('Annotation editing is unavailable.');
-                onUpdateAnnotation(annotation);
-                closeAnnotationEditor(annotation.id);
-              }}
-              onCancel={() => closeAnnotationEditor(editedAnnotation.id)}
-              onDelete={() => {
-                if (!onDeleteAnnotation) throw new Error('Annotation deletion is unavailable.');
-                onDeleteAnnotation(editedAnnotation.id);
-                closeAnnotationEditor(editedAnnotation.id);
-              }}
-            />
-          )}
-        </div>
-      )}
-
       <div className="sheet-annotation-layout">
         <div className="sheet-notation-column">
           <div className="sheet-viewport">
@@ -911,7 +876,23 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
             </div>
           </div>
         </div>
-        <AnnotationRail annotations={annotations} onSelect={selectRangeAnnotation} />
+        <AnnotationRail
+          annotations={annotations}
+          activeAnchorLabel={formatAnchorLabel(activeAnchor)}
+          canCreate={Boolean(onCreateAnnotation)}
+          editing={annotationEditor}
+          editor={annotationEditorNode}
+          onSelect={selectRangeAnnotation}
+          onCreate={() => setAnnotationEditor({ mode: 'manual' })}
+          onEdit={(annotation) => {
+            onSelectAnchor?.(annotation.span);
+            const hitArea = containerRef.current?.querySelector<SVGElement>(
+              `.abcjs-measure-hit-area[data-measure="${annotation.span.startMeasure}"]`,
+            );
+            hitArea?.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+            setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
+          }}
+        />
       </div>
     </div>
   );

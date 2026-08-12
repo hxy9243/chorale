@@ -151,6 +151,8 @@ describe('SheetMusicView Component', () => {
 
     const createButton = screen.getByRole('button', { name: 'Add annotation to mm. 2–4' });
     fireEvent.click(createButton);
+    expect(screen.getByRole('form', { name: 'Create annotation' })
+      .closest('.annotation-rail-transient-editor')).not.toBeNull();
     fireEvent.change(screen.getByLabelText('Label'), { target: { value: 'Sequence' } });
     fireEvent.change(screen.getByLabelText('Explanation'), {
       target: { value: 'The idea continues by step.' },
@@ -192,9 +194,10 @@ describe('SheetMusicView Component', () => {
       />,
     );
 
-    fireEvent.click(screen.getByText('Annotations (1)'));
-    let editButton = screen.getByRole('button', { name: 'Edit Cadence plan' });
+    let editButton = screen.getByRole('button', { name: 'Edit annotation' });
     fireEvent.click(editButton);
+    expect(screen.getByRole('form', { name: 'Edit annotation' })
+      .closest('.annotation-card-editor')).not.toBeNull();
     expect(onSelectAnchor).toHaveBeenCalledWith({ startMeasure: 3, endMeasure: 5 });
     fireEvent.change(screen.getByLabelText('Explanation'), {
       target: { value: 'Edited accepted explanation.' },
@@ -205,7 +208,7 @@ describe('SheetMusicView Component', () => {
       body: 'Edited accepted explanation.',
       source: 'assistant',
     })));
-    editButton = screen.getByRole('button', { name: 'Edit Cadence plan' });
+    editButton = screen.getByRole('button', { name: 'Edit annotation' });
     await waitFor(() => expect(document.activeElement).toBe(editButton));
 
     fireEvent.click(editButton);
@@ -314,7 +317,8 @@ describe('SheetMusicView Component', () => {
     expect(onSelectAnchor).not.toHaveBeenCalled();
     fireEvent.click(overlayNode);
     expect(onSelectAnchor).toHaveBeenCalledWith({ startMeasure: 1, endMeasure: 1 });
-    expect(screen.getByLabelText('Edit annotation')).toBeDefined();
+    const chordEditor = screen.getByRole('form', { name: 'Edit annotation' });
+    expect(chordEditor.closest('.annotation-rail-transient-editor')).not.toBeNull();
     expect(overlayNode.getAttribute('class')).toContain('active');
     expect(overlayNode.querySelector('.annotation-chord-symbol')?.textContent).toBe('C');
     expect(overlayNode.querySelector('.annotation-roman-numeral')?.textContent).toBe('I');
