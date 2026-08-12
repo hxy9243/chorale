@@ -5381,10 +5381,15 @@ body,
 }
 
 .sheet-annotation-layout {
+  --score-notation-width: 48rem;
+  --score-annotation-width: 24rem;
   display: grid;
   width: max-content;
   min-width: max-content;
-  grid-template-columns: 22rem 48rem 22rem;
+  grid-template-columns:
+    var(--score-annotation-width)
+    var(--score-notation-width)
+    var(--score-annotation-width);
   gap: var(--space-xs);
   align-items: start;
 }
@@ -5394,8 +5399,8 @@ body,
 }
 
 .sheet-notation-column {
-  width: 48rem;
-  min-width: 48rem;
+  width: var(--score-notation-width);
+  min-width: var(--score-notation-width);
   grid-column: 2;
 }
 
@@ -5405,8 +5410,8 @@ body,
 }
 
 .annotation-rail-viewport {
-  width: 22rem;
-  min-width: 22rem;
+  width: var(--score-annotation-width);
+  min-width: var(--score-annotation-width);
   grid-column: 3;
   overflow: visible;
 }

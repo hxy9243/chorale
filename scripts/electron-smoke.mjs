@@ -672,8 +672,8 @@ try {
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
     const sheetZoomBefore = sheet?.querySelector('.scale-val')?.textContent;
-    const annotationRailZoomBefore = sheet
-      ?.querySelector('.annotation-rail-zoom')?.getAttribute('data-score-zoom');
+    const scoreScene = sheet?.querySelector('.sheet-zoom-wrapper');
+    const annotationRailZoomBefore = scoreScene?.getAttribute('data-score-zoom');
     sheet?.dispatchEvent(new WheelEvent('wheel', {
       bubbles: true,
       ctrlKey: true,
@@ -682,8 +682,7 @@ try {
     }));
     await new Promise((resolve) => setTimeout(resolve, 25));
     const sheetZoomAfter = sheet?.querySelector('.scale-val')?.textContent;
-    const annotationRailZoomAfter = sheet
-      ?.querySelector('.annotation-rail-zoom')?.getAttribute('data-score-zoom');
+    const annotationRailZoomAfter = scoreScene?.getAttribute('data-score-zoom');
     const interfaceZoomAfterSheet = document.documentElement.style.getPropertyValue('--ui-zoom');
     const annotationLayoutBounds = sheet?.querySelector('.sheet-annotation-layout')
       ?.getBoundingClientRect();
@@ -704,20 +703,43 @@ try {
         - (sheetZoomContentBounds.left + sheetZoomContentBounds.width / 2)
       )
       : null;
-    const annotationRailViewportBounds = sheet
-      ?.querySelector('.annotation-rail-viewport')?.getBoundingClientRect();
     const annotationRailBounds = sheet?.querySelector('.annotation-rail')?.getBoundingClientRect();
-    const annotationRailContained = annotationRailViewportBounds && annotationRailBounds
-      ? annotationRailBounds.left >= annotationRailViewportBounds.left - 1
-        && annotationRailBounds.right <= annotationRailViewportBounds.right + 1
+    const annotationRailProximity = notationBounds && annotationRailBounds
+      ? {
+          horizontalGap: annotationRailBounds.left - notationBounds.right,
+          topDelta: Math.abs(annotationRailBounds.top - notationBounds.top),
+        }
       : null;
+    const annotationSceneShared = Boolean(
+      scoreScene
+      && scoreScene.contains(sheet?.querySelector('.sheet-notation-column'))
+      && scoreScene.contains(sheet?.querySelector('.annotation-rail')),
+    );
+    const annotationSceneOverflow = sheetViewport
+      ? sheetViewport.scrollWidth > sheetViewport.clientWidth
+      : null;
+    const annotationRailBackground = annotationRailBounds
+      ? getComputedStyle(sheet.querySelector('.annotation-rail')).backgroundColor
+      : null;
+    const annotationRailHasTransparentBackground = annotationRailBackground === 'transparent'
+      || annotationRailBackground === 'rgba(0, 0, 0, 0)'
+      || annotationRailBackground?.endsWith('/ 0)');
     const alignedAnnotationList = sheet?.querySelector('.annotation-rail-list');
+    const alignedAnnotationCard = sheet
+      ?.querySelector('[data-annotation-id="smoke-accepted-annotation"]');
+    const alignedAnnotationCardBounds = alignedAnnotationCard?.getBoundingClientRect();
+    const annotationAnchorY = Number(alignedAnnotationCard?.getAttribute('data-annotation-anchor-y'));
+    const scoreSceneBounds = scoreScene?.getBoundingClientRect();
+    const scoreSceneScale = Number(annotationRailZoomAfter) / 100;
     const annotationMeasureAlignment = {
       aligned: alignedAnnotationList?.getAttribute('data-score-aligned'),
-      anchorY: Number(
-        sheet?.querySelector('[data-annotation-id="smoke-accepted-annotation"]')
-          ?.getAttribute('data-annotation-anchor-y'),
-      ),
+      anchorY: annotationAnchorY,
+      centerDelta: alignedAnnotationCardBounds && scoreSceneBounds
+        ? Math.abs(
+          alignedAnnotationCardBounds.top + alignedAnnotationCardBounds.height / 2
+          - (scoreSceneBounds.top + annotationAnchorY * scoreSceneScale)
+        )
+        : null,
     };
 
     const fileRailWidthDefault = document.querySelector('.file-rail')?.getBoundingClientRect().width;
@@ -995,7 +1017,11 @@ try {
       annotationRailZoomAfter,
       annotationNotationCenterDelta,
       sheetZoomCenterDelta,
-      annotationRailContained,
+      annotationRailProximity,
+      annotationSceneShared,
+      annotationSceneOverflow,
+      annotationRailBackground,
+      annotationRailHasTransparentBackground,
       annotationMeasureAlignment,
       interfaceZoomAfterSheet,
       fileRailWidthDefault,
@@ -1167,13 +1193,27 @@ try {
     shellState.sheetZoomCenterDelta !== null && shellState.sheetZoomCenterDelta <= 1,
     `Zoomed notation did not remain centered in its viewport (${shellState.sheetZoomCenterDelta}).`,
   );
+  assert(shellState.annotationSceneShared, 'Notation and annotations do not share one zoom scene.');
   assert(
-    shellState.annotationRailContained,
-    'The zoomed annotation rail escaped its allocated side track.',
+    shellState.annotationSceneOverflow,
+    'The score scene did not preserve side overflow when its viewport was too narrow.',
+  );
+  assert(
+    shellState.annotationRailHasTransparentBackground,
+    `The annotation rail retained a panel background (${shellState.annotationRailBackground}).`,
+  );
+  assert(
+    shellState.annotationRailProximity
+      && shellState.annotationRailProximity.horizontalGap >= 0
+      && shellState.annotationRailProximity.horizontalGap <= 16
+      && shellState.annotationRailProximity.topDelta <= 1,
+    `The annotation rail is not close beside the rendered sheet (${JSON.stringify(shellState.annotationRailProximity)}).`,
   );
   assert(
     shellState.annotationMeasureAlignment.aligned === 'true'
-      && Number.isFinite(shellState.annotationMeasureAlignment.anchorY),
+      && Number.isFinite(shellState.annotationMeasureAlignment.anchorY)
+      && shellState.annotationMeasureAlignment.centerDelta !== null
+      && shellState.annotationMeasureAlignment.centerDelta <= 2,
     `Annotation rail did not align cards to rendered measure geometry (${JSON.stringify(shellState.annotationMeasureAlignment)}).`,
   );
   assert(shellState.interfaceZoomAfterSheet === '1', 'Sheet zoom unexpectedly changed interface zoom.');

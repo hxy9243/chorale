@@ -190,12 +190,18 @@ React continues to own the overlay as a sibling of `#paper`.
 The rail sorts cards by start measure, end measure, kind, creation timestamp, and source order.
 Collapsed cards show the label and at most two body lines. Activating a card expands its full body,
 collapses the previously expanded card, selects and reveals its span, and keeps focus in the rail.
-At container widths of at least 64rem, a symmetric `minmax(14rem, 1fr) / 4fr /
-minmax(14rem, 1fr)` composition puts notation in the middle track and the rail in the right track;
-the matching left track keeps the score on the exact container centerline while notation receives
-roughly two-thirds of wide layouts. Below that threshold, the rail stacks beneath notation. The rail uses
-the same score zoom factor without changing its allocated track, and each card is vertically anchored to the center of its rendered
+Notation and range annotations live in one horizontally scrollable score scene. The scene uses fixed,
+symmetric `24rem / 48rem / 24rem` tracks for balancing space, notation, and annotations, with only a
+small tokenized gap between notation and the rail. The annotation track therefore remains at least half
+the notation width. The matching left track keeps the notation on the zoom scene's exact centerline.
+The scene never reflows: when the available width is smaller than the scene, it overflows horizontally
+while the viewport remains centered on notation and the annotation track stays beside the score at the
+same height.
+
+One shared zoom wrapper contains both notation and the annotation rail, so they scale around the same
+score center and at the same instant. Each card is vertically anchored to the center of its rendered
 measure span. Actual card heights are packed with a fixed gap so nearby annotations do not overlap.
+The rail itself has no gray panel background; only the palette-derived annotation surfaces carry fill.
 
 Semantic Nordic Ledger tokens provide warning surfaces for modulation, success surfaces for voice
 leading, and accent surfaces for explanations and chords. Selected cards use a stronger matching
@@ -218,8 +224,9 @@ Accepted annotations are durable document data. Proposal records are chat data. 
 - Overlay geometry remains aligned after wrap, zoom, transpose, and resize.
 - Measured chord badge bounds never intersect, share one system baseline, and never trigger abcjs reflow.
 - Range cards remain score-sorted, two-line clamped by default, single-expanded, and keyboard usable.
-- Range cards scale with score zoom, stay near their rendered measure spans, and never displace the
-  centered notation track.
+- Range cards share the score's zoom wrapper, stay near their rendered measure spans, and never
+  displace the centered notation track or reflow below it.
+- Narrow score surfaces retain the side-by-side scene and expose horizontal overflow.
 - Range annotations stay out of score SVGs and chord editing appears temporarily in the rail.
 - Manual and accepted annotations survive reload and Electron restart.
 - Chat deletion cannot remove accepted annotations.
