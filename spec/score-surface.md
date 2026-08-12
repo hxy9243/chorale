@@ -52,20 +52,21 @@ badges horizontally with a fixed gap while keeping one baseline per rendered sys
 `stafftopmargin` and `staffsep` values always reserve the chord band, so annotation measurement never
 feeds back into score geometry or makes systems jump.
 
-At container widths of at least 64rem, the score surface uses symmetric
-`minmax(14rem, 1fr) / minmax(0, 4fr) / minmax(14rem, 1fr)` tracks: an empty balancing track,
-centered notation, and the annotation rail. Below that threshold, the rail stacks beneath notation.
-This keeps notation on the exact score-surface centerline and gives it roughly two-thirds of wide
-layouts.
+The score surface uses one fixed, symmetric `24rem / 48rem / 24rem` scene: empty balancing space,
+centered notation, and the annotation rail. The rail sits one small spacing token from the rendered
+sheet and remains at least half the notation width. The scene never changes tracks or stacks. When the
+viewport is narrower than the scene, horizontal overflow exposes the side content while the viewport
+continues to center the notation track.
 
 Range cards are score-sorted, show two lines when collapsed, and allow one expanded card at a time.
 Activating a card selects and reveals its passage without moving focus into the score. Type-specific
 Nordic Ledger surfaces distinguish modulation, voice leading, and explanations. Stronger selected
 fills are paired with text and an icon. All annotation surfaces are square, borderless, and
-shadowless. The rail shares the notation zoom factor. Card centers target the vertical center of
-their rendered measure spans; measured card heights are packed with a fixed gap when targets are
-close together. Zoom does not change the rail's grid allocation, and the notation viewport recenters
-its horizontal scroll after zoom or rendered-size changes.
+shadowless. The rail container and its utility header have no gray panel fill. A single zoom wrapper
+contains both notation and rail, giving them one zoom center and one scale change. Card centers target
+the vertical center of their rendered measure spans; measured card heights are packed with a fixed gap
+when targets are close together. The notation viewport recenters its horizontal scroll on the notation
+track after zoom or rendered-size changes.
 
 Editing and manual creation happen in the rail. Range editors replace their cards in place; chord
 editors appear temporarily in the rail. Focusing a badge or card exposes focus styling only; click,
