@@ -5375,6 +5375,14 @@ body,
   container-type: inline-size;
 }
 
+.sheet-scene-positioner {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  align-items: flex-start;
+  justify-content: safe center;
+}
+
 .sheet-zoom-wrapper {
   width: max-content;
   min-width: max-content;
