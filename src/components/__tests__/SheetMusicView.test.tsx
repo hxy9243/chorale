@@ -98,6 +98,30 @@ describe('SheetMusicView Component', () => {
     expect(screen.getByText('100%')).toBeDefined();
   });
 
+  it('reserves a fixed chord band without rerendering abcjs when chord annotations change', () => {
+    const chord = {
+      id: 'stable-chord',
+      kind: 'chord' as const,
+      span: { startMeasure: 1, endMeasure: 1 },
+      position: { measure: 1, offset: { numerator: 0, denominator: 1 } },
+      chordSymbol: 'C',
+      label: 'Tonic',
+      body: 'Stable harmony.',
+      source: 'assistant' as const,
+      createdAt: '2026-08-12T00:00:00.000Z',
+      updatedAt: '2026-08-12T00:00:00.000Z',
+    };
+    const { rerender } = render(<SheetMusicView abcCode={sampleAbc} annotations={[]} />);
+    const renderCount = vi.mocked(abcjs.renderAbc).mock.calls.length;
+    expect(vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2]).toMatchObject({
+      format: { stafftopmargin: 50, staffsep: 111 },
+    });
+
+    rerender(<SheetMusicView abcCode={sampleAbc} annotations={[chord]} />);
+
+    expect(vi.mocked(abcjs.renderAbc)).toHaveBeenCalledTimes(renderCount);
+  });
+
   it('invokes onTuneRendered callback when tunes are rendered', () => {
     const onTuneRendered = vi.fn();
     render(<SheetMusicView abcCode={sampleAbc} onTuneRendered={onTuneRendered} />);
@@ -323,6 +347,7 @@ describe('SheetMusicView Component', () => {
     expect(overlayNode.querySelector('.annotation-chord-symbol')?.textContent).toBe('C');
     expect(overlayNode.querySelector('.annotation-roman-numeral')?.textContent).toBe('I');
     expect(overlayNode.querySelector('.annotation-chord-background')).not.toBeNull();
+    expect(overlayNode.getAttribute('data-chord-lane')).toBe('0');
     await waitFor(() => expect(vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2]).toMatchObject({
       format: { stafftopmargin: 50, staffsep: 111 },
     }));

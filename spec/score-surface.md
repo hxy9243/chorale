@@ -47,9 +47,10 @@ The overlay background ignores pointer events. Annotation elements are pointer-i
 
 `annotationLayout` is a pure projection from canonical annotations and rendered indexes to SVG-local placement. ABC source offsets and SVG coordinates are ephemeral lookup data and are never persisted as annotation identity.
 
-Actual chord text bounds determine badge widths. A deterministic interval packer assigns overlapping
-badges to vertical lanes with a fixed gap. The required lane count updates abcjs `stafftopmargin` and
-`staffsep`, so annotation room is part of score geometry rather than an overlapping layer.
+Actual chord text bounds determine badge widths. A deterministic interval packer spreads overlapping
+badges horizontally with a fixed gap while keeping one baseline per rendered system. Static abcjs
+`stafftopmargin` and `staffsep` values always reserve the chord band, so annotation measurement never
+feeds back into score geometry or makes systems jump.
 
 The score surface is a responsive `minmax(0, 2fr) / minmax(0, 1fr)` notation/rail grid. Below a 52rem
 container width, the rail stacks under notation. This preserves at least half of the available width

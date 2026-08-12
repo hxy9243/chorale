@@ -51,6 +51,8 @@ export type ChordBadgeInterval = Readonly<{
   systemId: string;
   centerX: number;
   width: number;
+  minX?: number;
+  maxX?: number;
 }>;
 
 export type PackedChordBadge = ChordBadgeInterval & Readonly<{
@@ -83,28 +85,75 @@ export const packChordBadgeIntervals = (
   gap = CHORD_BADGE_GAP,
 ): PackedChordBadge[] => {
   const packed = new Map<string, PackedChordBadge>();
-  const bySystem = new Map<string, ChordBadgeInterval[]>();
+  const bySystem = new Map<
+    string,
+    Array<Readonly<{ interval: ChordBadgeInterval; sourceIndex: number }>>
+  >();
 
-  for (const interval of intervals) {
+  for (const [sourceIndex, interval] of intervals.entries()) {
     const group = bySystem.get(interval.systemId) || [];
-    group.push(interval);
+    group.push({ interval, sourceIndex });
     bySystem.set(interval.systemId, group);
   }
 
   for (const group of bySystem.values()) {
-    const laneRightEdges: number[] = [];
     const ordered = [...group].sort((left, right) => (
-      left.centerX - right.centerX || left.id.localeCompare(right.id)
+      left.interval.centerX - right.interval.centerX || left.sourceIndex - right.sourceIndex
     ));
-    for (const interval of ordered) {
+
+    const flushCluster = (
+      cluster: Array<Readonly<{
+        interval: ChordBadgeInterval;
+        idealLeft: number;
+        packedLeft: number;
+        width: number;
+      }>>,
+    ) => {
+      if (cluster.length === 0) return;
+      const averageDisplacement = cluster.reduce(
+        (total, item) => total + item.packedLeft - item.idealLeft,
+        0,
+      ) / cluster.length;
+      let shift = -averageDisplacement;
+      const minX = Math.max(...cluster.map(({ interval }) => interval.minX ?? -Infinity));
+      const maxX = Math.min(...cluster.map(({ interval }) => interval.maxX ?? Infinity));
+      const shiftedLeft = cluster[0].packedLeft + shift;
+      const shiftedRight = cluster.at(-1)!.packedLeft + shift + cluster.at(-1)!.width;
+      if (shiftedLeft < minX) shift += minX - shiftedLeft;
+      if (shiftedRight > maxX) shift -= shiftedRight - maxX;
+
+      for (const item of cluster) {
+        const left = item.packedLeft + shift;
+        packed.set(item.interval.id, {
+          ...item.interval,
+          width: item.width,
+          lane: 0,
+          left,
+          right: left + item.width,
+        });
+      }
+    };
+
+    let cluster: Array<Readonly<{
+      interval: ChordBadgeInterval;
+      idealLeft: number;
+      packedLeft: number;
+      width: number;
+    }>> = [];
+    let packedRight = -Infinity;
+    for (const { interval } of ordered) {
       const width = Math.max(1, interval.width);
-      const left = interval.centerX - width / 2;
-      const right = interval.centerX + width / 2;
-      let lane = laneRightEdges.findIndex((laneRight) => left >= laneRight + gap);
-      if (lane === -1) lane = laneRightEdges.length;
-      laneRightEdges[lane] = right;
-      packed.set(interval.id, { ...interval, width, lane, left, right });
+      const idealLeft = interval.centerX - width / 2;
+      if (cluster.length > 0 && idealLeft >= packedRight + gap) {
+        flushCluster(cluster);
+        cluster = [];
+        packedRight = -Infinity;
+      }
+      const packedLeft = Math.max(idealLeft, packedRight + gap);
+      cluster.push({ interval, idealLeft, packedLeft, width });
+      packedRight = packedLeft + width;
     }
+    flushCluster(cluster);
   }
 
   return intervals.flatMap((interval) => {
@@ -117,10 +166,8 @@ export const requiredChordLaneCount = (badges: readonly PackedChordBadge[]) => (
   badges.reduce((count, badge) => Math.max(count, badge.lane + 1), 0)
 );
 
-export const chordStaffSpacing = (laneCount: number): ChordStaffSpacing => {
-  const lanes = Math.max(0, Math.floor(laneCount));
-  if (lanes === 0) return { stafftopmargin: 0, staffsep: BASE_STAFF_SEPARATION };
-  const reservedHeight = lanes * CHORD_BADGE_HEIGHT + (lanes - 1) * CHORD_BADGE_GAP;
+export const chordStaffSpacing = (): ChordStaffSpacing => {
+  const reservedHeight = CHORD_BADGE_HEIGHT;
   return {
     stafftopmargin: reservedHeight + CHORD_STAFF_CLEARANCE,
     staffsep: BASE_STAFF_SEPARATION + reservedHeight + CHORD_STAFF_CLEARANCE,

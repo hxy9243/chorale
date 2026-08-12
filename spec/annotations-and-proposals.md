@@ -181,10 +181,11 @@ The overlay background uses `pointer-events: none`; annotation nodes use `pointe
 
 Chord layout resolves `measure + rational offset` to a parsed event and then to the current abcjs timing/selectable element. ABC source offsets may be used as ephemeral lookup hints but are never the persisted identity. If no exact rendered event exists, layout uses adjacent onset geometry within the same measure and falls back to the measure bounds.
 
-Chord badge widths come from actual SVG text bounds. Intersecting intervals are packed into stable,
-deterministic vertical lanes with a guaranteed gap. The maximum required lane count feeds back into
-abcjs `stafftopmargin` and `staffsep`, reserving physical space between systems. React continues to
-own the overlay as a sibling of `#paper`.
+Chord badge widths come from actual SVG text bounds. Intersecting intervals are spread horizontally
+with a guaranteed gap while every badge in a rendered system stays on one fixed baseline. abcjs
+always reserves one chord band through static `stafftopmargin` and `staffsep` values; measured badge
+geometry never feeds back into score rendering, so adding or resizing a badge cannot move systems.
+React continues to own the overlay as a sibling of `#paper`.
 
 The rail sorts cards by start measure, end measure, kind, creation timestamp, and source order.
 Collapsed cards show the label and at most two body lines. Activating a card expands its full body,
@@ -211,7 +212,7 @@ Accepted annotations are durable document data. Proposal records are chat data. 
 - Revision or file mismatch renders Outdated and disables actions.
 - Failed/aborted runs render proposals Unavailable.
 - Overlay geometry remains aligned after wrap, zoom, transpose, and resize.
-- Measured chord badge bounds never intersect and abcjs spacing reflects the required lane count.
+- Measured chord badge bounds never intersect, share one system baseline, and never trigger abcjs reflow.
 - Range cards remain score-sorted, two-line clamped by default, single-expanded, and keyboard usable.
 - Range annotations stay out of score SVGs and chord editing appears temporarily in the rail.
 - Manual and accepted annotations survive reload and Electron restart.
