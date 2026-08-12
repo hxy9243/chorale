@@ -333,6 +333,12 @@ describe('SheetMusicView Component', () => {
     expect(overlayNode.getAttribute('data-annotation-id')).toBe('overlay-chord');
     expect(container.querySelector('.sheet-annotation-layout')).not.toBeNull();
     expect(container.querySelector('.sheet-layout-balance')).not.toBeNull();
+    const zoomScene = container.querySelector<HTMLElement>('.sheet-zoom-wrapper')!;
+    expect(zoomScene.style.zoom).toBe('1');
+    expect(zoomScene.getAttribute('data-score-zoom')).toBe('100');
+    expect(zoomScene.contains(container.querySelector('.sheet-notation-column'))).toBe(true);
+    expect(zoomScene.contains(container.querySelector('.annotation-rail'))).toBe(true);
+    expect(container.querySelector('.annotation-rail-zoom')).toBeNull();
     expect(container.querySelector('.annotation-overlay-node.explanation')).toBeNull();
     expect(container.querySelector('.annotation-card-toggle')?.getAttribute('aria-expanded'))
       .toBe('false');
@@ -340,8 +346,6 @@ describe('SheetMusicView Component', () => {
       container.querySelector('[data-annotation-id="overlay-explanation"]')
         ?.getAttribute('data-annotation-anchor-y'),
     ).toBe('65'));
-    expect((container.querySelector('.annotation-rail-zoom') as HTMLElement).style.zoom).toBe('1');
-
     expect(overlayNode.getAttribute('tabindex')).toBe('0');
     fireEvent.focus(overlayNode);
     expect(onSelectAnchor).not.toHaveBeenCalled();
@@ -654,7 +658,9 @@ describe('SheetMusicView Component', () => {
 
     const wrapper = container.querySelector<HTMLElement>('.sheet-zoom-wrapper')!;
     expect(wrapper.style.zoom).toBe('1.5');
-    expect(wrapper.style.width).toBe('150%');
+    expect(wrapper.getAttribute('data-score-zoom')).toBe('150');
+    expect(wrapper.contains(container.querySelector('.sheet-notation-column'))).toBe(true);
+    expect(wrapper.contains(container.querySelector('.annotation-rail'))).toBe(true);
     expect(wrapper.style.transform).toBe('');
 
     rerender(
@@ -662,7 +668,7 @@ describe('SheetMusicView Component', () => {
     );
 
     expect(wrapper.style.zoom).toBe('0.5');
-    expect(wrapper.style.width).toBe('50%');
+    expect(wrapper.getAttribute('data-score-zoom')).toBe('50');
   });
 
   it('triggers onZoomChange on ctrl+wheel scroll gesture without page zoom', () => {

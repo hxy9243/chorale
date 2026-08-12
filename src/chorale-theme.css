@@ -5370,25 +5370,33 @@ body,
   stroke-width: 3px;
 }
 
-/* Annotation redesign · responsive score and reading rail */
+/* Annotation redesign · one zoomed score scene with a measure-aligned reading rail */
 .sheet-music-card {
   container-type: inline-size;
 }
 
+.sheet-zoom-wrapper {
+  width: max-content;
+  min-width: max-content;
+}
+
 .sheet-annotation-layout {
   display: grid;
-  min-width: 0;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-md);
+  width: max-content;
+  min-width: max-content;
+  grid-template-columns: 22rem 48rem 22rem;
+  gap: var(--space-xs);
   align-items: start;
 }
 
 .sheet-layout-balance {
-  display: none;
+  grid-column: 1;
 }
 
 .sheet-notation-column {
-  min-width: 0;
+  width: 48rem;
+  min-width: 48rem;
+  grid-column: 2;
 }
 
 .sheet-notation-column .abcjs-paper-container > svg {
@@ -5397,20 +5405,18 @@ body,
 }
 
 .annotation-rail-viewport {
-  min-width: 0;
-  overflow-x: auto;
-  overflow-y: visible;
-}
-
-.annotation-rail-zoom {
-  min-width: 0;
-  transform-origin: top left;
+  width: 22rem;
+  min-width: 22rem;
+  grid-column: 3;
+  overflow: visible;
 }
 
 .annotation-rail {
+  position: relative;
   min-width: 0;
-  padding: var(--space-md);
-  background: var(--color-paper-2);
+  min-height: var(--annotation-score-height, auto);
+  padding: 0;
+  background: var(--color-transparent);
   color: var(--color-ink);
 }
 
@@ -5457,7 +5463,7 @@ body,
   min-width: 2.75rem;
   min-height: 2.75rem;
   place-items: center;
-  background: var(--color-paper-3);
+  background: var(--color-transparent);
   color: var(--color-ink);
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -5465,7 +5471,7 @@ body,
 
 .annotation-rail-empty {
   padding: var(--space-lg) var(--space-md);
-  background: var(--color-paper);
+  background: var(--color-transparent);
   color: var(--color-ink);
 }
 
@@ -5591,42 +5597,15 @@ body,
   outline-offset: -3px;
 }
 
-@container (min-width: 64rem) {
-  .sheet-annotation-layout {
-    grid-template-columns: minmax(14rem, 1fr) minmax(0, 4fr) minmax(14rem, 1fr);
-  }
+.annotation-rail-list[data-score-aligned="true"] {
+  position: relative;
+  min-height: var(--annotation-list-height);
+}
 
-  .sheet-layout-balance {
-    display: block;
-    grid-column: 1;
-  }
-
-  .sheet-notation-column {
-    grid-column: 2;
-  }
-
-  .annotation-rail-viewport {
-    grid-column: 3;
-  }
-
-  .annotation-rail {
-    position: sticky;
-    top: var(--space-md);
-    min-height: var(--annotation-score-height, auto);
-    max-height: calc(100dvh - (2 * var(--space-md)));
-    overflow-y: auto;
-  }
-
-  .annotation-rail-list[data-score-aligned="true"] {
-    position: relative;
-    min-height: var(--annotation-list-height);
-  }
-
-  .annotation-rail-list[data-score-aligned="true"] .annotation-rail-card {
-    position: absolute;
-    right: 0;
-    left: 0;
-  }
+.annotation-rail-list[data-score-aligned="true"] .annotation-rail-card {
+  position: absolute;
+  right: 0;
+  left: 0;
 }
 
 /* Annotation redesign · in-place rail controls */
