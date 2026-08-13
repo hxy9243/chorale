@@ -5612,6 +5612,10 @@ body,
   left: 0;
 }
 
+.annotation-rail-list[data-score-aligned="true"] .annotation-rail-card[data-selected="true"] {
+  z-index: var(--z-raised);
+}
+
 .annotation-card-row {
   display: grid;
   min-width: 0;

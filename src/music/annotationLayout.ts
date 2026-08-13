@@ -116,7 +116,15 @@ export const packChordBadgeIntervals = (
     const ordered = [...group].sort((left, right) => (
       left.interval.centerX - right.interval.centerX || left.sourceIndex - right.sourceIndex
     ));
+    const candidates: PackedChordBadge[] = [];
 
+    let cluster: Array<Readonly<{
+      interval: ChordBadgeInterval;
+      idealLeft: number;
+      packedLeft: number;
+      width: number;
+    }>> = [];
+    let packedRight = -Infinity;
     const flushCluster = (
       cluster: Array<Readonly<{
         interval: ChordBadgeInterval;
@@ -130,17 +138,17 @@ export const packChordBadgeIntervals = (
         (total, item) => total + item.packedLeft - item.idealLeft,
         0,
       ) / cluster.length;
-      let shift = -averageDisplacement;
       const minX = Math.max(...cluster.map(({ interval }) => interval.minX ?? -Infinity));
       const maxX = Math.min(...cluster.map(({ interval }) => interval.maxX ?? Infinity));
-      const shiftedLeft = cluster[0].packedLeft + shift;
-      const shiftedRight = cluster.at(-1)!.packedLeft + shift + cluster.at(-1)!.width;
-      if (shiftedLeft < minX) shift += minX - shiftedLeft;
-      if (shiftedRight > maxX) shift -= shiftedRight - maxX;
+      const first = cluster[0];
+      const last = cluster.at(-1)!;
+      const loShift = minX - first.packedLeft;
+      const hiShift = maxX - (last.packedLeft + last.width);
+      const shift = Math.min(Math.max(-averageDisplacement, loShift), hiShift);
 
       for (const item of cluster) {
         const left = item.packedLeft + shift;
-        packed.set(item.interval.id, {
+        candidates.push({
           ...item.interval,
           width: item.width,
           lane: 0,
@@ -150,13 +158,6 @@ export const packChordBadgeIntervals = (
       }
     };
 
-    let cluster: Array<Readonly<{
-      interval: ChordBadgeInterval;
-      idealLeft: number;
-      packedLeft: number;
-      width: number;
-    }>> = [];
-    let packedRight = -Infinity;
     for (const { interval } of ordered) {
       const width = Math.max(1, interval.width);
       const idealLeft = interval.centerX - width / 2;
@@ -170,6 +171,37 @@ export const packChordBadgeIntervals = (
       packedRight = packedLeft + width;
     }
     flushCluster(cluster);
+
+    const solve = (candidateGap: number) => {
+      const upperBounds = candidates.map((candidate) => (
+        (candidate.maxX ?? Infinity) - candidate.width
+      ));
+      for (let index = upperBounds.length - 2; index >= 0; index -= 1) {
+        upperBounds[index] = Math.min(
+          upperBounds[index],
+          upperBounds[index + 1] - candidateGap - candidates[index].width,
+        );
+      }
+
+      const result: PackedChordBadge[] = [];
+      let previousRight = -Infinity;
+      for (const [index, candidate] of candidates.entries()) {
+        const lowerBound = Math.max(
+          candidate.minX ?? -Infinity,
+          previousRight + candidateGap,
+        );
+        const upperBound = upperBounds[index];
+        const tolerance = Number.EPSILON * Math.max(1, Math.abs(lowerBound), Math.abs(upperBound)) * 16;
+        if (lowerBound > upperBound + tolerance) return null;
+        const left = Math.min(Math.max(candidate.left, Math.min(lowerBound, upperBound)), upperBound);
+        result.push({ ...candidate, left, right: left + candidate.width });
+        previousRight = left + candidate.width;
+      }
+      return result;
+    };
+
+    const solved = solve(gap) ?? solve(0) ?? candidates;
+    for (const candidate of solved) packed.set(candidate.id, candidate);
   }
 
   return intervals.flatMap((interval) => {
@@ -202,6 +234,15 @@ export const packAnnotationRailCards = (
       left.anchor.targetY - right.anchor.targetY || left.sourceIndex - right.sourceIndex
     ));
 
+  let cluster: Array<Readonly<{
+    anchor: AnnotationRailCardAnchor;
+    desiredTop: number;
+    packedTop: number;
+    height: number;
+  }>> = [];
+  let packedBottom = -Infinity;
+  let prevBottom = -Infinity;
+
   const flushCluster = (
     cluster: Array<Readonly<{
       anchor: AnnotationRailCardAnchor;
@@ -215,7 +256,13 @@ export const packAnnotationRailCards = (
       (total, item) => total + item.packedTop - item.desiredTop,
       0,
     ) / cluster.length;
-    const shift = Math.max(-averageDisplacement, minTop - cluster[0].packedTop);
+    const first = cluster[0];
+    const last = cluster.at(-1)!;
+    const shift = Math.max(
+      -averageDisplacement,
+      minTop - first.packedTop,
+      prevBottom + gap - first.packedTop,
+    );
     for (const item of cluster) {
       const top = item.packedTop + shift;
       positioned.set(item.anchor.id, {
@@ -225,15 +272,9 @@ export const packAnnotationRailCards = (
         bottom: top + item.height,
       });
     }
+    prevBottom = last.packedTop + shift + last.height;
   };
 
-  let cluster: Array<Readonly<{
-    anchor: AnnotationRailCardAnchor;
-    desiredTop: number;
-    packedTop: number;
-    height: number;
-  }>> = [];
-  let packedBottom = -Infinity;
   for (const { anchor } of ordered) {
     const height = Math.max(0, anchor.height);
     const desiredTop = anchor.targetY - height / 2;

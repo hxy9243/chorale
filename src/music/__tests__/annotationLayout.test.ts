@@ -115,6 +115,35 @@ describe('annotation layout projection', () => {
     expect(packChordBadgeIntervals(badges, 6)).toEqual(packed);
   });
 
+  it('never lets independently recentered clusters overlap their neighbors', () => {
+    const badges = [
+      { id: 'a', systemId: 's', centerX: 49.734, width: 61.317 },
+      { id: 'b', systemId: 's', centerX: 115.922, width: 46.145 },
+      { id: 'c', systemId: 's', centerX: 120.958, width: 34.069 },
+    ];
+
+    const packed = packChordBadgeIntervals(badges, 2.256).sort((l, r) => l.left - r.left);
+    for (let i = 1; i < packed.length; i += 1) {
+      expect(packed[i].left - packed[i - 1].right).toBeGreaterThanOrEqual(2.256);
+    }
+  });
+
+  it('keeps widely separated clusters from drifting into each other after centering', () => {
+    const lineW = 300;
+    const badges = [
+      { id: 'a', systemId: 's', centerX: 180, width: 40 },
+      { id: 'b', systemId: 's', centerX: 250, width: 60 },
+      { id: 'c', systemId: 's', centerX: 260, width: 60 },
+    ].map((badge) => ({ ...badge, minX: 0, maxX: lineW }));
+
+    const packed = packChordBadgeIntervals(badges, 6).sort((l, r) => l.left - r.left);
+    for (let i = 1; i < packed.length; i += 1) {
+      expect(packed[i].left - packed[i - 1].right).toBeGreaterThanOrEqual(6);
+    }
+    expect(packed[0].left).toBeGreaterThanOrEqual(0);
+    expect(packed.at(-1)!.right).toBeLessThanOrEqual(lineW);
+  });
+
   it('always reserves one fixed chord band so annotations cannot reflow the score', () => {
     expect(chordStaffSpacing()).toEqual({ musicspace: 110, staffsep: 132 });
   });
@@ -135,6 +164,20 @@ describe('annotation layout projection', () => {
       { id: 'same-system', targetY: 120, height: 60 },
       { id: 'later-system', targetY: 300, height: 40 },
     ])).toEqual(packed);
+  });
+
+  it('never lets adjacent rail-card clusters overlap after vertical centering', () => {
+    const packed = packAnnotationRailCards([
+      { id: 'a', targetY: 60, height: 60 },
+      { id: 'b', targetY: 130, height: 40 },
+      { id: 'c', targetY: 140, height: 90 },
+      { id: 'd', targetY: 300, height: 30 },
+    ], 12, 0).sort((l, r) => l.top - r.top);
+
+    for (let i = 1; i < packed.length; i += 1) {
+      expect(packed[i].top - packed[i - 1].bottom).toBeGreaterThanOrEqual(12);
+    }
+    expect(packed[0].top).toBeGreaterThanOrEqual(0);
   });
 
   it('uses one onset for simultaneous voices and interpolates missing rendered onsets', () => {
