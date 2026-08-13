@@ -5463,7 +5463,7 @@ body,
 .annotation-rail-header {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--space-sm);
   margin-block-end: var(--space-md);
 }
@@ -5773,6 +5773,32 @@ body,
   border: 0;
   border-radius: 0;
   box-shadow: none;
+}
+
+.annotation-card-editor,
+.annotation-card-editor .annotation-editor,
+.annotation-card-editor .annotation-editor-grid,
+.annotation-card-editor .annotation-position-fields,
+.annotation-card-editor .annotation-editor :is(label, input, select, textarea, button) {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.annotation-card-editor {
+  width: 100%;
+  overflow: clip;
+  background: inherit;
+  color: inherit;
+}
+
+.annotation-card-editor .annotation-editor {
+  background: var(--color-transparent);
+  color: inherit;
+}
+
+.annotation-card-editor .annotation-editor-actions {
+  flex-wrap: wrap;
 }
 
 @media (prefers-reduced-motion: reduce) {
