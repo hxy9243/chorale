@@ -192,7 +192,9 @@ describe('SheetMusicView Component', () => {
       body: 'The idea repeats by step.',
       source: 'user',
     })));
-    await waitFor(() => expect(document.activeElement).toBe(createButton));
+    await waitFor(() => expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Add annotation to mm. 2–4' }),
+    ));
   });
 
   it('opens accepted annotations for explicit edit and delete actions', async () => {
@@ -242,6 +244,35 @@ describe('SheetMusicView Component', () => {
   });
 
   it('resets the full editor when switching between chord annotations', async () => {
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
+      if (!element || typeof element === 'string') return [];
+      element.innerHTML = `
+        <svg viewBox="0 0 400 140">
+          <g class="abcjs-note abcjs-mm0"></g>
+          <g class="abcjs-bar abcjs-mm0"></g>
+        </svg>
+      `;
+      const svg = element.querySelector<SVGSVGElement>('svg')!;
+      const note = element.querySelector<SVGGraphicsElement>('.abcjs-note')!;
+      const bar = element.querySelector<SVGGraphicsElement>('.abcjs-bar')!;
+      Object.defineProperty(svg, 'getBoundingClientRect', {
+        value: () => ({
+          left: 0,
+          top: 0,
+          right: 400,
+          bottom: 140,
+          width: 400,
+          height: 140,
+        }),
+      });
+      Object.defineProperty(note, 'getBBox', {
+        value: () => ({ x: 30, y: 55, width: 10, height: 12 }),
+      });
+      Object.defineProperty(bar, 'getBBox', {
+        value: () => ({ x: 180, y: 40, width: 2, height: 50 }),
+      });
+      return [{ getBpm: () => 120 }] as any;
+    });
     const firstChord = {
       id: 'switch-chord-first',
       kind: 'chord' as const,
