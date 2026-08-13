@@ -180,4 +180,47 @@ describe('AnnotationEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete annotation' }));
     expect((await screen.findByRole('alert')).textContent).toContain('Annotation delete failed');
   });
+
+  it('edits only chord notation in the compact in-place variant', async () => {
+    const onSave = vi.fn();
+    render(
+      <AnnotationEditor
+        mode="accepted"
+        variant="chord-inline"
+        initialAnnotation={{
+          id: 'annotation-chord-inline',
+          kind: 'chord',
+          span: { startMeasure: 2, endMeasure: 2 },
+          position: { measure: 2, offset: { numerator: 0, denominator: 1 } },
+          chordSymbol: 'G7',
+          romanNumeral: 'V7',
+          label: 'Dominant',
+          body: 'Prepares tonic.',
+          source: 'assistant',
+          createdAt: '2026-08-05T00:00:00.000Z',
+          updatedAt: '2026-08-05T00:00:00.000Z',
+        }}
+        defaultSpan={{ startMeasure: 2, endMeasure: 2 }}
+        onSave={onSave}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    expect(document.activeElement).toBe(screen.getByLabelText('Chord symbol'));
+    expect(screen.queryByLabelText('Kind')).toBeNull();
+    expect(screen.queryByLabelText('Start measure')).toBeNull();
+    expect(screen.queryByLabelText('Label')).toBeNull();
+    expect(screen.queryByLabelText('Explanation')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Chord symbol'), { target: { value: 'D7' } });
+    fireEvent.change(screen.getByLabelText('Roman numeral (optional)'), { target: { value: 'V/V' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save chord' }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'annotation-chord-inline',
+      chordSymbol: 'D7',
+      romanNumeral: 'V/V',
+      label: 'Dominant',
+      body: 'Prepares tonic.',
+    })));
+  });
 });

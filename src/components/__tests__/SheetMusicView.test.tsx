@@ -353,11 +353,17 @@ describe('SheetMusicView Component', () => {
     fireEvent.click(overlayNode);
     expect(onSelectAnchor).toHaveBeenCalledWith({ startMeasure: 1, endMeasure: 1 });
     const chordEditor = screen.getByRole('form', { name: 'Edit annotation' });
-    expect(chordEditor.closest('.annotation-rail-transient-editor')).not.toBeNull();
+    expect(chordEditor.closest('.annotation-chord-inline-editor')).not.toBeNull();
+    expect(chordEditor.closest('.sheet-notation-column')).not.toBeNull();
+    expect(screen.getByLabelText('Chord symbol')).toBeDefined();
+    expect(screen.getByLabelText('Roman numeral (optional)')).toBeDefined();
+    expect(screen.queryByLabelText('Kind')).toBeNull();
+    expect(screen.queryByLabelText('Explanation')).toBeNull();
     expect(overlayNode.getAttribute('class')).toContain('active');
     expect(overlayNode.querySelector('.annotation-chord-symbol')?.textContent).toBe('C');
     expect(overlayNode.querySelector('.annotation-roman-numeral')?.textContent).toBe('I');
     expect(overlayNode.querySelector('.annotation-chord-background')).not.toBeNull();
+    expect(overlayNode.querySelector('.annotation-chord-edit-glyph')).toBeNull();
     expect(overlayNode.getAttribute('data-chord-lane')).toBe('0');
     await waitFor(() => expect(vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2]).toMatchObject({
       format: { stafftopmargin: 58, staffsep: 119 },
@@ -513,7 +519,7 @@ describe('SheetMusicView Component', () => {
         return { x, centerX: x + width / 2, y };
       };
       expect(badgeBounds('line-chord-1')).toEqual({ x: 20, centerX: 47, y: 22 });
-      expect(badgeBounds('line-chord-2')).toEqual({ x: 20, centerX: 51, y: 222 });
+      expect(badgeBounds('line-chord-2')).toEqual({ x: 20, centerX: 47, y: 222 });
     } finally {
       unmount();
       vi.mocked(abcjs.parseOnly).mockImplementation(originalParseImplementation!);

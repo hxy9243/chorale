@@ -5350,12 +5350,6 @@ body,
   font-weight: 600;
 }
 
-.annotation-chord-edit-glyph {
-  fill: none;
-  stroke: currentcolor;
-  stroke-width: 2px;
-}
-
 .annotation-overlay-node.chord.active {
   color: var(--color-accent-ink);
   filter: none;
@@ -5368,6 +5362,38 @@ body,
 .annotation-overlay-node.chord:focus-visible .annotation-chord-background {
   stroke: var(--color-focus);
   stroke-width: 3px;
+}
+
+.annotation-overlay-layer.editing-chord {
+  z-index: var(--z-tooltip);
+}
+
+.annotation-chord-inline-editor {
+  position: absolute;
+  z-index: var(--z-tooltip);
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+
+.annotation-chord-inline-form {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-sm);
+  border: var(--rule-thin) solid var(--color-accent);
+  border-radius: 0;
+  background: var(--color-annotation-chord-surface);
+  color: var(--color-annotation-chord-ink);
+  box-shadow: var(--shadow-modal);
+}
+
+.annotation-chord-inline-fields {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.annotation-chord-inline-form :is(input, button) {
+  box-sizing: border-box;
 }
 
 /* Annotation redesign · one zoomed score scene with a measure-aligned reading rail */

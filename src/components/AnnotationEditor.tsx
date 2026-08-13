@@ -15,6 +15,7 @@ type AnnotationEditorMode = 'manual' | 'proposal' | 'accepted';
 
 interface AnnotationEditorProps {
   mode: AnnotationEditorMode;
+  variant?: 'full' | 'chord-inline';
   initialAnnotation?: Annotation;
   defaultSpan: MeasureSpan;
   meter?: string;
@@ -39,6 +40,7 @@ const SUBDIVISION_LABELS = {
 
 export const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
   mode,
+  variant = 'full',
   initialAnnotation,
   defaultSpan,
   meter,
@@ -78,10 +80,12 @@ export const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const firstFieldRef = useRef<HTMLSelectElement>(null);
+  const chordSymbolRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    firstFieldRef.current?.focus();
-  }, []);
+    if (variant === 'chord-inline') chordSymbolRef.current?.focus();
+    else firstFieldRef.current?.focus();
+  }, [variant]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -140,9 +144,11 @@ export const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
     }
   };
 
+  const inlineChordEditor = variant === 'chord-inline' && initialAnnotation?.kind === 'chord';
+
   return (
     <form
-      className="annotation-editor"
+      className={`annotation-editor ${inlineChordEditor ? 'annotation-chord-inline-form' : ''}`}
       aria-label={`${mode === 'manual' ? 'Create' : 'Edit'} annotation`}
       onSubmit={(event) => void handleSubmit(event)}
       onKeyDown={(event) => {
@@ -151,6 +157,40 @@ export const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
         onCancel();
       }}
     >
+      {inlineChordEditor ? (
+        <>
+          <div className="annotation-chord-inline-fields">
+            <label>
+              Chord symbol
+              <input
+                ref={chordSymbolRef}
+                value={chordSymbol}
+                onChange={(event) => setChordSymbol(event.target.value)}
+                disabled={saving}
+              />
+            </label>
+            <label>
+              Roman numeral (optional)
+              <input
+                value={romanNumeral}
+                onChange={(event) => setRomanNumeral(event.target.value)}
+                disabled={saving}
+              />
+            </label>
+          </div>
+          {error && <div className="annotation-editor-error" role="alert">{error}</div>}
+          <div className="annotation-editor-actions">
+            {onDelete && (
+              <button type="button" className="annotation-delete" onClick={() => void handleDelete()} disabled={saving}>
+                Delete
+              </button>
+            )}
+            <button type="button" onClick={onCancel} disabled={saving}>Cancel</button>
+            <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save chord'}</button>
+          </div>
+        </>
+      ) : (
+        <>
       <div className="annotation-editor-grid">
         <label>
           Kind
@@ -293,6 +333,8 @@ export const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
         <button type="button" onClick={onCancel} disabled={saving}>Cancel</button>
         <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save annotation'}</button>
       </div>
+        </>
+      )}
     </form>
   );
 };
