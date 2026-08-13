@@ -6,6 +6,7 @@ import { extractScore, type MeasuredScoreEvent } from '../music/scoreSnapshot';
 import {
   projectAnnotations,
   CHORD_BADGE_HEIGHT,
+  CHORD_STAFF_CLEARANCE,
   packChordBadgeIntervals,
   type AnnotationPlacement,
   type RenderedEventGeometry,
@@ -76,40 +77,52 @@ const measureBounds = (
   svg: SVGSVGElement,
   measureNumber: number,
   elements: readonly SVGGraphicsElement[],
-): SvgLocalBounds | null => {
-  const content = unionBounds(elements.flatMap((element) => {
+): Readonly<{ bounds: SvgLocalBounds; lineId?: string }> | null => {
+  const endBar = elements
+    .filter((element) => element.classList.contains('abcjs-bar'))
+    .flatMap((element) => {
+      const bounds = safeBounds(element);
+      return bounds ? [{ element, bounds }] : [];
+    })
+    .sort((left, right) => right.bounds.x - left.bounds.x)[0];
+  const lineId = endBar
+    ? Array.from(endBar.element.classList).find((className) => /^abcjs-l\d+$/.test(className))
+    : elements.flatMap((element) => Array.from(element.classList))
+      .find((className) => /^abcjs-l\d+$/.test(className));
+  const lineElements = lineId
+    ? elements.filter((element) => element.classList.contains(lineId))
+    : elements;
+  const content = unionBounds(lineElements.flatMap((element) => {
     const bounds = safeBounds(element);
     return bounds ? [bounds] : [];
   }));
   if (!content) return null;
-  const lineClass = elements.flatMap((element) => Array.from(element.classList))
-    .find((className) => /^abcjs-l\d+$/.test(className));
-  const staff = lineClass
-    ? svg.querySelector<SVGGraphicsElement>(`.abcjs-staff.${lineClass}`)
+  const staffBounds = lineId
+    ? Array.from(svg.querySelectorAll<SVGGraphicsElement>(`.abcjs-staff.${lineId}`))
+      .flatMap((staff) => {
+        const bounds = safeBounds(staff);
+        return bounds ? [bounds] : [];
+      })
+      .sort((left, right) => left.y - right.y)[0]
     : null;
-  const staffBounds = staff ? safeBounds(staff) : null;
-  const previousBar = lineClass && measureNumber > 1
+  const previousBar = lineId && measureNumber > 1
     ? svg.querySelector<SVGGraphicsElement>(
-        `.abcjs-mm${measureNumber - 2}.abcjs-bar.${lineClass}`,
+        `.abcjs-mm${measureNumber - 2}.abcjs-bar.${lineId}`,
       )
     : null;
   const previousBounds = previousBar ? safeBounds(previousBar) : null;
-  const endBarBounds = elements
-    .filter((element) => element.classList.contains('abcjs-bar'))
-    .flatMap((element) => {
-      const bounds = safeBounds(element);
-      return bounds ? [bounds] : [];
-    })
-    .sort((left, right) => right.x - left.x)[0];
   const left = previousBounds
     ? previousBounds.x + previousBounds.width
     : staffBounds?.x ?? content.x;
-  const right = endBarBounds?.x ?? content.x + content.width;
+  const right = endBar?.bounds.x ?? content.x + content.width;
   return {
-    x: left,
-    y: staffBounds?.y ?? content.y,
-    width: Math.max(1, right - left),
-    height: staffBounds?.height ?? content.height,
+    ...(lineId ? { lineId } : {}),
+    bounds: {
+      x: left,
+      y: staffBounds?.y ?? content.y,
+      width: Math.max(1, right - left),
+      height: staffBounds?.height ?? content.height,
+    },
   };
 };
 
@@ -163,9 +176,14 @@ const captureLayout = (
       const elements = Array.from(svg.querySelectorAll<SVGGraphicsElement>(
         `.abcjs-mm${measure.measureNumber - 1}`,
       ));
-      const bounds = measureBounds(svg, measure.measureNumber, elements);
-      if (bounds) {
-        measures.push({ measure: measure.measureNumber, systemId: systems[index].id, bounds });
+      const geometry = measureBounds(svg, measure.measureNumber, elements);
+      if (geometry) {
+        measures.push({
+          measure: measure.measureNumber,
+          systemId: systems[index].id,
+          ...(geometry.lineId ? { lineId: geometry.lineId } : {}),
+          bounds: geometry.bounds,
+        });
       }
     }
   }
@@ -296,12 +314,13 @@ const PlacementNode: React.FC<{
     'aria-label': `Edit ${placement.label} annotation`,
     'data-annotation-id': placement.annotationId,
     'data-edit-annotation': placement.annotationId,
+    ...(placement.lineId ? { 'data-staff-line': placement.lineId } : {}),
     onClick: (event: React.MouseEvent<SVGGElement>) => onActivate(event.currentTarget),
     onKeyDown: (event: React.KeyboardEvent<SVGGElement>) => handleKeyboardActivation(event, onActivate),
   };
 
   if (placement.track === 'chord' && chordBadge) {
-    const top = placement.y - 8 - CHORD_BADGE_HEIGHT;
+    const top = placement.y - CHORD_STAFF_CLEARANCE - CHORD_BADGE_HEIGHT;
     const left = chordBadge.left;
     const textCenter = left + (chordBadge.width - 26) / 2;
     return (
@@ -458,18 +477,29 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
             const [viewBoxX = 0, , viewBoxWidth = system?.width || 0] = (system?.viewBox || '')
               .split(/[ ,]+/)
               .map(Number);
+            const lineMeasures = layout.measures.filter((measure) => (
+              measure.systemId === placement.systemId
+              && measure.lineId === placement.lineId
+            ));
+            const minX = lineMeasures.length > 0
+              ? Math.min(...lineMeasures.map(({ bounds }) => bounds.x))
+              : viewBoxX;
+            const maxX = lineMeasures.length > 0
+              ? Math.max(...lineMeasures.map(({ bounds }) => bounds.x + bounds.width))
+              : viewBoxX + viewBoxWidth;
             return [{
               id: placement.id,
               systemId: placement.systemId,
-              centerX: placement.x,
+              ...(placement.lineId ? { lineId: placement.lineId } : {}),
+              centerX: placement.x + chordWidths[placement.id] / 2,
               width: chordWidths[placement.id],
-              minX: viewBoxX,
-              maxX: viewBoxX + viewBoxWidth,
+              minX,
+              maxX,
             }];
           })()
         : []
     )),
-  ), [chordWidths, layout.placements, layout.systems]);
+  ), [chordWidths, layout.measures, layout.placements, layout.systems]);
   const packedChordById = useMemo(
     () => new Map(packedChords.map((badge) => [badge.id, badge])),
     [packedChords],

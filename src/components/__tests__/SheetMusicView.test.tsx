@@ -114,7 +114,7 @@ describe('SheetMusicView Component', () => {
     const { rerender } = render(<SheetMusicView abcCode={sampleAbc} annotations={[]} />);
     const renderCount = vi.mocked(abcjs.renderAbc).mock.calls.length;
     expect(vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2]).toMatchObject({
-      format: { stafftopmargin: 50, staffsep: 111 },
+      format: { stafftopmargin: 58, staffsep: 119 },
     });
 
     rerender(<SheetMusicView abcCode={sampleAbc} annotations={[chord]} />);
@@ -360,7 +360,7 @@ describe('SheetMusicView Component', () => {
     expect(overlayNode.querySelector('.annotation-chord-background')).not.toBeNull();
     expect(overlayNode.getAttribute('data-chord-lane')).toBe('0');
     await waitFor(() => expect(vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2]).toMatchObject({
-      format: { stafftopmargin: 50, staffsep: 111 },
+      format: { stafftopmargin: 58, staffsep: 119 },
     }));
 
     const rangeCard = container.querySelector<HTMLButtonElement>('.annotation-card-toggle')!;
@@ -411,6 +411,113 @@ describe('SheetMusicView Component', () => {
     unmount();
     frameSpy.mockRestore();
     globalThis.ResizeObserver = OriginalResizeObserver;
+  });
+
+  it('anchors and packs chord labels by rendered staff line inside one abcjs SVG', async () => {
+    const originalParseImplementation = vi.mocked(abcjs.parseOnly).getMockImplementation();
+    vi.mocked(abcjs.parseOnly).mockImplementation(() => ([{
+      lines: [
+        { staff: [{ voices: [[
+          { el_type: 'note', duration: 0.25, startChar: 40, endChar: 41, pitches: [{ pitch: 0 }] },
+          { el_type: 'bar', startChar: 50, endChar: 51 },
+        ]] }] },
+        { staff: [{ voices: [[
+          { el_type: 'note', duration: 0.25, startChar: 60, endChar: 61, pitches: [{ pitch: 1 }] },
+          { el_type: 'bar', startChar: 70, endChar: 71 },
+        ]] }] },
+      ],
+      getMeter: () => ({ value: [{ num: '4', den: '4' }] }),
+      getKeySignature: () => ({ root: 'C' }),
+    }] as any));
+    vi.mocked(abcjs.renderAbc).mockImplementation((element) => {
+      if (!element || typeof element === 'string') return [];
+      element.innerHTML = `
+        <svg viewBox="0 0 400 420">
+          <g class="abcjs-staff abcjs-l0"></g>
+          <g class="abcjs-note abcjs-l0 abcjs-mm0"></g>
+          <g class="abcjs-bar abcjs-l0 abcjs-mm0"></g>
+          <g class="abcjs-dynamics abcjs-l0 abcjs-mm1"></g>
+          <g class="abcjs-staff abcjs-l1"></g>
+          <g class="abcjs-note abcjs-l1 abcjs-mm1"></g>
+          <g class="abcjs-bar abcjs-l1 abcjs-mm1"></g>
+        </svg>
+      `;
+      const svg = element.querySelector<SVGSVGElement>('svg')!;
+      const boxes = new Map<string, DOMRect>([
+        ['.abcjs-staff.abcjs-l0', { x: 20, y: 80, width: 360, height: 50 } as DOMRect],
+        ['.abcjs-note.abcjs-l0', { x: 100, y: 95, width: 10, height: 12 } as DOMRect],
+        ['.abcjs-bar.abcjs-l0', { x: 180, y: 80, width: 2, height: 50 } as DOMRect],
+        ['.abcjs-dynamics', { x: 350, y: 170, width: 20, height: 10 } as DOMRect],
+        ['.abcjs-staff.abcjs-l1', { x: 20, y: 280, width: 360, height: 50 } as DOMRect],
+        ['.abcjs-note.abcjs-l1', { x: 100, y: 295, width: 10, height: 12 } as DOMRect],
+        ['.abcjs-bar.abcjs-l1', { x: 180, y: 280, width: 2, height: 50 } as DOMRect],
+      ]);
+      Object.defineProperty(svg, 'getBoundingClientRect', {
+        value: () => ({
+          left: 0,
+          top: 0,
+          right: 400,
+          bottom: 420,
+          width: 400,
+          height: 420,
+        }),
+      });
+      for (const [selector, bounds] of boxes) {
+        Object.defineProperty(element.querySelector(selector), 'getBBox', {
+          value: () => bounds,
+        });
+      }
+      const firstNote = element.querySelector<SVGGraphicsElement>('.abcjs-note.abcjs-l0')!;
+      const secondNote = element.querySelector<SVGGraphicsElement>('.abcjs-note.abcjs-l1')!;
+      return [{
+        getBpm: () => 120,
+        engraver: {
+          selectables: [
+            { absEl: { abcelem: { startChar: 40 } }, svgEl: firstNote },
+            { absEl: { abcelem: { startChar: 60 } }, svgEl: secondNote },
+          ],
+        },
+      }] as any;
+    });
+    const timestamp = '2026-08-13T00:00:00.000Z';
+    const annotations = [1, 2].map((measure) => ({
+      id: `line-chord-${measure}`,
+      kind: 'chord' as const,
+      span: { startMeasure: measure, endMeasure: measure },
+      position: { measure, offset: { numerator: 0, denominator: 1 } },
+      chordSymbol: measure === 1 ? 'C' : 'G7',
+      label: `Line chord ${measure}`,
+      body: 'A staff-line geometry regression fixture.',
+      source: 'assistant' as const,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }));
+
+    const { container, unmount } = render(
+      <SheetMusicView abcCode={sampleAbc} annotations={annotations} />,
+    );
+    try {
+      await screen.findByRole('button', { name: 'Edit Line chord 1 annotation' });
+      await screen.findByRole('button', { name: 'Edit Line chord 2 annotation' });
+      await waitFor(() => expect(
+        container.querySelectorAll('.annotation-chord-background'),
+      ).toHaveLength(2));
+
+      const badgeBounds = (annotationId: string) => {
+        const rect = container.querySelector<SVGRectElement>(
+          `[data-annotation-id="${annotationId}"] .annotation-chord-background`,
+        )!;
+        const x = Number(rect.getAttribute('x'));
+        const y = Number(rect.getAttribute('y'));
+        const width = Number(rect.getAttribute('width'));
+        return { x, centerX: x + width / 2, y };
+      };
+      expect(badgeBounds('line-chord-1')).toEqual({ x: 20, centerX: 47, y: 22 });
+      expect(badgeBounds('line-chord-2')).toEqual({ x: 20, centerX: 51, y: 222 });
+    } finally {
+      unmount();
+      vi.mocked(abcjs.parseOnly).mockImplementation(originalParseImplementation!);
+    }
   });
 
   it('resolves the global measure class instead of falling back to measure one', () => {

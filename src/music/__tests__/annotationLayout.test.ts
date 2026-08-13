@@ -81,25 +81,42 @@ describe('annotation layout projection', () => {
     ]);
   });
 
+  it('aligns a chord at beat one with the start of its measure', () => {
+    const annotations: Annotation[] = [{
+      ...base,
+      id: 'opening-chord',
+      kind: 'chord',
+      span: { startMeasure: 1, endMeasure: 1 },
+      position: { measure: 1, offset: { numerator: 0, denominator: 1 } },
+      chordSymbol: 'C',
+      label: 'Tonic',
+      body: 'Begins the measure.',
+    }];
+
+    expect(projectAnnotations({ ...geometry, annotations })[0].x).toBe(20);
+  });
+
   it('packs measured chord widths horizontally on one stable baseline with a guaranteed gap', () => {
     const badges = [
-      { id: 'wide', systemId: 'system-1', centerX: 100, width: 80 },
-      { id: 'same-onset', systemId: 'system-1', centerX: 100, width: 52 },
-      { id: 'adjacent', systemId: 'system-1', centerX: 172, width: 52 },
-      { id: 'next-system', systemId: 'system-2', centerX: 100, width: 80 },
+      { id: 'wide', systemId: 'system-1', lineId: 'line-1', centerX: 100, width: 80 },
+      { id: 'same-onset', systemId: 'system-1', lineId: 'line-1', centerX: 100, width: 52 },
+      { id: 'adjacent', systemId: 'system-1', lineId: 'line-1', centerX: 172, width: 52 },
+      { id: 'next-line', systemId: 'system-1', lineId: 'line-2', centerX: 100, width: 80 },
+      { id: 'next-system', systemId: 'system-2', lineId: 'line-1', centerX: 100, width: 80 },
     ];
 
     const packed = packChordBadgeIntervals(badges, 6);
-    expect(packed.map(({ lane }) => lane)).toEqual([0, 0, 0, 0]);
+    expect(packed.map(({ lane }) => lane)).toEqual([0, 0, 0, 0, 0]);
     expect(packed[1].left - packed[0].right).toBeCloseTo(6);
     expect(packed[2].left - packed[1].right).toBeCloseTo(6);
     expect(packed[3]).toMatchObject({ left: 60, right: 140 });
+    expect(packed[4]).toMatchObject({ left: 60, right: 140 });
     expect(requiredChordLaneCount(packed)).toBe(1);
     expect(packChordBadgeIntervals(badges, 6)).toEqual(packed);
   });
 
   it('always reserves one fixed chord band so annotations cannot reflow the score', () => {
-    expect(chordStaffSpacing()).toEqual({ stafftopmargin: 50, staffsep: 111 });
+    expect(chordStaffSpacing()).toEqual({ stafftopmargin: 58, staffsep: 119 });
   });
 
   it('packs rail cards close to their measure centers without vertical overlap', () => {
