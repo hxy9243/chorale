@@ -241,6 +241,64 @@ describe('SheetMusicView Component', () => {
     expect(onDeleteAnnotation).toHaveBeenCalledWith('annotation-accepted');
   });
 
+  it('resets the full editor when switching between chord annotations', async () => {
+    const firstChord = {
+      id: 'switch-chord-first',
+      kind: 'chord' as const,
+      span: { startMeasure: 1, endMeasure: 1 },
+      position: { measure: 1, offset: { numerator: 0, denominator: 1 } },
+      chordSymbol: 'C',
+      romanNumeral: 'I',
+      label: 'Tonic',
+      body: 'Establishes the home key.',
+      source: 'assistant' as const,
+      createdAt: '2026-08-05T00:00:00.000Z',
+      updatedAt: '2026-08-05T00:00:00.000Z',
+    };
+    const secondChord = {
+      id: 'switch-chord-second',
+      kind: 'chord' as const,
+      span: { startMeasure: 1, endMeasure: 1 },
+      position: { measure: 1, offset: { numerator: 1, denominator: 4 } },
+      chordSymbol: 'G7',
+      romanNumeral: 'V7',
+      label: 'Dominant',
+      body: 'Prepares the return to tonic.',
+      source: 'assistant' as const,
+      createdAt: '2026-08-05T00:00:01.000Z',
+      updatedAt: '2026-08-05T00:00:01.000Z',
+    };
+    const onUpdateAnnotation = vi.fn();
+    render(
+      <SheetMusicView
+        abcCode={sampleAbc}
+        annotations={[firstChord, secondChord]}
+        onUpdateAnnotation={onUpdateAnnotation}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit Tonic annotation' }));
+    expect((screen.getByLabelText('Chord symbol') as HTMLInputElement).value).toBe('C');
+    expect((screen.getByLabelText('Label') as HTMLInputElement).value).toBe('Tonic');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit Dominant annotation' }));
+    expect((screen.getByLabelText('Chord symbol') as HTMLInputElement).value).toBe('G7');
+    expect((screen.getByLabelText('Roman numeral (optional)') as HTMLInputElement).value).toBe('V7');
+    expect((screen.getByLabelText('Label') as HTMLInputElement).value).toBe('Dominant');
+    expect((screen.getByLabelText('Explanation') as HTMLTextAreaElement).value)
+      .toBe('Prepares the return to tonic.');
+
+    fireEvent.change(screen.getByLabelText('Chord symbol'), { target: { value: 'D7' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }));
+    await waitFor(() => expect(onUpdateAnnotation).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'switch-chord-second',
+      chordSymbol: 'D7',
+      romanNumeral: 'V7',
+      label: 'Dominant',
+      body: 'Prepares the return to tonic.',
+    })));
+  });
+
   it('renders interactive annotations in a view-box-aligned React sibling overlay', async () => {
     const onSelectAnchor = vi.fn();
     let sourceWidth = 400;

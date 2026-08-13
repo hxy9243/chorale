@@ -810,6 +810,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     />
   ) : annotationEditor?.mode === 'accepted' && editedAnnotation ? (
     <AnnotationEditor
+      key={editedAnnotation.id}
       mode="accepted"
       initialAnnotation={editedAnnotation}
       defaultSpan={editedAnnotation.span}
