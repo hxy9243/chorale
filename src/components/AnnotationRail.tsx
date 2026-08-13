@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, PenLine, Plus } from 'lucide-react';
+import { Check, ChevronDown, PenLine } from 'lucide-react';
 import type { Annotation, AnnotationId, RangeAnnotation } from '../types/document';
 import {
   ANNOTATION_RAIL_CARD_GAP,
@@ -12,14 +12,11 @@ export type AnnotationRailEditor =
 
 interface AnnotationRailProps {
   annotations: readonly Annotation[];
-  activeAnchorLabel?: string | null;
-  canCreate: boolean;
   editing: AnnotationRailEditor | null;
   editor: React.ReactNode;
   anchorYByAnnotationId?: Readonly<Record<string, number>>;
   scoreHeight?: number;
   onSelect(annotation: RangeAnnotation, initiator: HTMLButtonElement): void;
-  onCreate(initiator: HTMLButtonElement): void;
   onEdit(annotation: RangeAnnotation, initiator: HTMLButtonElement): void;
 }
 
@@ -56,14 +53,11 @@ const measureLabel = ({ startMeasure, endMeasure }: RangeAnnotation['span']) => 
 
 export const AnnotationRail: React.FC<AnnotationRailProps> = ({
   annotations,
-  activeAnchorLabel,
-  canCreate,
   editing,
   editor,
   anchorYByAnnotationId = {},
   scoreHeight = 0,
   onSelect,
-  onCreate,
   onEdit,
 }) => {
   const rangeAnnotations = useMemo(() => sortRangeAnnotations(annotations), [annotations]);
@@ -144,27 +138,6 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({
       tabIndex={-1}
       style={{ '--annotation-score-height': `${scoreHeight}px` } as React.CSSProperties}
     >
-      <header className="annotation-rail-header">
-        <div className="annotation-rail-actions">
-          <span className="annotation-rail-count" aria-label={`${rangeAnnotations.length} range annotations`}>
-            {rangeAnnotations.length}
-          </span>
-          {canCreate && activeAnchorLabel && (
-            <button
-              type="button"
-              className="annotation-rail-create"
-              data-create-annotation
-              aria-label={`Add annotation to ${activeAnchorLabel}`}
-              title={`Add annotation to ${activeAnchorLabel}`}
-              onClick={(event) => onCreate(event.currentTarget)}
-            >
-              <Plus aria-hidden="true" />
-              <span>Add to {activeAnchorLabel}</span>
-            </button>
-          )}
-        </div>
-      </header>
-
       {editing?.mode === 'manual' && (
         <section className="annotation-rail-transient-editor" aria-label="New annotation">
           {editor}

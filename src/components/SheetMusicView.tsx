@@ -934,14 +934,11 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
               <div className="annotation-rail-viewport">
                 <AnnotationRail
                   annotations={annotations}
-                  activeAnchorLabel={formatAnchorLabel(activeAnchor)}
-                  canCreate={Boolean(onCreateAnnotation)}
                   editing={annotationEditor}
                   editor={editedAnnotation?.kind === 'chord' ? null : annotationEditorNode}
                   anchorYByAnnotationId={annotationRailGeometry.anchorYByAnnotationId}
                   scoreHeight={annotationRailGeometry.scoreHeight}
                   onSelect={selectRangeAnnotation}
-                  onCreate={() => setAnnotationEditor({ mode: 'manual' })}
                   onEdit={(annotation) => {
                     onSelectAnchor?.(annotation.span);
                     const hitArea = containerRef.current?.querySelector<SVGElement>(

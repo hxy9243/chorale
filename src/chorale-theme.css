@@ -5460,53 +5460,17 @@ body,
   color: var(--color-ink);
 }
 
-.annotation-rail-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  gap: var(--space-sm);
-  margin-block-end: var(--space-md);
-}
-
-.annotation-rail-header h4,
-.annotation-rail-header p,
 .annotation-rail-empty p,
 .annotation-rail-empty span {
   margin: 0;
 }
 
-.annotation-rail-header h4 {
-  font-family: var(--font-display);
-  font-size: var(--text-md);
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.annotation-rail-header p,
 .annotation-rail-empty span {
   max-width: 45ch;
   margin-block-start: var(--space-2xs);
   color: var(--color-muted);
   font-size: var(--text-base);
   line-height: 1.5;
-}
-
-.annotation-rail-actions {
-  display: flex;
-  flex: none;
-  align-items: flex-start;
-  gap: var(--space-2xs);
-}
-
-.annotation-rail-count {
-  display: grid;
-  min-width: 2.75rem;
-  min-height: 2.75rem;
-  place-items: center;
-  background: var(--color-transparent);
-  color: var(--color-ink);
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
 }
 
 .annotation-rail-empty {
@@ -5648,43 +5612,6 @@ body,
   left: 0;
 }
 
-/* Annotation redesign · in-place rail controls */
-.annotation-rail-create {
-  display: inline-flex;
-  position: relative;
-  width: 2.75rem;
-  min-height: 2.75rem;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: var(--color-accent);
-  color: var(--color-accent-ink);
-  font: inherit;
-  font-weight: 700;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.annotation-rail-create span {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.annotation-rail-create svg {
-  width: 1rem;
-  height: 1rem;
-  flex: none;
-}
-
 .annotation-card-row {
   display: grid;
   min-width: 0;
@@ -5748,7 +5675,6 @@ body,
 }
 
 .annotation-card-edit:focus-visible,
-.annotation-rail-create:focus-visible,
 [data-annotation-rail-heading]:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
@@ -5892,7 +5818,6 @@ body,
 .annotation-card-row,
 .annotation-card-toggle,
 .annotation-card-edit,
-.annotation-rail-create,
 .annotation-rail-transient-editor,
 .annotation-card-editor,
 .annotation-edit-tooltip,
@@ -5910,28 +5835,20 @@ body,
   border: 0;
 }
 
-.annotation-rail-create {
-  background: var(--color-annotation-explanation-selected);
-  color: var(--color-annotation-explanation-selected-ink);
-}
-
 @media (hover: hover) and (pointer: fine) {
   .annotation-card-toggle:hover,
-  .annotation-card-edit:hover,
-  .annotation-rail-create:hover {
+  .annotation-card-edit:hover {
     opacity: 0.82;
   }
 }
 
 .annotation-card-toggle:active,
-.annotation-card-edit:active,
-.annotation-rail-create:active {
+.annotation-card-edit:active {
   opacity: 0.65;
 }
 
 .annotation-card-toggle:disabled,
-.annotation-card-edit:disabled,
-.annotation-rail-create:disabled {
+.annotation-card-edit:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
