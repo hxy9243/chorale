@@ -477,7 +477,7 @@ describe('SheetMusicView Component', () => {
       kind: 'chord' as const,
       span: { startMeasure: measure, endMeasure: measure },
       position: { measure, offset: { numerator: 0, denominator: 1 } },
-      chordSymbol: measure === 1 ? 'C' : 'G7',
+      chordSymbol: measure === 1 ? 'Cmaj7' : 'G7',
       label: `Line chord ${measure}`,
       body: 'A staff-line geometry regression fixture.',
       source: 'assistant' as const,
@@ -504,7 +504,7 @@ describe('SheetMusicView Component', () => {
         const width = Number(rect.getAttribute('width'));
         return { x, centerX: x + width / 2, y };
       };
-      expect(badgeBounds('line-chord-1')).toEqual({ x: 20, centerX: 47, y: -30 });
+      expect(badgeBounds('line-chord-1')).toEqual({ x: 20, centerX: 56, y: -30 });
       expect(badgeBounds('line-chord-2')).toEqual({ x: 20, centerX: 47, y: 170 });
     } finally {
       unmount();
