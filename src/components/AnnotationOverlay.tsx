@@ -458,7 +458,7 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
         placement.chordSymbol?.length || 0,
         placement.romanNumeral?.length || 0,
       ) * 12;
-      widths[placement.id] = Math.max(54, (measured?.width || fallback) + 16);
+      widths[placement.id] = Math.max(54, (measured?.width || fallback) + 12);
     }
     setChordWidths((current) => {
       const keys = Object.keys(widths);

@@ -91,9 +91,8 @@ const rationalValue = ({ numerator, denominator }: RationalDuration) => numerato
 
 export const CHORD_BADGE_HEIGHT = 38;
 export const CHORD_BADGE_GAP = 6;
-const BASE_STAFF_SEPARATION = 61;
 export const CHORD_STAFF_CLEARANCE = 72;
-const CHORD_SYSTEM_GAP = 8;
+const CHORD_SYSTEM_SEPARATION = 118;
 export const ANNOTATION_RAIL_CARD_GAP = 12;
 
 export const packChordBadgeIntervals = (
@@ -187,10 +186,7 @@ export const chordStaffSpacing = (): ChordStaffSpacing => {
   const reservedHeight = CHORD_BADGE_HEIGHT;
   return {
     stafftopmargin: reservedHeight + CHORD_STAFF_CLEARANCE,
-    staffsep: Math.max(
-      BASE_STAFF_SEPARATION,
-      reservedHeight + CHORD_STAFF_CLEARANCE + CHORD_SYSTEM_GAP,
-    ),
+    staffsep: CHORD_SYSTEM_SEPARATION,
   };
 };
 
