@@ -50,6 +50,9 @@ describe('AnnotationRail', () => {
 
   it('excludes chords and sorts range annotations in score order', () => {
     render(<AnnotationRail {...inertProps} annotations={rangeAnnotations} onSelect={vi.fn()} />);
+    expect(screen.getByRole('complementary', { name: 'Annotations' })).toBeDefined();
+    expect(screen.queryByRole('heading', { name: 'Annotations' })).toBeNull();
+    expect(screen.queryByText('Notes tied to score passages.')).toBeNull();
     const cards = screen.getAllByRole('article');
     expect(cards.map((card) => card.getAttribute('data-annotation-kind'))).toEqual([
       'modulation',
@@ -146,7 +149,9 @@ describe('AnnotationRail', () => {
         onSelect={vi.fn()}
       />,
     );
-    expect(screen.getByRole('form', { name: 'Inline test editor' })).toBeDefined();
+    const editor = screen.getByRole('form', { name: 'Inline test editor' });
+    expect(editor.closest('.annotation-card-editor')?.parentElement?.getAttribute('data-annotation-kind'))
+      .toBe('modulation');
     expect(screen.getAllByRole('button', { name: 'Edit annotation' })).toHaveLength(3);
   });
 

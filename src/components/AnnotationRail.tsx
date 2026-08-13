@@ -139,14 +139,12 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({
     <aside
       ref={railRef}
       className="annotation-rail"
-      aria-labelledby="annotation-rail-title"
+      aria-label="Annotations"
+      data-annotation-rail-heading
+      tabIndex={-1}
       style={{ '--annotation-score-height': `${scoreHeight}px` } as React.CSSProperties}
     >
       <header className="annotation-rail-header">
-        <div>
-          <h4 id="annotation-rail-title" data-annotation-rail-heading tabIndex={-1}>Annotations</h4>
-          <p>Notes tied to score passages.</p>
-        </div>
         <div className="annotation-rail-actions">
           <span className="annotation-rail-count" aria-label={`${rangeAnnotations.length} range annotations`}>
             {rangeAnnotations.length}
