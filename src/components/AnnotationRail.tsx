@@ -173,13 +173,6 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({
         </section>
       )}
 
-      {editing?.mode === 'accepted'
-        && annotations.find(({ id }) => id === editing.annotationId)?.kind === 'chord' && (
-        <section className="annotation-rail-transient-editor" aria-label="Chord annotation editor">
-          {editor}
-        </section>
-      )}
-
       {rangeAnnotations.length === 0 && !editing ? (
         <div className="annotation-rail-empty">
           <p>No range annotations yet.</p>

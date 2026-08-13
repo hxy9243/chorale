@@ -1,6 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import abcjs from 'abcjs';
-import { PenLine } from 'lucide-react';
 import type { Annotation } from '../types/document';
 import { extractScore, type MeasuredScoreEvent } from '../music/scoreSnapshot';
 import {
@@ -50,6 +49,7 @@ interface AnnotationOverlayProps {
   renderGeneration: number;
   zoom: number;
   activeAnnotationId?: string | null;
+  inlineChordEditor?: React.ReactNode;
   onActivate(annotation: Annotation, initiator: SVGGElement): void;
   onRangeGeometry?(geometry: AnnotationRailGeometry): void;
 }
@@ -254,6 +254,14 @@ const localYToWrapperY = (system: PositionedSystem, localY: number) => {
   return system.top + (localY - viewBoxY) * scale;
 };
 
+const localXToWrapperX = (system: PositionedSystem, localX: number) => {
+  const [viewBoxX = 0, , viewBoxWidth = system.width] = system.viewBox
+    .split(/[ ,]+/)
+    .map(Number);
+  const scale = viewBoxWidth > 0 ? system.width / viewBoxWidth : 1;
+  return system.left + (localX - viewBoxX) * scale;
+};
+
 const rangeGeometry = (
   layout: OverlayLayout,
   annotations: readonly Annotation[],
@@ -322,7 +330,7 @@ const PlacementNode: React.FC<{
   if (placement.track === 'chord' && chordBadge) {
     const top = placement.y - CHORD_STAFF_CLEARANCE - CHORD_BADGE_HEIGHT;
     const left = chordBadge.left;
-    const textCenter = left + (chordBadge.width - 26) / 2;
+    const textCenter = left + chordBadge.width / 2;
     return (
       <g {...common} data-chord-lane={chordBadge.lane} data-chord-baseline={top}>
         <title>{placement.body}</title>
@@ -347,14 +355,6 @@ const PlacementNode: React.FC<{
             textAnchor="middle"
           >{placement.romanNumeral}</text>
         )}
-        <PenLine
-          className="annotation-chord-edit-glyph"
-          x={left + chordBadge.width - 20}
-          y={top + 12}
-          width={14}
-          height={14}
-          aria-hidden="true"
-        />
       </g>
     );
   }
@@ -398,6 +398,7 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
   renderGeneration,
   zoom,
   activeAnnotationId = null,
+  inlineChordEditor,
   onActivate,
   onRangeGeometry,
 }) => {
@@ -457,7 +458,7 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
         placement.chordSymbol?.length || 0,
         placement.romanNumeral?.length || 0,
       ) * 12;
-      widths[placement.id] = Math.max(54, (measured?.width || fallback) + 38);
+      widths[placement.id] = Math.max(54, (measured?.width || fallback) + 16);
     }
     setChordWidths((current) => {
       const keys = Object.keys(widths);
@@ -504,9 +505,33 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
     () => new Map(packedChords.map((badge) => [badge.id, badge])),
     [packedChords],
   );
+  const inlineEditorPosition = useMemo(() => {
+    if (!inlineChordEditor || !activeAnnotationId) return null;
+    const placement = layout.placements.find((candidate) => (
+      candidate.track === 'chord' && candidate.annotationId === activeAnnotationId
+    ));
+    const badge = placement ? packedChordById.get(placement.id) : undefined;
+    const system = placement
+      ? layout.systems.find(({ id }) => id === placement.systemId)
+      : undefined;
+    if (!placement || !badge || !system) return null;
+    const width = 240;
+    const rawLeft = localXToWrapperX(system, badge.left);
+    return {
+      left: Math.max(system.left, Math.min(rawLeft, system.left + system.width - width)),
+      top: localYToWrapperY(
+        system,
+        placement.y - CHORD_STAFF_CLEARANCE - CHORD_BADGE_HEIGHT,
+      ),
+      width,
+    };
+  }, [activeAnnotationId, inlineChordEditor, layout.placements, layout.systems, packedChordById]);
 
   return (
-    <div className="annotation-overlay-layer" aria-label="Score annotation overlay">
+    <div
+      className={`annotation-overlay-layer ${inlineEditorPosition ? 'editing-chord' : ''}`}
+      aria-label="Score annotation overlay"
+    >
       {layout.systems.map((system) => (
         <svg
           className="annotation-overlay-system"
@@ -567,6 +592,15 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
           })}
         </svg>
       ))}
+      {inlineEditorPosition && (
+        <section
+          className="annotation-chord-inline-editor"
+          style={inlineEditorPosition}
+          aria-label="Chord annotation editor"
+        >
+          {inlineChordEditor}
+        </section>
+      )}
     </div>
   );
 };
