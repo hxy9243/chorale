@@ -254,6 +254,46 @@ try {
                       createdAt: timestamp,
                       updatedAt: timestamp,
                     },
+                  }, {
+                    id: 'smoke-proposal-chord-one',
+                    runId: 'smoke-analysis-run',
+                    documentId: activeFileId,
+                    sourceRevision,
+                    state: 'proposed',
+                    annotation: {
+                      id: 'smoke-chord-one',
+                      kind: 'chord',
+                      span: { startMeasure: 1, endMeasure: 1 },
+                      position: { measure: 1, offset: { numerator: 0, denominator: 1 } },
+                      chordSymbol: 'Cmaj7',
+                      romanNumeral: 'I7',
+                      label: 'Smoke chord',
+                      body: 'A proposed chord annotation.',
+                      source: 'assistant',
+                      agentProfiles: ['harmony'],
+                      createdAt: timestamp,
+                      updatedAt: timestamp,
+                    },
+                  }, {
+                    id: 'smoke-proposal-chord-two',
+                    runId: 'smoke-analysis-run',
+                    documentId: activeFileId,
+                    sourceRevision,
+                    state: 'proposed',
+                    annotation: {
+                      id: 'smoke-chord-two',
+                      kind: 'chord',
+                      span: { startMeasure: 2, endMeasure: 2 },
+                      position: { measure: 2, offset: { numerator: 0, denominator: 1 } },
+                      chordSymbol: 'G7',
+                      romanNumeral: 'V7',
+                      label: 'Smoke chord two',
+                      body: 'A second proposed chord annotation.',
+                      source: 'assistant',
+                      agentProfiles: ['harmony'],
+                      createdAt: timestamp,
+                      updatedAt: timestamp,
+                    },
                   }],
                 }],
                 }],
@@ -409,7 +449,7 @@ try {
       playTitle: document.querySelector('.main-play-buttons button')?.getAttribute('title'),
     };
     const proposalCards = await waitFor(
-      () => document.querySelectorAll('.annotation-proposal-card').length === 2
+      () => document.querySelectorAll('.annotation-proposal-card').length === 4
         ? [...document.querySelectorAll('.annotation-proposal-card')]
         : null,
       'Seeded annotation proposals did not render.',
@@ -462,55 +502,19 @@ try {
       () => !document.querySelector('.annotation-card-editor .annotation-editor'),
       'Saving the accepted range annotation did not restore its card.',
     );
-    const addManual = await waitFor(
-      () => document.querySelector('[data-create-annotation]'),
-      'Selected passage did not expose manual annotation creation.',
+    const hasAddControl = Boolean(
+      document.querySelector('[data-create-annotation], .annotation-rail-create'),
     );
+    const hasAnnotationCount = Boolean(document.querySelector('.annotation-rail-count'));
     const scoreGeometryBeforeChords = [...document.querySelectorAll('#paper > svg')]
       .map((svg) => {
         const rect = svg.getBoundingClientRect();
         return { top: rect.top, height: rect.height };
       });
-    const createChord = async (label, symbol, roman) => {
-      addManual.click();
-      const manualEditor = await waitFor(
-        () => document.querySelector('.annotation-rail-transient-editor .annotation-editor'),
-        'Manual annotation editor did not open in the rail.',
-      );
-      setFormValue(manualEditor.querySelector('select'), 'chord');
-      const fieldFor = (labelText, selector) => [...manualEditor.querySelectorAll('label')]
-        .find((labelElement) => labelElement.textContent.trim().startsWith(labelText))
-        ?.querySelector(selector);
-      const chordFields = await waitFor(
-        () => fieldFor('Chord symbol', 'input')
-          ? {
-              symbol: fieldFor('Chord symbol', 'input'),
-              roman: fieldFor('Roman numeral (optional)', 'input'),
-              label: fieldFor('Label', 'input'),
-              body: fieldFor('Explanation', 'textarea'),
-            }
-          : null,
-        'Chord fields did not appear in the manual rail editor.',
-      );
-      setFormValue(chordFields.symbol, symbol);
-      setFormValue(chordFields.roman, roman);
-      setFormValue(chordFields.label, label);
-      setFormValue(chordFields.body, 'A directly authored chord annotation.');
-      manualEditor.querySelector('button[type="submit"]')?.click();
-      await waitFor(
-        () => document.querySelector('[aria-label="Edit ' + label + ' annotation"]'),
-        'Manual chord annotation did not render above the score.',
-      );
-      await waitFor(
-        () => !document.querySelector('.annotation-rail-transient-editor .annotation-editor'),
-        'Manual chord editor did not close after Save.',
-      );
-    };
-    await createChord('Smoke manual', 'Cmaj7', 'I7');
-    await createChord('Smoke manual two', 'G7', 'V7');
     await waitFor(
-      () => document.querySelector('[aria-label="Edit Smoke manual annotation"]'),
-      'Manual chord annotation did not remain in the score overlay.',
+      () => document.querySelector('[aria-label="Edit Smoke chord annotation"]')
+        && document.querySelector('[aria-label="Edit Smoke chord two annotation"]'),
+      'Accepted chord proposals did not render above the score.',
     );
     await new Promise((resolve) => setTimeout(resolve, 650));
     const chordBadges = [...document.querySelectorAll('.annotation-overlay-node.chord')];
@@ -558,7 +562,9 @@ try {
       rejectedState: document.querySelector('[aria-label="Reject this line annotation proposal"]')?.dataset.state,
       acceptedRail: Boolean(document.querySelector('[data-edit-annotation="smoke-accepted-annotation"]')),
       acceptedBody: document.querySelector('[data-annotation-kind="explanation"] .annotation-card-body')?.textContent,
-      manualOverlay: Boolean(document.querySelector('[aria-label="Edit Smoke manual annotation"]')),
+      chordOverlay: Boolean(document.querySelector('[aria-label="Edit Smoke chord annotation"]')),
+      hasAddControl,
+      hasAnnotationCount,
       chordBadgeCount: chordBadges.length,
       chordLaneCount: new Set(chordBadges.map((badge) => badge.dataset.chordLane)).size,
       chordBaselinesAligned: [...chordBaselinesBySystem.values()]
@@ -604,7 +610,9 @@ try {
       && passageLinkState.annotationJourney.rejectedState === 'rejected'
       && passageLinkState.annotationJourney.acceptedRail
       && passageLinkState.annotationJourney.acceptedBody === 'Edited and persisted in the rail.'
-      && passageLinkState.annotationJourney.manualOverlay
+      && passageLinkState.annotationJourney.chordOverlay
+      && !passageLinkState.annotationJourney.hasAddControl
+      && !passageLinkState.annotationJourney.hasAnnotationCount
       && passageLinkState.annotationJourney.chordBadgeCount >= 2
       && passageLinkState.annotationJourney.chordLaneCount === 1
       && passageLinkState.annotationJourney.chordBaselinesAligned
@@ -629,8 +637,8 @@ try {
     const acceptedRailAfterReload = await waitForElement(
       '[data-edit-annotation="smoke-accepted-annotation"]',
     );
-    const manualOverlayAfterReload = await waitForElement(
-      '[aria-label="Edit Smoke manual annotation"]',
+    const chordOverlayAfterReload = await waitForElement(
+      '[aria-label="Edit Smoke chord annotation"]',
     );
     await new Promise((resolve) => setTimeout(resolve, 100));
     const saveDeadline = Date.now() + 5000;
@@ -921,8 +929,8 @@ try {
     const acceptedRailAfterThreadDelete = Boolean(
       document.querySelector('[data-edit-annotation="smoke-accepted-annotation"]'),
     );
-    const manualOverlayAfterThreadDelete = Boolean(
-      document.querySelector('[aria-label="Edit Smoke manual annotation"]'),
+    const chordOverlayAfterThreadDelete = Boolean(
+      document.querySelector('[aria-label="Edit Smoke chord annotation"]'),
     );
     const freshSuggestions = document.querySelector('.agent-suggestions');
     const freshTranscript = document.querySelector('.agent-transcript');
@@ -1026,9 +1034,9 @@ try {
       threadChevronCount,
       hasThreadDelete,
       acceptedRailAfterReload: Boolean(acceptedRailAfterReload),
-      manualOverlayAfterReload: Boolean(manualOverlayAfterReload),
+      chordOverlayAfterReload: Boolean(chordOverlayAfterReload),
       acceptedRailAfterThreadDelete,
-      manualOverlayAfterThreadDelete,
+      chordOverlayAfterThreadDelete,
       threadIdBeforeDelete: threadBeforeDelete.id,
       threadIdAfterDelete: threadAfterDelete.id,
       threadCountAfterDelete: threadAfterDelete.count,
@@ -1252,14 +1260,14 @@ try {
   assert(shellState.hasThreadDelete, 'Thread history does not expose a delete action.');
   assert(
     shellState.acceptedRailAfterReload
-      && shellState.manualOverlayAfterReload
+      && shellState.chordOverlayAfterReload
       && shellState.acceptedRailAfterThreadDelete
-      && shellState.manualOverlayAfterThreadDelete,
+      && shellState.chordOverlayAfterThreadDelete,
     `Reload or chat deletion removed document annotations (${JSON.stringify({
       acceptedAfterReload: shellState.acceptedRailAfterReload,
-      manualAfterReload: shellState.manualOverlayAfterReload,
+      chordAfterReload: shellState.chordOverlayAfterReload,
       acceptedAfterDelete: shellState.acceptedRailAfterThreadDelete,
-      manualAfterDelete: shellState.manualOverlayAfterThreadDelete,
+      chordAfterDelete: shellState.chordOverlayAfterThreadDelete,
     })}).`,
   );
   assert(
@@ -1543,13 +1551,13 @@ try {
   assert(persisted.sheetZoom === '110%', `Sheet zoom did not survive restart (${persisted.sheetZoom}).`);
   assert(
     persisted.annotationLabels.includes('Smoke phrase')
-      && persisted.annotationLabels.includes('Smoke manual')
-      && persisted.annotationLabels.includes('Smoke manual two')
+      && persisted.annotationLabels.includes('Smoke chord')
+      && persisted.annotationLabels.includes('Smoke chord two')
       && persisted.annotations.some((annotation) => (
         annotation.label === 'Smoke phrase'
         && annotation.body === 'Edited and persisted in the rail.'
       )),
-    `Accepted and manual annotations did not survive restart (${persisted.annotationLabels.join(',')}).`,
+    `Accepted annotations did not survive restart (${persisted.annotationLabels.join(',')}).`,
   );
   await closeCleanly(second, secondCDP);
   secondCDP.socket.close();
