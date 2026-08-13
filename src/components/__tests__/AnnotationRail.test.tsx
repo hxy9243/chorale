@@ -41,10 +41,8 @@ const rangeAnnotations: Annotation[] = [
 
 describe('AnnotationRail', () => {
   const inertProps = {
-    canCreate: false,
     editing: null,
     editor: null,
-    onCreate: vi.fn(),
     onEdit: vi.fn(),
   } as const;
 
@@ -91,7 +89,7 @@ describe('AnnotationRail', () => {
     render(<AnnotationRail {...inertProps} annotations={[]} onSelect={vi.fn()} />);
     expect(screen.getByRole('complementary', { name: 'Annotations' })).toBeDefined();
     expect(screen.getByText('No range annotations yet.')).toBeDefined();
-    expect(screen.getByLabelText('0 range annotations')).toBeDefined();
+    expect(screen.queryByLabelText(/range annotations/)).toBeNull();
   });
 
   it('positions range cards against their rendered measure heights', () => {
@@ -155,28 +153,23 @@ describe('AnnotationRail', () => {
     expect(screen.getAllByRole('button', { name: 'Edit annotation' })).toHaveLength(3);
   });
 
-  it('puts manual creation in the rail for the selected passage', () => {
-    const onCreate = vi.fn();
-    const { rerender } = render(
+  it('omits add and count controls while retaining an externally opened editor', () => {
+    const { container, rerender } = render(
       <AnnotationRail
         {...inertProps}
         annotations={[]}
-        activeAnchorLabel="mm. 2–4"
-        canCreate
-        onCreate={onCreate}
         onSelect={vi.fn()}
       />,
     );
-    const createButton = screen.getByRole('button', { name: 'Add annotation to mm. 2–4' });
-    fireEvent.click(createButton);
-    expect(onCreate).toHaveBeenCalledWith(createButton);
+    expect(screen.queryByRole('button', { name: /Add annotation/ })).toBeNull();
+    expect(screen.queryByLabelText(/range annotations/)).toBeNull();
+    expect(container.querySelector('.annotation-rail-create')).toBeNull();
+    expect(container.querySelector('.annotation-rail-count')).toBeNull();
 
     rerender(
       <AnnotationRail
         {...inertProps}
         annotations={[]}
-        activeAnchorLabel="mm. 2–4"
-        canCreate
         editing={{ mode: 'manual' }}
         editor={<form aria-label="Create inline annotation">Fields</form>}
         onSelect={vi.fn()}
