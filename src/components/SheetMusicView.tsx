@@ -487,7 +487,12 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
           maxSpacing: 3,
           preferredMeasuresPerLine: 4,
         },
-        format: spacing,
+        // abcjs's render-option format whitelist omits these supported spacing
+        // fields, so apply them to the parsed tune consumed by the renderer.
+        afterParsing: (tune) => {
+          Object.assign(tune.formatting, spacing);
+          return tune;
+        },
         add_classes: true,
         clickListener: (abcElem: any, _tuneNumber, classes, analysis) => {
           // If a hit area already handled this click (and set hitAreaJustHandled),

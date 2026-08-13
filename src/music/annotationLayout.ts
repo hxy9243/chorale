@@ -65,7 +65,7 @@ export type PackedChordBadge = ChordBadgeInterval & Readonly<{
 }>;
 
 export type ChordStaffSpacing = Readonly<{
-  stafftopmargin: number;
+  musicspace: number;
   staffsep: number;
 }>;
 
@@ -92,7 +92,7 @@ const rationalValue = ({ numerator, denominator }: RationalDuration) => numerato
 export const CHORD_BADGE_HEIGHT = 38;
 export const CHORD_BADGE_GAP = 6;
 export const CHORD_STAFF_CLEARANCE = 72;
-const CHORD_SYSTEM_SEPARATION = 118;
+const CHORD_SYSTEM_SEPARATION = 132;
 export const ANNOTATION_RAIL_CARD_GAP = 12;
 
 export const packChordBadgeIntervals = (
@@ -185,7 +185,7 @@ export const requiredChordLaneCount = (badges: readonly PackedChordBadge[]) => (
 export const chordStaffSpacing = (): ChordStaffSpacing => {
   const reservedHeight = CHORD_BADGE_HEIGHT;
   return {
-    stafftopmargin: reservedHeight + CHORD_STAFF_CLEARANCE,
+    musicspace: reservedHeight + CHORD_STAFF_CLEARANCE,
     staffsep: CHORD_SYSTEM_SEPARATION,
   };
 };
