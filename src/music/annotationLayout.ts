@@ -19,6 +19,7 @@ export type RenderedScoreSystem = Readonly<{
 export type RenderedMeasureGeometry = Readonly<{
   measure: number;
   systemId: string;
+  lineId?: string;
   bounds: SvgLocalBounds;
 }>;
 
@@ -35,6 +36,7 @@ export type AnnotationPlacement = Readonly<{
   id: string;
   annotationId: string;
   systemId: string;
+  lineId?: string;
   track: AnnotationTrack;
   x: number;
   y: number;
@@ -49,6 +51,7 @@ export type AnnotationPlacement = Readonly<{
 export type ChordBadgeInterval = Readonly<{
   id: string;
   systemId: string;
+  lineId?: string;
   centerX: number;
   width: number;
   minX?: number;
@@ -89,7 +92,7 @@ const rationalValue = ({ numerator, denominator }: RationalDuration) => numerato
 export const CHORD_BADGE_HEIGHT = 38;
 export const CHORD_BADGE_GAP = 6;
 const BASE_STAFF_SEPARATION = 61;
-const CHORD_STAFF_CLEARANCE = 12;
+export const CHORD_STAFF_CLEARANCE = 20;
 export const ANNOTATION_RAIL_CARD_GAP = 12;
 
 export const packChordBadgeIntervals = (
@@ -97,18 +100,19 @@ export const packChordBadgeIntervals = (
   gap = CHORD_BADGE_GAP,
 ): PackedChordBadge[] => {
   const packed = new Map<string, PackedChordBadge>();
-  const bySystem = new Map<
+  const byLine = new Map<
     string,
     Array<Readonly<{ interval: ChordBadgeInterval; sourceIndex: number }>>
   >();
 
   for (const [sourceIndex, interval] of intervals.entries()) {
-    const group = bySystem.get(interval.systemId) || [];
+    const groupId = `${interval.systemId}:${interval.lineId || ''}`;
+    const group = byLine.get(groupId) || [];
     group.push({ interval, sourceIndex });
-    bySystem.set(interval.systemId, group);
+    byLine.set(groupId, group);
   }
 
-  for (const group of bySystem.values()) {
+  for (const group of byLine.values()) {
     const ordered = [...group].sort((left, right) => (
       left.interval.centerX - right.interval.centerX || left.sourceIndex - right.sourceIndex
     ));
@@ -261,6 +265,8 @@ const horizontalEventPosition = (
   events: readonly RenderedEventGeometry[],
   measure: RenderedMeasureGeometry,
 ) => {
+  if (rationalValue(position.offset) === 0) return measure.bounds.x;
+
   const matching = events
     .filter((event) => event.systemId === measure.systemId && equalPosition(event.position, position))
     .sort((left, right) => left.bounds.y - right.bounds.y);
@@ -305,14 +311,16 @@ const rangePlacements = (
   const covered = measures.filter(({ measure }) => (
     measure >= annotation.span.startMeasure && measure <= annotation.span.endMeasure
   ));
-  const bySystem = new Map<string, RenderedMeasureGeometry[]>();
+  const byLine = new Map<string, RenderedMeasureGeometry[]>();
   for (const measure of covered) {
-    const group = bySystem.get(measure.systemId) || [];
+    const groupId = `${measure.systemId}:${measure.lineId || ''}`;
+    const group = byLine.get(groupId) || [];
     group.push(measure);
-    bySystem.set(measure.systemId, group);
+    byLine.set(groupId, group);
   }
 
-  return [...bySystem].map(([systemId, group], index) => {
+  return [...byLine.values()].map((group, index) => {
+    const { systemId, lineId } = group[0];
     const left = Math.min(...group.map(({ bounds }) => bounds.x));
     const right = Math.max(...group.map(({ bounds }) => bounds.x + bounds.width));
     const top = Math.min(...group.map(({ bounds }) => bounds.y));
@@ -322,6 +330,7 @@ const rangePlacements = (
         id: `${annotation.id}:${systemId}:${index}`,
         annotationId: annotation.id,
         systemId,
+        ...(lineId ? { lineId } : {}),
         track: annotation.kind,
         x: left,
         y: Math.max(1, top - 18),
@@ -336,6 +345,7 @@ const rangePlacements = (
         id: `${annotation.id}:${systemId}:${index}`,
         annotationId: annotation.id,
         systemId,
+        ...(lineId ? { lineId } : {}),
         track: annotation.kind,
         x: left,
         y: bottom + 6,
@@ -349,6 +359,7 @@ const rangePlacements = (
       id: `${annotation.id}:${systemId}:${index}`,
       annotationId: annotation.id,
       systemId,
+      ...(lineId ? { lineId } : {}),
       track: 'explanation',
       x: right + 4,
       y: top,
@@ -383,6 +394,7 @@ export const projectAnnotations = ({
       id: `${annotation.id}:${measure.systemId}:0`,
       annotationId: annotation.id,
       systemId: measure.systemId,
+      ...(measure.lineId ? { lineId: measure.lineId } : {}),
       track: 'chord',
       x: horizontalEventPosition(annotation.position, events, measure),
       y: measure.bounds.y,
