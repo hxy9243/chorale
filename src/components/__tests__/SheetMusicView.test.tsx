@@ -113,9 +113,11 @@ describe('SheetMusicView Component', () => {
     };
     const { rerender } = render(<SheetMusicView abcCode={sampleAbc} annotations={[]} />);
     const renderCount = vi.mocked(abcjs.renderAbc).mock.calls.length;
-    expect(vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2]).toMatchObject({
-      format: { stafftopmargin: 110, staffsep: 118 },
-    });
+    const afterParsing = vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2]?.afterParsing;
+    expect(afterParsing).toEqual(expect.any(Function));
+    const parsedTune = { formatting: {} } as abcjs.TuneObject;
+    afterParsing?.(parsedTune, 0, sampleAbc);
+    expect(parsedTune.formatting).toMatchObject({ musicspace: 110, staffsep: 132 });
 
     rerender(<SheetMusicView abcCode={sampleAbc} annotations={[chord]} />);
 
@@ -351,9 +353,9 @@ describe('SheetMusicView Component', () => {
     expect(overlayNode.querySelector('.annotation-chord-background')).not.toBeNull();
     expect(overlayNode.querySelector('.annotation-chord-edit-glyph')).toBeNull();
     expect(overlayNode.getAttribute('data-chord-lane')).toBe('0');
-    await waitFor(() => expect(vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2]).toMatchObject({
-      format: { stafftopmargin: 110, staffsep: 118 },
-    }));
+    await waitFor(() => expect(
+      vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2]?.afterParsing,
+    ).toEqual(expect.any(Function)));
 
     const rangeCard = container.querySelector<HTMLButtonElement>('.annotation-card-toggle')!;
     fireEvent.click(rangeCard);

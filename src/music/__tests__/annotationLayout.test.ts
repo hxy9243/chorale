@@ -116,7 +116,7 @@ describe('annotation layout projection', () => {
   });
 
   it('always reserves one fixed chord band so annotations cannot reflow the score', () => {
-    expect(chordStaffSpacing()).toEqual({ stafftopmargin: 110, staffsep: 118 });
+    expect(chordStaffSpacing()).toEqual({ musicspace: 110, staffsep: 132 });
   });
 
   it('packs rail cards close to their measure centers without vertical overlap', () => {
