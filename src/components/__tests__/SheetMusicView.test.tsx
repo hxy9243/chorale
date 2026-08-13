@@ -114,7 +114,7 @@ describe('SheetMusicView Component', () => {
     const { rerender } = render(<SheetMusicView abcCode={sampleAbc} annotations={[]} />);
     const renderCount = vi.mocked(abcjs.renderAbc).mock.calls.length;
     expect(vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2]).toMatchObject({
-      format: { stafftopmargin: 110, staffsep: 171 },
+      format: { stafftopmargin: 110, staffsep: 118 },
     });
 
     rerender(<SheetMusicView abcCode={sampleAbc} annotations={[chord]} />);
@@ -366,7 +366,7 @@ describe('SheetMusicView Component', () => {
     expect(overlayNode.querySelector('.annotation-chord-edit-glyph')).toBeNull();
     expect(overlayNode.getAttribute('data-chord-lane')).toBe('0');
     await waitFor(() => expect(vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2]).toMatchObject({
-      format: { stafftopmargin: 110, staffsep: 171 },
+      format: { stafftopmargin: 110, staffsep: 118 },
     }));
 
     const rangeCard = container.querySelector<HTMLButtonElement>('.annotation-card-toggle')!;
