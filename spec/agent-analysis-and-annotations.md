@@ -1,6 +1,7 @@
 # Passage-Aware Music Tutor, Agent Tools, and Annotations
 
 Date: 2026-08-05
+Updated: 2026-08-14
 Status: Approved implementation specification
 
 ## 1. Product goal
@@ -36,7 +37,7 @@ Implementation is split into two vertical milestones:
 - Canonical annotation storage and legacy normalization.
 - Chord, modulation, voice-leading, and explanation proposals.
 - Turn-level atomic Apply All with individual Edit and Reject.
-- Score overlays, manual annotation editing, deletion, and persistence.
+- Score-side annotation presentation, accepted-annotation editing, deletion, and persistence.
 
 Staleness, regeneration, agent-initiated removal, and agent-authored score editing are deferred to a later sprint.
 
@@ -309,14 +310,28 @@ If a run fails or is aborted, its unapplied proposals become `unavailable`. Dele
 
 ## 12. Annotation presentation and editing
 
-- **Chord:** chord symbol and optional Roman numeral above the staff at its rational onset.
-- **Modulation:** a ribbon covering the annotated transition span.
-- **Voice leading:** a compact textual callout below the passage; graphical arrows are deferred.
-- **Explanation:** a range marker with a short label and a highlighted side sticker containing the body.
+- **Chord:** a collision-free symbol and optional Roman numeral above the staff at its rational onset.
+  The entire badge is the accessible edit control; activating it opens a compact symbol/Roman-numeral
+  editor over the notation.
+- **Modulation, voice leading, and explanation:** score-sorted cards in the persistent annotation rail.
+  They stay vertically aligned with their rendered measure spans; graphical voice-leading arrows are
+  deferred.
 
-All tracks share a restrained palette and focused/unfocused states. Clicking an annotation focuses its span and opens detail actions. Users may manually create, edit, and delete applied annotations. Agent-initiated deletion is not supported.
+One zoom scene contains fixed `24rem / 48rem / 24rem` balance, notation, and annotation tracks. The
+notation remains centered, the rail remains beside it at exactly half its width, and narrow surfaces
+overflow horizontally instead of stacking. Range cards collapse to two body lines, expand one at a
+time, and use palette-derived square surfaces with text/icon selected state. Their 44px pen controls
+replace the selected card with the full accepted-annotation editor.
 
-The React overlay is a sibling of the abcjs container. Its background ignores pointer events; actual annotation elements remain keyboard- and pointer-interactive.
+The score surface exposes no manual Add or count controls. Users select measures and ask the AI Agent
+to propose new annotations, then review them in chat. Accepted range annotations expose full editing;
+accepted chord annotations expose chord symbol, optional Roman numeral, and Delete while their other
+fields remain unchanged. Agent-initiated deletion is not supported.
+
+The React chord overlay is a sibling of the abcjs container. Its background ignores pointer events;
+badges remain keyboard- and pointer-interactive. Range annotations render only in the React rail.
+Focusing an annotation shows focus styling without activating it; click, Enter, or Space selects its
+span and opens its detail or editing UI.
 
 ## 13. Persistence and transport
 
@@ -398,9 +413,10 @@ Main process summaries are compact and renderer-safe. Full tool arguments and sc
 11. Each proposal supports Edit and Reject; each turn has one Apply All and no individual Apply.
 12. Apply All is atomic and excludes rejected proposals.
 13. A document ID or revision mismatch labels pending proposals Outdated and disables their actions.
-14. Applied and manually authored annotations persist across reload and Electron restart.
+14. Applied annotations persist across reload and Electron restart.
 15. Deleting a chat thread does not delete accepted annotations.
-16. Annotations render in React-owned overlay tracks and remain pointer- and keyboard-interactive.
+16. Chords render in a React-owned score overlay, range annotations render in the aligned React rail,
+    and both remain pointer- and keyboard-interactive.
 17. Existing playback, repeat-aware selection, ABC editing, provider selection, cancellation, and persistence tests continue to pass.
 
 ## 16. Verification strategy
