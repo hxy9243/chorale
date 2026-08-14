@@ -812,6 +812,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     <AnnotationEditor
       key={editedAnnotation.id}
       mode="accepted"
+      variant={editedAnnotation.kind === 'chord' ? 'chord-inline' : 'full'}
       initialAnnotation={editedAnnotation}
       defaultSpan={editedAnnotation.span}
       meter={meter}
@@ -928,6 +929,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                   activeAnnotationId={
                     annotationEditor?.mode === 'accepted' ? annotationEditor.annotationId : null
                   }
+                  inlineChordEditor={editedAnnotation?.kind === 'chord' ? annotationEditorNode : null}
                   onRangeGeometry={handleAnnotationRailGeometry}
                   onActivate={(annotation) => {
                     onSelectAnchor?.(annotation.span);
@@ -939,7 +941,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                 <AnnotationRail
                   annotations={annotations}
                   editing={annotationEditor}
-                  editor={annotationEditorNode}
+                  editor={editedAnnotation?.kind === 'chord' ? null : annotationEditorNode}
                   anchorYByAnnotationId={annotationRailGeometry.anchorYByAnnotationId}
                   scoreHeight={annotationRailGeometry.scoreHeight}
                   onSelect={selectRangeAnnotation}

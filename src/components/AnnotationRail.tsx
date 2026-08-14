@@ -61,8 +61,6 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({
   onEdit,
 }) => {
   const rangeAnnotations = useMemo(() => sortRangeAnnotations(annotations), [annotations]);
-  const detachedAcceptedEditor = editing?.mode === 'accepted'
-    && !rangeAnnotations.some(({ id }) => id === editing.annotationId);
   const [expandedId, setExpandedId] = useState<AnnotationId | null>(null);
   const [dismissedTooltipId, setDismissedTooltipId] = useState<AnnotationId | null>(null);
   const railRef = useRef<HTMLElement>(null);
@@ -142,12 +140,6 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({
     >
       {editing?.mode === 'manual' && (
         <section className="annotation-rail-transient-editor" aria-label="New annotation">
-          {editor}
-        </section>
-      )}
-
-      {detachedAcceptedEditor && (
-        <section className="annotation-rail-transient-editor" aria-label="Edit annotation">
           {editor}
         </section>
       )}
