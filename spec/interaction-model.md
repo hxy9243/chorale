@@ -1,6 +1,7 @@
 # Interaction Model Spec
 
 Date: 2026-08-05
+Updated: 2026-08-14
 Source: `spec/agent-analysis-and-annotations.md`
 
 ## 1. Goal
@@ -60,8 +61,12 @@ Other Markdown links are highlighted but non-navigating for this phase.
 
 ## 6. Annotation flow
 
-- Clicking or focusing an annotation activates its span and opens its detail UI.
-- Manual annotation creation/editing saves directly.
+- Focusing an annotation exposes focus styling only; click, Enter, or Space activates its span and
+  opens its detail or editing UI.
+- New annotations come from AI Agent proposals after passage selection; the score surface exposes no
+  manual Add control.
+- Accepted range annotations expose full in-card editing. Accepted chords expose compact inline
+  symbol/Roman-numeral editing over the notation.
 - Explicit user deletion removes an applied annotation.
 - Agent-initiated deletion is unsupported.
 - Chord annotations can occur multiple times per measure at distinct rational offsets.

@@ -1,7 +1,7 @@
 # Annotations and Proposals Implementation Spec
 
 Date: 2026-08-05
-Updated: 2026-08-12
+Updated: 2026-08-14
 Status: Approved for implementation in shared music libraries and renderer UI
 
 ## 1. Purpose
@@ -141,22 +141,26 @@ Deleting a chat thread removes pending proposal records but never deletes accept
 
 `AnnotationEditor` supports:
 
-- manual creation of all four annotation kinds;
+- a reusable manual mode for all four annotation kinds;
 - editing a staged proposal before Apply All;
 - editing an accepted annotation;
 - deleting an accepted annotation after explicit user action.
 
-Manual annotations save directly and bypass proposal state. Agent-initiated deletion is not supported.
+The released score surface does not expose manual Add or annotation-count controls. New annotations
+enter the user-visible workflow through `propose_annotations`: the empty rail instructs the user to
+select measures and ask the AI Agent. The reusable `AnnotationEditor` manual mode still saves directly
+and bypasses proposal state when embedded by another surface. Agent-initiated deletion is not supported.
 
-Accepted/manual annotation editing lives in the persistent annotation rail beside the score, never
-in a top-of-sheet form. Every accepted range card has a 44px pen control with an accessible tooltip.
-The selected card is replaced by `AnnotationEditor` in place. A chord badge opens the same editor
-temporarily in the rail. Manual creation opens there after the user selects a passage.
+Accepted range-annotation editing lives in the persistent rail beside the score, never in a
+top-of-sheet form. Every accepted range card has a 44px pen control with an accessible tooltip, and
+the selected card is replaced by the full `AnnotationEditor` in place. Its kind, measure range, label,
+body, and any chord fields introduced by a kind change remain editable.
 
-All persisted fields remain editable: kind, measure range, label, body, and chord position/symbol
-fields. Save is silent, keeps the passage selected, and reports failures inline. Escape cancels.
-Save, Cancel, and Delete return focus to the initiating control when it still exists, or to the rail
-heading after a kind change or deletion.
+Activating a chord badge opens a compact editor over the notation near that badge. It edits only the
+chord symbol and optional Roman numeral and also offers Delete; its kind, span, position, label, and
+body remain unchanged. Save is silent, keeps the passage selected, and reports failures inline.
+Escape cancels. Save, Cancel, and Delete return focus to the initiating badge or range-card control
+when it still exists, or to the rail when the annotation was deleted or moved out of the rail.
 
 ## 6. Overlay architecture
 
@@ -174,8 +178,9 @@ The overlay background uses `pointer-events: none`; annotation nodes use `pointe
 
 ### 6.1 Score badges and annotation rail
 
-- **Chord:** a 20px chord symbol, optional Roman numeral, and visible edit glyph in a square,
-  borderless badge above the staff at `position`.
+- **Chord:** a 20px chord symbol and optional Roman numeral in a square, borderless badge above the
+  staff at `position`. The badge itself is the edit control; it has an accessible edit name but no
+  separate pen glyph.
 - **Modulation, voice leading, and explanation:** square, borderless cards in the persistent rail.
   They do not render in the score SVG.
 
@@ -183,7 +188,7 @@ Chord layout resolves `measure + rational offset` to a parsed event and then to 
 
 Chord badge widths come from actual SVG text bounds. Intersecting intervals are spread horizontally
 with a guaranteed gap while every badge in a rendered system stays on one fixed baseline. abcjs
-always reserves one chord band through static `stafftopmargin` and `staffsep` values; measured badge
+always reserves one chord band through static `musicspace` and `staffsep` values; measured badge
 geometry never feeds back into score rendering, so adding or resizing a badge cannot move systems.
 React continues to own the overlay as a sibling of `#paper`.
 
@@ -227,6 +232,8 @@ Accepted annotations are durable document data. Proposal records are chat data. 
 - Range cards share the score's zoom wrapper, stay near their rendered measure spans, and never
   displace the centered notation track or reflow below it.
 - Narrow score surfaces retain the side-by-side scene and expose horizontal overflow.
-- Range annotations stay out of score SVGs and chord editing appears temporarily in the rail.
-- Manual and accepted annotations survive reload and Electron restart.
+- Range annotations stay out of score SVGs and chord editing appears temporarily over the notation.
+- The score surface exposes no manual Add/count controls; its empty rail routes creation through the
+  selected passage and AI Agent.
+- Accepted annotations survive reload and Electron restart.
 - Chat deletion cannot remove accepted annotations.

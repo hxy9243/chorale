@@ -1,6 +1,7 @@
 # Chorale Design Spec Index
 
 Date: 2026-08-05
+Updated: 2026-08-14
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 This directory splits the design into category-specific specs instead of keeping the entire workspace design in one file.
@@ -8,7 +9,7 @@ This directory splits the design into category-specific specs instead of keeping
 ## Core design specs
 
 - [workspace-layout.md](./workspace-layout.md): top-level workspace structure, header, file rail, resizable sidebars, and central layout
-- [score-surface.md](./score-surface.md): rendered score behavior, continuous range selection, React-owned annotation overlays, auto-centering playback, and score UI
+- [score-surface.md](./score-surface.md): rendered score behavior, continuous range selection, chord overlays, the range annotation rail, auto-centering playback, and score UI
 - [interaction-model.md](./interaction-model.md): shared `ScoreAnchor` model, repeat-pass resolution, user scroll-pause, and cross-surface interaction flows
 - [abc-editor.md](./abc-editor.md): split-pane editor behavior, draggable divider, validation state, and synchronization requirements
 - [playback-dock.md](./playback-dock.md): playback UI, WebAudio volume/mute controls, seek behavior, and score-cursor alignment
@@ -32,7 +33,7 @@ The design direction is a file-owned music workspace where score viewing, ABC ed
 - split score and ABC workspace with drag-resizable panes
 - auto-centering playback line with user scroll pause behavior
 - repeat-aware measure selection avoiding unnecessary DOM re-renders
-- structured annotation layers for chord symbols/Roman numerals, modulation, voice leading, and explanations
+- a React-owned chord overlay plus a score-aligned rail for modulation, voice leading, and explanations
 - one visible Music Tutor with internal profiles, immutable read-only score tools, and reviewable annotation proposals
 - user-configurable AI authentication (custom API endpoints, API keys, ChatGPT subscription OAuth)
 
@@ -47,6 +48,7 @@ The design direction is a file-owned music workspace where score viewing, ABC ed
 - [x] WebAudio piano synth playback dock with GainNode volume slider, mute toggle, and max-width layout
 - [x] Auto-centering score playback line with smooth scrolling and 2-second user scroll pause
 - [x] Score zoom layout space reservation preventing SVG container clipping
+- [x] Collision-free chord overlay and a shared-zoom, measure-aligned range annotation rail
 - [x] Debounced document autosave (400ms) with bounded version history (max 10 revisions)
 - [x] Settings modal for API key & ChatGPT OAuth provider credentials (`AISettingsModal.tsx`, `useAIProviders.ts`, `electron/ai/*`)
 
@@ -55,5 +57,4 @@ The design direction is a file-owned music workspace where score viewing, ABC ed
 - [ ] Continuous written-measure range selection and chat context chip
 - [ ] Internal analysis profiles plus read-only score tools (`get_score_summary`, `read_measure_range`, `get_annotations`, `propose_annotations`)
 - [ ] Sanitized Markdown responses with interactive measure links and non-navigating highlighted external links
-- [ ] React-owned annotation overlays for chord, modulation, voice-leading, and explanation annotations
 - [ ] Proposal review with individual Edit/Reject and one atomic turn-level Apply All

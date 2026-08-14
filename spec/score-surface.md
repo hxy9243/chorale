@@ -1,7 +1,7 @@
 # Score Surface Spec
 
 Date: 2026-08-05
-Updated: 2026-08-12
+Updated: 2026-08-14
 Source: `spec/agent-analysis-and-annotations.md`
 
 ## 1. Goal
@@ -41,7 +41,8 @@ The overlay background ignores pointer events. Annotation elements are pointer-i
 ## 5. Annotation score badges and rail
 
 - **Chord:** a collision-free 20px badge above the staff at its persisted `measure + rational offset`.
-  The badge may include a Roman numeral and always exposes a visible edit glyph.
+  The badge may include a Roman numeral. The whole badge is an accessible edit control and has no
+  separate pen glyph.
 - **Modulation, voice leading, and explanation:** cards in the annotation rail; they do not render in
   the score SVG. Note-to-note voice-leading arrows remain deferred.
 
@@ -49,7 +50,7 @@ The overlay background ignores pointer events. Annotation elements are pointer-i
 
 Actual chord text bounds determine badge widths. A deterministic interval packer spreads overlapping
 badges horizontally with a fixed gap while keeping one baseline per rendered system. Static abcjs
-`stafftopmargin` and `staffsep` values always reserve the chord band, so annotation measurement never
+`musicspace` and `staffsep` values always reserve the chord band, so annotation measurement never
 feeds back into score geometry or makes systems jump.
 
 The score surface uses one fixed, symmetric `24rem / 48rem / 24rem` scene: empty balancing space,
@@ -62,15 +63,18 @@ Range cards are score-sorted, show two lines when collapsed, and allow one expan
 Activating a card selects and reveals its passage without moving focus into the score. Type-specific
 Nordic Ledger surfaces distinguish modulation, voice leading, and explanations. Stronger selected
 fills are paired with text and an icon. All annotation surfaces are square, borderless, and
-shadowless. The rail container and its utility header have no gray panel fill. A single zoom wrapper
+shadowless. The rail container and empty state have no gray panel fill, and there is no count/Add
+header. A single zoom wrapper
 contains both notation and rail, giving them one zoom center and one scale change. Card centers target
 the vertical center of their rendered measure spans; measured card heights are packed with a fixed gap
 when targets are close together. The notation viewport recenters its horizontal scroll on the notation
 track after zoom or rendered-size changes.
 
-Editing and manual creation happen in the rail. Range editors replace their cards in place; chord
-editors appear temporarily in the rail. Focusing a badge or card exposes focus styling only; click,
-Enter, or Space activates it.
+Range editors replace their cards in place and expose the complete accepted-annotation form. Chord
+badges open a compact editor over the notation for chord symbol, optional Roman numeral, and Delete;
+the remaining chord fields stay unchanged. The score surface has no manual Add control. Its empty rail
+instructs the user to select measures and ask the AI Agent for new range annotations. Focusing a badge
+or card exposes focus styling only; click, Enter, or Space activates it.
 
 ## 6. Chat-reference navigation
 
@@ -85,5 +89,5 @@ A valid `#measure-N` or `#measure-N-M` chat reference:
 ## 7. Toolbar
 
 Existing transpose and zoom controls remain. The active-range badge retains its clear action. The
-annotation rail is the single accepted/manual annotation navigation and editing surface; proposal
-review cards remain in chat.
+annotation rail is the accepted range-annotation navigation and editing surface. Chords edit inline
+over the notation, and proposal review cards remain in chat.
