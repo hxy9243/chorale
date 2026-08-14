@@ -153,20 +153,18 @@ describe('AnnotationRail', () => {
     expect(screen.getAllByRole('button', { name: 'Edit annotation' })).toHaveLength(3);
   });
 
-  it('exposes an optional creation control and retains the externally opened editor', () => {
-    const onCreate = vi.fn();
-    const { rerender } = render(
+  it('omits add and count controls while retaining an externally opened editor', () => {
+    const { container, rerender } = render(
       <AnnotationRail
         {...inertProps}
         annotations={[]}
-        createLabel="Add annotation to mm. 2–4"
-        onCreate={onCreate}
         onSelect={vi.fn()}
       />,
     );
-    const createButton = screen.getByRole('button', { name: 'Add annotation to mm. 2–4' });
-    fireEvent.click(createButton);
-    expect(onCreate).toHaveBeenCalledWith(createButton);
+    expect(screen.queryByRole('button', { name: /Add annotation/ })).toBeNull();
+    expect(screen.queryByLabelText(/range annotations/)).toBeNull();
+    expect(container.querySelector('.annotation-rail-create')).toBeNull();
+    expect(container.querySelector('.annotation-rail-count')).toBeNull();
 
     rerender(
       <AnnotationRail
@@ -174,12 +172,9 @@ describe('AnnotationRail', () => {
         annotations={[]}
         editing={{ mode: 'manual' }}
         editor={<form aria-label="Create inline annotation">Fields</form>}
-        createLabel="Add annotation to mm. 2–4"
-        onCreate={onCreate}
         onSelect={vi.fn()}
       />,
     );
     expect(screen.getByRole('form', { name: 'Create inline annotation' })).toBeDefined();
-    expect(screen.queryByRole('button', { name: 'Add annotation to mm. 2–4' })).toBeNull();
   });
 });

@@ -16,8 +16,6 @@ interface AnnotationRailProps {
   editor: React.ReactNode;
   anchorYByAnnotationId?: Readonly<Record<string, number>>;
   scoreHeight?: number;
-  createLabel?: string;
-  onCreate?(initiator: HTMLButtonElement): void;
   onSelect(annotation: RangeAnnotation, initiator: HTMLButtonElement): void;
   onEdit(annotation: RangeAnnotation, initiator: HTMLButtonElement): void;
 }
@@ -59,8 +57,6 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({
   editor,
   anchorYByAnnotationId = {},
   scoreHeight = 0,
-  createLabel,
-  onCreate,
   onSelect,
   onEdit,
 }) => {
@@ -144,17 +140,6 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({
       tabIndex={-1}
       style={{ '--annotation-score-height': `${scoreHeight}px` } as React.CSSProperties}
     >
-      {onCreate && editing?.mode !== 'manual' && (
-        <button
-          type="button"
-          className="btn btn-sm annotation-rail-create"
-          data-create-annotation
-          onClick={(event) => onCreate(event.currentTarget)}
-        >
-          {createLabel || 'Add annotation'}
-        </button>
-      )}
-
       {editing?.mode === 'manual' && (
         <section className="annotation-rail-transient-editor" aria-label="New annotation">
           {editor}
