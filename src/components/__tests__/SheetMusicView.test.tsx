@@ -228,7 +228,7 @@ describe('SheetMusicView Component', () => {
     expect(onDeleteAnnotation).toHaveBeenCalledWith('annotation-accepted');
   });
 
-  it('resets the full editor when switching between chord annotations', async () => {
+  it('resets the compact editor when switching between chord annotations', async () => {
     vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
       if (!element || typeof element === 'string') return [];
       element.innerHTML = `
@@ -294,24 +294,29 @@ describe('SheetMusicView Component', () => {
     );
 
     fireEvent.click(await screen.findByRole('button', { name: 'Edit Tonic annotation' }));
+    expect(screen.getByRole('form', { name: 'Edit annotation' })
+      .closest('.annotation-chord-inline-editor')).not.toBeNull();
     expect((screen.getByLabelText('Chord symbol') as HTMLInputElement).value).toBe('C');
-    expect((screen.getByLabelText('Label') as HTMLInputElement).value).toBe('Tonic');
+    expect((screen.getByLabelText('Roman numeral (optional)') as HTMLInputElement).value).toBe('I');
+    expect(screen.queryByLabelText('Label')).toBeNull();
+    expect(screen.queryByLabelText('Explanation')).toBeNull();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Edit Dominant annotation' }));
     expect((screen.getByLabelText('Chord symbol') as HTMLInputElement).value).toBe('G7');
     expect((screen.getByLabelText('Roman numeral (optional)') as HTMLInputElement).value).toBe('V7');
-    expect((screen.getByLabelText('Label') as HTMLInputElement).value).toBe('Dominant');
-    expect((screen.getByLabelText('Explanation') as HTMLTextAreaElement).value)
-      .toBe('Prepares the return to tonic.');
+    expect(screen.queryByLabelText('Label')).toBeNull();
+    expect(screen.queryByLabelText('Explanation')).toBeNull();
 
     fireEvent.change(screen.getByLabelText('Chord symbol'), { target: { value: 'D7' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save chord' }));
     await waitFor(() => expect(onUpdateAnnotation).toHaveBeenCalledWith(expect.objectContaining({
       id: 'switch-chord-second',
       chordSymbol: 'D7',
       romanNumeral: 'V7',
       label: 'Dominant',
       body: 'Prepares the return to tonic.',
+      span: { startMeasure: 1, endMeasure: 1 },
+      position: { measure: 1, offset: { numerator: 1, denominator: 4 } },
     })));
   });
 
