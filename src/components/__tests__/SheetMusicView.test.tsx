@@ -164,9 +164,9 @@ describe('SheetMusicView Component', () => {
     expect(document.activeElement).toBe(clearBtn);
   });
 
-  it('creates a manual annotation from the selected range in the rail', async () => {
+  it('does not expose annotation add or count controls for the active range', () => {
     const onCreateAnnotation = vi.fn();
-    render(
+    const { container } = render(
       <SheetMusicView
         abcCode={sampleAbc}
         activeAnchor={{ startMeasure: 2, endMeasure: 4 }}
@@ -175,26 +175,11 @@ describe('SheetMusicView Component', () => {
       />,
     );
 
-    const createButton = screen.getByRole('button', { name: 'Add annotation to mm. 2–4' });
-    fireEvent.click(createButton);
-    expect(screen.getByRole('form', { name: 'Create annotation' })
-      .closest('.annotation-rail-transient-editor')).not.toBeNull();
-    fireEvent.change(screen.getByLabelText('Label'), { target: { value: 'Sequence' } });
-    fireEvent.change(screen.getByLabelText('Explanation'), {
-      target: { value: 'The idea repeats by step.' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }));
-
-    await waitFor(() => expect(onCreateAnnotation).toHaveBeenCalledWith(expect.objectContaining({
-      kind: 'explanation',
-      span: { startMeasure: 2, endMeasure: 4 },
-      label: 'Sequence',
-      body: 'The idea repeats by step.',
-      source: 'user',
-    })));
-    await waitFor(() => expect(document.activeElement).toBe(
-      screen.getByRole('button', { name: 'Add annotation to mm. 2–4' }),
-    ));
+    expect(screen.queryByRole('button', { name: /Add annotation/ })).toBeNull();
+    expect(screen.queryByLabelText(/range annotations/)).toBeNull();
+    expect(container.querySelector('.annotation-rail-create')).toBeNull();
+    expect(container.querySelector('.annotation-rail-count')).toBeNull();
+    expect(onCreateAnnotation).not.toHaveBeenCalled();
   });
 
   it('opens accepted annotations for explicit edit and delete actions', async () => {
