@@ -144,12 +144,7 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({
         </section>
       )}
 
-      {rangeAnnotations.length === 0 && !editing ? (
-        <div className="annotation-rail-empty">
-          <p>No range annotations yet.</p>
-          <span>Select measures and ask the AI Agent to add a modulation, voice-leading note, or explanation.</span>
-        </div>
-      ) : (
+      {(
         <div
           ref={listRef}
           className="annotation-rail-list"

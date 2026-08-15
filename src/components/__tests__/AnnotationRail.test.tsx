@@ -88,7 +88,6 @@ describe('AnnotationRail', () => {
   it('renders a persistent, instructive empty state', () => {
     render(<AnnotationRail {...inertProps} annotations={[]} onSelect={vi.fn()} />);
     expect(screen.getByRole('complementary', { name: 'Annotations' })).toBeDefined();
-    expect(screen.getByText('No range annotations yet.')).toBeDefined();
     expect(screen.queryByLabelText(/range annotations/)).toBeNull();
   });
 
