@@ -77,6 +77,23 @@ describe('AnnotationRail', () => {
       first,
     );
 
+    fireEvent.click(first);
+    expect(first.getAttribute('aria-expanded')).toBe('true');
+    expect(first.querySelector('.annotation-card-body')?.classList.contains('expanded')).toBe(true);
+    expect(onSelect).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: 'modulation' }),
+      first,
+    );
+
+    const collapse = screen.getByRole('button', { name: 'Collapse modulation label annotation' });
+    fireEvent.click(collapse);
+    expect(first.getAttribute('aria-expanded')).toBe('false');
+    expect(first.querySelector('.annotation-card-body')?.classList.contains('collapsed')).toBe(true);
+    expect(first.textContent).not.toContain('Selected');
+    expect(onSelect).toHaveBeenLastCalledWith(null, first);
+
+    fireEvent.click(first);
+
     second.focus();
     fireEvent.click(second);
     expect(first.getAttribute('aria-expanded')).toBe('false');

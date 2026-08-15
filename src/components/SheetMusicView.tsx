@@ -400,6 +400,36 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   const renderedTuneRef = useRef<abcjs.TuneObject | null>(null);
   const selectionOriginRef = useRef<{ measure: number; abcOffset?: number } | null>(null);
 
+  const resolvePlaybackAnchor = React.useCallback((anchor: ScoreAnchor): ScoreAnchor => {
+    const startMeasure = anchor.startMeasure;
+    const selected = selectMeasureWithRepeats(
+      startMeasure,
+      measureOccurrencesRef.current,
+      getPlaybackPosition?.().currentSeconds || 0,
+    );
+    const measureCount = containerRef.current
+      ? getRenderedMeasureCount(containerRef.current)
+      : 1;
+    const fallbackFraction = Math.max(0, Math.min(1, (startMeasure - 1) / measureCount));
+    const tune = renderedTuneRef.current;
+    tune?.setTiming?.(tune.getBpm?.());
+    const totalTime = tune?.getTotalTime?.();
+    const playbackSeconds = selected?.startTimeSec ?? (
+      Number.isFinite(totalTime) && totalTime! > 0
+        ? totalTime! * fallbackFraction
+        : undefined
+    );
+
+    return {
+      ...anchor,
+      label: anchor.startMeasure === anchor.endMeasure
+        ? `m. ${anchor.startMeasure}`
+        : `mm. ${anchor.startMeasure}–${anchor.endMeasure}`,
+      playbackFraction: selected?.playbackFraction ?? fallbackFraction,
+      ...(playbackSeconds !== undefined ? { playbackSeconds } : {}),
+    };
+  }, [getPlaybackPosition]);
+
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -445,34 +475,11 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         const startMeasure = Math.min(origin.measure, measure);
         const endMeasure = Math.max(origin.measure, measure);
         const startAbcOffset = startMeasure === measure ? abcOffset : origin.abcOffset;
-        const occurrences = measureOccurrencesRef.current;
-        const selected = selectMeasureWithRepeats(
-          startMeasure,
-          occurrences,
-          getPlaybackPosition?.().currentSeconds || 0,
-        );
-
-        const measureCount = getRenderedMeasureCount(containerRef.current!);
-        const fallbackFraction = Math.max(0, Math.min(1, (startMeasure - 1) / measureCount));
-        renderedTune?.setTiming?.(renderedTune.getBpm?.());
-        const totalTime = renderedTune?.getTotalTime?.();
-        const playbackSeconds = selected?.startTimeSec ?? (
-          Number.isFinite(totalTime) && totalTime! > 0
-            ? totalTime! * fallbackFraction
-            : undefined
-        );
-        const playbackFraction = selected?.playbackFraction ?? fallbackFraction;
-
-        const newAnchor: ScoreAnchor = {
+        const newAnchor = resolvePlaybackAnchor({
           startMeasure,
           endMeasure,
           abcOffset: startAbcOffset,
-          label: startMeasure === endMeasure
-            ? `m. ${startMeasure}`
-            : `mm. ${startMeasure}–${endMeasure}`,
-          playbackFraction,
-          ...(playbackSeconds !== undefined ? { playbackSeconds } : {}),
-        };
+        });
         onSelectAnchor?.(newAnchor);
       };
 
@@ -559,7 +566,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       renderedContainer.removeEventListener('click', captureModifiers, true);
       renderedContainer.removeEventListener('click', handleContainerFallbackClick, false);
     };
-  }, [abcCode, getPlaybackPosition, onSelectAnchor, onTuneRendered, transpose]);
+  }, [abcCode, onSelectAnchor, onTuneRendered, resolvePlaybackAnchor, transpose]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -591,29 +598,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     if (!container || !navigationAnchor) return;
 
     const startMeasure = navigationAnchor.startMeasure;
-    const selected = selectMeasureWithRepeats(
-      startMeasure,
-      measureOccurrencesRef.current,
-      getPlaybackPosition?.().currentSeconds || 0,
-    );
-    const measureCount = getRenderedMeasureCount(container);
-    const fallbackFraction = Math.max(0, Math.min(1, (startMeasure - 1) / measureCount));
-    const tune = renderedTuneRef.current;
-    tune?.setTiming?.(tune.getBpm?.());
-    const totalTime = tune?.getTotalTime?.();
-    const playbackSeconds = selected?.startTimeSec ?? (
-      Number.isFinite(totalTime) && totalTime! > 0
-        ? totalTime! * fallbackFraction
-        : undefined
-    );
-    const resolvedAnchor: ScoreAnchor = {
-      ...navigationAnchor,
-      label: navigationAnchor.startMeasure === navigationAnchor.endMeasure
-        ? `m. ${navigationAnchor.startMeasure}`
-        : `mm. ${navigationAnchor.startMeasure}–${navigationAnchor.endMeasure}`,
-      playbackFraction: selected?.playbackFraction ?? fallbackFraction,
-      ...(playbackSeconds !== undefined ? { playbackSeconds } : {}),
-    };
+    const resolvedAnchor = resolvePlaybackAnchor(navigationAnchor);
     selectionOriginRef.current = { measure: startMeasure };
     onSelectAnchor?.(resolvedAnchor);
 
@@ -622,7 +607,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     );
     hitArea?.scrollIntoView?.({ block: 'center', inline: 'nearest' });
     hitArea?.focus();
-  }, [getPlaybackPosition, navigationAnchor, onSelectAnchor]);
+  }, [navigationAnchor, onSelectAnchor, resolvePlaybackAnchor]);
 
   const isPlayingRef = useRef<boolean>(false);
   const isUserPausedRef = useRef<boolean>(false);
@@ -785,16 +770,21 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   };
 
   const selectRangeAnnotation = React.useCallback((
-    annotation: RangeAnnotation,
+    annotation: RangeAnnotation | null,
     initiator: HTMLButtonElement,
   ) => {
-    onSelectAnchor?.(annotation.span);
+    if (!annotation) {
+      onSelectAnchor?.(null);
+      queueMicrotask(() => initiator.focus({ preventScroll: true }));
+      return;
+    }
+    onSelectAnchor?.(resolvePlaybackAnchor(annotation.span));
     const hitArea = containerRef.current?.querySelector<SVGElement>(
       `.abcjs-measure-hit-area[data-measure="${annotation.span.startMeasure}"]`,
     );
     hitArea?.scrollIntoView?.({ block: 'center', inline: 'nearest' });
     queueMicrotask(() => initiator.focus({ preventScroll: true }));
-  }, [onSelectAnchor]);
+  }, [onSelectAnchor, resolvePlaybackAnchor]);
 
   const annotationEditorNode = annotationEditor?.mode === 'manual' && activeAnchor ? (
     <AnnotationEditor
@@ -932,7 +922,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                   inlineChordEditor={editedAnnotation?.kind === 'chord' ? annotationEditorNode : null}
                   onRangeGeometry={handleAnnotationRailGeometry}
                   onActivate={(annotation) => {
-                    onSelectAnchor?.(annotation.span);
+                    onSelectAnchor?.(resolvePlaybackAnchor(annotation.span));
                     setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
                   }}
                 />
@@ -946,7 +936,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                   scoreHeight={annotationRailGeometry.scoreHeight}
                   onSelect={selectRangeAnnotation}
                   onEdit={(annotation) => {
-                    onSelectAnchor?.(annotation.span);
+                    onSelectAnchor?.(resolvePlaybackAnchor(annotation.span));
                     const hitArea = containerRef.current?.querySelector<SVGElement>(
                       `.abcjs-measure-hit-area[data-measure="${annotation.span.startMeasure}"]`,
                     );
