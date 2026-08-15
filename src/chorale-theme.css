@@ -5547,7 +5547,7 @@ body,
   flex: none;
 }
 
-.annotation-card-toggle[aria-expanded="true"] .annotation-card-chevron {
+.annotation-card-collapse .annotation-card-chevron {
   transform: rotate(180deg);
 }
 
@@ -5617,10 +5617,30 @@ body,
 }
 
 .annotation-card-row {
+  position: relative;
   display: grid;
   min-width: 0;
   grid-template-columns: minmax(0, 1fr) 2.75rem;
   align-items: start;
+}
+
+.annotation-card-toggle[aria-expanded="true"] {
+  padding-inline-end: calc(var(--space-md) + 2.75rem);
+}
+
+.annotation-card-collapse {
+  position: absolute;
+  top: 0;
+  right: 2.75rem;
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border: 0;
+  border-radius: 0;
+  background: var(--color-transparent);
+  color: inherit;
+  cursor: pointer;
 }
 
 .annotation-card-edit {
@@ -5679,6 +5699,7 @@ body,
 }
 
 .annotation-card-edit:focus-visible,
+.annotation-card-collapse:focus-visible,
 [data-annotation-rail-heading]:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
@@ -5821,6 +5842,7 @@ body,
 .annotation-rail-card,
 .annotation-card-row,
 .annotation-card-toggle,
+.annotation-card-collapse,
 .annotation-card-edit,
 .annotation-rail-transient-editor,
 .annotation-card-editor,
@@ -5833,6 +5855,7 @@ body,
 
 .annotation-rail-card,
 .annotation-card-toggle,
+.annotation-card-collapse,
 .annotation-card-edit,
 .annotation-rail-transient-editor,
 .annotation-card-editor {
@@ -5841,17 +5864,20 @@ body,
 
 @media (hover: hover) and (pointer: fine) {
   .annotation-card-toggle:hover,
+  .annotation-card-collapse:hover,
   .annotation-card-edit:hover {
     opacity: 0.82;
   }
 }
 
 .annotation-card-toggle:active,
+.annotation-card-collapse:active,
 .annotation-card-edit:active {
   opacity: 0.65;
 }
 
 .annotation-card-toggle:disabled,
+.annotation-card-collapse:disabled,
 .annotation-card-edit:disabled {
   opacity: 0.55;
   cursor: not-allowed;

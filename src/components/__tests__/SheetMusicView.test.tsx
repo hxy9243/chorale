@@ -210,7 +210,10 @@ describe('SheetMusicView Component', () => {
     fireEvent.click(editButton);
     expect(screen.getByRole('form', { name: 'Edit annotation' })
       .closest('.annotation-card-editor')).not.toBeNull();
-    expect(onSelectAnchor).toHaveBeenCalledWith({ startMeasure: 3, endMeasure: 5 });
+    expect(onSelectAnchor).toHaveBeenCalledWith(expect.objectContaining({
+      startMeasure: 3,
+      endMeasure: 5,
+    }));
     fireEvent.change(screen.getByLabelText('Explanation'), {
       target: { value: 'Edited accepted explanation.' },
     });
@@ -431,7 +434,10 @@ describe('SheetMusicView Component', () => {
     fireEvent.focus(overlayNode);
     expect(onSelectAnchor).not.toHaveBeenCalled();
     fireEvent.click(overlayNode);
-    expect(onSelectAnchor).toHaveBeenCalledWith({ startMeasure: 1, endMeasure: 1 });
+    expect(onSelectAnchor).toHaveBeenCalledWith(expect.objectContaining({
+      startMeasure: 1,
+      endMeasure: 1,
+    }));
     const chordEditor = screen.getByRole('form', { name: 'Edit annotation' });
     expect(chordEditor.closest('.annotation-chord-inline-editor')).not.toBeNull();
     expect(chordEditor.closest('.sheet-notation-column')).not.toBeNull();
@@ -452,7 +458,10 @@ describe('SheetMusicView Component', () => {
     const rangeCard = container.querySelector<HTMLButtonElement>('.annotation-card-toggle')!;
     fireEvent.click(rangeCard);
     expect(rangeCard.getAttribute('aria-expanded')).toBe('true');
-    expect(onSelectAnchor).toHaveBeenLastCalledWith({ startMeasure: 1, endMeasure: 1 });
+    expect(onSelectAnchor).toHaveBeenLastCalledWith(expect.objectContaining({
+      startMeasure: 1,
+      endMeasure: 1,
+    }));
 
     await act(async () => {
       await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
@@ -943,6 +952,68 @@ describe('SheetMusicView Component', () => {
       playbackSeconds: 4,
       playbackFraction: 0.5,
     }));
+  });
+
+  it('resolves annotation selections to the start of the current repeat pass', () => {
+    const onSelectAnchor = vi.fn();
+    const voiceLeadingAnnotation = {
+      id: 'voice-leading-repeat',
+      kind: 'voice-leading' as const,
+      span: { startMeasure: 2, endMeasure: 3 },
+      label: 'Repeated motion',
+      body: 'The upper parts move together in the repeated phrase.',
+      source: 'assistant' as const,
+      createdAt: '2026-08-15T00:00:00.000Z',
+      updatedAt: '2026-08-15T00:00:00.000Z',
+    };
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
+      if (element && typeof element !== 'string') {
+        element.innerHTML = `
+          <svg>
+            <g class="abcjs-note abcjs-mm0"></g>
+            <g class="abcjs-bar abcjs-mm0"></g>
+            <g class="abcjs-note abcjs-mm1"></g>
+            <g class="abcjs-bar abcjs-mm1"></g>
+          </svg>
+        `;
+        element.querySelectorAll<SVGGraphicsElement>('[class*="abcjs-mm"]').forEach((node, index) => {
+          Object.defineProperty(node, 'getBBox', {
+            value: () => ({ x: 10 + index * 40, y: 20, width: 30, height: 24 }),
+          });
+        });
+      }
+      return [{
+        getBpm: () => 120,
+        getTotalTime: () => 8,
+        setTiming: vi.fn(),
+        noteTimings: [
+          { type: 'event', milliseconds: 0, measureNumber: 0, measureStart: true },
+          { type: 'event', milliseconds: 2_000, measureNumber: 1, measureStart: true },
+          { type: 'event', milliseconds: 4_000, measureNumber: 0, measureStart: true },
+          { type: 'event', milliseconds: 6_000, measureNumber: 1, measureStart: true },
+          { type: 'end', milliseconds: 8_000 },
+        ],
+      }] as any;
+    });
+
+    render(
+      <SheetMusicView
+        abcCode={sampleAbc}
+        annotations={[voiceLeadingAnnotation]}
+        onSelectAnchor={onSelectAnchor}
+        getPlaybackPosition={() => ({ currentSeconds: 6.1, isPlaying: false })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Repeated motion/i }));
+
+    expect(onSelectAnchor).toHaveBeenLastCalledWith({
+      startMeasure: 2,
+      endMeasure: 3,
+      label: 'mm. 2–3',
+      playbackSeconds: 6,
+      playbackFraction: 0.75,
+    });
   });
 
   it('resolves linked ranges in the current repeat pass, then scrolls and focuses the start', () => {

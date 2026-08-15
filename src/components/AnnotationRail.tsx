@@ -16,7 +16,7 @@ interface AnnotationRailProps {
   editor: React.ReactNode;
   anchorYByAnnotationId?: Readonly<Record<string, number>>;
   scoreHeight?: number;
-  onSelect(annotation: RangeAnnotation, initiator: HTMLButtonElement): void;
+  onSelect(annotation: RangeAnnotation | null, initiator: HTMLButtonElement): void;
   onEdit(annotation: RangeAnnotation, initiator: HTMLButtonElement): void;
 }
 
@@ -188,7 +188,6 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({
                     >
                       <span className="annotation-card-heading">
                         <span className="annotation-card-label">{annotation.label}</span>
-                        <ChevronDown className="annotation-card-chevron" aria-hidden="true" />
                       </span>
                       <span className="annotation-card-meta">
                         <span>{KIND_LABEL[annotation.kind]}</span>
@@ -206,6 +205,22 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({
                         {annotation.body}
                       </span>
                     </button>
+                    {expanded && (
+                      <button
+                        type="button"
+                        className="annotation-card-collapse"
+                        aria-label={`Collapse ${annotation.label} annotation`}
+                        aria-controls={bodyId}
+                        onClick={(event) => {
+                          const selectionButton = event.currentTarget.parentElement
+                            ?.querySelector<HTMLButtonElement>('.annotation-card-toggle');
+                          setExpandedId(null);
+                          onSelect(null, selectionButton || event.currentTarget);
+                        }}
+                      >
+                        <ChevronDown className="annotation-card-chevron" aria-hidden="true" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="annotation-card-edit"
