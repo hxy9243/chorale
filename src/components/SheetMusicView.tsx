@@ -159,6 +159,53 @@ const getRenderedMeasureCount = (container: HTMLDivElement) => {
   return indexes.length > 0 ? Math.max(...indexes) + 1 : 1;
 };
 
+const renderedMeasureIndex = (element: Element): number | null => {
+  for (const className of Array.from(element.classList)) {
+    const match = className.match(/^abcjs-mm(\d+)$/);
+    if (match) return Number(match[1]);
+  }
+  return null;
+};
+
+const installLineStartMeasureNumbers = (container: HTMLDivElement) => {
+  container.querySelectorAll('.chorale-line-measure-number').forEach((element) => element.remove());
+
+  const lineClasses = new Set<string>();
+  container.querySelectorAll('.abcjs-staff').forEach((staff) => {
+    Array.from(staff.classList).forEach((className) => {
+      if (/^abcjs-l\d+$/.test(className)) lineClasses.add(className);
+    });
+  });
+
+  Array.from(lineClasses)
+    .sort((left, right) => Number(left.slice(7)) - Number(right.slice(7)))
+    .forEach((lineClass) => {
+      const staffElements = Array.from(container.querySelectorAll<SVGGraphicsElement>(
+        `.abcjs-staff.${lineClass}`,
+      )).filter((element) => typeof element.getBBox === 'function');
+      const measureIndexes = Array.from(container.querySelectorAll(
+        `.abcjs-bar.${lineClass}`,
+      )).flatMap((element) => {
+        const index = renderedMeasureIndex(element);
+        return index === null ? [] : [index];
+      });
+      if (staffElements.length === 0 || measureIndexes.length === 0) return;
+
+      const svg = staffElements[0].ownerSVGElement;
+      if (!svg) return;
+      const staffBoxes = staffElements.map((element) => element.getBBox());
+      const measure = Math.min(...measureIndexes) + 1;
+      const label = document.createElementNS(SVG_NAMESPACE, 'text');
+      label.classList.add('chorale-line-measure-number');
+      label.dataset.measure = String(measure);
+      label.setAttribute('x', String(Math.min(...staffBoxes.map((box) => box.x))));
+      label.setAttribute('y', String(Math.min(...staffBoxes.map((box) => box.y)) - 20));
+      label.setAttribute('aria-hidden', 'true');
+      label.textContent = String(measure);
+      svg.appendChild(label);
+    });
+};
+
 type SelectionModifiers = Readonly<{
   shiftKey: boolean;
   altKey: boolean;
@@ -533,6 +580,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       hideSyntheticTupletRests(abcCode, tunes);
       configureAudioPlayback(abcCode, tunes);
       measureOccurrencesRef.current = renderedTune ? buildMeasureOccurrences(renderedTune) : [];
+      installLineStartMeasureNumbers(containerRef.current);
       installMeasureHitAreas(containerRef.current, (measure, modifiers) => {
         // Mark that the hit area handled this click so the abcjs clickListener
         // (which may fire after with wrong SVG-space coordinates) gets skipped.

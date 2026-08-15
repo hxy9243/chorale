@@ -831,6 +831,46 @@ describe('SheetMusicView Component', () => {
     ]);
   });
 
+  it('renders the first measure number in a small label at the start of every system', () => {
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
+      if (element && typeof element !== 'string') {
+        element.innerHTML = `
+          <svg>
+            <g class="abcjs-staff abcjs-l0"></g>
+            <g class="abcjs-note abcjs-l0 abcjs-mm0"></g>
+            <g class="abcjs-bar abcjs-l0 abcjs-mm0"></g>
+            <g class="abcjs-bar abcjs-l0 abcjs-mm1"></g>
+            <g class="abcjs-dynamics abcjs-l0 abcjs-mm2"></g>
+            <g class="abcjs-staff abcjs-l1"></g>
+            <g class="abcjs-note abcjs-l1 abcjs-mm2"></g>
+            <g class="abcjs-bar abcjs-l1 abcjs-mm2"></g>
+            <g class="abcjs-bar abcjs-l1 abcjs-mm3"></g>
+          </svg>
+        `;
+        element.querySelectorAll<SVGGraphicsElement>('.abcjs-staff').forEach((node, index) => {
+          Object.defineProperty(node, 'getBBox', {
+            value: () => ({ x: 24, y: 60 + index * 100, width: 300, height: 40 }),
+          });
+        });
+        element.querySelectorAll<SVGGraphicsElement>('[class*="abcjs-mm"]').forEach((node) => {
+          Object.defineProperty(node, 'getBBox', {
+            value: () => ({ x: 80, y: 60, width: 20, height: 40 }),
+          });
+        });
+      }
+      return [{ getBpm: () => 120 }] as any;
+    });
+
+    const { container } = render(<SheetMusicView abcCode={sampleAbc} />);
+
+    const labels = Array.from(container.querySelectorAll('.chorale-line-measure-number'));
+    expect(labels.map((label) => label.textContent)).toEqual(['1', '3']);
+    expect(labels.map((label) => label.getAttribute('data-measure'))).toEqual(['1', '3']);
+    expect(labels.map((label) => label.getAttribute('x'))).toEqual(['24', '24']);
+    expect(labels.map((label) => label.getAttribute('y'))).toEqual(['40', '140']);
+    expect(labels.every((label) => label.getAttribute('aria-hidden') === 'true')).toBe(true);
+  });
+
   it('selects a measure from its full hit target on the first click', () => {
     const onSelectAnchor = vi.fn();
     vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {

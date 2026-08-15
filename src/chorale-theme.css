@@ -776,6 +776,15 @@ textarea:disabled,
   stroke: var(--color-accent) !important;
 }
 
+.chorale-line-measure-number {
+  fill: var(--color-ink-muted);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  font-weight: 500;
+  pointer-events: none;
+  user-select: none;
+}
+
 .abcjs-measure-hit-area {
   fill: var(--color-transparent);
   stroke: var(--color-transparent);
