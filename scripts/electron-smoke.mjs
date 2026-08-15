@@ -122,6 +122,35 @@ const launch = async (profileDirectory) => {
   return { child, output: () => output, exited, target };
 };
 
+const launchSecondInstance = (profileDirectory) => {
+  const environment = { ...process.env, ELECTRON_ENABLE_LOGGING: '1' };
+  delete environment.ELECTRON_RUN_AS_NODE;
+  const args = [
+    '--disable-gpu',
+    `--user-data-dir=${profileDirectory}`,
+  ];
+  if (process.platform === 'linux') args.push('--ozone-platform=x11');
+  args.push(mainEntry);
+  const child = spawn(electronBinary, args, {
+    cwd: projectDirectory,
+    env: environment,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  launchedChildren.add(child);
+  let output = '';
+  child.stdout.on('data', (chunk) => {
+    output += String(chunk);
+  });
+  child.stderr.on('data', (chunk) => {
+    output += String(chunk);
+  });
+  const exited = new Promise((resolve) => child.once('exit', (code, signal) => {
+    launchedChildren.delete(child);
+    resolve({ code, signal });
+  }));
+  return { child, output: () => output, exited };
+};
+
 const closeCleanly = async (runtime, cdp) => {
   try {
     await cdp.evaluate('window.close(); true');
@@ -142,6 +171,25 @@ const profileDirectory = await mkdtemp(path.join(os.tmpdir(), 'chorale-electron-
 try {
   const first = await launch(profileDirectory);
   const firstCDP = await connectCDP(first.target.webSocketDebuggerUrl);
+  const rejectedInstance = launchSecondInstance(profileDirectory);
+  const rejectedInstanceExit = await Promise.race([
+    rejectedInstance.exited,
+    delay(5_000).then(() => null),
+  ]);
+  if (rejectedInstanceExit === null) rejectedInstance.child.kill('SIGTERM');
+  assert(
+    rejectedInstanceExit !== null,
+    `A second Electron instance remained open.\n${rejectedInstance.output()}`,
+  );
+  assert(
+    rejectedInstanceExit.code === 0,
+    `The rejected Electron instance exited abnormally.\n${rejectedInstance.output()}`,
+  );
+  assert(first.child.exitCode === null, 'The primary Electron instance exited unexpectedly.');
+  assert(
+    await firstCDP.evaluate('1 + 1') === 2,
+    'The primary Electron window stopped responding after a second launch.',
+  );
   await firstCDP.evaluate(`(async () => {
     const deadline = Date.now() + 12000;
     let lastState = null;

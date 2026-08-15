@@ -36,6 +36,7 @@ let mainWindow: BrowserWindow | null = null;
 let controller: AIController | null = null;
 let removeIPCHandlers: (() => void) | null = null;
 let storageFlushed = false;
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
 const developmentRendererUrl = () => {
   const argument = process.argv.find((item) => item.startsWith('--renderer-url='));
@@ -117,33 +118,44 @@ const createWindow = async () => {
   }
 };
 
-app.whenReady().then(async () => {
-  installAppProtocol();
-  session.defaultSession.setPermissionCheckHandler(() => false);
-  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
-    callback(false);
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
   });
 
-  const dataPaths = resolveChoraleDataPaths(app.getPath('userData'));
-  const store = new AIConnectionStore(dataPaths.root, new ElectronSecretCipher());
-  await store.initialize();
-  const traceStore = new JSONLAgentTraceStore(dataPaths.agentTraces);
-  controller = new AIController(
-    store,
-    new ElectronCodexOAuthAdapter(),
-    traceStore,
-    (directory) => shell.openPath(directory),
-  );
-  removeIPCHandlers = registerAIIPC(controller, () => mainWindow);
-  await createWindow();
+  app.whenReady().then(async () => {
+    installAppProtocol();
+    session.defaultSession.setPermissionCheckHandler(() => false);
+    session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
+      callback(false);
+    });
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) void createWindow();
+    const dataPaths = resolveChoraleDataPaths(app.getPath('userData'));
+    const store = new AIConnectionStore(dataPaths.root, new ElectronSecretCipher());
+    await store.initialize();
+    const traceStore = new JSONLAgentTraceStore(dataPaths.agentTraces);
+    controller = new AIController(
+      store,
+      new ElectronCodexOAuthAdapter(),
+      traceStore,
+      (directory) => shell.openPath(directory),
+    );
+    removeIPCHandlers = registerAIIPC(controller, () => mainWindow);
+    await createWindow();
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) void createWindow();
+    });
+  }).catch((error) => {
+    console.error('Chorale desktop failed to start:', error);
+    app.exit(1);
   });
-}).catch((error) => {
-  console.error('Chorale desktop failed to start:', error);
-  app.exit(1);
-});
+}
 
 app.on('before-quit', (event) => {
   controller?.abortAll();
