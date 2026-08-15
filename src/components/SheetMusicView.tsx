@@ -68,14 +68,22 @@ const measureHighlightBounds = (
       .filter((element) => typeof element.getBBox === 'function')
       .map((element) => element.getBBox())
     : [];
+  const endingBarLeft = endBarBoxes.length > 0
+    ? Math.max(...endBarBoxes.map((box) => box.x))
+    : null;
+  const openingBarBoxes = endingBarLeft === null
+    ? []
+    : endBarBoxes.filter((box) => box.x + box.width < endingBarLeft - 1);
 
-  const left = previousBarBoxes.length > 0
-    ? Math.max(...previousBarBoxes.map((box) => box.x + box.width))
-    : staffBoxes.length > 0
-      ? Math.min(...staffBoxes.map((box) => box.x))
-      : contentLeft;
-  const right = endBarBoxes.length > 0
-    ? Math.min(...endBarBoxes.map((box) => box.x))
+  const left = openingBarBoxes.length > 0
+    ? Math.max(...openingBarBoxes.map((box) => box.x + box.width))
+    : previousBarBoxes.length > 0
+      ? Math.max(...previousBarBoxes.map((box) => box.x + box.width))
+      : staffBoxes.length > 0
+        ? Math.min(...staffBoxes.map((box) => box.x))
+        : contentLeft;
+  const right = endingBarLeft !== null
+    ? endingBarLeft
     : contentRight;
   const verticalBoxes = endBarBoxes.length > 0
     ? endBarBoxes

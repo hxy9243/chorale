@@ -684,6 +684,49 @@ describe('SheetMusicView Component', () => {
     expect(highlight?.getAttribute('height')).toBe('40');
   });
 
+  it('highlights an opening-repeat measure between its repeat and ending bar', () => {
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
+      if (element && typeof element !== 'string') {
+        element.innerHTML = `
+          <svg>
+            <g class="abcjs-staff abcjs-l0"></g>
+            <g class="abcjs-staff-extra abcjs-l0 abcjs-mm0"></g>
+            <g class="abcjs-bar abcjs-l0 abcjs-mm0"></g>
+            <g class="abcjs-note abcjs-l0 abcjs-mm0"></g>
+            <g class="abcjs-bar abcjs-l0 abcjs-mm0"></g>
+          </svg>
+        `;
+        const staff = element.querySelector<SVGGraphicsElement>('.abcjs-staff')!;
+        const measureElements = element.querySelectorAll<SVGGraphicsElement>('.abcjs-mm0');
+        const bounds = [
+          { x: 15, y: 20, width: 20, height: 40 },
+          { x: 50, y: 20, width: 12, height: 40 },
+          { x: 70, y: 25, width: 40, height: 20 },
+          { x: 160, y: 20, width: 2, height: 40 },
+        ];
+        Object.defineProperty(staff, 'getBBox', {
+          value: () => ({ x: 10, y: 20, width: 200, height: 40 }),
+        });
+        measureElements.forEach((node, index) => {
+          Object.defineProperty(node, 'getBBox', {
+            value: () => bounds[index],
+          });
+        });
+      }
+      return [{ getBpm: () => 120 }] as any;
+    });
+
+    const { container } = render(
+      <SheetMusicView abcCode={sampleAbc} activeAnchor={{ startMeasure: 1, endMeasure: 1 }} />,
+    );
+
+    const highlight = container.querySelector('.abcjs-measure-highlight');
+    expect(highlight?.getAttribute('x')).toBe('62');
+    expect(highlight?.getAttribute('y')).toBe('20');
+    expect(highlight?.getAttribute('width')).toBe('98');
+    expect(highlight?.getAttribute('height')).toBe('40');
+  });
+
   it('starts the selection highlight at the staff edge after a line wrap', () => {
     vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
       if (element && typeof element !== 'string') {
