@@ -1,7 +1,39 @@
+---
+title: "Interaction Model Spec"
+description: "Specification for cross-surface interaction flows connecting score selection, playback seek, chat references, and annotation proposals"
+category: "interaction"
+date: 2026-08-05
+updated: 2026-08-15
+status: "implemented"
+source_files:
+  - src/types/document.ts
+  - src/utils/anchor.ts
+  - src/utils/repeatPlayback.ts
+  - src/agent/promptUtils.ts
+  - src/agent/proposalActions.ts
+  - src/agent/measureReferences.ts
+  - src/hooks/useDocumentStore.ts
+  - src/components/SheetMusicView.tsx
+  - src/components/AgentChatPanel.tsx
+  - src/components/MarkdownMessage.tsx
+test_files:
+  - src/utils/__tests__/anchor.test.ts
+  - src/utils/__tests__/repeatPlayback.test.ts
+  - src/agent/__tests__/measureReferences.test.ts
+  - src/agent/__tests__/proposalActions.test.ts
+  - src/components/__tests__/passageAnalysisJourney.integration.test.tsx
+related_specs:
+  - spec/design.md
+  - spec/score-surface.md
+  - spec/playback-dock.md
+  - spec/pi-agent-chat.md
+  - spec/annotations-and-proposals.md
+---
+
 # Interaction Model Spec
 
-Date: 2026-08-05
-Updated: 2026-08-14
+Date: 2026-08-05  
+Updated: 2026-08-15  
 Source: `spec/agent-analysis-and-annotations.md`
 
 ## 1. Goal
@@ -45,8 +77,9 @@ Disconnected ranges are not supported.
 2. Electron validates it and constructs one immutable `ScoreSnapshot`.
 3. The agent calls `select_analysis_profile`; chat displays the selected route.
 4. The agent reads score data through registered tools; correlated tool rows display progress.
-5. The agent returns Markdown with score references and may call `propose_annotations`.
-6. A valid measure reference selects, scrolls, focuses, and seeks the passage without autoplay.
+5. Model reasoning (e.g. `<think>...</think>`) is streamed into collapsible thinking disclosure blocks.
+6. The agent returns Markdown with score references and may call `propose_annotations`.
+7. A valid measure reference selects, scrolls, focuses, and seeks the passage without autoplay.
 
 Other Markdown links are highlighted but non-navigating for this phase.
 

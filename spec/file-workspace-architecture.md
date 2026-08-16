@@ -1,6 +1,46 @@
+---
+title: "File Workspace Architecture"
+description: "Architecture specification covering runtime layers, document store, shared music libraries, data contracts, and invariants"
+category: "architecture"
+date: 2026-08-05
+updated: 2026-08-15
+status: "implemented"
+source_files:
+  - src/types/document.ts
+  - src/types/music.ts
+  - src/music/documentSchema.ts
+  - src/music/rational.ts
+  - src/music/scoreSnapshot.ts
+  - src/music/annotationLayout.ts
+  - src/music/annotationMutations.ts
+  - src/utils/storageAdapter.ts
+  - src/utils/fileSession.ts
+  - src/agent/conversationStore.ts
+  - electron/ai/sheetAgentRuntime.ts
+  - electron/ipcValidation.ts
+test_files:
+  - src/types/__tests__/document.test.ts
+  - src/music/__tests__/documentSchema.test.ts
+  - src/music/__tests__/scoreSnapshot.test.ts
+  - src/music/__tests__/annotationMutations.test.ts
+  - src/music/__tests__/rational.test.ts
+  - src/utils/__tests__/storageAdapter.test.ts
+  - src/utils/__tests__/fileSession.test.ts
+  - src/agent/__tests__/conversationStore.test.ts
+  - src/agent/__tests__/ipcValidation.test.ts
+related_specs:
+  - spec/design.md
+  - spec/workspace-layout.md
+  - spec/score-surface.md
+  - spec/interaction-model.md
+  - spec/agent-tools-and-profiles.md
+  - spec/annotations-and-proposals.md
+---
+
 # File Workspace Architecture
 
-Date: 2026-08-05
+Date: 2026-08-05  
+Updated: 2026-08-15  
 Source: Existing workspace architecture plus `spec/agent-analysis-and-annotations.md`
 
 ## 1. Goal
@@ -48,6 +88,7 @@ These modules are independent of React and Electron UI code.
 - Runs one visible Music Tutor with internal profile modules.
 - Exposes routing plus four score tools.
 - Projects Pi tool lifecycle into correlated renderer-safe events.
+- Writes diagnostic logs to the local agent trace store.
 - Never mutates `FileDocument` directly.
 
 ### Persistence

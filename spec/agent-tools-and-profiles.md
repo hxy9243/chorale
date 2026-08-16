@@ -1,7 +1,40 @@
+---
+title: "Agent Tools and Profiles Implementation Spec"
+description: "Specification for internal analysis profiles, immutable ScoreSnapshot runtime, Pi score tools, and IPC event contracts"
+category: "agent-tools"
+date: 2026-08-05
+updated: 2026-08-15
+status: "implemented"
+source_files:
+  - electron/ai/agentProfiles.ts
+  - electron/ai/sheetTools.ts
+  - electron/ai/sheetAgentRuntime.ts
+  - electron/ai/toolEvents.ts
+  - src/music/scoreSnapshot.ts
+  - src/music/rational.ts
+  - src/agent/musicContext.ts
+  - src/agent/DesktopSheetAgent.ts
+  - electron/ipcValidation.ts
+test_files:
+  - src/agent/__tests__/sheetTools.test.ts
+  - src/agent/__tests__/agentProfiles.test.ts
+  - src/agent/__tests__/sheetToolFlow.test.ts
+  - src/agent/__tests__/toolEvents.test.ts
+  - src/agent/__tests__/musicContext.test.ts
+  - src/music/__tests__/scoreSnapshot.test.ts
+related_specs:
+  - spec/design.md
+  - spec/pi-agent-chat.md
+  - spec/file-workspace-architecture.md
+  - spec/annotations-and-proposals.md
+  - spec/agent-analysis-and-annotations.md
+---
+
 # Agent Tools and Profiles Implementation Spec
 
-Date: 2026-08-05
-Status: Approved for implementation in `electron/ai/`, `src/agent/`, and shared music libraries
+Date: 2026-08-05  
+Updated: 2026-08-15  
+Status: Implemented in `electron/ai/`, `src/agent/`, and shared music libraries
 
 ## 1. Purpose
 

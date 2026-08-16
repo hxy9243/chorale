@@ -1,6 +1,41 @@
+---
+title: "Settings & AI Provider Authentication Spec"
+description: "Specification for AI provider credential management, custom API endpoints, ChatGPT OAuth, safeStorage encryption, and settings modal presentation"
+category: "ai-configuration"
+date: 2026-07-29
+updated: 2026-08-15
+status: "implemented"
+source_files:
+  - src/components/AISettingsModal.tsx
+  - src/agent/useAIProviders.ts
+  - src/agent/aiTypes.ts
+  - electron/ai/connectionStore.ts
+  - electron/ai/electronCipher.ts
+  - electron/ai/providers.ts
+  - electron/ai/codexOAuth.ts
+  - electron/ai/agentTrace.ts
+  - electron/ipc.ts
+  - electron/ipcValidation.ts
+  - electron/dataPaths.ts
+  - src/hooks/useInterfaceZoom.ts
+test_files:
+  - src/components/__tests__/AISettingsModal.test.tsx
+  - src/agent/__tests__/connectionStore.test.ts
+  - src/agent/__tests__/providers.test.ts
+  - src/agent/__tests__/codexOAuth.test.ts
+  - src/agent/__tests__/agentTrace.test.ts
+  - src/agent/__tests__/dataPaths.test.ts
+related_specs:
+  - spec/design.md
+  - spec/workspace-layout.md
+  - spec/pi-agent-chat.md
+  - spec/pi-agent-feasibility.md
+---
+
 # Settings & AI Provider Authentication Spec
 
-Date: 2026-07-29
+Date: 2026-07-29  
+Updated: 2026-08-15  
 Status: Electron desktop implementation
 
 ## 1. Goal
@@ -16,13 +51,11 @@ The ordinary browser build remains a score editor. It displays “AI providers r
 - The dialog retains the same centered position, width, and height while switching tabs; sparse tabs do not shrink or move the frame.
 - Appearance controls a persistent 80%–160% interface scale. Ctrl/Cmd + wheel changes the same setting outside the score; over the score it changes score zoom only.
 - Interface scaling preserves the visible viewport bounds so the chat panel stays against the window's right edge and both its composer and the bottom playback dock remain on-screen.
-- About displays the Chorale name, release, and current desktop/browser runtime.
+- About displays the Chorale name, release, and current desktop/browser runtime, along with an action to open the local agent trace directory.
 - The modal traps focus, closes with Escape or its close button, and restores focus to its trigger.
 - Existing connections show provider kind, validation status, persistence mode, model count, and the age of the cached model list.
 - Users can edit, refresh, delete, or log out connections.
 - API-key edits use masked replacement: leaving the secret blank keeps the existing encrypted value.
-
-Score/audio and workspace-storage settings remain future additions.
 
 ## 3. Supported connections
 
@@ -30,12 +63,12 @@ Multiple named connections are allowed, including multiple connections for the s
 
 | Kind | Authentication | Model source |
 |---|---|---|
-| OpenAI Codex | ChatGPT subscription device-code OAuth | Pi bundled Codex catalog |
-| OpenAI API | API key | `GET https://api.openai.com/v1/models` |
-| Claude API | API key | `GET https://api.anthropic.com/v1/models` |
-| Gemini API | API key | `GET https://generativelanguage.googleapis.com/v1beta/models` |
-| OpenRouter | API key | `GET https://openrouter.ai/api/v1/models` |
-| Custom | API key and optional secret headers | OpenAI-compatible `GET {baseUrl}/models` |
+| OpenAI Codex (`openai-codex`) | ChatGPT subscription device-code OAuth | Pi bundled Codex catalog |
+| OpenAI API (`openai`) | API key | `GET https://api.openai.com/v1/models` |
+| Claude API (`anthropic`) | API key | `GET https://api.anthropic.com/v1/models` |
+| Google Gemini (`google`) | API key | `GET https://generativelanguage.googleapis.com/v1beta/models` |
+| OpenRouter (`openrouter`) | API key | `GET https://openrouter.ai/api/v1/models` |
+| Custom (`custom`) | API key and optional secret headers | OpenAI-compatible `GET {baseUrl}/models` |
 
 Custom base URLs must use HTTPS. HTTP is accepted only for loopback hosts. URLs containing embedded credentials and the `file:` scheme are rejected. Chorale also rejects custom attempts to override authorization, host, content-length, connection, proxy authorization, transfer encoding, and other managed authentication headers.
 
@@ -47,6 +80,12 @@ Provider state is stored under:
 
 ```text
 app.getPath('userData')/chorale-data/ai-connections.v1.json
+```
+
+Agent execution logs and diagnostic events are written as timestamped JSONL runs under:
+
+```text
+app.getPath('userData')/chorale-data/agent-traces/
 ```
 
 - API keys, custom secret headers, OAuth access tokens, and refresh tokens are serialized only inside an encrypted base64 payload.
@@ -73,7 +112,7 @@ OpenAI Codex is distinct from the OpenAI API-key provider.
 
 ## 6. Renderer contract
 
-The preload exposes the typed `ChoraleAIBridge` defined in `src/agent/aiTypes.ts`. It provides only connection, model, selection, OAuth, and chat operations.
+The preload exposes the typed `ChoraleAIBridge` defined in `src/agent/aiTypes.ts`. It provides only connection, model, selection, OAuth, trace directory, and chat operations.
 
 It does not expose:
 

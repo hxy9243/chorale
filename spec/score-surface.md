@@ -1,18 +1,51 @@
+---
+title: "Score Surface Spec"
+description: "Specification for score rendering, continuous range selection, chord overlays, range annotation rail, line measure numbers, and auto-centering playback"
+category: "core-workspace"
+date: 2026-08-05
+updated: 2026-08-15
+status: "implemented"
+source_files:
+  - src/components/SheetMusicView.tsx
+  - src/components/AnnotationOverlay.tsx
+  - src/components/AnnotationRail.tsx
+  - src/components/AnnotationEditor.tsx
+  - src/components/ScoreCardHeader.tsx
+  - src/music/annotationLayout.ts
+  - src/utils/abcAudio.ts
+  - src/utils/repeatPlayback.ts
+  - src/utils/autoScroll.ts
+  - src/hooks/useInterfaceZoom.ts
+test_files:
+  - src/components/__tests__/SheetMusicView.test.tsx
+  - src/components/__tests__/AnnotationRail.test.tsx
+  - src/components/__tests__/AnnotationOverlay.test.tsx
+  - src/components/__tests__/AnnotationEditor.test.tsx
+  - src/music/__tests__/annotationLayout.test.ts
+related_specs:
+  - spec/design.md
+  - spec/workspace-layout.md
+  - spec/interaction-model.md
+  - spec/annotations-and-proposals.md
+  - spec/playback-dock.md
+---
+
 # Score Surface Spec
 
-Date: 2026-08-05
-Updated: 2026-08-14
+Date: 2026-08-05  
+Updated: 2026-08-15  
 Source: `spec/agent-analysis-and-annotations.md`
 
 ## 1. Goal
 
-Keep the score the primary reading surface while adding continuous passage selection, chat navigation, and lightweight annotation overlays.
+Keep the score the primary reading surface while adding continuous passage selection, chat navigation, line-start measure numbers, and lightweight annotation overlays.
 
 ## 2. Existing presentation invariants
 
-- abcjs renders responsive continuous SVG systems.
+- abcjs renders responsive continuous SVG systems with smooth rendering transitions.
 - Score metadata and build/save status remain visible.
 - Score zoom remains independently persisted and centered without clipping.
+- Line-start measure numbers (`.chorale-line-measure-number`) are rendered above the start of each staff system for rapid orientation.
 - Playback auto-centering and its manual-scroll pause behavior remain intact.
 - Existing transpose, playback cursor, repeat selection, and first-click hit-area behavior must not regress.
 
@@ -21,7 +54,8 @@ Keep the score the primary reading surface while adding continuous passage selec
 - Single click selects one written measure.
 - Shift-click and the keyboard equivalent extend one inclusive continuous range.
 - Reverse selection normalizes to `startMeasure <= endMeasure`.
-- Each selected measure receives a highlight, including across system wraps.
+- Each selected measure receives a highlight rectangle (`.abcjs-measure-highlight`), including across system wraps.
+- Highlight geometry accurately computes measure bounding boxes across standard barlines, opening repeats, and system boundaries.
 - Hit areas continue to work on notation and staff whitespace.
 - Selection seeks or starts playback from `startMeasure` using the current repeat-aware occurrence.
 - File switch clears the active range; disconnected ranges are unsupported.

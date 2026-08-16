@@ -1,8 +1,43 @@
+---
+title: "Annotations and Proposals Implementation Spec"
+description: "Specification for canonical annotation data model, storage normalization, proposal lifecycle, atomic Apply All, and overlay/rail rendering"
+category: "annotations"
+date: 2026-08-05
+updated: 2026-08-15
+status: "implemented"
+source_files:
+  - src/types/document.ts
+  - src/music/documentSchema.ts
+  - src/music/annotationLayout.ts
+  - src/music/annotationMutations.ts
+  - src/components/AnnotationProposalCard.tsx
+  - src/components/AnnotationRail.tsx
+  - src/components/AnnotationOverlay.tsx
+  - src/components/AnnotationEditor.tsx
+  - src/agent/proposalActions.ts
+  - src/agent/conversationStore.ts
+test_files:
+  - src/music/__tests__/documentSchema.test.ts
+  - src/music/__tests__/annotationLayout.test.ts
+  - src/music/__tests__/annotationMutations.test.ts
+  - src/agent/__tests__/proposalActions.test.ts
+  - src/components/__tests__/AnnotationProposalCard.test.tsx
+  - src/components/__tests__/AnnotationRail.test.tsx
+  - src/components/__tests__/AnnotationOverlay.test.tsx
+  - src/components/__tests__/AnnotationEditor.test.tsx
+related_specs:
+  - spec/design.md
+  - spec/score-surface.md
+  - spec/interaction-model.md
+  - spec/file-workspace-architecture.md
+  - spec/agent-analysis-and-annotations.md
+---
+
 # Annotations and Proposals Implementation Spec
 
-Date: 2026-08-05
-Updated: 2026-08-14
-Status: Approved for implementation in shared music libraries and renderer UI
+Date: 2026-08-05  
+Updated: 2026-08-15  
+Status: Implemented in shared music libraries and renderer UI
 
 ## 1. Purpose
 

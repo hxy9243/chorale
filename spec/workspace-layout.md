@@ -1,13 +1,43 @@
+---
+title: "Workspace Layout Spec"
+description: "Specification for the top-level desktop workspace structure, header, file rail, central score workspace, and chat panel"
+category: "core-workspace"
+date: 2026-07-28
+updated: 2026-08-15
+status: "implemented"
+source_files:
+  - src/App.tsx
+  - src/components/Header.tsx
+  - src/components/FileRail.tsx
+  - src/components/ScoreCardHeader.tsx
+  - src/hooks/useWorkspaceLayout.ts
+  - src/hooks/useResizablePanel.ts
+  - src/styles/workspace-responsive.css
+test_files:
+  - src/App.test.tsx
+  - src/components/__tests__/FileRail.test.tsx
+  - src/components/__tests__/Header.test.tsx
+  - src/hooks/__tests__/useResizablePanel.test.ts
+related_specs:
+  - spec/design.md
+  - spec/score-surface.md
+  - spec/abc-editor.md
+  - spec/playback-dock.md
+  - spec/pi-agent-chat.md
+  - spec/settings-and-auth.md
+---
+
 # Workspace Layout Spec
 
 Date: 2026-07-28  
+Updated: 2026-08-15  
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 ## 1. Goal
 
 Define the top-level desktop workspace composition for Chorale.
 
-The design is no longer a simple player page. It is a persistent application workspace with four primary regions:
+The design is a persistent application workspace with four primary regions:
 
 1. global header
 2. left work rail
@@ -16,11 +46,11 @@ The design is no longer a simple player page. It is a persistent application wor
 
 ## 2. Header
 
-The header should communicate application identity without duplicating score-local state.
+The header communicates application identity without duplicating score-local state.
 
 Required regions:
 
-- left: plain `Chorale` wordmark and File Rail collapse/expand toggle button; no separate brand icon
+- left: plain `Chorale` wordmark; no separate brand icon or redundant toggle button (the left sidebar rail is always accessible)
 - center: active file title
 - right: Chat Panel visibility toggle
 
@@ -28,7 +58,7 @@ The Electron window and renderer document title are exactly `Chorale`. Save and 
 
 ## 3. Left work rail
 
-The left rail uses a narrow vertical selection bar to switch between **Files** and **Tools** panels. Each selection is one icon with a tooltip and accessible name, and only the selected panel is visible. A bottom-anchored **Settings** icon is a direct action that opens the settings dialog without replacing the selected work panel. Project and library hierarchy is omitted until the product has real project-backed behavior.
+The left rail uses a persistent narrow vertical selection bar (`3.5rem` / `56px`) that remains visible at all times to switch between **Files** and **Tools** panels. Each selection is one icon with a tooltip and accessible name. Clicking the currently active panel icon collapses the secondary content panel stack; clicking an icon while collapsed expands the rail with that panel active. A bottom-anchored **Settings** icon is a direct action that opens the settings dialog without replacing the selected work panel. Project and library hierarchy is omitted until the product has real project-backed behavior.
 
 Required content:
 
@@ -36,15 +66,15 @@ Required content:
 - **Tools**: an `ABC display` toggle; future score tools join this panel rather than the score header
 - **Settings**: its action icon anchors to the bottom of the selection bar and opens application settings directly
 - icon-only panel selections expose hover titles and accessible names
-- file management actions: a visible drag handle per row; direction-aware whole-row drop targets insert before when moving upward and after when moving downward, with matching insertion cues and Arrow Up/Arrow Down keyboard reordering; score deletion preserves at least 1 document
+- file management actions: a visible drag handle per row; direction-aware whole-row drop targets insert before when moving upward and after when moving downward, with matching insertion cues and Arrow Up/Arrow Down keyboard reordering; score deletion allows deleting documents down to 0, which displays an empty workspace placeholder until a file is imported or loaded
 - vertical scrolling is allowed inside the selected panel; horizontal scrolling is clipped
-- collapsible state (`railCollapsed` state) and horizontal drag-to-resize handle
-- default width at 25% of the logical layout viewport, bounded between 240px and 560px so long file names remain legible
-- persistent resized width in local storage (`chorale.workspace.fileRailWidth`)
+- persistent icon rail with collapsible content panel state (`railCollapsed` state) and horizontal drag-to-resize handle when expanded
+- default width at 25% of the logical layout viewport when expanded, bounded between 240px and 560px so long file names remain legible
+- persistent resized width in local storage (`chorale.workspace.fileRailWidth`) and collapse state (`chorale.workspace.fileRailCollapsed`)
 
 Implication:
 
-- Chorale has a file/session model persisted to local storage rather than a single score loaded into component state.
+- Chorale has a file/session model persisted to local storage and IndexedDB rather than a single score loaded into component state.
 - sample tracks and imported scores populate the file rail directly.
 
 ## 4. Central workspace
@@ -56,7 +86,7 @@ It contains:
 - score title and composer with `Auto-saved`, `SVG ready`, and `Audio ready` status directly underneath
 - a compact rounded display-options panel floating at the score's upper center; it is highly translucent at rest, becomes less translucent during score scrolling, and becomes clearest on hover or keyboard focus
 - score zoom controls inside that floating panel, without `Score` or `ABC code` view tabs
-- rendered score surface (with auto-centering playback line and zoom layout space reservation)
+- rendered score surface (with auto-centering playback line, line-start measure numbers, and zoom layout space reservation)
 - optional split ABC editor pane (horizontal drag-to-resize, width bounded between 320px and 720px, default 420px, persisted as `chorale.workspace.editorWidth`)
 - playback dock anchored to the visible bottom of the central workspace, independent of content height and interface zoom (max-width bounded to 800px for centered desktop presentation)
 
@@ -69,9 +99,9 @@ The chat panel is part of the fixed workspace layout on desktop. It supports hor
 It functions as a persistent product surface with:
 
 - file-scoped title row and a full-width, consistently styled thread selector beneath it
-- conversation transcript
+- conversation transcript with collapsible reasoning/thinking traces and tool progress
 - tool disclosure
-- anchored composer
+- anchored composer with provider/model selector, thinking level selector (`off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`), and active range chip
 - resize drag handle on left edge
 
 ## 6. Responsive guidance

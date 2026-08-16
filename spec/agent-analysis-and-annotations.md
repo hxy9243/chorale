@@ -1,8 +1,56 @@
+---
+title: "Passage-Aware Music Tutor, Agent Tools, and Annotations"
+description: "Authoritative product specification for passage analysis, analysis profiles, score tools, proposal review, and canonical annotation overlay rendering"
+category: "core-product"
+date: 2026-08-05
+updated: 2026-08-15
+status: "implemented"
+source_files:
+  - src/components/SheetMusicView.tsx
+  - src/components/AnnotationOverlay.tsx
+  - src/components/AnnotationRail.tsx
+  - src/components/AgentChatPanel.tsx
+  - src/components/MarkdownMessage.tsx
+  - src/components/AnnotationProposalCard.tsx
+  - src/components/AnnotationEditor.tsx
+  - src/music/documentSchema.ts
+  - src/music/scoreSnapshot.ts
+  - src/music/annotationLayout.ts
+  - src/music/annotationMutations.ts
+  - src/music/rational.ts
+  - src/agent/DesktopSheetAgent.ts
+  - src/agent/proposalActions.ts
+  - src/agent/measureReferences.ts
+  - electron/ai/sheetAgentRuntime.ts
+  - electron/ai/sheetTools.ts
+  - electron/ai/agentProfiles.ts
+  - electron/ipcValidation.ts
+test_files:
+  - src/components/__tests__/passageAnalysisJourney.integration.test.tsx
+  - src/components/__tests__/AgentChatPanel.test.tsx
+  - src/components/__tests__/AnnotationProposalCard.test.tsx
+  - src/agent/__tests__/sheetToolFlow.test.ts
+  - src/agent/__tests__/sheetAgentRuntime.integration.test.ts
+  - src/agent/__tests__/DesktopSheetAgent.test.ts
+  - src/music/__tests__/scoreSnapshot.test.ts
+  - src/music/__tests__/annotationLayout.test.ts
+  - src/music/__tests__/documentSchema.test.ts
+related_specs:
+  - spec/design.md
+  - spec/workspace-layout.md
+  - spec/score-surface.md
+  - spec/interaction-model.md
+  - spec/file-workspace-architecture.md
+  - spec/agent-tools-and-profiles.md
+  - spec/annotations-and-proposals.md
+  - spec/pi-agent-chat.md
+---
+
 # Passage-Aware Music Tutor, Agent Tools, and Annotations
 
-Date: 2026-08-05
-Updated: 2026-08-14
-Status: Approved implementation specification
+Date: 2026-08-05  
+Updated: 2026-08-15  
+Status: Implemented specification (Milestones 1 & 2 delivered)
 
 ## 1. Product goal
 
@@ -23,16 +71,16 @@ The tutor should answer chord-analysis, voice-leading, modulation, and basic for
 
 ## 2. Delivery scope
 
-Implementation is split into two vertical milestones:
+Implementation is split into two vertical milestones (both delivered):
 
-### Milestone 1: Passage analysis loop
+### Milestone 1: Passage analysis loop (Delivered)
 
 - Continuous written-measure selection.
 - One visible Music Tutor with transparent internal profile routing.
 - Immutable prompt snapshots and read-only score tools.
 - Grounded Markdown answers, visible tool status, and interactive measure links.
 
-### Milestone 2: Annotation loop
+### Milestone 2: Annotation loop (Delivered)
 
 - Canonical annotation storage and legacy normalization.
 - Chord, modulation, voice-leading, and explanation proposals.
@@ -45,13 +93,13 @@ Staleness, regeneration, agent-initiated removal, and agent-authored score editi
 shared range/music contracts ─┬─> continuous selection ────────┐
                               └─> immutable score tools ───────┤
                                                                v
-                                                Milestone 1 integrated loop
+                                                Milestone 1 integrated loop (Done)
                                                                |
                                                                v
 annotation/proposal contracts -> review UI -> overlays/persistence
                                                                |
                                                                v
-                                                Milestone 2 integrated loop
+                                                Milestone 2 integrated loop (Done)
 ```
 
 Milestone 2 builds on the same canonical annotation and musical-position contracts established in Milestone 1. It does not introduce a second score parser or anchor model.

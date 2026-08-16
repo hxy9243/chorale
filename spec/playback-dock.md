@@ -1,6 +1,32 @@
+---
+title: "Playback Dock Spec"
+description: "Specification for the WebAudio playback dock, volume/mute GainNode, progress seek track, and unified score-anchor synchronization"
+category: "core-workspace"
+date: 2026-07-28
+updated: 2026-08-15
+status: "implemented"
+source_files:
+  - src/components/AudioPlayer.tsx
+  - src/utils/abcAudio.ts
+  - src/utils/repeatPlayback.ts
+  - src/utils/autoScroll.ts
+  - src/utils/anchor.ts
+test_files:
+  - src/components/__tests__/AudioPlayer.test.tsx
+  - src/utils/__tests__/abcAudio.test.ts
+  - src/utils/__tests__/repeatPlayback.test.ts
+  - src/utils/__tests__/autoScroll.test.ts
+related_specs:
+  - spec/design.md
+  - spec/workspace-layout.md
+  - spec/score-surface.md
+  - spec/interaction-model.md
+---
+
 # Playback Dock Spec
 
 Date: 2026-07-28  
+Updated: 2026-08-15  
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 ## 1. Goal
