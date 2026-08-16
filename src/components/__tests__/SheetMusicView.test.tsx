@@ -455,6 +455,11 @@ describe('SheetMusicView Component', () => {
       vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2]?.afterParsing,
     ).toEqual(expect.any(Function)));
 
+    const rangeHitArea = container.querySelector<SVGElement>(
+      '.abcjs-measure-hit-area[data-measure="1"]',
+    )!;
+    const scrollRangeIntoView = vi.fn();
+    Object.defineProperty(rangeHitArea, 'scrollIntoView', { value: scrollRangeIntoView });
     const rangeCard = container.querySelector<HTMLButtonElement>('.annotation-card-toggle')!;
     fireEvent.click(rangeCard);
     expect(rangeCard.getAttribute('aria-expanded')).toBe('true');
@@ -462,6 +467,11 @@ describe('SheetMusicView Component', () => {
       startMeasure: 1,
       endMeasure: 1,
     }));
+    expect(scrollRangeIntoView).toHaveBeenCalledWith({
+      behavior: 'smooth',
+      block: 'center',
+      inline: 'nearest',
+    });
 
     await act(async () => {
       await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
@@ -1159,7 +1169,11 @@ describe('SheetMusicView Component', () => {
       playbackSeconds: 4,
       playbackFraction: 0.5,
     });
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center', inline: 'nearest' });
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: 'smooth',
+      block: 'center',
+      inline: 'nearest',
+    });
     expect(document.activeElement).toBe(firstMeasure);
     expect(getPlaybackPosition().isPlaying).toBe(false);
   });

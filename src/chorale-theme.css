@@ -5503,6 +5503,9 @@ body,
   overflow: clip;
   background: var(--color-paper);
   color: var(--color-ink);
+  transition: top 200ms var(--ease-out),
+    background-color 200ms var(--ease-out),
+    color 200ms var(--ease-out);
 }
 
 .annotation-card-toggle {
@@ -5603,6 +5606,23 @@ body,
 
 .annotation-card-body.expanded {
   display: block;
+}
+
+@supports (block-size: calc-size(auto, size)) {
+  .annotation-card-body {
+    display: block;
+    overflow: hidden;
+    interpolate-size: allow-keywords;
+    transition: block-size 100ms var(--ease-out);
+  }
+
+  .annotation-card-body.collapsed {
+    block-size: calc-size(auto, min(size, 3.1em));
+  }
+
+  .annotation-card-body.expanded {
+    block-size: auto;
+  }
 }
 
 .annotation-card-toggle:focus-visible {
@@ -5790,6 +5810,8 @@ body,
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .annotation-rail-card,
+  .annotation-card-body,
   .annotation-edit-tooltip {
     transition-duration: 0ms;
   }

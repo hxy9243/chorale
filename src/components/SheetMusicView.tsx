@@ -33,6 +33,13 @@ const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const AUTO_SCROLL_DURATION_MS = 280;
 const AUTO_SCROLL_RESUME_DURATION_MS = 320;
 
+const anchorScrollBehavior = (): ScrollBehavior => (
+  typeof window.matchMedia === 'function'
+  && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ? 'auto'
+    : 'smooth'
+);
+
 type SvgBounds = {
   x: number;
   y: number;
@@ -661,7 +668,11 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     const hitArea = container.querySelector<SVGElement>(
       `.abcjs-measure-hit-area[data-measure="${startMeasure}"]`,
     );
-    hitArea?.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+    hitArea?.scrollIntoView?.({
+      behavior: anchorScrollBehavior(),
+      block: 'center',
+      inline: 'nearest',
+    });
     hitArea?.focus();
   }, [navigationAnchor, onSelectAnchor, resolvePlaybackAnchor]);
 
@@ -838,7 +849,11 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     const hitArea = containerRef.current?.querySelector<SVGElement>(
       `.abcjs-measure-hit-area[data-measure="${annotation.span.startMeasure}"]`,
     );
-    hitArea?.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+    hitArea?.scrollIntoView?.({
+      behavior: anchorScrollBehavior(),
+      block: 'center',
+      inline: 'nearest',
+    });
     queueMicrotask(() => initiator.focus({ preventScroll: true }));
   }, [onSelectAnchor, resolvePlaybackAnchor]);
 
@@ -996,7 +1011,11 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                     const hitArea = containerRef.current?.querySelector<SVGElement>(
                       `.abcjs-measure-hit-area[data-measure="${annotation.span.startMeasure}"]`,
                     );
-                    hitArea?.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+                    hitArea?.scrollIntoView?.({
+                      behavior: anchorScrollBehavior(),
+                      block: 'center',
+                      inline: 'nearest',
+                    });
                     setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
                   }}
                 />
