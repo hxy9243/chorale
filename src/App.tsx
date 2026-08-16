@@ -18,6 +18,7 @@ import {
   CHAT_OPEN_KEY,
   CHAT_WIDTH_KEY,
   FILE_RAIL_WIDTH_KEY,
+  FILE_RAIL_COLLAPSED_KEY,
   SHEET_ZOOM_KEY,
 } from './hooks/useWorkspaceLayout';
 
@@ -27,6 +28,7 @@ export {
   CHAT_OPEN_KEY,
   CHAT_WIDTH_KEY,
   FILE_RAIL_WIDTH_KEY,
+  FILE_RAIL_COLLAPSED_KEY,
   SHEET_ZOOM_KEY,
 };
 import { useDocumentStore } from './hooks/useDocumentStore';
@@ -231,15 +233,13 @@ export const App: React.FC = () => {
         activeFileName={scoreTitle}
         chatOpen={chatOpen}
         onToggleChat={() => setChatOpen((open) => !open)}
-        railCollapsed={railCollapsed}
-        onToggleRail={() => setRailCollapsed((c) => !c)}
       />
 
       <div
         className={`workspace-body ${chatOpen ? 'chat-open' : ''} ${railCollapsed ? 'rail-collapsed' : ''} ${fittedPanelLayout.overlaySidePanels ? 'side-panels-overlay' : ''}`}
         style={{
-          gridTemplateColumns: `${railCollapsed ? 0 : fittedPanelLayout.fileRailWidth}px minmax(0, 1fr) ${chatOpen ? `${fittedPanelLayout.chatPanelWidth}px` : '0px'}`,
-          '--file-rail-width': `${railCollapsed ? 0 : fittedPanelLayout.fileRailWidth}px`,
+          gridTemplateColumns: `${fittedPanelLayout.fileRailWidth}px minmax(0, 1fr) ${chatOpen ? `${fittedPanelLayout.chatPanelWidth}px` : '0px'}`,
+          '--file-rail-width': `${fittedPanelLayout.fileRailWidth}px`,
           '--chat-rail-width': chatOpen ? `${fittedPanelLayout.chatPanelWidth}px` : '0px',
         } as React.CSSProperties}
       >
@@ -253,6 +253,7 @@ export const App: React.FC = () => {
           loading={loading}
           error={error}
           collapsed={railCollapsed}
+          onToggleCollapse={() => setRailCollapsed((c) => !c)}
           onBeginResize={beginRailResize}
           editorVisible={editorVisible}
           onToggleEditor={() => setEditorVisible((visible) => !visible)}

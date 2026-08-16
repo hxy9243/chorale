@@ -1,5 +1,6 @@
 export const MIN_FILE_RAIL_WIDTH = 240;
 export const MAX_FILE_RAIL_WIDTH = 560;
+export const FILE_RAIL_BAR_WIDTH = 56;
 export const DEFAULT_FILE_RAIL_WIDTH_FRACTION = 1 / 4;
 export const MIN_CHAT_PANEL_WIDTH = 280;
 export const CHAT_PANEL_WIDTH_FRACTION = 1 / 3;
@@ -72,7 +73,7 @@ export const fitWorkspacePanelLayout = ({
 
   if (safeViewportWidth < DESKTOP_PANEL_LAYOUT_MIN_WIDTH) {
     return {
-      fileRailWidth: desiredFileRailWidth,
+      fileRailWidth: fileRailVisible ? desiredFileRailWidth : FILE_RAIL_BAR_WIDTH,
       chatPanelWidth: desiredChatPanelWidth,
       editorPanelWidth: desiredEditorPanelWidth,
       scoreWorkspaceWidth: safeViewportWidth,
@@ -81,11 +82,11 @@ export const fitWorkspacePanelLayout = ({
   }
 
   const visibleSidePanelMinimum = (
-    (fileRailVisible ? MIN_FILE_RAIL_WIDTH : 0)
+    (fileRailVisible ? MIN_FILE_RAIL_WIDTH : FILE_RAIL_BAR_WIDTH)
     + (chatPanelVisible ? MIN_CHAT_PANEL_WIDTH : 0)
   );
   const visibleEditorMinimum = editorPanelVisible ? MIN_EDITOR_PANEL_WIDTH : 0;
-  const visiblePanelCount = Number(fileRailVisible) + Number(chatPanelVisible) + Number(editorPanelVisible);
+  const visiblePanelCount = 1 + Number(chatPanelVisible) + Number(editorPanelVisible);
   const minimumInlineWidth = (
     MIN_SCORE_WORKSPACE_WIDTH
     + visibleSidePanelMinimum
@@ -98,9 +99,9 @@ export const fitWorkspacePanelLayout = ({
   const panelDefinitions = [
     {
       key: 'fileRailWidth' as const,
-      visible: fileRailVisible && !overlaySidePanels,
-      minimum: MIN_FILE_RAIL_WIDTH,
-      desired: desiredFileRailWidth,
+      visible: !overlaySidePanels,
+      minimum: fileRailVisible ? MIN_FILE_RAIL_WIDTH : FILE_RAIL_BAR_WIDTH,
+      desired: fileRailVisible ? desiredFileRailWidth : FILE_RAIL_BAR_WIDTH,
     },
     {
       key: 'chatPanelWidth' as const,
@@ -132,7 +133,7 @@ export const fitWorkspacePanelLayout = ({
     ? 0
     : Math.min(1, availableExtraWidth / desiredExtraWidth);
   const fittedWidths = {
-    fileRailWidth: desiredFileRailWidth,
+    fileRailWidth: fileRailVisible ? desiredFileRailWidth : FILE_RAIL_BAR_WIDTH,
     chatPanelWidth: desiredChatPanelWidth,
     editorPanelWidth: desiredEditorPanelWidth,
   };

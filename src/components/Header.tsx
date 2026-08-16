@@ -1,33 +1,20 @@
 import React from 'react';
-import { MessageSquare, PanelLeft } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 
 interface HeaderProps {
   activeFileName?: string;
   chatOpen?: boolean;
   onToggleChat?: () => void;
-  railCollapsed?: boolean;
-  onToggleRail?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   activeFileName = '',
   chatOpen = true,
   onToggleChat,
-  railCollapsed = false,
-  onToggleRail,
 }) => {
   return (
     <header className="app-header">
       <div className="header-brand">
-        <button
-          type="button"
-          className={`header-icon-btn sidebar-toggle-btn ${railCollapsed ? 'collapsed' : ''}`}
-          onClick={onToggleRail}
-          title={railCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          aria-label={railCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          <PanelLeft size={18} aria-hidden="true" />
-        </button>
         <span>Chorale</span>
       </div>
 

@@ -87,4 +87,20 @@ describe('workspace panel fitting', () => {
       overlaySidePanels: false,
     });
   });
+
+  it('allocates the persistent 56px icon rail when file rail content panel is collapsed', () => {
+    const layout = fitWorkspacePanelLayout({
+      viewportWidth: 1_480,
+      fileRailWidth: 360,
+      chatPanelWidth: 420,
+      editorPanelWidth: 520,
+      fileRailVisible: false,
+      chatPanelVisible: true,
+      editorPanelVisible: true,
+    });
+
+    expect(layout.fileRailWidth).toBe(56);
+    expect(layout.overlaySidePanels).toBe(false);
+  });
 });
+

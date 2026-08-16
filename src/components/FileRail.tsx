@@ -64,6 +64,7 @@ interface FileRailProps {
   loading?: boolean;
   error?: string | null;
   collapsed?: boolean;
+  onToggleCollapse?: () => void;
   onBeginResize?: (e: React.PointerEvent<HTMLButtonElement>) => void;
   editorVisible?: boolean;
   onToggleEditor?: () => void;
@@ -80,6 +81,7 @@ export const FileRail: React.FC<FileRailProps> = ({
   loading = false,
   error = null,
   collapsed = false,
+  onToggleCollapse,
   onBeginResize,
   editorVisible = false,
   onToggleEditor,
@@ -98,6 +100,17 @@ export const FileRail: React.FC<FileRailProps> = ({
   const [activePanel, setActivePanel] = useState<RailPanel>('files');
   const [draggedFileId, setDraggedFileId] = useState<string | null>(null);
   const [hiddenDraggedFileId, setHiddenDraggedFileId] = useState<string | null>(null);
+
+  const handleTabClick = (panel: RailPanel) => {
+    if (activePanel === panel) {
+      onToggleCollapse?.();
+    } else {
+      setActivePanel(panel);
+      if (collapsed) {
+        onToggleCollapse?.();
+      }
+    }
+  };
   const [documentOrder, setDocumentOrder] = useState<string[]>(() => (
     documents.map((document) => document.id)
   ));
@@ -387,25 +400,25 @@ export const FileRail: React.FC<FileRailProps> = ({
         <div className="file-rail-tablist" role="tablist" aria-label="Workspace panels">
           <button
             type="button"
-            className={`file-rail-tab ${activePanel === 'files' ? 'active' : ''}`}
+            className={`file-rail-tab ${!collapsed && activePanel === 'files' ? 'active' : ''}`}
             role="tab"
-            aria-selected={activePanel === 'files'}
+            aria-selected={!collapsed && activePanel === 'files'}
             aria-controls="files-panel"
             aria-label="Files"
             title="Files"
-            onClick={() => setActivePanel('files')}
+            onClick={() => handleTabClick('files')}
           >
             <FolderOpen size={18} aria-hidden="true" />
           </button>
           <button
             type="button"
-            className={`file-rail-tab ${activePanel === 'tools' ? 'active' : ''}`}
+            className={`file-rail-tab ${!collapsed && activePanel === 'tools' ? 'active' : ''}`}
             role="tab"
-            aria-selected={activePanel === 'tools'}
+            aria-selected={!collapsed && activePanel === 'tools'}
             aria-controls="tools-panel"
             aria-label="Tools"
             title="Tools"
-            onClick={() => setActivePanel('tools')}
+            onClick={() => handleTabClick('tools')}
           >
             <Braces size={18} aria-hidden="true" />
           </button>
@@ -421,13 +434,13 @@ export const FileRail: React.FC<FileRailProps> = ({
         </button>
       </nav>
 
-      <div className="file-rail-panel-stack">
+      <div className="file-rail-panel-stack" hidden={collapsed}>
         <section
           className="file-rail-section"
           id="files-panel"
           role="tabpanel"
           aria-labelledby="files-tab-title"
-          hidden={activePanel !== 'files'}
+          hidden={collapsed || activePanel !== 'files'}
         >
           <div className="rail-section-header">
             <h2 className="rail-section-title" id="files-tab-title">Files</h2>
@@ -564,7 +577,7 @@ export const FileRail: React.FC<FileRailProps> = ({
           id="tools-panel"
           role="tabpanel"
           aria-labelledby="tools-tab-title"
-          hidden={activePanel !== 'tools'}
+          hidden={collapsed || activePanel !== 'tools'}
         >
           <div className="rail-section-header">
             <h2 className="rail-section-title" id="tools-tab-title">Tools</h2>
@@ -583,7 +596,7 @@ export const FileRail: React.FC<FileRailProps> = ({
 
       </div>
 
-      {onBeginResize && (
+      {onBeginResize && !collapsed && (
         <button
           type="button"
           className="file-rail-resize-handle"

@@ -15,9 +15,10 @@
 }
 
 .workspace-body.side-panels-overlay .file-rail.collapsed {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(-100%);
+  width: 3.5rem;
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
 }
 
 .workspace-body.side-panels-overlay .right-panel,

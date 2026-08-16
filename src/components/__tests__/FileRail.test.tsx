@@ -452,4 +452,70 @@ describe('FileRail Component', () => {
       .toEqual(['Bach Minuet', 'Beethoven Ode']);
     expect(onReorderDocument).not.toHaveBeenCalled();
   });
+
+  it('collapses the sidebar when clicking the currently active tab icon', () => {
+    const onToggleCollapse = vi.fn();
+    render(<FileRail {...defaultProps} onToggleCollapse={onToggleCollapse} onBeginResize={vi.fn()} />);
+
+    const filesTab = screen.getByRole('tab', { name: 'Files' });
+    const toolsTab = screen.getByRole('tab', { name: 'Tools' });
+
+    expect(filesTab.getAttribute('aria-selected')).toBe('true');
+    expect(filesTab.classList.contains('active')).toBe(true);
+    expect(document.querySelector('.file-rail-resize-handle')).not.toBeNull();
+
+    // Files tab is active by default. Clicking it again should trigger toggle collapse.
+    fireEvent.click(filesTab);
+    expect(onToggleCollapse).toHaveBeenCalledTimes(1);
+
+    // Switching to Tools tab should not toggle collapse if sidebar is open.
+    fireEvent.click(toolsTab);
+    expect(onToggleCollapse).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('tabpanel', { name: 'Tools' })).toBeDefined();
+
+    // Clicking active Tools tab should trigger toggle collapse.
+    fireEvent.click(toolsTab);
+    expect(onToggleCollapse).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps icon rail visible but hides content panel and resize handle while collapsed', () => {
+    const onToggleCollapse = vi.fn();
+    render(
+      <FileRail
+        {...defaultProps}
+        collapsed
+        onToggleCollapse={onToggleCollapse}
+        onBeginResize={vi.fn()}
+      />,
+    );
+
+    const filesTab = screen.getByRole('tab', { name: 'Files' });
+    const toolsTab = screen.getByRole('tab', { name: 'Tools' });
+    const settingsButton = screen.getByRole('button', { name: 'Settings' });
+
+    // Tabs remain accessible in DOM
+    expect(filesTab).toBeDefined();
+    expect(toolsTab).toBeDefined();
+    expect(settingsButton).toBeDefined();
+
+    // No tab shows active state when panel is collapsed
+    expect(filesTab.getAttribute('aria-selected')).toBe('false');
+    expect(toolsTab.getAttribute('aria-selected')).toBe('false');
+    expect(filesTab.classList.contains('active')).toBe(false);
+    expect(toolsTab.classList.contains('active')).toBe(false);
+
+    // Content panel stack is hidden and resize handle is not present
+    const panelStack = document.querySelector('.file-rail-panel-stack');
+    expect(panelStack?.hasAttribute('hidden')).toBe(true);
+    expect(document.querySelector('.file-rail-resize-handle')).toBeNull();
+
+    // Clicking active tab while collapsed triggers expand (toggle collapse).
+    fireEvent.click(filesTab);
+    expect(onToggleCollapse).toHaveBeenCalledTimes(1);
+
+    // Clicking different tab while collapsed switches tab and triggers expand.
+    fireEvent.click(toolsTab);
+    expect(onToggleCollapse).toHaveBeenCalledTimes(2);
+  });
 });
+

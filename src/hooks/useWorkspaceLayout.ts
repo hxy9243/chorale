@@ -13,6 +13,7 @@ export const EDITOR_WIDTH_KEY = 'chorale.workspace.editorWidth';
 export const CHAT_OPEN_KEY = 'chorale.workspace.chatOpen';
 export const CHAT_WIDTH_KEY = 'chorale.workspace.chatWidth';
 export const FILE_RAIL_WIDTH_KEY = 'chorale.workspace.fileRailWidth';
+export const FILE_RAIL_COLLAPSED_KEY = 'chorale.workspace.fileRailCollapsed';
 export const SHEET_ZOOM_KEY = 'chorale.workspace.sheetZoom';
 
 const DEFAULT_EDITOR_WIDTH = 420;
@@ -62,7 +63,9 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
       clampFileRailWidth,
     )
   ));
-  const [railCollapsed, setRailCollapsed] = useState<boolean>(false);
+  const [railCollapsed, setRailCollapsed] = useState<boolean>(() => (
+    readStoredBool(FILE_RAIL_COLLAPSED_KEY, false)
+  ));
   const [chatWidth, setChatWidth] = useState<number>(() => (
     readStoredNumber(
       CHAT_WIDTH_KEY,
@@ -70,8 +73,6 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
       (width) => clampChatPanelWidth(width, layoutViewportWidth()),
     )
   ));
-
-
 
   useEffect(() => {
     window.localStorage.setItem(EDITOR_VISIBLE_KEY, String(editorVisible));
@@ -88,6 +89,10 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
   useEffect(() => {
     window.localStorage.setItem(FILE_RAIL_WIDTH_KEY, String(Math.round(railWidth)));
   }, [railWidth]);
+
+  useEffect(() => {
+    window.localStorage.setItem(FILE_RAIL_COLLAPSED_KEY, String(railCollapsed));
+  }, [railCollapsed]);
 
   useEffect(() => {
     window.localStorage.setItem(CHAT_OPEN_KEY, String(chatOpen));

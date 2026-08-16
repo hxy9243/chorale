@@ -6,6 +6,7 @@ import App, {
   CHAT_WIDTH_KEY,
   EDITOR_WIDTH_KEY,
   FILE_RAIL_WIDTH_KEY,
+  FILE_RAIL_COLLAPSED_KEY,
   SHEET_ZOOM_KEY,
 } from './App';
 import * as xmlParser from './utils/xmlParser';
@@ -559,4 +560,51 @@ describe('App Integration', () => {
       expect(screen.getAllByText('Persisted Score').length).toBeGreaterThan(0);
     });
   });
+
+  it('collapses and expands the left sidebar when clicking the active tab icon and persists state', async () => {
+    render(<App />);
+
+    const filesTab = screen.getByRole('tab', { name: 'Files' });
+    const workspaceBody = document.querySelector<HTMLElement>('.workspace-body')!;
+
+    // Initially sidebar is expanded (rail-collapsed is not present)
+    expect(workspaceBody.classList.contains('rail-collapsed')).toBe(false);
+    expect(workspaceBody.style.gridTemplateColumns).not.toMatch(/^56px\b/);
+    expect(localStorage.getItem(FILE_RAIL_COLLAPSED_KEY)).toBe('false');
+
+    // Clicking the already active 'Files' tab collapses the left sidebar content panel
+    fireEvent.click(filesTab);
+    expect(workspaceBody.classList.contains('rail-collapsed')).toBe(true);
+    expect(workspaceBody.style.gridTemplateColumns).toMatch(/^56px\b/);
+    expect(localStorage.getItem(FILE_RAIL_COLLAPSED_KEY)).toBe('true');
+
+    // The persistent rail tabs are still visible
+    expect(screen.getByRole('tab', { name: 'Files' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Tools' })).toBeDefined();
+
+    // Clicking 'Files' tab again expands the left sidebar
+    fireEvent.click(filesTab);
+    expect(workspaceBody.classList.contains('rail-collapsed')).toBe(false);
+    expect(workspaceBody.style.gridTemplateColumns).not.toMatch(/^56px\b/);
+    expect(localStorage.getItem(FILE_RAIL_COLLAPSED_KEY)).toBe('false');
+  });
+
+  it('restores the file rail collapsed state across page refreshes', async () => {
+    localStorage.setItem(FILE_RAIL_COLLAPSED_KEY, 'true');
+    const { unmount } = render(<App />);
+
+    const workspaceBody = document.querySelector<HTMLElement>('.workspace-body')!;
+    expect(workspaceBody.classList.contains('rail-collapsed')).toBe(true);
+    expect(workspaceBody.style.gridTemplateColumns).toMatch(/^56px\b/);
+
+    unmount();
+
+    localStorage.setItem(FILE_RAIL_COLLAPSED_KEY, 'false');
+    render(<App />);
+
+    const freshWorkspaceBody = document.querySelector<HTMLElement>('.workspace-body')!;
+    expect(freshWorkspaceBody.classList.contains('rail-collapsed')).toBe(false);
+    expect(freshWorkspaceBody.style.gridTemplateColumns).not.toMatch(/^56px\b/);
+  });
 });
+

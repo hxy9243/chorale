@@ -23,20 +23,12 @@ describe('Header Component', () => {
     expect(screen.getByTitle('Show score chat')).toBeDefined();
   });
 
-  it('leaves save state and settings to their owning panels', () => {
+  it('leaves save state, settings, and sidebar navigation to their owning panels', () => {
     render(<Header activeFileName="Test.xml" />);
 
     expect(screen.queryByRole('status')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Open settings' })).toBeNull();
+    expect(screen.queryByTitle('Collapse sidebar')).toBeNull();
+    expect(screen.queryByTitle('Expand sidebar')).toBeNull();
   });
-
-  it('triggers onToggleRail when sidebar toggle button is clicked', () => {
-    const onToggleRail = vi.fn();
-    render(<Header activeFileName="Test.xml" onToggleRail={onToggleRail} />);
-
-    const toggleBtn = screen.getByTitle('Collapse sidebar');
-    fireEvent.click(toggleBtn);
-    expect(onToggleRail).toHaveBeenCalledOnce();
-  });
-
 });

@@ -1923,8 +1923,8 @@ textarea {
 .file-rail.collapsed {
   padding: 0;
   overflow: hidden;
-  opacity: 0;
-  pointer-events: none;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .file-rail-resize-handle {
@@ -1944,32 +1944,6 @@ textarea {
 .file-rail-resize-handle:hover,
 .file-rail-resize-handle:active {
   background: var(--figma-coral);
-}
-
-.sidebar-toggle-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--figma-border);
-  border-radius: 8px;
-  background: #fff;
-  color: var(--figma-ink);
-  cursor: pointer;
-  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
-}
-
-.sidebar-toggle-btn:hover {
-  background: #f8f7f4;
-  border-color: #cbc5bc;
-}
-
-.sidebar-toggle-btn.collapsed {
-  background: var(--figma-rail);
-  color: #fff;
-  border-color: var(--figma-rail);
 }
 
 .import-btn {
