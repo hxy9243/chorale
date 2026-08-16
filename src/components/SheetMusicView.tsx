@@ -974,7 +974,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
           <div
             className="sheet-zoom-wrapper"
             data-score-zoom={currentZoom}
-            style={{ zoom: currentZoom / 100 }}
+            style={{ zoom: `calc(${currentZoom / 100} / var(--ui-zoom, 1))` }}
           >
             <div className="sheet-annotation-layout">
               <div className="sheet-layout-balance" aria-hidden="true" />

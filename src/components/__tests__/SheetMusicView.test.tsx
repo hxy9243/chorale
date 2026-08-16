@@ -418,7 +418,7 @@ describe('SheetMusicView Component', () => {
     expect(container.querySelector('.sheet-layout-balance')).not.toBeNull();
     const zoomScene = container.querySelector<HTMLElement>('.sheet-zoom-wrapper')!;
     expect(zoomScene.parentElement?.classList.contains('sheet-scene-positioner')).toBe(true);
-    expect(zoomScene.style.zoom).toBe('1');
+    expect(zoomScene.style.zoom).toBe('calc(1 / var(--ui-zoom, 1))');
     expect(zoomScene.getAttribute('data-score-zoom')).toBe('100');
     expect(zoomScene.contains(container.querySelector('.sheet-notation-column'))).toBe(true);
     expect(zoomScene.contains(container.querySelector('.annotation-rail'))).toBe(true);
@@ -953,7 +953,7 @@ describe('SheetMusicView Component', () => {
     );
 
     const wrapper = container.querySelector<HTMLElement>('.sheet-zoom-wrapper')!;
-    expect(wrapper.style.zoom).toBe('1.5');
+    expect(wrapper.style.zoom).toBe('calc(1.5 / var(--ui-zoom, 1))');
     expect(wrapper.getAttribute('data-score-zoom')).toBe('150');
     expect(wrapper.contains(container.querySelector('.sheet-notation-column'))).toBe(true);
     expect(wrapper.contains(container.querySelector('.annotation-rail'))).toBe(true);
@@ -963,8 +963,27 @@ describe('SheetMusicView Component', () => {
       <SheetMusicView abcCode={sampleAbc} zoom={50} onZoomChange={vi.fn()} />
     );
 
-    expect(wrapper.style.zoom).toBe('0.5');
+    expect(wrapper.style.zoom).toBe('calc(0.5 / var(--ui-zoom, 1))');
     expect(wrapper.getAttribute('data-score-zoom')).toBe('50');
+  });
+
+  it('keeps score zoom formula decoupled from interface page zoom', () => {
+    document.documentElement.style.setProperty('--ui-zoom', '1.4');
+    const { container, rerender } = render(
+      <SheetMusicView abcCode={sampleAbc} zoom={120} onZoomChange={vi.fn()} />
+    );
+
+    const wrapper = container.querySelector<HTMLElement>('.sheet-zoom-wrapper')!;
+    expect(wrapper.style.zoom).toBe('calc(1.2 / var(--ui-zoom, 1))');
+    expect(wrapper.getAttribute('data-score-zoom')).toBe('120');
+
+    rerender(
+      <SheetMusicView abcCode={sampleAbc} zoom={80} onZoomChange={vi.fn()} />
+    );
+    expect(wrapper.style.zoom).toBe('calc(0.8 / var(--ui-zoom, 1))');
+    expect(wrapper.getAttribute('data-score-zoom')).toBe('80');
+
+    document.documentElement.style.removeProperty('--ui-zoom');
   });
 
   it('triggers onZoomChange on ctrl+wheel scroll gesture without page zoom', () => {
