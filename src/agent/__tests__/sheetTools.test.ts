@@ -61,10 +61,22 @@ describe('sheet tools', () => {
       kinds: ['explanation'],
     });
 
-    expect(summary.details).toMatchObject({ totalMeasures: 2, voices: ['voice-1'] });
+    expect(summary.details).toMatchObject({
+      totalMeasures: 2,
+      voices: ['voice-1'],
+      keySignature: 'C major (0 sharps/flats)',
+    });
+    expect((range.details as any)).toMatchObject({
+      startMeasure: 1,
+      endMeasure: 2,
+      activeKeyAtStart: 'C',
+      activeMeterAtStart: '4/4',
+    });
     expect((range.details as any).measures[0]).toMatchObject({
       measureNumber: 1,
       abcSlice: snapshot.measureIndex.get(1)?.abcSlice,
+      activeKey: 'C',
+      activeMeter: '4/4',
     });
     expect((range.details as any).measures).toHaveLength(2);
     for (const measure of (range.details as any).measures) {
