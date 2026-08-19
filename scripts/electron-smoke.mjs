@@ -1404,20 +1404,25 @@ try {
         const source = rows[0].getBoundingClientRect();
         const target = rows[1].getBoundingClientRect();
         return {
-          source: { x: source.left + 20, y: source.top + source.height * 0.1 },
-          target: { x: target.left + 20, y: target.top + target.height * 0.25 },
+          source: { x: source.left + 20, y: source.top + source.height / 2 },
+          target: { x: target.left + 20, y: target.top + target.height * 0.75 },
+          sourceTop: source.top,
+          targetTop: target.top,
           names: rows.map((row) => row.querySelector('.file-item-name')?.textContent),
           ids: storedDocuments.map((document) => document.id),
-          rowsAreNativeDraggables: rows.every((row) => row.draggable),
+          rowsAvoidNativeDrag: rows.every((row) => !row.draggable),
+          leadingFileIconCount: document.querySelectorAll('.file-list .file-icon').length,
         };
       }
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
-    throw new Error('Two-file rail did not render for native drag smoke.');
+    throw new Error('Two-file rail did not render for sortable drag smoke.');
   })()`);
   assert(
-    dragGeometry.names.length === 2 && dragGeometry.rowsAreNativeDraggables,
-    `File rows did not start as native draggables (${JSON.stringify(dragGeometry)}).`,
+    dragGeometry.names.length === 2
+      && dragGeometry.rowsAvoidNativeDrag
+      && dragGeometry.leadingFileIconCount === 0,
+    `File rows did not start as compact pointer-sortable rows (${JSON.stringify(dragGeometry)}).`,
   );
   const expectedFileNames = [...dragGeometry.names].reverse();
   const expectedFileIds = [...dragGeometry.ids].reverse();
@@ -1452,20 +1457,49 @@ try {
   await delay(50);
   const activeDragState = await firstCDP.evaluate(`(() => {
     const rows = [...document.querySelectorAll('.file-list .file-item')];
-    const placeholder = document.querySelector('.file-list .drag-source-placeholder');
+    const source = document.querySelector('.file-list .file-item.dragging');
+    const overlay = document.querySelector('.file-item-drag-overlay');
+    const sourceRect = source?.getBoundingClientRect();
+    const overlayRect = overlay?.getBoundingClientRect();
+    const sourceNameRect = source?.querySelector('.file-item-name')?.getBoundingClientRect();
+    const overlayNameRect = overlay?.querySelector('.file-item-name')?.getBoundingClientRect();
     return {
       names: rows.map((row) => row.querySelector('.file-item-name')?.textContent),
       placeholderCount: document.querySelectorAll('.file-list .drag-source-placeholder').length,
-      placeholderOpacity: placeholder ? getComputedStyle(placeholder).opacity : null,
-      nativeDragImageCount: document.querySelectorAll('.file-item-drag-image').length,
+      sourceOpacity: source ? Number.parseFloat(getComputedStyle(source).opacity) : null,
+      transformedRowCount: rows.filter((row) => {
+        const transform = getComputedStyle(row).transform;
+        return transform && transform !== 'none';
+      }).length,
+      overlayCount: document.querySelectorAll('.file-item-drag-overlay').length,
+      overlayGeometry: sourceRect && overlayRect ? {
+        sourceWidth: sourceRect.width,
+        sourceHeight: sourceRect.height,
+        sourceTop: sourceRect.top,
+        overlayWidth: overlayRect.width,
+        overlayHeight: overlayRect.height,
+        sourceNameHeight: sourceNameRect?.height ?? null,
+        overlayNameHeight: overlayNameRect?.height ?? null,
+      } : null,
     };
   })()`);
   assert(
-    activeDragState.names.join(',') === expectedFileNames.join(',')
-      && activeDragState.placeholderCount === 1
-      && activeDragState.placeholderOpacity === '0'
-      && activeDragState.nativeDragImageCount === 1,
-    `File rows did not shift live around one hidden source slot (${JSON.stringify(activeDragState)}).`,
+    activeDragState.names.join(',') === dragGeometry.names.join(',')
+      && activeDragState.placeholderCount === 0
+      && activeDragState.sourceOpacity > 0
+      && activeDragState.transformedRowCount > 0
+      && activeDragState.overlayCount === 1
+      && activeDragState.overlayGeometry
+      && Math.abs(activeDragState.overlayGeometry.overlayWidth
+        - activeDragState.overlayGeometry.sourceWidth) <= 1
+      && Math.abs(activeDragState.overlayGeometry.overlayHeight
+        - activeDragState.overlayGeometry.sourceHeight) <= 1
+      && Math.abs(activeDragState.overlayGeometry.sourceTop - dragGeometry.targetTop) <= 1
+      && activeDragState.overlayGeometry.sourceNameHeight !== null
+      && activeDragState.overlayGeometry.overlayNameHeight !== null
+      && Math.abs(activeDragState.overlayGeometry.overlayNameHeight
+        - activeDragState.overlayGeometry.sourceNameHeight) <= 0.5,
+    `File rows did not transform around a visible source slot and pointer overlay (${JSON.stringify(activeDragState)}).`,
   );
 
   await firstCDP.call('Input.dispatchMouseEvent', {
@@ -1507,16 +1541,19 @@ try {
           names,
           stored,
           placeholderCount: document.querySelectorAll('.file-list .drag-source-placeholder').length,
-          nativeDragImageCount: document.querySelectorAll('.file-item-drag-image').length,
+          overlayCount: document.querySelectorAll('.file-item-drag-overlay').length,
+          draggingCount: document.querySelectorAll('.file-list .file-item.dragging').length,
         };
       }
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
-    throw new Error('Native file drop did not commit its visible order.');
+    throw new Error('Sortable file drop did not commit its visible order.');
   })()`);
   assert(
-    droppedDragState.placeholderCount === 0 && droppedDragState.nativeDragImageCount === 0,
-    `Native drag artifacts remained after drop (${JSON.stringify(droppedDragState)}).`,
+    droppedDragState.placeholderCount === 0
+      && droppedDragState.overlayCount === 0
+      && droppedDragState.draggingCount === 0,
+    `Sortable drag artifacts remained after drop (${JSON.stringify(droppedDragState)}).`,
   );
 
   await closeCleanly(first, firstCDP);

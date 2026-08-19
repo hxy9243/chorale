@@ -4724,6 +4724,7 @@ body,
 
 .file-list {
   min-width: 0;
+  gap: var(--space-3xs);
   overflow-x: clip;
 }
 
@@ -4746,11 +4747,10 @@ body,
 .file-item-select {
   display: flex;
   min-width: 0;
-  min-height: 4rem;
+  min-height: 2.75rem;
   flex: 1;
   align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-xs);
+  padding: var(--space-2xs) var(--space-xs);
   overflow: hidden;
   border: 0;
   border-radius: inherit;
@@ -4766,10 +4766,6 @@ body,
 
 .file-item-actions {
   padding-inline-end: var(--space-xs);
-}
-
-.file-item.dragging {
-  opacity: 0.42;
 }
 
 .file-item.drop-before::after,
@@ -5029,48 +5025,79 @@ body,
   }
 }
 
-/* Hallmark · component refinement: file drag + chat controls + selection context · genre: editorial · theme: Nordic Ledger
+/* Hallmark · component: sortable file list · genre: editorial · theme: Nordic Ledger
  * states: default · hover · focus · active · disabled · loading · error · success
  * contrast: preserved from project tokens
  */
 /* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4 */
 
 .file-list.is-dragging {
-  padding-block-end: var(--space-lg);
+  cursor: grabbing;
 }
 
-.file-item-drag-image {
-  position: fixed;
-  z-index: var(--z-modal);
-  top: 0;
-  left: 0;
-  width: var(--file-drag-image-width, 14.75rem);
-  margin: 0;
-  pointer-events: none;
-  transform: translate(-200vw, -200vh);
+.file-list.is-dragging .file-item {
+  will-change: transform;
+}
+
+.file-item.reorderable,
+.file-item.reorderable .file-item-select {
+  cursor: grab;
+}
+
+.file-list .file-item {
+  min-height: 2.75rem;
+}
+
+.file-item.reorderable:active,
+.file-item.reorderable:active .file-item-select,
+.file-item.dragging,
+.file-item.dragging .file-item-select {
+  cursor: grabbing;
 }
 
 .file-item.dragging,
 .file-item.active.dragging {
-  opacity: 1;
+  opacity: 0.58;
   border-color: var(--color-rule-2);
-  background: var(--color-paper-3);
+  background: var(--color-accent-soft);
   color: var(--color-ink);
 }
 
+.file-drag-overlay-layer {
+  /* dnd-kit positions fixed overlays from screen-space rectangles. Cancel the
+     body's interface zoom here so those coordinates are not scaled twice. */
+  zoom: calc(1 / var(--ui-zoom, 1));
+}
+
+.file-item-drag-overlay {
+  /* Restore interface zoom for the row's typography and spacing while keeping
+     its outer screen-space dimensions equal to the measured source row. */
+  width: calc(100% / var(--ui-zoom, 1));
+  height: calc(100% / var(--ui-zoom, 1));
+  min-height: 0;
+  margin: 0;
+  border-color: var(--color-rule-2);
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
+  pointer-events: none;
+  transform: scale(var(--ui-zoom, 1));
+  transform-origin: top left;
+}
+
+.file-item-drag-overlay .file-item-select {
+  min-height: 100%;
+  cursor: grabbing;
+}
+
+.file-item-drag-overlay .file-item-meta,
 .file-item.dragging .file-item-meta {
   color: var(--color-muted);
 }
 
-.file-item.drag-source-placeholder,
-.file-item.active.drag-source-placeholder {
-  opacity: 0;
-}
-
-.file-item.drop-before,
-.file-item.drop-after {
-  border-color: var(--color-rule);
-  background: var(--color-accent-soft);
+@media (prefers-reduced-motion: reduce) {
+  .file-list .file-item {
+    transition-duration: 0ms !important;
+  }
 }
 
 .agent-history-control {

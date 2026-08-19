@@ -3,7 +3,7 @@ title: "Workspace Layout Spec"
 description: "Specification for the top-level desktop workspace structure, header, file rail, central score workspace, and chat panel"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-08-15
+updated: 2026-08-19
 status: "implemented"
 source_files:
   - src/App.tsx
@@ -30,7 +30,7 @@ related_specs:
 # Workspace Layout Spec
 
 Date: 2026-07-28  
-Updated: 2026-08-15  
+Updated: 2026-08-19
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 ## 1. Goal
@@ -66,7 +66,7 @@ Required content:
 - **Tools**: an `ABC display` toggle; future score tools join this panel rather than the score header
 - **Settings**: its action icon anchors to the bottom of the selection bar and opens application settings directly
 - icon-only panel selections expose hover titles and accessible names
-- file management actions: a visible drag handle per row; direction-aware whole-row drop targets insert before when moving upward and after when moving downward, with matching insertion cues and Arrow Up/Arrow Down keyboard reordering; score deletion allows deleting documents down to 0, which displays an empty workspace placeholder until a file is imported or loaded
+- file management actions: compact 44px rows omit a leading document icon and use the full row as the pointer drag surface; sortable transforms move neighboring rows around a persistent source slot while a matching overlay follows the pointer and settles into place, without a native drag-image handoff or disappearing placeholder; Arrow Up/Arrow Down on the focused file name provides keyboard reordering; score deletion allows deleting documents down to 0, which displays an empty workspace placeholder until a file is imported or loaded
 - vertical scrolling is allowed inside the selected panel; horizontal scrolling is clipped
 - persistent icon rail with collapsible content panel state (`railCollapsed` state) and horizontal drag-to-resize handle when expanded
 - default width at 25% of the logical layout viewport when expanded, bounded between 240px and 560px so long file names remain legible
