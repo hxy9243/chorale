@@ -127,7 +127,7 @@ export const createSheetTools = (
   const readMeasureRangeTool: AgentTool<typeof ReadMeasureRangeParameters> = {
     name: 'read_measure_range',
     label: 'Read measure range',
-    description: 'Read up to 32 continuous written measures with normalized events and ABC slices.',
+    description: 'Read up to 32 continuous written measures as ABC slices.',
     parameters: ReadMeasureRangeParameters,
     execute: async (_toolCallId, params, signal) => {
       throwIfAborted(signal);
@@ -156,7 +156,12 @@ export const createSheetTools = (
             totalMeasures: snapshot.measureIndex.size,
           });
         }
-        measures.push(measure);
+        measures.push({
+          measureNumber: measure.measureNumber,
+          abcSlice: measure.abcSlice,
+          ...(measure.keyChange ? { keyChange: measure.keyChange } : {}),
+          ...(measure.meterChange ? { meterChange: measure.meterChange } : {}),
+        });
       }
       return jsonResult({ startMeasure, endMeasure, measures });
     },

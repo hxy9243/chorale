@@ -126,26 +126,12 @@ type ReadMeasureRangeInput = {
   endMeasure: number;
 };
 
-type MeasuredEvent = {
-  type: 'note' | 'rest';
-  position: MusicalPosition;
-  duration: RationalDuration;
-  voiceId: string;
-  pitches?: Array<{
-    step: string;
-    accidental?: string;
-    octave: number;
-  }>;
-  abcRange?: { start: number; end: number };
-};
-
 type ReadMeasureRangeResult = {
   startMeasure: number;
   endMeasure: number;
   measures: Array<{
     measureNumber: number;
     abcSlice: string;
-    events: MeasuredEvent[];
     keyChange?: string;
     meterChange?: string;
   }>;
@@ -158,7 +144,6 @@ Rules:
 - `endMeasure >= startMeasure`.
 - One call may return at most 32 continuous measures.
 - Larger selections are read through multiple calls against the same snapshot.
-- Simultaneous events retain their individual voices but share the same rational position.
 
 ### 5.3 `get_annotations`
 

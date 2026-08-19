@@ -62,8 +62,19 @@ describe('sheet tools', () => {
     });
 
     expect(summary.details).toMatchObject({ totalMeasures: 2, voices: ['voice-1'] });
-    expect((range.details as any).measures[0]).toBe(snapshot.measureIndex.get(1));
-    expect((range.details as any).measures[0].events).toBe(snapshot.eventIndex.get(1));
+    expect((range.details as any).measures[0]).toMatchObject({
+      measureNumber: 1,
+      abcSlice: snapshot.measureIndex.get(1)?.abcSlice,
+    });
+    expect((range.details as any).measures).toHaveLength(2);
+    for (const measure of (range.details as any).measures) {
+      expect(measure.abcRange).toBeUndefined();
+      expect(measure.events).toBeUndefined();
+    }
+    const serializedRange = JSON.parse((range.content[0] as { text: string }).text);
+    expect(serializedRange).toEqual(range.details);
+    expect((range.content[0] as { text: string }).text).not.toContain('abcRange');
+    expect((range.content[0] as { text: string }).text).not.toContain('events');
     expect(annotations.details).toEqual({ annotations: [snapshot.annotations[0]] });
     expect(parseOnly).toHaveBeenCalledTimes(1);
   });

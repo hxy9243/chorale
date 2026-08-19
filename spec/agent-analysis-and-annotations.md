@@ -230,7 +230,7 @@ The runtime exposes one routing tool and four score tools:
 |---|---|
 | `select_analysis_profile` | Selects one or more predefined prompt profiles and emits visible routing status |
 | `get_score_summary` | Returns title, composer, key, meter, tempo, written-measure count, and declared voices |
-| `read_measure_range` | Returns normalized notes, rests, durations, rational onsets, voices, local key or meter changes, and ABC source slices |
+| `read_measure_range` | Returns ABC source slices and local key or meter changes for a continuous written-measure range |
 | `get_annotations` | Returns canonical annotations intersecting a requested range |
 | `propose_annotations` | Validates and stages annotation proposals without mutating `FileDocument` |
 

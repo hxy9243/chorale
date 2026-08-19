@@ -98,7 +98,7 @@ The score tool suite is:
 - `get_annotations`
 - `propose_annotations`
 
-`read_measure_range` returns exact rational musical positions and is capped at 32 measures per call. `propose_annotations` is capped at 32 proposals per run. There is no agent removal, ABC mutation, metadata mutation, or navigation tool.
+`read_measure_range` returns ABC source slices and is capped at 32 measures per call. `propose_annotations` is capped at 32 proposals per run. There is no agent removal, ABC mutation, metadata mutation, or navigation tool.
 
 ## 6. Proposal review
 

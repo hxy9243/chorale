@@ -39,7 +39,11 @@ describe('score snapshot extraction', () => {
       expect(score.measures.map((measure) => measure.measureNumber), filename)
         .toEqual(score.measures.map((_, index) => index + 1));
       for (const measure of score.measures) {
-        expect(measure.abcSlice, filename).toBe(abc.slice(measure.abcRange.start, measure.abcRange.end));
+        if (score.voices.length <= 1) {
+          expect(measure.abcSlice, filename).toBe(abc.slice(measure.abcRange.start, measure.abcRange.end));
+        } else {
+          expect(measure.abcSlice, filename).toBeTruthy();
+        }
         for (const event of measure.events) {
           expect(event.position.measure, filename).toBe(measure.measureNumber);
           expect(isRationalDuration(event.position.offset), filename).toBe(true);
@@ -88,6 +92,8 @@ describe('score snapshot extraction', () => {
 
     const voices = extractScore(readFixture('06-multiple-voices.abc'));
     expect(voices.voices).toEqual(['upper', 'lower']);
+    expect(voices.measures[0].abcSlice).toBe('[V:upper] C E G c |\n[V:lower] C, G, C E |');
+    expect(voices.measures[1].abcSlice).toBe('[V:upper] B A G F |]\n[V:lower] G, D G,2 |]');
     expect(voices.measures[0].events.filter((event) => (
       event.position.offset.numerator === 0
     )).map((event) => event.voiceId)).toEqual(['lower', 'upper']);

@@ -117,10 +117,17 @@ type ParsedTune = {
   getMeter?: () => ParsedElement;
 };
 
+type VoiceSegment = {
+  voiceId: string;
+  starts: number[];
+  ends: number[];
+};
+
 type MutableMeasure = {
   measureNumber: number;
   starts: number[];
   ends: number[];
+  voiceSegments: VoiceSegment[];
   events: MeasuredScoreEvent[];
   keyChange?: string;
   meterChange?: string;
@@ -178,11 +185,72 @@ const pitchFromParsed = (pitch: ParsedPitch): ScorePitch | null => {
   };
 };
 
-const addElementRange = (measure: MutableMeasure, element: ParsedElement) => {
+const addElementRange = (
+  measure: MutableMeasure,
+  voiceId: string,
+  element: ParsedElement,
+) => {
   const range = sourceRange(element);
   if (!range) return;
   measure.starts.push(range.start);
   measure.ends.push(range.end);
+  let segment = measure.voiceSegments.at(-1);
+  if (!segment || segment.voiceId !== voiceId) {
+    segment = { voiceId, starts: [], ends: [] };
+    measure.voiceSegments.push(segment);
+  }
+  segment.starts.push(range.start);
+  segment.ends.push(range.end);
+};
+
+const formatVoiceSlice = (voiceId: string, sliceText: string): string => {
+  const trimmed = sliceText.trim();
+  if (trimmed.startsWith(`[V:${voiceId}`) || trimmed.startsWith(`V:${voiceId}`)) {
+    return trimmed;
+  }
+  return `[V:${voiceId}] ${trimmed}`;
+};
+
+const buildMeasureAbcSlice = (
+  abc: string,
+  measure: MutableMeasure,
+  isMultiVoice: boolean,
+): string => {
+  if (measure.voiceSegments.length === 0) {
+    const start = Math.min(...measure.starts);
+    const end = Math.max(...measure.ends);
+    return Number.isFinite(start) && Number.isFinite(end) ? abc.slice(start, end) : '';
+  }
+
+  if (!isMultiVoice) {
+    const start = Math.min(...measure.starts);
+    const end = Math.max(...measure.ends);
+    return abc.slice(start, end);
+  }
+
+  const voiceMap = new Map<string, Array<{ start: number; end: number }>>();
+  for (const segment of measure.voiceSegments) {
+    if (segment.starts.length === 0 || segment.ends.length === 0) continue;
+    const ranges = voiceMap.get(segment.voiceId) || [];
+    ranges.push({
+      start: Math.min(...segment.starts),
+      end: Math.max(...segment.ends),
+    });
+    voiceMap.set(segment.voiceId, ranges);
+  }
+
+  const lines: string[] = [];
+  for (const [voiceId, ranges] of voiceMap) {
+    const voiceText = ranges
+      .map(({ start, end }) => abc.slice(start, end).trim())
+      .filter(Boolean)
+      .join(' ');
+    if (voiceText) {
+      lines.push(formatVoiceSlice(voiceId, voiceText));
+    }
+  }
+
+  return lines.join('\n');
 };
 
 const warningText = (warnings: string[]) => warnings
@@ -270,7 +338,7 @@ export const extractScore = (abc: string): ExtractedScore => {
   const getMeasure = (measureNumber: number) => {
     let measure = measures.get(measureNumber);
     if (!measure) {
-      measure = { measureNumber, starts: [], ends: [], events: [] };
+      measure = { measureNumber, starts: [], ends: [], voiceSegments: [], events: [] };
       measures.set(measureNumber, measure);
     }
     return measure;
@@ -292,7 +360,7 @@ export const extractScore = (abc: string): ExtractedScore => {
         for (const element of voice) {
           const measure = getMeasure(state.measureNumber);
           if (element.el_type === 'bar') {
-            addElementRange(measure, element);
+            addElementRange(measure, voiceId, element);
             if (state.hasEvents) {
               state.measureNumber += 1;
               state.offset = ZERO_DURATION;
@@ -302,12 +370,12 @@ export const extractScore = (abc: string): ExtractedScore => {
           }
           if (element.el_type === 'key') {
             measure.keyChange = formatKey(element);
-            addElementRange(measure, element);
+            addElementRange(measure, voiceId, element);
             continue;
           }
           if (element.el_type === 'meter') {
             measure.meterChange = formatMeter(element);
-            addElementRange(measure, element);
+            addElementRange(measure, voiceId, element);
             continue;
           }
           if (element.el_type !== 'note' || typeof element.duration !== 'number') continue;
@@ -334,7 +402,7 @@ export const extractScore = (abc: string): ExtractedScore => {
           };
           measure.events.push(event);
           state.hasEvents = true;
-          addElementRange(measure, element);
+          addElementRange(measure, voiceId, element);
           state.offset = addRationalDurations(state.offset, duration);
           if (element.endTriplet) state.tupletMultiplier = 1;
         }
@@ -345,6 +413,7 @@ export const extractScore = (abc: string): ExtractedScore => {
     }
   }
 
+  const isMultiVoice = encounteredVoiceIds.length > 1;
   const writtenMeasures = [...measures.values()]
     .filter((measure) => measure.events.length > 0 || measure.starts.length > 0)
     .sort((left, right) => left.measureNumber - right.measureNumber)
@@ -358,7 +427,7 @@ export const extractScore = (abc: string): ExtractedScore => {
       ));
       return {
         measureNumber: measure.measureNumber,
-        abcSlice: abc.slice(start, end),
+        abcSlice: buildMeasureAbcSlice(abc, measure, isMultiVoice),
         abcRange: { start, end },
         events,
         ...(measure.keyChange ? { keyChange: measure.keyChange } : {}),
