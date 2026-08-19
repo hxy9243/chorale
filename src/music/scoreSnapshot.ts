@@ -413,8 +413,8 @@ export const extractScore = (abc: string): ExtractedScore => {
     for (const staff of line.staff || []) {
       const staffKey = formatKey(staff.key);
       const staffMeter = formatMeter(staff.meter);
-      const voiceId = declaredVoiceIds[voiceSlot] || `voice-${voiceSlot + 1}`;
-      const stateBeforeStaff = voiceStates.get(voiceId) || {
+      const firstVoiceIdOnStaff = declaredVoiceIds[voiceSlot] || `voice-${voiceSlot + 1}`;
+      const stateBeforeStaff = voiceStates.get(firstVoiceIdOnStaff) || {
         measureNumber: 1,
         offset: ZERO_DURATION,
         tupletMultiplier: 1,
@@ -437,6 +437,7 @@ export const extractScore = (abc: string): ExtractedScore => {
       }
 
       for (const voice of staff.voices || []) {
+        const voiceId = declaredVoiceIds[voiceSlot] || `voice-${voiceSlot + 1}`;
         if (!encounteredVoiceIds.includes(voiceId)) encounteredVoiceIds.push(voiceId);
         const state = voiceStates.get(voiceId) || {
           measureNumber: 1,

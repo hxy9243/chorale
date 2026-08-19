@@ -361,4 +361,40 @@ describe('score snapshot extraction', () => {
     expect(score.measures[3].activeKey).toBe('D');
     expect(score.measures[3].activeMeter).toBe('3/4');
   });
+
+  it('correctly extracts all voices and builds complete multi-voice abcSlices for SATB staves', () => {
+    const satbAbc = [
+      'X:1',
+      'T:SATB Chorale',
+      'M:4/4',
+      'L:1/4',
+      'K:G',
+      '%%staves [(S A) (T B)]',
+      'V:S clef=treble',
+      'V:A clef=treble',
+      'V:T clef=bass',
+      'V:B clef=bass',
+      '[V:S] G A B c | d c B A | G4 |]',
+      '[V:A] D D D E | F F G F | D4 |]',
+      '[V:T] B, C B, G, | A, A, D C | B,4 |]',
+      '[V:B] G,, F,, G,, C, | F,, D,, G,, D,, | G,,4 |]',
+    ].join('\n');
+
+    const score = extractScore(satbAbc);
+    expect(score.voices).toEqual(['S', 'A', 'T', 'B']);
+    expect(score.measures).toHaveLength(3);
+
+    // Measure 1 should contain all 4 voices
+    expect(score.measures[0].abcSlice).toBe(
+      '[V:S] G A B c |\n[V:A] D D D E |\n[V:T] B, C B, G, |\n[V:B] G,, F,, G,, C, |',
+    );
+    // Measure 2 should contain all 4 voices
+    expect(score.measures[1].abcSlice).toBe(
+      '[V:S] d c B A |\n[V:A] F F G F |\n[V:T] A, A, D C |\n[V:B] F,, D,, G,, D,, |',
+    );
+    // Measure 3 should contain all 4 voices
+    expect(score.measures[2].abcSlice).toBe(
+      '[V:S] G4 |]\n[V:A] D4 |]\n[V:T] B,4 |]\n[V:B] G,,4 |]',
+    );
+  });
 });
