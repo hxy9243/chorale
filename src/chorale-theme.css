@@ -5064,29 +5064,8 @@ body,
 }
 
 .score-status-item::before {
-  width: var(--space-xs);
-  height: var(--space-xs);
-  flex: none;
-  border-radius: var(--radius-round);
-  background: var(--color-rule-2);
-  content: "";
-}
-
-.score-status-item.ready::before,
-.score-status-item.save.saved::before {
-  background: var(--color-success);
-}
-
-.score-status-item.save.saving::before {
-  background: var(--color-warning);
-}
-
-.score-status-item.save.error {
-  color: var(--color-error);
-}
-
-.score-status-item.save.error::before {
-  background: var(--color-error);
+  display: none;
+  content: none;
 }
 
 /* The source pane owns its close affordance. */

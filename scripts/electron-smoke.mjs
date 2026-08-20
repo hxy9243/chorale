@@ -1577,7 +1577,12 @@ try {
           const showChat = document.querySelector('[title="Show score chat"]');
           const fileOrder = [...document.querySelectorAll('.file-list .file-item-name')]
             .map((element) => element.textContent);
-          if (value !== null && showChat && fileOrder.length === expectedFileNames.length) {
+          if (
+            value !== null
+            && showChat
+            && fileOrder.length === expectedFileNames.length
+            && document.querySelector('.scale-val')?.textContent === '110%'
+          ) {
             const initiallyOpen = Boolean(document.querySelector('[aria-label="Current sheet assistant"]'));
             showChat.click();
             await new Promise((resolve) => setTimeout(resolve, 25));
