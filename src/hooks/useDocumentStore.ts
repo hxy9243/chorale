@@ -1,13 +1,32 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Annotation, AnnotationId, FileDocument, ScoreAnchor, ScoreInfo } from '../types/document';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type {
+  Annotation,
+  AnnotationId,
+  EditHistoryEntry,
+  FileDocument,
+  ScoreAnchor,
+  ScoreInfo,
+  ScoreVersion,
+} from '../types/document';
 import type { MusicSample } from '../types/music';
 import { PRESET_SAMPLES } from '../data/samples';
 import { extractMusicXml, parseMusicXmlToAbc } from '../utils/xmlParser';
 import {
   createDocumentFromAbc,
+  limitScoreVersions,
+  parseAbcMetadata,
   sampleToDocument,
-  updateDocumentAbc,
 } from '../utils/fileSession';
+import {
+  createAnnotationHistoryEntry,
+  createBatchAnnotationsHistoryEntry,
+  createBodyHistoryEntry,
+  createMetadataHistoryEntry,
+  limitHistoryEntries,
+  MAX_HISTORY_ENTRIES,
+  synthesizeInitialHistory,
+} from '../utils/fileHistory';
+import { parseAbcHeaderMetadata, updateAbcHeaderMetadata, type ScoreMetadata } from '../utils/abcMetadata';
 
 import { storageAdapter } from '../utils/storageAdapter';
 import {
@@ -43,6 +62,26 @@ export const useDocumentStore = () => {
   const activeFileName = activeDocument?.name || '';
   const abcCode = activeDocument?.abcSource || '';
   const abcRevision = activeDocument?.revision || 0;
+
+  const editingHistory = useMemo((): EditHistoryEntry[] => {
+    if (!activeDocument) return [];
+    return synthesizeInitialHistory(activeDocument);
+  }, [activeDocument]);
+
+  const activeHistoryIndex = useMemo(() => {
+    if (!activeDocument || editingHistory.length === 0) return 0;
+    if (
+      activeDocument.historyIndex !== undefined &&
+      activeDocument.historyIndex >= 0 &&
+      activeDocument.historyIndex < editingHistory.length
+    ) {
+      return activeDocument.historyIndex;
+    }
+    return editingHistory.length - 1;
+  }, [activeDocument, editingHistory]);
+
+  const canUndo = activeHistoryIndex > 0;
+  const canRedo = activeHistoryIndex < editingHistory.length - 1;
 
   // Hydrate documents from IndexedDB on mount
   useEffect(() => {
@@ -108,12 +147,106 @@ export const useDocumentStore = () => {
 
   const handleAbcChange = useCallback((newAbc: string, scoreInfoOverrides?: Partial<ScoreInfo>) => {
     if (!activeFileId) return;
+    const hasScoreInfoOverrides = scoreInfoOverrides !== undefined && Object.keys(scoreInfoOverrides).length > 0;
     setDocuments((docs) =>
-      docs.map((doc) => (
-        doc.id === activeFileId
-          ? updateDocumentAbc(doc, newAbc, 'manual-edit', scoreInfoOverrides)
-          : doc
-      ))
+      docs.map((doc) => {
+        if (doc.id !== activeFileId) return doc;
+        if (doc.abcSource === newAbc) {
+          if (!hasScoreInfoOverrides) return doc;
+          return {
+            ...doc,
+            scoreInfo: { ...doc.scoreInfo, ...scoreInfoOverrides },
+            updatedAt: new Date().toISOString(),
+          };
+        }
+
+        const currentHistory = synthesizeInitialHistory(doc);
+        const currentIndex = doc.historyIndex !== undefined && doc.historyIndex >= 0 && doc.historyIndex < currentHistory.length
+          ? doc.historyIndex
+          : currentHistory.length - 1;
+        const trimmedHistory = currentHistory.slice(0, currentIndex + 1);
+        const newHistoryEntry = createBodyHistoryEntry(doc, newAbc);
+        const nextHistory = limitHistoryEntries([...trimmedHistory, newHistoryEntry], MAX_HISTORY_ENTRIES);
+
+        const now = new Date().toISOString();
+        const nextRevision = doc.revision + 1;
+        const newVersion: ScoreVersion = {
+          revision: nextRevision,
+          abcSource: newAbc,
+          createdAt: now,
+          reason: 'manual-edit',
+        };
+
+        const parsedMeta = parseAbcMetadata(newAbc);
+
+        return {
+          ...doc,
+          abcSource: newAbc,
+          revision: nextRevision,
+          scoreInfo: {
+            ...doc.scoreInfo,
+            title: parsedMeta.title || doc.scoreInfo.title,
+            composer: parsedMeta.composer || doc.scoreInfo.composer,
+            key: parsedMeta.key || doc.scoreInfo.key,
+            meter: parsedMeta.meter || doc.scoreInfo.meter,
+            tempoText: parsedMeta.tempoText || doc.scoreInfo.tempoText,
+            ...scoreInfoOverrides,
+          },
+          versions: limitScoreVersions([...doc.versions, newVersion]),
+          history: nextHistory,
+          historyIndex: nextHistory.length - 1,
+          updatedAt: now,
+        };
+      })
+    );
+  }, [activeFileId]);
+
+  const handleUpdateMetadata = useCallback((updates: Partial<ScoreMetadata>) => {
+    if (!activeFileId) return;
+    setDocuments((docs) =>
+      docs.map((doc) => {
+        if (doc.id !== activeFileId) return doc;
+        const newAbc = updateAbcHeaderMetadata(doc.abcSource, updates);
+        if (newAbc === doc.abcSource) return doc;
+
+        const currentHistory = synthesizeInitialHistory(doc);
+        const currentIndex = doc.historyIndex !== undefined && doc.historyIndex >= 0 && doc.historyIndex < currentHistory.length
+          ? doc.historyIndex
+          : currentHistory.length - 1;
+        const trimmedHistory = currentHistory.slice(0, currentIndex + 1);
+        const newHistoryEntry = createMetadataHistoryEntry(doc, newAbc, updates);
+        const nextHistory = limitHistoryEntries([...trimmedHistory, newHistoryEntry], MAX_HISTORY_ENTRIES);
+
+        const now = new Date().toISOString();
+        const nextRevision = doc.revision + 1;
+        const newVersion: ScoreVersion = {
+          revision: nextRevision,
+          abcSource: newAbc,
+          createdAt: now,
+          reason: 'manual-edit',
+        };
+
+        const parsedMeta = parseAbcHeaderMetadata(newAbc);
+
+        return {
+          ...doc,
+          abcSource: newAbc,
+          revision: nextRevision,
+          scoreInfo: {
+            ...doc.scoreInfo,
+            title: parsedMeta.title || doc.scoreInfo.title,
+            subtitle: parsedMeta.subtitle !== undefined ? parsedMeta.subtitle : doc.scoreInfo.subtitle,
+            composer: parsedMeta.composer || doc.scoreInfo.composer,
+            key: parsedMeta.key || doc.scoreInfo.key,
+            meter: parsedMeta.meter || doc.scoreInfo.meter,
+            tempoText: parsedMeta.tempoText || doc.scoreInfo.tempoText,
+          },
+          versions: limitScoreVersions([...doc.versions, newVersion]),
+          history: nextHistory,
+          historyIndex: nextHistory.length - 1,
+          updatedAt: now,
+        };
+      })
     );
   }, [activeFileId]);
 
@@ -243,12 +376,30 @@ export const useDocumentStore = () => {
   }, []);
 
   const handleAddAnnotations = useCallback((annotations: readonly Annotation[]) => {
-    if (!activeFileId) return;
-    setDocuments((current) => current.map((document) => (
-      document.id === activeFileId
-        ? appendDocumentAnnotations(document, annotations)
-        : document
-    )));
+    if (!activeFileId || annotations.length === 0) return;
+    setDocuments((current) => current.map((document) => {
+      if (document.id !== activeFileId) return document;
+
+      const docWithNewAnnotations = appendDocumentAnnotations(document, annotations);
+      const currentHistory = synthesizeInitialHistory(document);
+      const currentIndex = document.historyIndex !== undefined && document.historyIndex >= 0 && document.historyIndex < currentHistory.length
+        ? document.historyIndex
+        : currentHistory.length - 1;
+      const trimmedHistory = currentHistory.slice(0, currentIndex + 1);
+
+      const newHistoryEntry = annotations.length === 1
+        ? createAnnotationHistoryEntry(document, 'add', annotations[0], docWithNewAnnotations.annotations)
+        : createBatchAnnotationsHistoryEntry(document, 'add', annotations, docWithNewAnnotations.annotations);
+
+      const nextHistory = limitHistoryEntries([...trimmedHistory, newHistoryEntry], MAX_HISTORY_ENTRIES);
+
+      return {
+        ...docWithNewAnnotations,
+        history: nextHistory,
+        historyIndex: nextHistory.length - 1,
+        updatedAt: newHistoryEntry.timestamp,
+      };
+    }));
   }, [activeFileId]);
 
   const handleAddAnnotation = useCallback((annotation: Annotation) => {
@@ -257,21 +408,104 @@ export const useDocumentStore = () => {
 
   const handleUpdateAnnotation = useCallback((annotation: Annotation) => {
     if (!activeFileId) return;
-    setDocuments((current) => current.map((document) => (
-      document.id === activeFileId
-        ? updateDocumentAnnotation(document, annotation)
-        : document
-    )));
+    setDocuments((current) => current.map((document) => {
+      if (document.id !== activeFileId) return document;
+
+      const docWithUpdatedAnnotations = updateDocumentAnnotation(document, annotation);
+      const currentHistory = synthesizeInitialHistory(document);
+      const currentIndex = document.historyIndex !== undefined && document.historyIndex >= 0 && document.historyIndex < currentHistory.length
+        ? document.historyIndex
+        : currentHistory.length - 1;
+      const trimmedHistory = currentHistory.slice(0, currentIndex + 1);
+
+      const newHistoryEntry = createAnnotationHistoryEntry(
+        document,
+        'edit',
+        annotation,
+        docWithUpdatedAnnotations.annotations
+      );
+      const nextHistory = limitHistoryEntries([...trimmedHistory, newHistoryEntry], MAX_HISTORY_ENTRIES);
+
+      return {
+        ...docWithUpdatedAnnotations,
+        history: nextHistory,
+        historyIndex: nextHistory.length - 1,
+        updatedAt: newHistoryEntry.timestamp,
+      };
+    }));
   }, [activeFileId]);
 
   const handleDeleteAnnotation = useCallback((annotationId: AnnotationId) => {
     if (!activeFileId) return;
-    setDocuments((current) => current.map((document) => (
-      document.id === activeFileId
-        ? deleteDocumentAnnotation(document, annotationId)
-        : document
-    )));
+    setDocuments((current) => current.map((document) => {
+      if (document.id !== activeFileId) return document;
+
+      const deletedAnnotation = document.annotations.find((a) => a.id === annotationId);
+      const docWithDeletedAnnotations = deleteDocumentAnnotation(document, annotationId);
+      const currentHistory = synthesizeInitialHistory(document);
+      const currentIndex = document.historyIndex !== undefined && document.historyIndex >= 0 && document.historyIndex < currentHistory.length
+        ? document.historyIndex
+        : currentHistory.length - 1;
+      const trimmedHistory = currentHistory.slice(0, currentIndex + 1);
+
+      const newHistoryEntry = deletedAnnotation
+        ? createAnnotationHistoryEntry(
+            document,
+            'delete',
+            deletedAnnotation,
+            docWithDeletedAnnotations.annotations
+          )
+        : createBodyHistoryEntry(document, document.abcSource, 'Deleted annotation');
+
+      const nextHistory = limitHistoryEntries([...trimmedHistory, newHistoryEntry], MAX_HISTORY_ENTRIES);
+
+      return {
+        ...docWithDeletedAnnotations,
+        history: nextHistory,
+        historyIndex: nextHistory.length - 1,
+        updatedAt: newHistoryEntry.timestamp,
+      };
+    }));
   }, [activeFileId]);
+
+  const handleRevertTo = useCallback((target: string | number) => {
+    if (!activeFileId || editingHistory.length === 0) return;
+
+    let targetIndex = -1;
+    if (typeof target === 'number') {
+      targetIndex = target;
+    } else {
+      targetIndex = editingHistory.findIndex((entry) => entry.id === target);
+    }
+
+    if (targetIndex < 0 || targetIndex >= editingHistory.length) return;
+    const targetEntry = editingHistory[targetIndex];
+
+    setDocuments((docs) =>
+      docs.map((doc) => {
+        if (doc.id !== activeFileId) return doc;
+        return {
+          ...doc,
+          abcSource: targetEntry.abcSource,
+          revision: targetEntry.revision,
+          scoreInfo: { ...targetEntry.scoreInfo },
+          annotations: [...targetEntry.annotations],
+          historyIndex: targetIndex,
+          updatedAt: new Date().toISOString(),
+        };
+      })
+    );
+  }, [activeFileId, editingHistory]);
+
+  const handleUndo = useCallback(() => {
+    if (!canUndo) return;
+    handleRevertTo(activeHistoryIndex - 1);
+  }, [canUndo, activeHistoryIndex, handleRevertTo]);
+
+  const handleRedo = useCallback(() => {
+    if (!canRedo) return;
+    handleRevertTo(activeHistoryIndex + 1);
+  }, [canRedo, activeHistoryIndex, handleRevertTo]);
 
   return {
     documents,
@@ -286,8 +520,16 @@ export const useDocumentStore = () => {
     saveStatus,
     loading,
     error,
+    editingHistory,
+    activeHistoryIndex,
+    canUndo,
+    canRedo,
+    handleUndo,
+    handleRedo,
+    handleRevertTo,
     handleSelectFile,
     handleAbcChange,
+    handleUpdateMetadata,
     handleProcessMusicXml,
     handleDeleteDocument,
     handleReorderDocument,

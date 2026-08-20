@@ -621,4 +621,144 @@ describe('App Integration', () => {
 
     saveSpy.mockRestore();
   });
+
+  it('supports undo and redo in headbar and history popup reverting', async () => {
+    const mockDoc = {
+      id: 'hist-app-doc',
+      name: 'History Test.abc',
+      sourceType: 'abc' as const,
+      abcSource: 'X:1\nT:Original Piece\nC:Composer A\nM:4/4\nK:C\nCDEF',
+      revision: 1,
+      annotations: [],
+      chats: [],
+      versions: [],
+      scoreInfo: { title: 'Original Piece', composer: 'Composer A', key: 'C', meter: '4/4' },
+      createdAt: '2026-08-03T00:00:00.000Z',
+      updatedAt: '2026-08-03T00:00:00.000Z',
+    };
+    await storageAdapter.saveDocuments([mockDoc]);
+    localStorage.setItem('chorale.workspace.activeFileId', 'hist-app-doc');
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Original Piece');
+    });
+
+    const undoBtn = screen.getByRole('button', { name: 'Undo last edit' }) as HTMLButtonElement;
+    const redoBtn = screen.getByRole('button', { name: 'Redo edit' }) as HTMLButtonElement;
+
+    expect(undoBtn.disabled).toBe(true);
+    expect(redoBtn.disabled).toBe(true);
+
+    // Edit score title
+    const titleButton = screen.getByRole('button', { name: /Score title: Original Piece/i });
+    fireEvent.doubleClick(titleButton);
+    const titleInput = screen.getByRole('textbox', { name: 'Edit score title' });
+    fireEvent.change(titleInput, { target: { value: 'Modified Piece' } });
+    fireEvent.keyDown(titleInput, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Modified Piece');
+    });
+
+    // Undo button should now be enabled
+    expect(undoBtn.disabled).toBe(false);
+
+    // Click Undo in headbar
+    fireEvent.click(undoBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Original Piece');
+    });
+    expect(redoBtn.disabled).toBe(false);
+
+    // Click Redo in headbar
+    fireEvent.click(redoBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Modified Piece');
+    });
+
+    // Open tools panel and editing history modal
+    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
+    const historyToolBtn = screen.getByRole('button', { name: 'Open file editing history popup' });
+    fireEvent.click(historyToolBtn);
+
+    // History dialog should be visible
+    expect(screen.getByRole('dialog', { name: 'Editing History' })).toBeDefined();
+    expect(screen.getAllByText('Origin').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Metadata · title')).toBeDefined();
+
+    // Revert to origin step
+    const revertBtn = screen.getByRole('button', { name: /Revert score to step #1/i });
+    fireEvent.click(revertBtn);
+
+    // Score title is restored to Original Piece
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Original Piece');
+    });
+
+    // Close history modal
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.queryByRole('dialog', { name: 'Editing History' })).toBeNull();
+  });
+
+  it('persists historyIndex across reloads', async () => {
+    const mockDoc = {
+      id: 'hist-persist-doc',
+      name: 'Persist Test.abc',
+      sourceType: 'abc' as const,
+      abcSource: 'X:1\nT:Initial\nK:C\nC',
+      revision: 1,
+      annotations: [],
+      chats: [],
+      versions: [],
+      scoreInfo: { title: 'Initial' },
+      history: [
+        {
+          id: 'hist-1',
+          revision: 1,
+          timestamp: '2026-08-01T00:00:00.000Z',
+          category: 'origin' as const,
+          actionType: 'initial' as const,
+          summary: 'Initial score: Initial',
+          abcSource: 'X:1\nT:Initial\nK:C\nC',
+          scoreInfo: { title: 'Initial' },
+          annotations: [],
+        },
+        {
+          id: 'hist-2',
+          revision: 2,
+          timestamp: '2026-08-01T00:01:00.000Z',
+          category: 'metadata' as const,
+          actionType: 'edit' as const,
+          summary: 'Title → "Updated Title"',
+          abcSource: 'X:1\nT:Updated Title\nK:C\nC',
+          scoreInfo: { title: 'Updated Title' },
+          annotations: [],
+        },
+      ],
+      historyIndex: 0,
+      createdAt: '2026-08-01T00:00:00.000Z',
+      updatedAt: '2026-08-01T00:00:00.000Z',
+    };
+
+    await storageAdapter.saveDocuments([mockDoc]);
+    localStorage.setItem('chorale.workspace.activeFileId', 'hist-persist-doc');
+
+    const { unmount } = render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Initial');
+    });
+
+    const undoBtn = screen.getByRole('button', { name: 'Undo last edit' }) as HTMLButtonElement;
+    const redoBtn = screen.getByRole('button', { name: 'Redo edit' }) as HTMLButtonElement;
+
+    expect(undoBtn.disabled).toBe(true);
+    expect(redoBtn.disabled).toBe(false);
+
+    unmount();
+  });
 });

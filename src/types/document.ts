@@ -95,6 +95,24 @@ export type ChatThreadSummary = {
   updatedAt: string;
 };
 
+export type EditCategory = 'origin' | 'metadata' | 'body' | 'annotation';
+export type EditActionType = 'add' | 'edit' | 'delete' | 'initial';
+
+export type EditHistoryEntry = {
+  id: string;
+  revision: RevisionNumber;
+  timestamp: string;
+  category: EditCategory;
+  actionType: EditActionType;
+  summary: string;
+  details?: string;
+  abcSource: string;
+  scoreInfo: ScoreInfo;
+  annotations: Annotation[];
+  annotationKind?: AnnotationKind;
+  metadataField?: string;
+};
+
 export type FileDocument = {
   id: FileId;
   name: string;
@@ -105,6 +123,8 @@ export type FileDocument = {
   annotations: Annotation[];
   chats: ChatThreadSummary[];
   versions: ScoreVersion[];
+  history?: EditHistoryEntry[];
+  historyIndex?: number;
   createdAt: string;
   updatedAt: string;
 };

@@ -21,6 +21,7 @@ import {
   AlertCircle,
   Braces,
   FolderOpen,
+  History,
   Plus,
   Settings,
   Trash2,
@@ -74,6 +75,8 @@ interface FileRailProps {
   editorVisible?: boolean;
   onToggleEditor?: () => void;
   onOpenSettings?: () => void;
+  onOpenHistory?: () => void;
+  historyCount?: number;
 }
 
 interface FileItemTextProps {
@@ -204,6 +207,8 @@ export const FileRail: React.FC<FileRailProps> = ({
   editorVisible = false,
   onToggleEditor,
   onOpenSettings,
+  onOpenHistory,
+  historyCount = 0,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activePanel, setActivePanel] = useState<RailPanel>('files');
@@ -461,6 +466,21 @@ export const FileRail: React.FC<FileRailProps> = ({
           >
             <Braces size={16} aria-hidden="true" />
             <span>ABC display</span>
+          </button>
+          <button
+            type="button"
+            className="rail-tool-button history"
+            onClick={onOpenHistory}
+            title="Open file editing history popup"
+            aria-label="Open file editing history popup"
+          >
+            <History size={16} aria-hidden="true" />
+            <span>Editing history</span>
+            {historyCount > 0 && (
+              <span className="rail-tool-badge" aria-label={`${historyCount} history revisions`}>
+                {historyCount}
+              </span>
+            )}
           </button>
         </section>
       </div>

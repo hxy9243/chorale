@@ -3,6 +3,7 @@ import type {
   Annotation,
   AnnotationBase,
   AnnotationProposal,
+  EditHistoryEntry,
   FileDocument,
   MeasureSpan,
   ScoreInfo,
@@ -230,6 +231,53 @@ const normalizeVersion = (value: unknown): ScoreVersion | null => {
   };
 };
 
+const normalizeEditHistoryEntry = (value: unknown): EditHistoryEntry | null => {
+  if (!isRecord(value)) return null;
+  const id = nonEmptyString(value.id);
+  const timestamp = nonEmptyString(value.timestamp);
+  const summary = nonEmptyString(value.summary);
+  const abcSource = typeof value.abcSource === 'string' ? value.abcSource : null;
+  if (
+    !id
+    || !timestamp
+    || !summary
+    || abcSource === null
+    || !Number.isInteger(value.revision)
+    || (value.revision as number) <= 0
+    || !['origin', 'metadata', 'body', 'annotation'].includes(value.category as string)
+    || !['add', 'edit', 'delete', 'initial'].includes(value.actionType as string)
+  ) {
+    return null;
+  }
+
+  const annotations = Array.isArray(value.annotations)
+    ? value.annotations.flatMap((annotation) => {
+        const normalized = normalizeAnnotation(annotation);
+        return normalized ? [normalized] : [];
+      })
+    : [];
+
+  const annotationKind = (
+    typeof value.annotationKind === 'string'
+    && ['chord', 'modulation', 'voice-leading', 'explanation'].includes(value.annotationKind)
+  ) ? (value.annotationKind as Annotation['kind']) : undefined;
+
+  return {
+    id,
+    revision: value.revision as number,
+    timestamp,
+    category: value.category as EditHistoryEntry['category'],
+    actionType: value.actionType as EditHistoryEntry['actionType'],
+    summary,
+    ...(optionalString(value.details) ? { details: optionalString(value.details) } : {}),
+    abcSource,
+    scoreInfo: normalizeScoreInfo(value.scoreInfo),
+    annotations,
+    ...(annotationKind ? { annotationKind } : {}),
+    ...(optionalString(value.metadataField) ? { metadataField: optionalString(value.metadataField) } : {}),
+  };
+};
+
 export const normalizeFileDocument = (value: unknown): FileDocument | null => {
   if (!isRecord(value)) return null;
   const id = nonEmptyString(value.id);
@@ -277,6 +325,17 @@ export const normalizeFileDocument = (value: unknown): FileDocument | null => {
         return normalized ? [normalized] : [];
       })
     : [];
+  const history = Array.isArray(value.history)
+    ? value.history.flatMap((entry) => {
+        const normalized = normalizeEditHistoryEntry(entry);
+        return normalized ? [normalized] : [];
+      })
+    : undefined;
+  const historyIndex = (
+    Number.isInteger(value.historyIndex)
+    && (value.historyIndex as number) >= 0
+    && (history ? (value.historyIndex as number) < history.length : true)
+  ) ? (value.historyIndex as number) : undefined;
 
   return {
     id,
@@ -288,6 +347,8 @@ export const normalizeFileDocument = (value: unknown): FileDocument | null => {
     annotations,
     chats,
     versions,
+    ...(history && history.length > 0 ? { history } : {}),
+    ...(historyIndex !== undefined ? { historyIndex } : {}),
     createdAt,
     updatedAt,
   };
