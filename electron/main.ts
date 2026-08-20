@@ -107,12 +107,25 @@ const createWindow = async () => {
   mainWindow.webContents.on('render-process-gone', () => controller?.abortAll());
   mainWindow.webContents.on('destroyed', () => controller?.abortAll());
   mainWindow.once('ready-to-show', () => mainWindow?.show());
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (mainWindow && !mainWindow.isVisible()) {
+      mainWindow.show();
+    }
+  });
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 
   if (expectedDevelopmentUrl) {
-    await mainWindow.loadURL(expectedDevelopmentUrl);
+    for (let attempt = 0; attempt < 10; attempt++) {
+      try {
+        await mainWindow.loadURL(expectedDevelopmentUrl);
+        break;
+      } catch (err) {
+        if (attempt === 9) throw err;
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+    }
   } else {
     await mainWindow.loadURL('app://chorale/index.html');
   }

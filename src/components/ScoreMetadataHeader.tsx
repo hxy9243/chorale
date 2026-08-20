@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ScoreMetadata,
+  type ScoreMetadata,
   validateKeySignature,
   validateMeter,
   validateTempo,

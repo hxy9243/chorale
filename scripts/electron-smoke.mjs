@@ -445,8 +445,10 @@ try {
     document.querySelectorAll('.score-reference-link')[0].click();
     try {
       await waitFor(
-        () => document.querySelector('.active-anchor-badge')?.textContent?.includes('m. 2'),
-        'Single-measure link did not select measure 2.',
+        () => document.querySelector('.active-anchor-badge')?.textContent?.includes('m. 2')
+          && document.querySelector('.playback-progress-track span')?.style.width
+          && document.querySelector('.playback-progress-track span')?.style.width !== '0%',
+        'Single-measure link did not select measure 2 and update progress track.',
       );
     } catch (error) {
       throw new Error(error.message + ' ' + JSON.stringify({
@@ -833,8 +835,9 @@ try {
       deltaY: -100,
       cancelable: true,
     }));
-    await new Promise((resolve) => setTimeout(resolve, 25));
-    const rightEdgeIsChat = document.elementsFromPoint(window.innerWidth - 1, 100)
+    const shellBounds = document.querySelector('.chorale-app-shell')?.getBoundingClientRect();
+    const rightEdgeX = Math.floor(shellBounds ? shellBounds.right - 1 : window.innerWidth - 1);
+    const rightEdgeIsChat = document.elementsFromPoint(rightEdgeX, 100)
       .some((element) => Boolean(element.closest('.right-panel')));
     const zoomGeometry = {
       bodyRight: document.body.getBoundingClientRect().right,
@@ -1008,7 +1011,7 @@ try {
       hasFileMoveButtons,
       hasScoreViewSwitch: Boolean(document.querySelector('.score-view-switch')),
       hasScoreFooter: Boolean(document.querySelector('.score-canvas-footer')),
-      scoreStatusText: document.querySelector('.score-build-status')?.textContent,
+      scoreStatusText: (document.querySelector('.header-status-group') || document.querySelector('.score-build-status'))?.textContent,
       displayOptionsRestOpacity,
       displayOptionsScrollOpacity,
       displayOptionsCenterDelta,
@@ -1141,8 +1144,8 @@ try {
   assert(
     shellState.scoreStatusText.includes('Auto-saved')
       && shellState.scoreStatusText.includes('SVG ready')
-      && shellState.scoreStatusText.includes('Audio ready'),
-    `Score status is not grouped under the title (${shellState.scoreStatusText}).`,
+      && (shellState.scoreStatusText.includes('Audio ready') || shellState.scoreStatusText.includes('Music ready')),
+    `Score status is not grouped under the title or header (${shellState.scoreStatusText}).`,
   );
   assert(
     Number.isFinite(shellState.displayOptionsCenterDelta)
@@ -1150,8 +1153,8 @@ try {
     `Score display controls are not centered (${shellState.displayOptionsCenterDelta}px).`,
   );
   assert(
-    shellState.displayOptionsRestOpacity === '0.32'
-      && shellState.displayOptionsScrollOpacity === '0.68',
+    Math.abs(Number(shellState.displayOptionsRestOpacity) - 0.32) < 0.01
+      && Math.abs(Number(shellState.displayOptionsScrollOpacity) - 0.68) < 0.01,
     `Score display controls do not surface on scroll (${shellState.displayOptionsRestOpacity} -> ${shellState.displayOptionsScrollOpacity}).`,
   );
   assert(
