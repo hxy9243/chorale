@@ -77,8 +77,8 @@ body {
 
 /* App Header */
 .app-header {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   padding: 1rem 1.5rem;
   background: rgba(15, 23, 42, 0.6);
@@ -124,17 +124,16 @@ body {
   display: flex;
   align-items: center;
   min-width: 0;
-  flex: 0 0 auto;
+  justify-self: start;
 }
 
 .header-center {
   display: flex;
   align-items: center;
   justify-content: center;
+  justify-self: center;
   gap: 1rem;
   min-width: 0;
-  flex: 1;
-  margin: 0 1rem;
 }
 
 .header-breadcrumb {
@@ -163,9 +162,8 @@ body {
 .header-right {
   display: flex;
   align-items: center;
+  justify-self: end;
   gap: 0.75rem;
-  flex: 0 0 auto;
-  margin-left: auto;
 }
 
 .header-status-pill {
@@ -1046,9 +1044,9 @@ body {
 }
 
 .app-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   height: 56px;
   padding: 0 1.25rem;
   background-color: #ffffff;
@@ -1758,7 +1756,7 @@ textarea {
   position: relative;
   z-index: 10;
   display: grid;
-  grid-template-columns: 218px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   height: 64px;
   padding: 0 18px 0 20px;
@@ -1790,6 +1788,15 @@ textarea {
   font-weight: 700;
 }
 
+.header-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  gap: 12px;
+  min-width: 0;
+}
+
 .header-breadcrumb {
   display: flex;
   align-items: center;
@@ -1803,15 +1810,23 @@ textarea {
 .header-breadcrumb strong {
   max-width: min(44vw, 460px);
   overflow: hidden;
-  color: var(--figma-muted);
-  font-weight: 500;
+  color: var(--figma-ink, #171a20);
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  justify-self: start;
 }
 
 .header-right {
   display: flex;
   align-items: center;
+  justify-self: end;
   gap: 14px;
 }
 
@@ -3620,7 +3635,7 @@ textarea {
   }
 
   .app-header {
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   }
 
   .header-breadcrumb {
