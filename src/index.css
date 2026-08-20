@@ -118,18 +118,54 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
 .header-left {
   display: flex;
   align-items: center;
   min-width: 0;
+  flex: 0 0 auto;
+}
+
+.header-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 1rem;
+  min-width: 0;
+  flex: 1;
+  margin: 0 1rem;
+}
+
+.header-breadcrumb {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  color: var(--figma-muted, #71717a);
+  font-size: 13px;
+}
+
+.header-breadcrumb strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--figma-ink, #171a20);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-status-group {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-left: 1.5rem;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .header-status-pill {
@@ -1905,22 +1941,12 @@ textarea {
 
 .file-rail {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 18px 16px 28px;
-  overflow-y: auto;
-  overflow-x: hidden;
   border: 0;
-  background: var(--figma-rail);
   color: #d4d7dd;
   scrollbar-width: thin;
-  transition: opacity 160ms ease, padding 160ms ease;
 }
 
 .file-rail.collapsed {
-  padding: 0;
-  overflow: hidden;
   opacity: 1;
   pointer-events: auto;
 }
