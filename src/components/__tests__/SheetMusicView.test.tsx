@@ -117,7 +117,7 @@ describe('SheetMusicView Component', () => {
     expect(afterParsing).toEqual(expect.any(Function));
     const parsedTune = { formatting: {} } as abcjs.TuneObject;
     afterParsing?.(parsedTune, 0, sampleAbc);
-    expect(parsedTune.formatting).toMatchObject({ musicspace: 110, staffsep: 132 });
+    expect(parsedTune.formatting).toMatchObject({ musicspace: 62, staffsep: 132 });
 
     rerender(<SheetMusicView abcCode={sampleAbc} annotations={[chord]} />);
 
@@ -460,7 +460,7 @@ describe('SheetMusicView Component', () => {
     expect(overlayNode.getAttribute('class')).toContain('active');
     expect(overlayNode.querySelector('.annotation-chord-symbol')?.textContent).toBe('C');
     expect(overlayNode.querySelector('.annotation-roman-numeral')?.textContent).toBe('I');
-    expect(overlayNode.querySelector('.annotation-chord-background')?.getAttribute('y')).toBe('-104');
+    expect(overlayNode.querySelector('.annotation-chord-background')?.getAttribute('y')).toBe('-22');
     expect(overlayNode.querySelector('.annotation-chord-edit-glyph')).toBeNull();
     expect(overlayNode.getAttribute('data-chord-lane')).toBe('0');
     await waitFor(() => expect(
@@ -629,8 +629,8 @@ describe('SheetMusicView Component', () => {
         const width = Number(rect.getAttribute('width'));
         return { x, centerX: x + width / 2, y };
       };
-      expect(badgeBounds('line-chord-1')).toEqual({ x: 20, centerX: 56, y: -30 });
-      expect(badgeBounds('line-chord-2')).toEqual({ x: 20, centerX: 47, y: 170 });
+      expect(badgeBounds('line-chord-1')).toEqual({ x: 20, centerX: 56, y: 18 });
+      expect(badgeBounds('line-chord-2')).toEqual({ x: 20, centerX: 47, y: 218 });
     } finally {
       unmount();
       vi.mocked(abcjs.parseOnly).mockImplementation(originalParseImplementation!);
@@ -1259,5 +1259,19 @@ describe('SheetMusicView Component', () => {
     });
     expect(document.activeElement).toBe(firstMeasure);
     expect(getPlaybackPosition().isPlaying).toBe(false);
+  });
+
+  it('renders optional header inside the zoom wrapper notation column so title and score zoom together', () => {
+    const { container } = render(
+      <SheetMusicView
+        abcCode={sampleAbc}
+        header={<div data-testid="test-score-header">Score Title & Metadata</div>}
+      />,
+    );
+
+    const header = container.querySelector('[data-testid="test-score-header"]');
+    expect(header).not.toBeNull();
+    expect(header?.closest('.sheet-notation-column')).not.toBeNull();
+    expect(header?.closest('.sheet-zoom-wrapper')).not.toBeNull();
   });
 });

@@ -365,6 +365,7 @@ const updateMeasureHitAreaSelection = (
 };
 
 interface SheetMusicViewProps {
+  header?: React.ReactNode;
   abcCode: string;
   annotations?: readonly Annotation[];
   activeAnchor?: ScoreAnchor | null;
@@ -381,6 +382,7 @@ interface SheetMusicViewProps {
 }
 
 export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
+  header,
   abcCode,
   annotations = [],
   activeAnchor = null,
@@ -1025,6 +1027,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
             <div className="sheet-annotation-layout">
               <div className="sheet-layout-balance" aria-hidden="true" />
               <div className="sheet-notation-column">
+                {header}
                 <div ref={containerRef} id="paper" className="abcjs-paper-container" />
                 <AnnotationOverlay
                   paperRef={containerRef}

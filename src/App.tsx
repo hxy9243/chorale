@@ -117,7 +117,6 @@ export const App: React.FC = () => {
   const scoreMeter = liveMetadata.meter || activeDocument?.scoreInfo.meter || '4/4';
   const scoreTempoText = liveMetadata.tempoText || activeDocument?.scoreInfo.tempoText || (tunes?.[0]?.getBpm?.() ? `♩ = ${tunes[0].getBpm()}` : '♩ = 120');
   const scoreTempoBpm = liveMetadata.tempoBpm || (tunes?.[0]?.getBpm?.() ?? undefined);
-  const scoreVoices = liveMetadata.voices || [];
 
   const handleUpdateMetadata = useCallback((updates: Partial<ScoreMetadata>) => {
     if (!activeFileId || !abcCode) return;
@@ -279,17 +278,6 @@ export const App: React.FC = () => {
               {activeDocument && <>
               <div className="score-canvas">
                 <div className="score-sheet">
-                  <ScoreMetadataHeader
-                    title={scoreTitle}
-                    composer={scoreComposer}
-                    keySignature={scoreKey}
-                    meter={scoreMeter}
-                    tempoText={scoreTempoText}
-                    tempoBpm={scoreTempoBpm}
-                    voices={scoreVoices}
-                    onUpdateMetadata={handleUpdateMetadata}
-                  />
-
                   {buildStatus === 'invalid' && (
                     <div className="workspace-status-row invalid" role="alert">
                       <span className="workspace-status-indicator invalid">Invalid ABC</span>
@@ -299,6 +287,21 @@ export const App: React.FC = () => {
 
                   <div className="score-view-wrapper">
                     <SheetMusicView
+                      header={(
+                        <ScoreMetadataHeader
+                          title={scoreTitle}
+                          subtitle={liveMetadata.subtitle}
+                          composer={scoreComposer}
+                          author={liveMetadata.author}
+                          rhythm={liveMetadata.rhythm}
+                          origin={liveMetadata.origin}
+                          keySignature={scoreKey}
+                          meter={scoreMeter}
+                          tempoText={scoreTempoText}
+                          tempoBpm={scoreTempoBpm}
+                          onUpdateMetadata={handleUpdateMetadata}
+                        />
+                      )}
                       abcCode={canRenderScore ? abcCode : ''}
                       annotations={activeDocument?.annotations || []}
                       activeAnchor={activeAnchor}

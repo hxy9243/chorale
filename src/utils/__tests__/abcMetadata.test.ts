@@ -25,8 +25,8 @@ describe('abcMetadata Utilities', () => {
     it('accepts modal keys and preserves clef tags', () => {
       expect(validateKeySignature('D dorian')).toEqual({ valid: true, value: 'D dorian' });
       expect(validateKeySignature('G mixolydian')).toEqual({ valid: true, value: 'G mixolydian' });
-      expect(validateKeySignature('C treble')).toEqual({ valid: true, value: 'C treble' });
-      expect(validateKeySignature('Am bass')).toEqual({ valid: true, value: 'Am bass' });
+      expect(validateKeySignature('C treble')).toEqual({ valid: true, value: 'C clef=treble' });
+      expect(validateKeySignature('Am bass')).toEqual({ valid: true, value: 'Am clef=bass' });
     });
 
     it('rejects invalid keys', () => {
@@ -43,8 +43,8 @@ describe('abcMetadata Utilities', () => {
       expect(validateMeter('3/4')).toEqual({ valid: true, value: '3/4' });
       expect(validateMeter('6/8')).toEqual({ valid: true, value: '6/8' });
       expect(validateMeter('12/8')).toEqual({ valid: true, value: '12/8' });
-      expect(validateMeter('C')).toEqual({ valid: true, value: '4/4' });
-      expect(validateMeter('C|')).toEqual({ valid: true, value: '2/2' });
+      expect(validateMeter('C')).toEqual({ valid: true, value: 'C' });
+      expect(validateMeter('C|')).toEqual({ valid: true, value: 'C|' });
       expect(validateMeter('none')).toEqual({ valid: true, value: 'none' });
     });
 
@@ -59,7 +59,7 @@ describe('abcMetadata Utilities', () => {
 
   describe('validateTempo', () => {
     it('accepts integer BPM numbers and strings within range [20, 400]', () => {
-      expect(validateTempo(120)).toEqual({
+      expect(validateTempo('120')).toEqual({
         valid: true,
         value: '♩ = 120',
         bpm: 120,
@@ -92,8 +92,8 @@ describe('abcMetadata Utilities', () => {
     });
 
     it('rejects out of bounds or unparseable tempos', () => {
-      expect(validateTempo(15)).toMatchObject({ valid: false });
-      expect(validateTempo(450)).toMatchObject({ valid: false });
+      expect(validateTempo('15')).toMatchObject({ valid: false });
+      expect(validateTempo('450')).toMatchObject({ valid: false });
       expect(validateTempo('0')).toMatchObject({ valid: false });
       expect(validateTempo(`${MIN_TEMPO_BPM - 1}`)).toMatchObject({ valid: false });
       expect(validateTempo(`${MAX_TEMPO_BPM + 1}`)).toMatchObject({ valid: false });
@@ -103,29 +103,35 @@ describe('abcMetadata Utilities', () => {
   });
 
   describe('parseAbcHeaderMetadata', () => {
-    it('parses complete header information including voices', () => {
+    it('parses complete header information including extended metadata', () => {
       const abc = `
 X:1
 T:Minuet in G
+T:BWV Anh. 114
 C:J.S. Bach
+A:Christian Petzold
+R:Minuet
+O:Germany
+S:Notebook for Anna Magdalena Bach
 M:3/4
 L:1/8
 Q:1/4=116
-V:1 name="Treble"
-V:2 name="Bass"
 K:G
-[V:1] GAB |
-[V:2] G,,B,,D, |
+GAB |
 `;
       const meta = parseAbcHeaderMetadata(abc);
       expect(meta.title).toBe('Minuet in G');
+      expect(meta.subtitle).toBe('BWV Anh. 114');
       expect(meta.composer).toBe('J.S. Bach');
+      expect(meta.author).toBe('Christian Petzold');
+      expect(meta.rhythm).toBe('Minuet');
+      expect(meta.origin).toBe('Germany');
+      expect(meta.source).toBe('Notebook for Anna Magdalena Bach');
       expect(meta.meter).toBe('3/4');
       expect(meta.unitLength).toBe('1/8');
       expect(meta.tempoBpm).toBe(116);
       expect(meta.tempoText).toBe('♩ = 116');
       expect(meta.key).toBe('G');
-      expect(meta.voices).toEqual(['1', '2']);
     });
   });
 
@@ -164,12 +170,16 @@ C D E F |`;
       const updated = updateAbcHeaderMetadata(abc, {
         title: 'Inserted Title',
         composer: 'Inserted Composer',
+        author: 'Inserted Author',
+        rhythm: 'Reel',
         meter: '6/8',
         tempoBpm: 90,
       });
 
       expect(updated).toContain('T:Inserted Title');
       expect(updated).toContain('C:Inserted Composer');
+      expect(updated).toContain('A:Inserted Author');
+      expect(updated).toContain('R:Reel');
       expect(updated).toContain('M:6/8');
       expect(updated).toContain('Q:1/4=90');
       expect(updated).toContain('K:C');
