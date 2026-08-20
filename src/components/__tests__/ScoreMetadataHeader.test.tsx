@@ -172,4 +172,38 @@ describe('ScoreMetadataHeader Component', () => {
     expect(screen.queryByRole('textbox', { name: 'Edit score title' })).toBeNull();
     expect(screen.getByText('Original Title')).toBeDefined();
   });
+
+  it('opens add-field menu on clicking Add field button and allows adding a new field (e.g. Origin)', () => {
+    const onUpdate = vi.fn();
+    render(
+      <ScoreMetadataHeader
+        title="Original Title"
+        onUpdateMetadata={onUpdate}
+      />,
+    );
+
+    const addBtn = screen.getByRole('button', { name: 'Add score header field' });
+    expect(addBtn).toBeDefined();
+
+    fireEvent.click(addBtn);
+
+    // Full names of fields are shown
+    expect(screen.getByRole('menuitem', { name: /Subtitle/i })).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: /Composer/i })).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: /Lyricist \/ Author/i })).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: /Origin/i })).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: /Rhythm/i })).toBeDefined();
+
+    // Click Origin
+    fireEvent.click(screen.getByRole('menuitem', { name: /Origin/i }));
+
+    // Origin edit input is now open
+    const originInput = screen.getByRole('textbox', { name: 'Edit score origin' }) as HTMLInputElement;
+    expect(originInput).toBeDefined();
+
+    fireEvent.change(originInput, { target: { value: 'Ireland' } });
+    fireEvent.keyDown(originInput, { key: 'Enter' });
+
+    expect(onUpdate).toHaveBeenCalledWith({ origin: 'Ireland' });
+  });
 });
