@@ -23,12 +23,34 @@ describe('Header Component', () => {
     expect(screen.getByTitle('Show score chat')).toBeDefined();
   });
 
-  it('leaves save state, settings, and sidebar navigation to their owning panels', () => {
-    render(<Header activeFileName="Test.xml" />);
+  it('renders SVG ready, Music ready, and save status indicators in the header', () => {
+    render(
+      <Header
+        activeFileName="Test.xml"
+        saveStatus="saved"
+        canRenderScore={true}
+        hasPlayback={true}
+      />,
+    );
 
-    expect(screen.queryByRole('status')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Open settings' })).toBeNull();
-    expect(screen.queryByTitle('Collapse sidebar')).toBeNull();
-    expect(screen.queryByTitle('Expand sidebar')).toBeNull();
+    expect(screen.getByRole('status')).toBeDefined();
+    expect(screen.getByText('Auto-saved')).toBeDefined();
+    expect(screen.getByText('SVG ready')).toBeDefined();
+    expect(screen.getByText('Music ready')).toBeDefined();
+  });
+
+  it('renders pending status when score or audio is not ready', () => {
+    render(
+      <Header
+        activeFileName="Test.xml"
+        saveStatus="saving"
+        canRenderScore={false}
+        hasPlayback={false}
+      />,
+    );
+
+    expect(screen.getByText('Saving…')).toBeDefined();
+    expect(screen.getByText('SVG pending')).toBeDefined();
+    expect(screen.getByText('Music pending')).toBeDefined();
   });
 });

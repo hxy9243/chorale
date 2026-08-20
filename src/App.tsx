@@ -3,6 +3,7 @@ import abcjs from 'abcjs';
 import { Header } from './components/Header';
 import { FileRail } from './components/FileRail';
 import { ScoreCardHeader } from './components/ScoreCardHeader';
+import { ScoreMetadataHeader } from './components/ScoreMetadataHeader';
 import { SheetMusicView } from './components/SheetMusicView';
 import { AudioPlayer } from './components/AudioPlayer';
 import { AbcEditor } from './components/AbcEditor';
@@ -33,7 +34,7 @@ export {
 };
 import { useDocumentStore } from './hooks/useDocumentStore';
 import type { BuildResult, ScoreAnchor } from './types/document';
-import { parseAbcMetadata } from './utils/fileSession';
+import { parseAbcHeaderMetadata, updateAbcHeaderMetadata, ScoreMetadata } from './utils/abcMetadata';
 import type { PlaybackPosition } from './utils/repeatPlayback';
 import { prepareAbcForPlayback } from './utils/abcAudio';
 import { extractScore } from './music/scoreSnapshot';
@@ -125,12 +126,21 @@ export const App: React.FC = () => {
         : saveState;
 
   const canRenderScore = buildStatus === 'valid';
-  const liveMetadata = useMemo(() => parseAbcMetadata(abcCode), [abcCode]);
+  const liveMetadata = useMemo(() => parseAbcHeaderMetadata(abcCode), [abcCode]);
   const scoreTitle = liveMetadata.title || activeDocument?.scoreInfo.title || activeFileName || 'Untitled score';
   const scoreComposer = liveMetadata.composer || activeDocument?.scoreInfo.composer || 'Unknown composer';
   const scoreKey = liveMetadata.key || activeDocument?.scoreInfo.key || 'C';
   const scoreMeter = liveMetadata.meter || activeDocument?.scoreInfo.meter || '4/4';
-  const scoreTempo = liveMetadata.tempoText || activeDocument?.scoreInfo.tempoText || (tunes?.[0]?.getBpm?.() ? `♩ = ${tunes[0].getBpm()}` : '♩ = 120');
+  const scoreTempoText = liveMetadata.tempoText || activeDocument?.scoreInfo.tempoText || (tunes?.[0]?.getBpm?.() ? `♩ = ${tunes[0].getBpm()}` : '♩ = 120');
+  const scoreTempoBpm = liveMetadata.tempoBpm || (tunes?.[0]?.getBpm?.() ?? undefined);
+  const scoreVoices = liveMetadata.voices || [];
+
+  const handleUpdateMetadata = useCallback((updates: Partial<ScoreMetadata>) => {
+    if (!activeFileId || !abcCode) return;
+    const newAbc = updateAbcHeaderMetadata(abcCode, updates);
+    handleAbcChange(newAbc);
+  }, [activeFileId, abcCode, handleAbcChange]);
+
   const totalMeasures = useMemo(() => {
     try {
       return extractScore(prepareAbcForPlayback(abcCode)).measures.length;
@@ -233,6 +243,9 @@ export const App: React.FC = () => {
         activeFileName={scoreTitle}
         chatOpen={chatOpen}
         onToggleChat={() => setChatOpen((open) => !open)}
+        saveStatus={activeDocument ? saveStatus : undefined}
+        canRenderScore={activeDocument ? canRenderScore : undefined}
+        hasPlayback={activeDocument ? (buildResult?.hasPlayback || false) : undefined}
       />
 
       <div
@@ -282,24 +295,16 @@ export const App: React.FC = () => {
               {activeDocument && <>
               <div className="score-canvas">
                 <div className="score-sheet">
-                  <div className="score-sheet-heading">
-                    <div>
-                      <h1>{scoreTitle}</h1>
-                      <p>{scoreComposer}</p>
-                      <div className="score-build-status" role="status" aria-live="polite">
-                        <span className={`score-status-item save ${saveStatus}`}>
-                          {saveLabel}
-                        </span>
-                        <span className={`score-status-item svg ${canRenderScore ? 'ready' : ''}`}>
-                          SVG {canRenderScore ? 'ready' : 'pending'}
-                        </span>
-                        <span className={`score-status-item audio ${buildResult?.hasPlayback ? 'ready' : ''}`}>
-                          Audio {buildResult?.hasPlayback ? 'ready' : 'pending'}
-                        </span>
-                      </div>
-                    </div>
-                    <span>{scoreKey} · {scoreMeter} · {scoreTempo}</span>
-                  </div>
+                  <ScoreMetadataHeader
+                    title={scoreTitle}
+                    composer={scoreComposer}
+                    keySignature={scoreKey}
+                    meter={scoreMeter}
+                    tempoText={scoreTempoText}
+                    tempoBpm={scoreTempoBpm}
+                    voices={scoreVoices}
+                    onUpdateMetadata={handleUpdateMetadata}
+                  />
 
                   {buildStatus === 'invalid' && (
                     <div className="workspace-status-row invalid" role="alert">

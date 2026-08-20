@@ -18,42 +18,17 @@ export function generateId(prefix = 'file'): string {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 }
 
+import { parseAbcHeaderMetadata } from './abcMetadata';
+
 export function parseAbcMetadata(abc: string): Partial<ScoreInfo> {
-  let title: string | undefined;
-  let composer: string | undefined;
-  let key: string | undefined;
-  let meter: string | undefined;
-  let tempoText: string | undefined;
-
-  const lines = abc.split(/\r?\n/);
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith('T:')) {
-      const val = trimmed.slice(2).trim();
-      if (val && !title) title = val;
-    } else if (trimmed.startsWith('C:')) {
-      const val = trimmed.slice(2).trim();
-      if (val && !composer) composer = val;
-    } else if (trimmed.startsWith('K:')) {
-      const val = trimmed.slice(2).trim();
-      if (val && !key) key = val;
-    } else if (trimmed.startsWith('M:')) {
-      const val = trimmed.slice(2).trim();
-      if (val && !meter) meter = val === 'C' ? '4/4' : val === 'C|' ? '2/2' : val;
-    } else if (trimmed.startsWith('Q:')) {
-      const val = trimmed.slice(2).trim();
-      if (val && !tempoText) {
-        const bpmMatch = val.match(/(?:1\/\d=\s*|\w+=\s*)?(\d+)/);
-        if (bpmMatch) {
-          tempoText = `♩ = ${bpmMatch[1]}`;
-        } else {
-          tempoText = val;
-        }
-      }
-    }
-  }
-
-  return { title, composer, key, meter, tempoText };
+  const meta = parseAbcHeaderMetadata(abc);
+  return {
+    title: meta.title,
+    composer: meta.composer,
+    key: meta.key,
+    meter: meta.meter,
+    tempoText: meta.tempoText,
+  };
 }
 
 export function createDocumentFromAbc(

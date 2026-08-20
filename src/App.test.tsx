@@ -571,4 +571,54 @@ describe('App Integration', () => {
     expect(freshWorkspaceBody.classList.contains('rail-collapsed')).toBe(false);
     expect(freshWorkspaceBody.style.gridTemplateColumns).not.toMatch(/^56px\b/);
   });
+
+  it('updates ABC source and auto-saves when editing metadata from the score header', async () => {
+    const mockDoc = {
+      id: 'meta-doc-1',
+      name: 'Editable Score.abc',
+      sourceType: 'abc' as const,
+      abcSource: 'X:1\nT:Editable Score\nC:Original Artist\nM:4/4\nQ:1/4=100\nK:C\nCDEF',
+      revision: 1,
+      annotations: [],
+      chats: [],
+      versions: [],
+      scoreInfo: { title: 'Editable Score', composer: 'Original Artist', key: 'C', meter: '4/4', tempoText: '♩ = 100' },
+      createdAt: '2026-08-03T00:00:00.000Z',
+      updatedAt: '2026-08-03T00:00:00.000Z',
+    };
+    await storageAdapter.saveDocuments([mockDoc]);
+    localStorage.setItem('chorale.workspace.activeFileId', 'meta-doc-1');
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Editable Score');
+    });
+
+    const saveSpy = vi.spyOn(storageAdapter, 'saveDocuments');
+    saveSpy.mockClear();
+
+    // Double click title to edit
+    const titleButton = screen.getByRole('button', { name: /Score title: Editable Score/i });
+    fireEvent.doubleClick(titleButton);
+
+    const input = screen.getByRole('textbox', { name: 'Edit score title' });
+    fireEvent.change(input, { target: { value: 'Renamed Score' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Renamed Score');
+    });
+
+    await waitFor(() => {
+      expect(saveSpy).toHaveBeenCalledWith([
+        expect.objectContaining({
+          id: 'meta-doc-1',
+          abcSource: expect.stringContaining('T:Renamed Score'),
+        }),
+      ]);
+    });
+
+    saveSpy.mockRestore();
+  });
 });
