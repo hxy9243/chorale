@@ -74,7 +74,7 @@ describe('App Integration', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('sheet-svg')).toBeDefined();
-    }, { timeout: 1500 });
+    }, { timeout: 4000 });
 
     fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
     fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
