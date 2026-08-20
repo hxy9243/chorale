@@ -13,6 +13,7 @@
     "build:electron": "vite build --config vite.main.config.ts && vite build --config vite.preload.config.ts",
     "start:electron": "electron dist-electron/main.js",
     "smoke:electron": "node scripts/electron-smoke.mjs",
+    "benchmark:zoom": "npm run build && node scripts/zoom-performance.mjs --assert",
     "lint": "oxlint",
     "test": "vitest run",
     "preview": "vite preview"

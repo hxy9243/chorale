@@ -31,15 +31,19 @@ type PositionedSystem = RenderedScoreSystem & Readonly<{
   height: number;
 }>;
 
-type OverlayLayout = Readonly<{
+type ScoreGeometry = Readonly<{
   systems: PositionedSystem[];
   measures: RenderedMeasureGeometry[];
-  placements: AnnotationPlacement[];
+  events: RenderedEventGeometry[];
   obstacles: ReadonlyArray<Readonly<{
     systemId: string;
     lineId?: string;
     bounds: SvgLocalBounds;
   }>>;
+}>;
+
+type OverlayLayout = ScoreGeometry & Readonly<{
+  placements: AnnotationPlacement[];
 }>;
 
 export type AnnotationRailGeometry = Readonly<{
@@ -53,7 +57,6 @@ interface AnnotationOverlayProps {
   annotations: readonly Annotation[];
   tune: abcjs.TuneObject | null;
   renderGeneration: number;
-  zoom: number;
   activeAnnotationId?: string | null;
   inlineChordEditor?: React.ReactNode;
   onActivate(annotation: Annotation, initiator: SVGGElement): void;
@@ -180,29 +183,33 @@ const sourceEventsByStart = (abcCode: string) => {
   return { score, events };
 };
 
-const captureLayout = (
+const captureScoreGeometry = (
   paper: HTMLDivElement,
   abcCode: string,
-  annotations: readonly Annotation[],
   tune: abcjs.TuneObject | null,
-  zoom: number,
-): OverlayLayout => {
+): ScoreGeometry => {
   const wrapper = paper.parentElement;
-  if (!wrapper || !abcCode.trim() || annotations.length === 0) {
-    return { systems: [], measures: [], placements: [], obstacles: [] };
+  if (!wrapper || !abcCode.trim()) {
+    return { systems: [], measures: [], events: [], obstacles: [] };
   }
-  const scale = zoom / 100 || 1;
   const wrapperRect = wrapper.getBoundingClientRect();
+  const scaleX = wrapper.offsetWidth > 0 && wrapperRect.width > 0
+    ? wrapperRect.width / wrapper.offsetWidth
+    : 1;
+  // Sheet and interface zoom are both uniform transforms. Reuse the horizontal
+  // ratio so integer-rounded offsetHeight cannot introduce a false vertical
+  // scale and split annotations that share the same staff baseline.
+  const scaleY = scaleX;
   const sourceSvgs = Array.from(paper.querySelectorAll<SVGSVGElement>('svg'));
   const systems: PositionedSystem[] = sourceSvgs.map((svg, index) => {
     const rect = svg.getBoundingClientRect();
-    const width = rect.width / scale;
-    const height = rect.height / scale;
+    const width = rect.width / scaleX;
+    const height = rect.height / scaleY;
     return {
       id: `score-system-${index}`,
       viewBox: svg.getAttribute('viewBox') || `0 0 ${width} ${height}`,
-      left: (rect.left - wrapperRect.left) / scale,
-      top: (rect.top - wrapperRect.top) / scale,
+      left: (rect.left - wrapperRect.left) / scaleX,
+      top: (rect.top - wrapperRect.top) / scaleY,
       width,
       height,
     };
@@ -298,7 +305,7 @@ const captureLayout = (
   return {
     systems,
     measures,
-    placements: projectAnnotations({ annotations, systems, measures, events }),
+    events,
     obstacles,
   };
 };
@@ -453,26 +460,35 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
   annotations,
   tune,
   renderGeneration,
-  zoom,
   activeAnnotationId = null,
   inlineChordEditor,
   onActivate,
   onRangeGeometry,
 }) => {
-  const [layout, setLayout] = useState<OverlayLayout>({
-    systems: [],
-    measures: [],
-    placements: [],
-    obstacles: [],
-  });
+  const [scoreGeometry, setScoreGeometry] = useState<ScoreGeometry | null>(null);
   const [chordWidths, setChordWidths] = useState<Record<string, number>>({});
   const frameRef = useRef<number | null>(null);
   const measurementRefs = useRef(new Map<string, SVGGElement>());
+  const hasAnnotations = annotations.length > 0;
+  const layout = useMemo<OverlayLayout>(() => {
+    if (!scoreGeometry || !hasAnnotations) {
+      return { systems: [], measures: [], events: [], placements: [], obstacles: [] };
+    }
+    return {
+      ...scoreGeometry,
+      placements: projectAnnotations({
+        annotations,
+        systems: scoreGeometry.systems,
+        measures: scoreGeometry.measures,
+        events: scoreGeometry.events,
+      }),
+    };
+  }, [annotations, hasAnnotations, scoreGeometry]);
+
   useEffect(() => {
     const paper = paperRef.current;
     if (!paper) return;
-    if (annotations.length === 0 || !abcCode.trim()) {
-      setLayout({ systems: [], measures: [], placements: [], obstacles: [] });
+    if (!hasAnnotations || !abcCode.trim()) {
       return;
     }
     const schedule = () => {
@@ -480,9 +496,9 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
       frameRef.current = window.requestAnimationFrame(() => {
         frameRef.current = null;
         try {
-          setLayout(captureLayout(paper, abcCode, annotations, tune, zoom));
+          setScoreGeometry(captureScoreGeometry(paper, abcCode, tune));
         } catch {
-          setLayout({ systems: [], measures: [], placements: [], obstacles: [] });
+          setScoreGeometry(null);
         }
       });
     };
@@ -493,7 +509,31 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
         frameRef.current = null;
       };
     }
-    const observer = new ResizeObserver(schedule);
+    const observedSizes = new WeakMap<Element, Readonly<{ width: number; height: number }>>();
+    const observer = new ResizeObserver((entries) => {
+      // ResizeObserver may notify transformed descendants even though their
+      // unscaled content box is unchanged. Only invalidate engraved geometry
+      // when an observed content box actually changes.
+      if (entries.length === 0) {
+        schedule();
+        return;
+      }
+      let changed = false;
+      for (const entry of entries) {
+        const size = {
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        };
+        const previous = observedSizes.get(entry.target);
+        observedSizes.set(entry.target, size);
+        if (
+          previous
+          && (Math.abs(previous.width - size.width) > 0.01
+            || Math.abs(previous.height - size.height) > 0.01)
+        ) changed = true;
+      }
+      if (changed) schedule();
+    });
     observer.observe(paper.parentElement || paper);
     paper.querySelectorAll('svg').forEach((svg) => observer.observe(svg));
     return () => {
@@ -501,7 +541,7 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
       if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
       frameRef.current = null;
     };
-  }, [abcCode, annotations, paperRef, renderGeneration, tune, zoom]);
+  }, [abcCode, hasAnnotations, paperRef, renderGeneration, tune]);
 
   useEffect(() => {
     onRangeGeometry?.(rangeGeometry(layout, annotations));
@@ -563,30 +603,44 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
     () => new Map(packedChords.map((badge) => [badge.id, badge])),
     [packedChords],
   );
-  const chordTopById = useMemo(() => new Map(layout.placements.flatMap((placement) => {
-    if (placement.track !== 'chord') return [];
-    const badge = packedChordById.get(placement.id);
-    if (!badge) return [];
-    let top = placement.y - CHORD_STAFF_CLEARANCE - CHORD_BADGE_HEIGHT;
-    const obstacles = layout.obstacles
-      .filter((obstacle) => (
-        obstacle.systemId === placement.systemId
-        && obstacle.lineId === placement.lineId
-        && badge.left < obstacle.bounds.x + obstacle.bounds.width + CHORD_BADGE_GAP
-        && badge.right > obstacle.bounds.x - CHORD_BADGE_GAP
-      ))
-      .sort((left, right) => (
-        right.bounds.y + right.bounds.height - left.bounds.y - left.bounds.height
-      ));
-    for (const obstacle of obstacles) {
-      const obstacleTop = obstacle.bounds.y - CHORD_BADGE_GAP;
-      const obstacleBottom = obstacle.bounds.y + obstacle.bounds.height + CHORD_BADGE_GAP;
-      if (top < obstacleBottom && top + CHORD_BADGE_HEIGHT > obstacleTop) {
-        top = obstacleTop - CHORD_BADGE_HEIGHT;
+  const chordTopById = useMemo(() => {
+    const candidateTops = new Map<string, number>();
+    const lineTops = new Map<string, number>();
+
+    for (const placement of layout.placements) {
+      if (placement.track !== 'chord') continue;
+      const badge = packedChordById.get(placement.id);
+      if (!badge) continue;
+      let top = placement.y - CHORD_STAFF_CLEARANCE - CHORD_BADGE_HEIGHT;
+      const obstacles = layout.obstacles
+        .filter((obstacle) => (
+          obstacle.systemId === placement.systemId
+          && obstacle.lineId === placement.lineId
+          && badge.left < obstacle.bounds.x + obstacle.bounds.width + CHORD_BADGE_GAP
+          && badge.right > obstacle.bounds.x - CHORD_BADGE_GAP
+        ))
+        .sort((left, right) => (
+          right.bounds.y + right.bounds.height - left.bounds.y - left.bounds.height
+        ));
+      for (const obstacle of obstacles) {
+        const obstacleTop = obstacle.bounds.y - CHORD_BADGE_GAP;
+        const obstacleBottom = obstacle.bounds.y + obstacle.bounds.height + CHORD_BADGE_GAP;
+        if (top < obstacleBottom && top + CHORD_BADGE_HEIGHT > obstacleTop) {
+          top = obstacleTop - CHORD_BADGE_HEIGHT;
+        }
       }
+      const lineKey = `${placement.systemId}:${placement.lineId || ''}`;
+      candidateTops.set(placement.id, top);
+      lineTops.set(lineKey, Math.min(lineTops.get(lineKey) ?? top, top));
     }
-    return [[placement.id, top] as const];
-  })), [layout.obstacles, layout.placements, packedChordById]);
+
+    return new Map(layout.placements.flatMap((placement) => {
+      const candidateTop = candidateTops.get(placement.id);
+      if (candidateTop === undefined) return [];
+      const lineKey = `${placement.systemId}:${placement.lineId || ''}`;
+      return [[placement.id, lineTops.get(lineKey) ?? candidateTop] as const];
+    }));
+  }, [layout.obstacles, layout.placements, packedChordById]);
   const inlineEditorPosition = useMemo(() => {
     if (!inlineChordEditor || !activeAnnotationId) return null;
     const placement = layout.placements.find((candidate) => (

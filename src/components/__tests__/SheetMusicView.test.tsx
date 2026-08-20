@@ -326,6 +326,14 @@ describe('SheetMusicView Component', () => {
   it('renders interactive annotations in a view-box-aligned React sibling overlay', async () => {
     const onSelectAnchor = vi.fn();
     let sourceWidth = 400;
+    const sourceBounds = vi.fn(() => ({
+      left: 0,
+      top: 0,
+      right: sourceWidth,
+      bottom: 140,
+      width: sourceWidth,
+      height: 140,
+    }));
     const resizeObservers: ResizeObserverCallback[] = [];
     const OriginalResizeObserver = globalThis.ResizeObserver;
     globalThis.ResizeObserver = class {
@@ -350,14 +358,7 @@ describe('SheetMusicView Component', () => {
       const note = element.querySelector<SVGGraphicsElement>('.abcjs-note')!;
       const bar = element.querySelector<SVGGraphicsElement>('.abcjs-bar')!;
       Object.defineProperty(svg, 'getBoundingClientRect', {
-        value: () => ({
-          left: 0,
-          top: 0,
-          right: sourceWidth,
-          bottom: 140,
-          width: sourceWidth,
-          height: 140,
-        }),
+        value: sourceBounds,
       });
       Object.defineProperty(note, 'getBBox', {
         value: () => ({ x: 30, y: 55, width: 10, height: 12 }),
@@ -429,9 +430,13 @@ describe('SheetMusicView Component', () => {
     expect(container.querySelector('.sheet-annotation-layout')).not.toBeNull();
     expect(container.querySelector('.sheet-layout-balance')).not.toBeNull();
     const zoomScene = container.querySelector<HTMLElement>('.sheet-zoom-wrapper')!;
-    expect(zoomScene.parentElement?.classList.contains('sheet-scene-positioner')).toBe(true);
-    expect(zoomScene.style.zoom).toBe('calc(1 / var(--ui-zoom, 1))');
+    expect(zoomScene.parentElement?.classList.contains('sheet-zoom-sizer')).toBe(true);
+    expect(zoomScene.parentElement?.parentElement?.classList.contains('sheet-scene-positioner'))
+      .toBe(true);
+    expect(zoomScene.style.zoom).toBe('');
+    expect(zoomScene.style.transform).toBe('scale(1)');
     expect(zoomScene.getAttribute('data-score-zoom')).toBe('100');
+    expect(zoomScene.getAttribute('data-interface-zoom')).toBe('100');
     expect(zoomScene.contains(container.querySelector('.sheet-notation-column'))).toBe(true);
     expect(zoomScene.contains(container.querySelector('.annotation-rail'))).toBe(true);
     expect(container.querySelector('.annotation-rail-zoom')).toBeNull();
@@ -504,13 +509,27 @@ describe('SheetMusicView Component', () => {
     ).toBe('500px'));
 
     sourceWidth = 1_000;
+    const geometryReadsBeforeZoom = sourceBounds.mock.calls.length;
     rerender(<SheetMusicView {...props} zoom={200} />);
     await waitFor(() => expect(
       container.querySelector<SVGSVGElement>('.annotation-overlay-system')?.style.width,
     ).toBe('500px'));
+    expect(sourceBounds).toHaveBeenCalledTimes(geometryReadsBeforeZoom);
+
+    const relabeledChord = { ...chord, label: 'Relabeled tonic' };
+    rerender(
+      <SheetMusicView
+        {...props}
+        annotations={[relabeledChord, rangeNote]}
+        zoom={200}
+      />,
+    );
+    expect(await screen.findByRole('button', { name: 'Edit Relabeled tonic annotation' }))
+      .toBeDefined();
+    expect(sourceBounds).toHaveBeenCalledTimes(geometryReadsBeforeZoom);
 
     fireEvent.click(screen.getByTitle('Transpose up 1 semitone'));
-    await screen.findByRole('button', { name: 'Edit Tonic annotation' });
+    await screen.findByRole('button', { name: 'Edit Relabeled tonic annotation' });
     expect(vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2]).toMatchObject({ visualTranspose: 1 });
 
     const switched = { ...chord, id: 'overlay-switched', label: 'Switched tonic' };
@@ -1011,48 +1030,122 @@ describe('SheetMusicView Component', () => {
     expect(document.activeElement).toBe(secondMeasure);
   });
 
-  it('sizes the score wrapper with its zoom so rendered dimensions actually change', () => {
-    const { container, rerender } = render(
+  it('scales the score with a transform while a lightweight sizer owns layout dimensions', () => {
+    const observers: ResizeObserverCallback[] = [];
+    const OriginalResizeObserver = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      constructor(callback: ResizeObserverCallback) {
+        observers.push(callback);
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+    const { container, rerender, unmount } = render(
       <SheetMusicView abcCode={sampleAbc} zoom={150} onZoomChange={vi.fn()} />
     );
 
     const wrapper = container.querySelector<HTMLElement>('.sheet-zoom-wrapper')!;
-    expect(wrapper.style.zoom).toBe('calc(1.5 / var(--ui-zoom, 1))');
+    const sizer = container.querySelector<HTMLElement>('.sheet-zoom-sizer')!;
+    Object.defineProperties(wrapper, {
+      offsetWidth: { configurable: true, value: 1200 },
+      offsetHeight: { configurable: true, value: 800 },
+    });
+    act(() => observers.forEach((observer) => observer([], {} as ResizeObserver)));
+
+    expect(wrapper.style.zoom).toBe('');
+    expect(wrapper.style.transform).toBe('scale(1.5)');
     expect(wrapper.getAttribute('data-score-zoom')).toBe('150');
     expect(wrapper.contains(container.querySelector('.sheet-notation-column'))).toBe(true);
     expect(wrapper.contains(container.querySelector('.annotation-rail'))).toBe(true);
-    expect(wrapper.style.transform).toBe('');
+    expect(sizer.style.width).toBe('1800px');
+    expect(sizer.style.height).toBe('1200px');
+    expect(sizer.dataset.measured).toBe('true');
 
     rerender(
       <SheetMusicView abcCode={sampleAbc} zoom={50} onZoomChange={vi.fn()} />
     );
 
-    expect(wrapper.style.zoom).toBe('calc(0.5 / var(--ui-zoom, 1))');
+    expect(wrapper.style.transform).toBe('scale(0.5)');
     expect(wrapper.getAttribute('data-score-zoom')).toBe('50');
+    expect(sizer.style.width).toBe('600px');
+    expect(sizer.style.height).toBe('400px');
+
+    unmount();
+    globalThis.ResizeObserver = OriginalResizeObserver;
   });
 
   it('keeps score zoom formula decoupled from interface page zoom', () => {
-    document.documentElement.style.setProperty('--ui-zoom', '1.4');
     const { container, rerender } = render(
-      <SheetMusicView abcCode={sampleAbc} zoom={120} onZoomChange={vi.fn()} />
+      <SheetMusicView
+        abcCode={sampleAbc}
+        zoom={200}
+        interfaceZoom={140}
+        onZoomChange={vi.fn()}
+      />
     );
 
     const wrapper = container.querySelector<HTMLElement>('.sheet-zoom-wrapper')!;
-    expect(wrapper.style.zoom).toBe('calc(1.2 / var(--ui-zoom, 1))');
-    expect(wrapper.getAttribute('data-score-zoom')).toBe('120');
+    expect(wrapper.style.transform).toBe('scale(1.4285714285714286)');
+    expect(wrapper.getAttribute('data-score-zoom')).toBe('200');
+    expect(wrapper.getAttribute('data-interface-zoom')).toBe('140');
 
     rerender(
-      <SheetMusicView abcCode={sampleAbc} zoom={80} onZoomChange={vi.fn()} />
+      <SheetMusicView
+        abcCode={sampleAbc}
+        zoom={50}
+        interfaceZoom={140}
+        onZoomChange={vi.fn()}
+      />
     );
-    expect(wrapper.style.zoom).toBe('calc(0.8 / var(--ui-zoom, 1))');
-    expect(wrapper.getAttribute('data-score-zoom')).toBe('80');
+    expect(wrapper.style.transform).toBe('scale(0.35714285714285715)');
+    expect(wrapper.getAttribute('data-score-zoom')).toBe('50');
+  });
 
-    document.documentElement.style.removeProperty('--ui-zoom');
+  it('preserves the viewport center arithmetically without replacing the score SVG', () => {
+    const observers: ResizeObserverCallback[] = [];
+    const OriginalResizeObserver = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      constructor(callback: ResizeObserverCallback) {
+        observers.push(callback);
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+    const { container, rerender, unmount } = render(
+      <SheetMusicView abcCode={sampleAbc} zoom={100} onZoomChange={vi.fn()} />
+    );
+    const scene = container.querySelector<HTMLElement>('.sheet-zoom-wrapper')!;
+    const viewport = container.querySelector<HTMLElement>('.sheet-viewport')!;
+    const scoreSvg = container.querySelector('#paper svg');
+    Object.defineProperties(scene, {
+      offsetWidth: { configurable: true, value: 1200 },
+      offsetHeight: { configurable: true, value: 800 },
+    });
+    Object.defineProperty(viewport, 'clientWidth', { configurable: true, value: 800 });
+    act(() => observers.forEach((observer) => observer([], {} as ResizeObserver)));
+    viewport.scrollLeft = 200;
+
+    rerender(
+      <SheetMusicView abcCode={sampleAbc} zoom={200} onZoomChange={vi.fn()} />
+    );
+
+    expect(viewport.scrollLeft).toBe(800);
+    expect(container.querySelector('#paper svg')).toBe(scoreSvg);
+
+    unmount();
+    globalThis.ResizeObserver = OriginalResizeObserver;
   });
 
   it('triggers onZoomChange on ctrl+wheel scroll gesture without page zoom', () => {
     const onZoomChange = vi.fn();
-    const { container } = render(
+    const frames: FrameRequestCallback[] = [];
+    const frameSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    const { container, unmount } = render(
       <SheetMusicView abcCode={sampleAbc} zoom={100} onZoomChange={onZoomChange} />
     );
 
@@ -1065,8 +1158,21 @@ describe('SheetMusicView Component', () => {
     });
 
     fireEvent(card, wheelEvent);
-    expect(onZoomChange).toHaveBeenCalledWith(110);
+    fireEvent(card, new WheelEvent('wheel', {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+      deltaY: -100,
+    }));
+    expect(onZoomChange).not.toHaveBeenCalled();
+    expect(frames).toHaveLength(1);
+    act(() => frames[0](0));
+    expect(onZoomChange).toHaveBeenCalledTimes(1);
+    expect(onZoomChange).toHaveBeenCalledWith(120);
     expect(wheelEvent.defaultPrevented).toBe(true);
+
+    unmount();
+    frameSpy.mockRestore();
   });
 
   it('selects the measure occurrence in the playhead current repeat pass', () => {

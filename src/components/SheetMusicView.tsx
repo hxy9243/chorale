@@ -374,6 +374,7 @@ interface SheetMusicViewProps {
   onTuneRendered?: (tune: abcjs.TuneObject[] | null) => void;
   getPlaybackPosition?: () => PlaybackPosition;
   zoom?: number;
+  interfaceZoom?: number;
   onZoomChange?: (newZoom: number) => void;
   meter?: string;
   onCreateAnnotation?: (annotation: Annotation) => void;
@@ -391,6 +392,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   onTuneRendered,
   getPlaybackPosition,
   zoom = 100,
+  interfaceZoom = 100,
   onZoomChange,
   meter,
   onCreateAnnotation,
@@ -400,8 +402,15 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const sheetViewportRef = useRef<HTMLDivElement>(null);
+  const sheetSceneRef = useRef<HTMLDivElement>(null);
+  const viewportWidthRef = useRef(0);
   const [internalZoom, setInternalZoom] = useState<number>(zoom);
   const currentZoom = onZoomChange !== undefined ? zoom : internalZoom;
+  const currentZoomRef = useRef(currentZoom);
+  currentZoomRef.current = currentZoom;
+  const effectiveZoom = currentZoom / Math.max(1, interfaceZoom);
+  const previousEffectiveZoomRef = useRef(effectiveZoom);
+  const [sceneSize, setSceneSize] = useState<Readonly<{ width: number; height: number }> | null>(null);
   const [transpose, setTranspose] = useState<number>(0);
   const [renderError, setRenderError] = useState<string | null>(null);
   const [renderGeneration, setRenderGeneration] = useState(0);
@@ -450,60 +459,107 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   }, [onZoomChange]);
 
   React.useLayoutEffect(() => {
+    const scene = sheetSceneRef.current;
+    if (!scene) return;
+    const measure = () => {
+      const next = {
+        width: scene.offsetWidth,
+        height: scene.offsetHeight,
+      };
+      if (next.width <= 0 || next.height <= 0) return;
+      setSceneSize((current) => (
+        current?.width === next.width && current.height === next.height ? current : next
+      ));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(scene);
+    return () => {
+      observer.disconnect();
+    };
+  }, [renderGeneration]);
+
+  const centerNotation = React.useCallback(() => {
+    const viewport = sheetViewportRef.current;
+    const notation = sheetSceneRef.current?.querySelector<HTMLElement>('.sheet-notation-column');
+    if (!viewport || !notation) return;
+    const viewportRect = viewport.getBoundingClientRect();
+    const notationRect = notation.getBoundingClientRect();
+    const delta = notationRect.left + notationRect.width / 2
+      - (viewportRect.left + viewportRect.width / 2);
+    if (Math.abs(delta) > 0.5) viewport.scrollLeft += delta;
+  }, []);
+
+  React.useLayoutEffect(() => {
+    centerNotation();
+  }, [centerNotation, renderGeneration, sceneSize]);
+
+  React.useLayoutEffect(() => {
+    const viewport = sheetViewportRef.current;
+    const previousZoom = previousEffectiveZoomRef.current;
+    previousEffectiveZoomRef.current = effectiveZoom;
+    if (!viewport || previousZoom === effectiveZoom) return;
+    const viewportWidth = viewportWidthRef.current;
+    if (viewportWidth <= 0) return;
+    if (sceneSize && sceneSize.width * effectiveZoom <= viewportWidth) {
+      viewport.scrollLeft = 0;
+      return;
+    }
+    const unscaledCenter = (viewport.scrollLeft + viewportWidth / 2) / previousZoom;
+    viewport.scrollLeft = unscaledCenter * effectiveZoom - viewportWidth / 2;
+  }, [effectiveZoom, sceneSize]);
+
+  useEffect(() => {
     const viewport = sheetViewportRef.current;
     if (!viewport) return;
+    viewportWidthRef.current = viewport.clientWidth;
+    if (typeof ResizeObserver === 'undefined') return;
     let frame: number | null = null;
-    let attempts = 0;
-    const center = () => {
-      frame = null;
-      const notation = viewport.querySelector<HTMLElement>('.sheet-notation-column');
-      if (!notation) return;
-      const viewportRect = viewport.getBoundingClientRect();
-      const notationRect = notation.getBoundingClientRect();
-      const delta = notationRect.left + notationRect.width / 2
-        - (viewportRect.left + viewportRect.width / 2);
-      if (Math.abs(delta) <= 0.5 || attempts >= 4) return;
-      viewport.scrollLeft += delta;
-      attempts += 1;
-      frame = window.requestAnimationFrame(center);
-    };
     const schedule = () => {
-      attempts = 0;
       if (frame !== null) return;
-      frame = window.requestAnimationFrame(center);
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        centerNotation();
+      });
     };
-    schedule();
-    if (typeof ResizeObserver === 'undefined') {
-      return () => {
-        if (frame !== null) window.cancelAnimationFrame(frame);
-      };
-    }
-    const observer = new ResizeObserver(schedule);
+    const observer = new ResizeObserver((entries) => {
+      viewportWidthRef.current = entries[0]?.contentRect.width || viewport.clientWidth;
+      schedule();
+    });
     observer.observe(viewport);
-    if (viewport.firstElementChild) observer.observe(viewport.firstElementChild);
     return () => {
       observer.disconnect();
       if (frame !== null) window.cancelAnimationFrame(frame);
     };
-  }, [currentZoom, renderGeneration]);
+  }, [centerNotation]);
 
   useEffect(() => {
     const element = cardRef.current;
     if (!element) return;
+    let wheelFrame: number | null = null;
+    let pendingSteps = 0;
 
     const handleWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        const delta = e.deltaY < 0 ? 10 : -10;
-        handleZoomChange(currentZoom + delta);
+        pendingSteps += e.deltaY < 0 ? 1 : -1;
+        if (wheelFrame !== null) return;
+        wheelFrame = window.requestAnimationFrame(() => {
+          wheelFrame = null;
+          const steps = pendingSteps;
+          pendingSteps = 0;
+          handleZoomChange(currentZoomRef.current + steps * 10);
+        });
       }
     };
 
     element.addEventListener('wheel', handleWheel, { passive: false });
     return () => {
       element.removeEventListener('wheel', handleWheel);
+      if (wheelFrame !== null) window.cancelAnimationFrame(wheelFrame);
     };
-  }, [currentZoom, handleZoomChange]);
+  }, [handleZoomChange]);
 
   const measureOccurrencesRef = useRef<MeasureOccurrence[]>([]);
   const renderedTuneRef = useRef<abcjs.TuneObject | null>(null);
@@ -1020,54 +1076,64 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       <div ref={sheetViewportRef} className="sheet-viewport">
         <div className="sheet-scene-positioner">
           <div
-            className="sheet-zoom-wrapper"
-            data-score-zoom={currentZoom}
-            style={{ zoom: `calc(${currentZoom / 100} / var(--ui-zoom, 1))` }}
+            className="sheet-zoom-sizer"
+            data-measured={sceneSize !== null}
+            style={sceneSize ? {
+              width: `${sceneSize.width * effectiveZoom}px`,
+              height: `${sceneSize.height * effectiveZoom}px`,
+            } : undefined}
           >
-            <div className="sheet-annotation-layout">
-              <div className="sheet-layout-balance" aria-hidden="true" />
-              <div className="sheet-notation-column">
-                {header}
-                <div ref={containerRef} id="paper" className="abcjs-paper-container" />
-                <AnnotationOverlay
-                  paperRef={containerRef}
-                  abcCode={abcCode}
-                  annotations={annotations}
-                  tune={renderedTuneRef.current}
-                  renderGeneration={renderGeneration}
-                  zoom={currentZoom}
-                  activeAnnotationId={
-                    annotationEditor?.mode === 'accepted' ? annotationEditor.annotationId : null
-                  }
-                  inlineChordEditor={editedAnnotation?.kind === 'chord' ? annotationEditorNode : null}
-                  onRangeGeometry={handleAnnotationRailGeometry}
-                  onActivate={(annotation) => {
-                    onSelectAnchor?.(resolvePlaybackAnchor(annotation.span));
-                    setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
-                  }}
-                />
-              </div>
-              <div className="annotation-rail-viewport">
-                <AnnotationRail
-                  annotations={annotations}
-                  editing={annotationEditor}
-                  editor={editedAnnotation?.kind === 'chord' ? null : annotationEditorNode}
-                  anchorYByAnnotationId={annotationRailGeometry.anchorYByAnnotationId}
-                  scoreHeight={annotationRailGeometry.scoreHeight}
-                  onSelect={selectRangeAnnotation}
-                  onEdit={(annotation) => {
-                    onSelectAnchor?.(resolvePlaybackAnchor(annotation.span));
-                    const hitArea = containerRef.current?.querySelector<SVGElement>(
-                      `.abcjs-measure-hit-area[data-measure="${annotation.span.startMeasure}"]`,
-                    );
-                    hitArea?.scrollIntoView?.({
-                      behavior: anchorScrollBehavior(),
-                      block: 'center',
-                      inline: 'nearest',
-                    });
-                    setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
-                  }}
-                />
+            <div
+              ref={sheetSceneRef}
+              className="sheet-zoom-wrapper"
+              data-score-zoom={currentZoom}
+              data-interface-zoom={interfaceZoom}
+              style={{ transform: `scale(${effectiveZoom})` }}
+            >
+              <div className="sheet-annotation-layout">
+                <div className="sheet-layout-balance" aria-hidden="true" />
+                <div className="sheet-notation-column">
+                  {header}
+                  <div ref={containerRef} id="paper" className="abcjs-paper-container" />
+                  <AnnotationOverlay
+                    paperRef={containerRef}
+                    abcCode={abcCode}
+                    annotations={annotations}
+                    tune={renderedTuneRef.current}
+                    renderGeneration={renderGeneration}
+                    activeAnnotationId={
+                      annotationEditor?.mode === 'accepted' ? annotationEditor.annotationId : null
+                    }
+                    inlineChordEditor={editedAnnotation?.kind === 'chord' ? annotationEditorNode : null}
+                    onRangeGeometry={handleAnnotationRailGeometry}
+                    onActivate={(annotation) => {
+                      onSelectAnchor?.(resolvePlaybackAnchor(annotation.span));
+                      setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
+                    }}
+                  />
+                </div>
+                <div className="annotation-rail-viewport">
+                  <AnnotationRail
+                    annotations={annotations}
+                    editing={annotationEditor}
+                    editor={editedAnnotation?.kind === 'chord' ? null : annotationEditorNode}
+                    anchorYByAnnotationId={annotationRailGeometry.anchorYByAnnotationId}
+                    scoreHeight={annotationRailGeometry.scoreHeight}
+                    onSelect={selectRangeAnnotation}
+                    onEdit={(annotation) => {
+                      onSelectAnchor?.(resolvePlaybackAnchor(annotation.span));
+                      const hitArea = containerRef.current?.querySelector<SVGElement>(
+                        `.abcjs-measure-hit-area[data-measure="${annotation.span.startMeasure}"]`,
+                      );
+                      hitArea?.scrollIntoView?.({
+                        behavior: anchorScrollBehavior(),
+                        block: 'center',
+                        inline: 'nearest',
+                      });
+                      setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </div>
