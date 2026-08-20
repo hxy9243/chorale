@@ -468,9 +468,8 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       frame = window.requestAnimationFrame(center);
     };
     const schedule = () => {
-      if (frame !== null) return;
       attempts = 0;
-      frame = window.requestAnimationFrame(center);
+      center();
     };
     schedule();
     if (typeof ResizeObserver === 'undefined') {

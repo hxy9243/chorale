@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Plus } from 'lucide-react';
 import {
   type ScoreMetadata,
   validateKeySignature,
@@ -34,6 +35,14 @@ type EditableField =
   | 'meter'
   | 'tempo';
 
+const AVAILABLE_TAGLINE_FIELDS: { id: EditableField; label: string; tag: string }[] = [
+  { id: 'subtitle', label: 'Subtitle', tag: 'T' },
+  { id: 'composer', label: 'Composer', tag: 'C' },
+  { id: 'author', label: 'Lyricist / Author', tag: 'A' },
+  { id: 'origin', label: 'Origin', tag: 'O' },
+  { id: 'rhythm', label: 'Rhythm', tag: 'R' },
+];
+
 export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
   title = 'Untitled score',
   subtitle,
@@ -51,7 +60,9 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
   const [editingField, setEditingField] = useState<EditableField | null>(null);
   const [draftValue, setDraftValue] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isAddFieldMenuOpen, setIsAddFieldMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const addFieldMenuRef = useRef<HTMLDivElement>(null);
 
   const startEditing = useCallback((field: EditableField, initialValue: string) => {
     if (disabled) return;
@@ -66,6 +77,19 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
       inputRef.current.select();
     }
   }, [editingField]);
+
+  useEffect(() => {
+    if (!isAddFieldMenuOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (addFieldMenuRef.current && !addFieldMenuRef.current.contains(e.target as Node)) {
+        setIsAddFieldMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isAddFieldMenuOpen]);
 
   const cancelEditing = useCallback(() => {
     setEditingField(null);
@@ -143,7 +167,7 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
     if (editingField === 'tempo') {
       const validation = validateTempo(trimmed);
       if (!validation.valid || !validation.value) {
-        setErrorMessage(validation.error || `Tempo must be ${MIN_TEMPO_BPM}-${MAX_TEMPO_BPM} BPM`);
+        setErrorMessage(validation.error || `Tempo must be between ${MIN_TEMPO_BPM} and ${MAX_TEMPO_BPM} BPM`);
         return;
       }
       onUpdateMetadata({
@@ -192,6 +216,7 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
               type="text"
               className={`inline-edit-input title-input ${errorMessage ? 'has-error' : ''}`}
               value={draftValue}
+              size={Math.max(draftValue.length + 1, 8)}
               onChange={(e) => {
                 setDraftValue(e.target.value);
                 setErrorMessage(null);
@@ -220,7 +245,7 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
       {/* 2. Taglines and Composer block: right-aligned with measure render width */}
       <div className="score-header-taglines-block">
         {/* Tagline / Subtitle */}
-        {subtitle && (
+        {(subtitle || editingField === 'subtitle') && (
           <div className="metadata-field score-subtitle-field">
             {editingField === 'subtitle' ? (
               <div className="inline-edit-wrapper subtitle-edit-wrapper">
@@ -230,12 +255,14 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
                   type="text"
                   className={`inline-edit-input subtitle-input ${errorMessage ? 'has-error' : ''}`}
                   value={draftValue}
+                  size={Math.max(draftValue.length + 1, 6)}
                   onChange={(e) => {
                     setDraftValue(e.target.value);
                     setErrorMessage(null);
                   }}
                   onBlur={commitEditing}
                   onKeyDown={handleKeyDown}
+                  placeholder="Subtitle"
                   aria-label="Edit score subtitle"
                 />
                 {errorMessage && <span className="edit-error-tooltip" role="alert">{errorMessage}</span>}
@@ -243,8 +270,8 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
             ) : (
               <div
                 className="metadata-view-item subtitle-view-item"
-                onDoubleClick={() => startEditing('subtitle', subtitle)}
-                onKeyDown={(e) => handleContainerKeyDown(e, 'subtitle', subtitle)}
+                onDoubleClick={() => startEditing('subtitle', subtitle || '')}
+                onKeyDown={(e) => handleContainerKeyDown(e, 'subtitle', subtitle || '')}
                 tabIndex={0}
                 role="button"
                 title="Double click to edit subtitle"
@@ -257,7 +284,7 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
         )}
 
         {/* Origin (O:) */}
-        {origin && (
+        {(origin || editingField === 'origin') && (
           <div className="metadata-field score-tagline-field">
             {editingField === 'origin' ? (
               <div className="inline-edit-wrapper tagline-edit-wrapper">
@@ -267,12 +294,14 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
                   type="text"
                   className={`inline-edit-input tagline-input ${errorMessage ? 'has-error' : ''}`}
                   value={draftValue}
+                  size={Math.max(draftValue.length + 1, 6)}
                   onChange={(e) => {
                     setDraftValue(e.target.value);
                     setErrorMessage(null);
                   }}
                   onBlur={commitEditing}
                   onKeyDown={handleKeyDown}
+                  placeholder="Origin"
                   aria-label="Edit score origin"
                 />
                 {errorMessage && <span className="edit-error-tooltip" role="alert">{errorMessage}</span>}
@@ -280,8 +309,8 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
             ) : (
               <div
                 className="metadata-view-item tagline-view-item"
-                onDoubleClick={() => startEditing('origin', origin)}
-                onKeyDown={(e) => handleContainerKeyDown(e, 'origin', origin)}
+                onDoubleClick={() => startEditing('origin', origin || '')}
+                onKeyDown={(e) => handleContainerKeyDown(e, 'origin', origin || '')}
                 tabIndex={0}
                 role="button"
                 title="Double click to edit origin (O:)"
@@ -294,7 +323,7 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
         )}
 
         {/* Rhythm (R:) */}
-        {rhythm && (
+        {(rhythm || editingField === 'rhythm') && (
           <div className="metadata-field score-tagline-field">
             {editingField === 'rhythm' ? (
               <div className="inline-edit-wrapper tagline-edit-wrapper">
@@ -304,12 +333,14 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
                   type="text"
                   className={`inline-edit-input tagline-input ${errorMessage ? 'has-error' : ''}`}
                   value={draftValue}
+                  size={Math.max(draftValue.length + 1, 6)}
                   onChange={(e) => {
                     setDraftValue(e.target.value);
                     setErrorMessage(null);
                   }}
                   onBlur={commitEditing}
                   onKeyDown={handleKeyDown}
+                  placeholder="Rhythm"
                   aria-label="Edit score rhythm"
                 />
                 {errorMessage && <span className="edit-error-tooltip" role="alert">{errorMessage}</span>}
@@ -317,8 +348,8 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
             ) : (
               <div
                 className="metadata-view-item tagline-view-item"
-                onDoubleClick={() => startEditing('rhythm', rhythm)}
-                onKeyDown={(e) => handleContainerKeyDown(e, 'rhythm', rhythm)}
+                onDoubleClick={() => startEditing('rhythm', rhythm || '')}
+                onKeyDown={(e) => handleContainerKeyDown(e, 'rhythm', rhythm || '')}
                 tabIndex={0}
                 role="button"
                 title="Double click to edit rhythm (R:)"
@@ -331,7 +362,7 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
         )}
 
         {/* Lyricist / Author (A:) */}
-        {author && (
+        {(author || editingField === 'author') && (
           <div className="metadata-field score-author-field">
             {editingField === 'author' ? (
               <div className="inline-edit-wrapper author-edit-wrapper">
@@ -341,12 +372,14 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
                   type="text"
                   className={`inline-edit-input author-input ${errorMessage ? 'has-error' : ''}`}
                   value={draftValue}
+                  size={Math.max(draftValue.length + 1, 6)}
                   onChange={(e) => {
                     setDraftValue(e.target.value);
                     setErrorMessage(null);
                   }}
                   onBlur={commitEditing}
                   onKeyDown={handleKeyDown}
+                  placeholder="Author"
                   aria-label="Edit score lyricist/author"
                 />
                 {errorMessage && <span className="edit-error-tooltip" role="alert">{errorMessage}</span>}
@@ -354,8 +387,8 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
             ) : (
               <div
                 className="metadata-view-item author-view-item"
-                onDoubleClick={() => startEditing('author', author)}
-                onKeyDown={(e) => handleContainerKeyDown(e, 'author', author)}
+                onDoubleClick={() => startEditing('author', author || '')}
+                onKeyDown={(e) => handleContainerKeyDown(e, 'author', author || '')}
                 tabIndex={0}
                 role="button"
                 title="Double click to edit lyricist/author (A:)"
@@ -368,39 +401,80 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
         )}
 
         {/* Composer (C:) */}
-        <div className="metadata-field score-composer-field">
-          {editingField === 'composer' ? (
-            <div className="inline-edit-wrapper composer-edit-wrapper">
-              <span className="abc-tag-badge" title="ABC Composer Header (C:)">C</span>
-              <input
-                ref={inputRef}
-                type="text"
-                className={`inline-edit-input composer-input ${errorMessage ? 'has-error' : ''}`}
-                value={draftValue}
-                onChange={(e) => {
-                  setDraftValue(e.target.value);
-                  setErrorMessage(null);
-                }}
-                onBlur={commitEditing}
-                onKeyDown={handleKeyDown}
-                aria-label="Edit score composer"
-              />
-              {errorMessage && <span className="edit-error-tooltip" role="alert">{errorMessage}</span>}
-            </div>
-          ) : (
-            <div
-              className="metadata-view-item composer-view-item"
-              onDoubleClick={() => startEditing('composer', composer === 'Unknown composer' ? '' : composer)}
-              onKeyDown={(e) => handleContainerKeyDown(e, 'composer', composer === 'Unknown composer' ? '' : composer)}
-              tabIndex={0}
-              role="button"
-              title="Double click to edit composer (C:)"
-              aria-label={`Score composer: ${composer}. Double click to edit.`}
+        {(composer || editingField === 'composer') && (
+          <div className="metadata-field score-composer-field">
+            {editingField === 'composer' ? (
+              <div className="inline-edit-wrapper composer-edit-wrapper">
+                <span className="abc-tag-badge" title="ABC Composer Header (C:)">C</span>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  className={`inline-edit-input composer-input ${errorMessage ? 'has-error' : ''}`}
+                  value={draftValue}
+                  size={Math.max(draftValue.length + 1, 6)}
+                  onChange={(e) => {
+                    setDraftValue(e.target.value);
+                    setErrorMessage(null);
+                  }}
+                  onBlur={commitEditing}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Composer"
+                  aria-label="Edit score composer"
+                />
+                {errorMessage && <span className="edit-error-tooltip" role="alert">{errorMessage}</span>}
+              </div>
+            ) : (
+              <div
+                className="metadata-view-item composer-view-item"
+                onDoubleClick={() => startEditing('composer', composer === 'Unknown composer' ? '' : composer)}
+                onKeyDown={(e) => handleContainerKeyDown(e, 'composer', composer === 'Unknown composer' ? '' : composer)}
+                tabIndex={0}
+                role="button"
+                title="Double click to edit composer (C:)"
+                aria-label={`Score composer: ${composer}. Double click to edit.`}
+              >
+                <p className="score-composer-text">{composer}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Invisible + button for adding a new field */}
+        {!disabled && (
+          <div className="score-add-field-container" ref={addFieldMenuRef}>
+            <button
+              type="button"
+              className="score-add-field-button"
+              onClick={() => setIsAddFieldMenuOpen((prev) => !prev)}
+              aria-label="Add score header field"
+              aria-expanded={isAddFieldMenuOpen}
+              title="Add field"
             >
-              <p className="score-composer-text">{composer}</p>
-            </div>
-          )}
-        </div>
+              <Plus className="add-field-icon" />
+              <span></span>
+            </button>
+
+            {isAddFieldMenuOpen && (
+              <div className="score-add-field-menu" role="menu" aria-label="Available header fields">
+                {AVAILABLE_TAGLINE_FIELDS.map((field) => (
+                  <button
+                    key={field.id}
+                    type="button"
+                    className="score-add-field-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setIsAddFieldMenuOpen(false);
+                      startEditing(field.id, '');
+                    }}
+                  >
+                    <span className="field-name">{field.label}</span>
+                    <span className="field-tag-badge">{field.tag}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 3. Centered Metadata Chips: Key, Meter, Tempo (lower down) */}
@@ -409,12 +483,13 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
         <div className="metadata-chip-field">
           {editingField === 'key' ? (
             <div className="inline-edit-wrapper chip-edit-wrapper">
-              <span className="abc-tag-badge">K</span>
+              <span className="chip-label">Key:</span>
               <input
                 ref={inputRef}
                 type="text"
                 className={`inline-edit-input chip-input ${errorMessage ? 'has-error' : ''}`}
                 value={draftValue}
+                size={Math.max(draftValue.length + 1, 3)}
                 onChange={(e) => {
                   setDraftValue(e.target.value);
                   setErrorMessage(null);
@@ -430,10 +505,11 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
             <button
               type="button"
               className="metadata-chip"
+              onClick={() => startEditing('key', keySignature)}
               onDoubleClick={() => startEditing('key', keySignature)}
               onKeyDown={(e) => handleContainerKeyDown(e, 'key', keySignature)}
-              title="Double click to edit key signature (K:)"
-              aria-label={`Key signature: ${keySignature}. Double click to edit.`}
+              title="Click to edit key signature (K:)"
+              aria-label={`Key signature: ${keySignature}. Click to edit.`}
             >
               <span className="chip-label">Key:</span>
               <strong className="chip-value">{keySignature}</strong>
@@ -445,12 +521,13 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
         <div className="metadata-chip-field">
           {editingField === 'meter' ? (
             <div className="inline-edit-wrapper chip-edit-wrapper">
-              <span className="abc-tag-badge">M</span>
+              <span className="chip-label">Meter:</span>
               <input
                 ref={inputRef}
                 type="text"
                 className={`inline-edit-input chip-input ${errorMessage ? 'has-error' : ''}`}
                 value={draftValue}
+                size={Math.max(draftValue.length + 1, 3)}
                 onChange={(e) => {
                   setDraftValue(e.target.value);
                   setErrorMessage(null);
@@ -466,10 +543,11 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
             <button
               type="button"
               className="metadata-chip"
+              onClick={() => startEditing('meter', meter)}
               onDoubleClick={() => startEditing('meter', meter)}
               onKeyDown={(e) => handleContainerKeyDown(e, 'meter', meter)}
-              title="Double click to edit time signature (M:)"
-              aria-label={`Time signature: ${meter}. Double click to edit.`}
+              title="Click to edit time signature (M:)"
+              aria-label={`Time signature: ${meter}. Click to edit.`}
             >
               <span className="chip-label">Meter:</span>
               <strong className="chip-value">{meter}</strong>
@@ -481,12 +559,13 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
         <div className="metadata-chip-field">
           {editingField === 'tempo' ? (
             <div className="inline-edit-wrapper chip-edit-wrapper">
-              <span className="abc-tag-badge">Q</span>
+              <span className="chip-label">Tempo:</span>
               <input
                 ref={inputRef}
                 type="text"
                 className={`inline-edit-input chip-input ${errorMessage ? 'has-error' : ''}`}
                 value={draftValue}
+                size={Math.max(draftValue.length + 1, 4)}
                 onChange={(e) => {
                   setDraftValue(e.target.value);
                   setErrorMessage(null);
@@ -502,10 +581,11 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
             <button
               type="button"
               className="metadata-chip"
+              onClick={() => startEditing('tempo', tempoBpm ? String(tempoBpm) : displayBpmText)}
               onDoubleClick={() => startEditing('tempo', tempoBpm ? String(tempoBpm) : displayBpmText)}
               onKeyDown={(e) => handleContainerKeyDown(e, 'tempo', tempoBpm ? String(tempoBpm) : displayBpmText)}
-              title="Double click to edit tempo (Q:)"
-              aria-label={`Tempo: ${displayBpmText}. Double click to edit.`}
+              title="Click to edit tempo (Q:)"
+              aria-label={`Tempo: ${displayBpmText}. Click to edit.`}
             >
               <span className="chip-label">Tempo:</span>
               <strong className="chip-value">{displayBpmText}</strong>

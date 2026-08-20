@@ -7,15 +7,11 @@
 @import "../tokens.css";
 
 html,
-body {
-  overflow-x: clip;
-}
-
-html,
 body,
 #root {
   width: 100%;
   height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -61,10 +57,14 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
-summary:focus-visible,
-.abcjs-measure-hit-area:focus-visible {
+summary:focus-visible {
   outline: var(--rule-active) solid var(--color-focus);
   outline-offset: var(--space-3xs);
+}
+
+.abcjs-measure-hit-area:focus,
+.abcjs-measure-hit-area:focus-visible {
+  outline: none !important;
 }
 
 button:active:not(:disabled),
@@ -640,7 +640,9 @@ textarea:disabled,
   max-width: var(--score-notation-width, 48rem);
   margin-inline: auto;
   margin-bottom: -1.5rem;
+  padding-top: var(--space-md);
   position: relative;
+  z-index: 10;
 }
 
 .metadata-field {
@@ -767,6 +769,8 @@ textarea:disabled,
 }
 
 .score-metadata-chips {
+  position: relative;
+  z-index: 10;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -778,15 +782,19 @@ textarea:disabled,
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 999px;
   background: #f8f7f4;
+  pointer-events: auto;
 }
 
 .metadata-chip-field {
   position: relative;
   display: inline-flex;
   align-items: center;
+  z-index: 10;
 }
 
 .metadata-chip {
+  position: relative;
+  z-index: 10;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -798,14 +806,23 @@ textarea:disabled,
   color: var(--color-muted);
   font-size: var(--text-xs);
   cursor: pointer;
+  pointer-events: auto;
   transition: background var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
   user-select: none;
   line-height: 1;
+  outline: none !important;
 }
 
 .metadata-chip strong {
   color: var(--color-ink);
   font-weight: 600;
+}
+
+.chip-edit-wrapper .chip-label {
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  user-select: none;
 }
 
 .metadata-chip:hover {
@@ -840,50 +857,219 @@ textarea:disabled,
   font-variant-numeric: tabular-nums;
 }
 
-/* Inline Edit Controls - Zero layout shift */
+/* Inline Edit Controls - Seamless in-place underline editing without white box */
 .inline-edit-wrapper {
   position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2xs);
+  background: transparent;
+  max-width: 100%;
 }
 
 .inline-edit-input {
   box-sizing: border-box;
   margin: 0;
-  padding: 2px 6px;
-  border: 1.5px solid var(--color-focus);
-  border-radius: var(--radius-small);
-  background: var(--color-paper-raised);
-  color: var(--color-ink);
+  padding: 0 2px 2px;
+  border: none !important;
+  border-bottom: 2px solid var(--color-ink) !important;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
   font-family: inherit;
   font-size: inherit;
   font-weight: inherit;
   line-height: inherit;
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+  letter-spacing: inherit;
+  outline: none !important;
+  box-shadow: none !important;
+  caret-color: var(--color-vermilion, #ea580c);
+  cursor: text;
+  field-sizing: content;
+  min-width: 2rem;
+  max-width: 100%;
+  width: auto;
+}
+
+.inline-edit-input:focus,
+.inline-edit-input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border-bottom: 2px solid var(--color-ink) !important;
+}
+
+.title-edit-wrapper {
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
 }
 
 .title-input {
+  color: var(--color-ink);
   font-family: var(--font-serif);
   font-size: clamp(1.5rem, 1.25rem + 1vw, 2.25rem);
   font-weight: 600;
   letter-spacing: -0.015em;
-  min-width: 200px;
+  line-height: 1.2;
   text-align: center;
+  field-sizing: content;
+  min-width: 8rem;
+  max-width: 100%;
+  width: auto;
 }
 
-.composer-input {
+.subtitle-input {
+  color: var(--color-muted);
   font-family: var(--font-serif);
-  font-size: var(--text-sm);
-  min-width: 140px;
+  font-size: var(--text-base, 1rem);
+  font-style: italic;
+  text-align: right;
+  field-sizing: content;
+  min-width: 4rem;
+  max-width: 100%;
+  width: auto;
+}
+
+.composer-input,
+.author-input {
+  color: var(--color-muted);
+  font-family: var(--font-serif);
+  font-size: var(--text-sm, 0.875rem);
+  font-style: italic;
+  font-weight: 500;
+  text-align: right;
+  field-sizing: content;
+  min-width: 4rem;
+  max-width: 100%;
+  width: auto;
+}
+
+.tagline-input {
+  color: var(--color-muted);
+  font-family: var(--font-serif);
+  font-size: var(--text-xs, 0.75rem);
+  font-style: italic;
+  text-align: right;
+  field-sizing: content;
+  min-width: 4rem;
+  max-width: 100%;
+  width: auto;
+}
+
+.chip-edit-wrapper {
+  gap: var(--space-3xs);
 }
 
 .chip-input {
-  width: 5.5rem;
+  field-sizing: content;
+  min-width: 2.5rem;
+  max-width: 10rem;
+  width: auto;
   font-size: var(--text-xs);
+  font-weight: 600;
   text-align: center;
   font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+}
+
+/* Add Field Container & Ghost Button */
+.score-add-field-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-end;
+  margin-top: var(--space-3xs);
+}
+
+.score-add-field-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  padding: var(--space-3xs) var(--space-xs);
+  border-radius: var(--radius-round);
+  background: rgba(0, 0, 0, 0.04);
+  border: var(--rule-thin) dashed var(--color-rule);
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease, border-color 120ms ease;
+  outline: none !important;
+}
+
+.score-header-taglines-block:hover .score-add-field-button,
+.score-add-field-button:focus,
+.score-add-field-button:focus-visible,
+.score-add-field-container:focus-within .score-add-field-button {
+  opacity: 1;
+}
+
+.score-add-field-button:hover {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: var(--color-ink);
+  color: var(--color-ink);
+}
+
+.score-add-field-button .add-field-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+/* Add Field Dropdown Menu */
+.score-add-field-menu {
+  position: absolute;
+  top: calc(100% + var(--space-2xs));
+  right: 0;
+  z-index: var(--z-dropdown);
+  min-width: 11rem;
+  padding: var(--space-3xs);
+  border-radius: var(--radius-small);
+  background: var(--color-paper-raised);
+  border: var(--rule-thin) solid var(--color-rule);
+  box-shadow: var(--shadow-whisper);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.score-add-field-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  padding: var(--space-2xs) var(--space-xs);
+  border: none;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--color-ink);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 100ms ease;
+  outline: none !important;
+}
+
+.score-add-field-item:hover,
+.score-add-field-item:focus-visible {
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+  outline: none !important;
+}
+
+.score-add-field-item .field-name {
+  flex: 1;
+}
+
+.score-add-field-item .field-tag-badge {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs, 0.625rem);
+  font-weight: 700;
+  color: var(--color-muted);
+  background: var(--color-paper-2);
+  padding: 1px var(--space-3xs);
+  border-radius: var(--radius-small);
 }
 
 @media (max-width: 640px) {
@@ -904,8 +1090,7 @@ textarea:disabled,
 }
 
 .inline-edit-input.has-error {
-  border-color: var(--color-error) !important;
-  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
+  border-bottom-color: var(--color-error) !important;
 }
 
 .edit-error-tooltip {
