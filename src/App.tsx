@@ -323,6 +323,7 @@ export const App: React.FC = () => {
                       onTuneRendered={handleTuneRendered}
                       getPlaybackPosition={getPlaybackPosition}
                       zoom={zoom}
+                      interfaceZoom={interfaceZoom.zoom}
                       onZoomChange={(newZoom) => setZoom(clampSheetZoom(newZoom))}
                       meter={scoreMeter}
                       onCreateAnnotation={handleAddAnnotation}

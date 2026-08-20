@@ -6001,9 +6001,28 @@ body,
   justify-content: safe center;
 }
 
+.sheet-zoom-sizer {
+  position: relative;
+  width: max-content;
+  min-width: max-content;
+}
+
+.sheet-zoom-sizer[data-measured="true"] {
+  min-width: 0;
+  flex: none;
+  contain: layout;
+}
+
+.sheet-zoom-sizer[data-measured="true"] > .sheet-zoom-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
 .sheet-zoom-wrapper {
   width: max-content;
   min-width: max-content;
+  transform-origin: top left;
 }
 
 .sheet-annotation-layout {
