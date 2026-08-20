@@ -118,6 +118,63 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+.header-left {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 1rem;
+}
+
+.header-status-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 1.5rem;
+}
+
+.header-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 1.25rem;
+  padding: 1px 7px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--figma-muted, #71717a);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1;
+  user-select: none;
+  opacity: 0.72;
+}
+
+.header-status-pill .status-dot {
+  width: 4.5px;
+  height: 4.5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.8;
+  flex: none;
+}
+
+.header-status-pill.save.saved .status-dot,
+.header-status-pill.svg.ready .status-dot,
+.header-status-pill.audio.ready .status-dot {
+  background: #10b981;
+}
+
+.header-status-pill.save.saving .status-dot {
+  background: #f59e0b;
+}
+
+.header-status-pill.save.error .status-dot {
+  background: #ef4444;
+}
+
+.header-status-pill.svg.pending .status-dot,
+.header-status-pill.audio.pending .status-dot {
+  background: #a1a1aa;
 }
 
 .brand-title {
