@@ -340,11 +340,13 @@ describe('SheetMusicView Component', () => {
       if (!element || typeof element === 'string') return [];
       element.innerHTML = `
         <svg viewBox="0 0 400 140" data-testid="source-score-svg">
-          <g class="abcjs-note abcjs-mm0"></g>
-          <g class="abcjs-bar abcjs-mm0"></g>
+          <g class="abcjs-tempo abcjs-l0 abcjs-v0" data-testid="source-tempo"></g>
+          <g class="abcjs-note abcjs-l0 abcjs-mm0"></g>
+          <g class="abcjs-bar abcjs-l0 abcjs-mm0"></g>
         </svg>
       `;
       const svg = element.querySelector<SVGSVGElement>('svg')!;
+      const tempo = element.querySelector<SVGGraphicsElement>('.abcjs-tempo')!;
       const note = element.querySelector<SVGGraphicsElement>('.abcjs-note')!;
       const bar = element.querySelector<SVGGraphicsElement>('.abcjs-bar')!;
       Object.defineProperty(svg, 'getBoundingClientRect', {
@@ -359,6 +361,16 @@ describe('SheetMusicView Component', () => {
       });
       Object.defineProperty(note, 'getBBox', {
         value: () => ({ x: 30, y: 55, width: 10, height: 12 }),
+      });
+      Object.defineProperty(tempo, 'getBoundingClientRect', {
+        value: () => ({
+          left: 20,
+          top: -60,
+          right: 120,
+          bottom: -40,
+          width: 100,
+          height: 20,
+        }),
       });
       Object.defineProperty(bar, 'getBBox', {
         value: () => ({ x: 180, y: 40, width: 2, height: 50 }),
@@ -448,7 +460,7 @@ describe('SheetMusicView Component', () => {
     expect(overlayNode.getAttribute('class')).toContain('active');
     expect(overlayNode.querySelector('.annotation-chord-symbol')?.textContent).toBe('C');
     expect(overlayNode.querySelector('.annotation-roman-numeral')?.textContent).toBe('I');
-    expect(overlayNode.querySelector('.annotation-chord-background')).not.toBeNull();
+    expect(overlayNode.querySelector('.annotation-chord-background')?.getAttribute('y')).toBe('-104');
     expect(overlayNode.querySelector('.annotation-chord-edit-glyph')).toBeNull();
     expect(overlayNode.getAttribute('data-chord-lane')).toBe('0');
     await waitFor(() => expect(
@@ -879,6 +891,58 @@ describe('SheetMusicView Component', () => {
     expect(labels.map((label) => label.getAttribute('x'))).toEqual(['24', '24']);
     expect(labels.map((label) => label.getAttribute('y'))).toEqual(['40', '140']);
     expect(labels.every((label) => label.getAttribute('aria-hidden') === 'true')).toBe(true);
+  });
+
+  it('shifts the complete above-staff content stack without moving below-staff text', () => {
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
+      if (element && typeof element !== 'string') {
+        element.innerHTML = `
+          <svg>
+            <g class="abcjs-staff abcjs-l0 abcjs-v0"></g>
+            <g class="abcjs-tempo abcjs-l0 abcjs-v0" data-position="tempo">
+              <text class="abcjs-tempo abcjs-l0 abcjs-v0">Andante</text>
+            </g>
+            <text class="abcjs-chord abcjs-l0 abcjs-v0" data-position="chord">Cmaj7</text>
+            <text class="abcjs-annotation abcjs-l0 abcjs-v0" data-position="above">dolce</text>
+            <text class="abcjs-annotation abcjs-l0 abcjs-v0" data-position="below">legato</text>
+          </svg>
+        `;
+        const staff = element.querySelector<SVGGraphicsElement>('.abcjs-staff')!;
+        Object.defineProperty(staff, 'getBBox', {
+          value: () => ({ x: 20, y: 100, width: 300, height: 40 }),
+        });
+        const tempo = element.querySelector<SVGGraphicsElement>('[data-position="tempo"]')!;
+        Object.defineProperty(tempo, 'getBBox', {
+          value: () => ({ x: 80, y: 45, width: 80, height: 16 }),
+        });
+        const chord = element.querySelector<SVGGraphicsElement>('[data-position="chord"]')!;
+        Object.defineProperty(chord, 'getBBox', {
+          value: () => ({ x: 80, y: 64, width: 50, height: 14 }),
+        });
+        const above = element.querySelector<SVGGraphicsElement>('[data-position="above"]')!;
+        Object.defineProperty(above, 'getBBox', {
+          value: () => ({ x: 80, y: 82, width: 40, height: 12 }),
+        });
+        const below = element.querySelector<SVGGraphicsElement>('[data-position="below"]')!;
+        Object.defineProperty(below, 'getBBox', {
+          value: () => ({ x: 80, y: 148, width: 40, height: 12 }),
+        });
+      }
+      return [{ getBpm: () => 120 }] as any;
+    });
+
+    const { container } = render(<SheetMusicView abcCode={sampleAbc} />);
+
+    expect(container.querySelector('[data-position="tempo"]')?.classList)
+      .toContain('chorale-above-staff-content');
+    expect(container.querySelector('[data-position="tempo"] text')?.classList)
+      .not.toContain('chorale-above-staff-content');
+    expect(container.querySelector('[data-position="chord"]')?.classList)
+      .toContain('chorale-above-staff-content');
+    expect(container.querySelector('[data-position="above"]')?.classList)
+      .toContain('chorale-above-staff-content');
+    expect(container.querySelector('[data-position="below"]')?.classList)
+      .not.toContain('chorale-above-staff-content');
   });
 
   it('selects a measure from its full hit target on the first click', () => {
