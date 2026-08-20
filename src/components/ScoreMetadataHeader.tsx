@@ -143,10 +143,12 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
 
   return (
     <div className="score-metadata-header" role="region" aria-label="Score metadata">
-      {/* Title and Composer */}
-      <div className="score-title-author-block">
-        {/* Title */}
-        <div className="metadata-field title-field">
+      {/* Title and Composer Top Row */}
+      <div className="score-header-top-row">
+        <div className="score-header-spacer" aria-hidden="true" />
+
+        {/* Centered Title */}
+        <div className="metadata-field score-title-field">
           {editingField === 'title' ? (
             <div className="inline-edit-wrapper title-edit-wrapper">
               <span className="abc-tag-badge" title="ABC Title Header (T:)">T</span>
@@ -175,14 +177,13 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
               title="Double click to edit title (T:)"
               aria-label={`Score title: ${title}. Double click to edit.`}
             >
-              <span className="abc-tag-badge" aria-hidden="true">T</span>
               <h1 className="score-title-text">{title}</h1>
             </div>
           )}
         </div>
 
-        {/* Composer */}
-        <div className="metadata-field composer-field">
+        {/* Right-aligned Composer */}
+        <div className="metadata-field score-composer-field">
           {editingField === 'composer' ? (
             <div className="inline-edit-wrapper composer-edit-wrapper">
               <span className="abc-tag-badge" title="ABC Composer Header (C:)">C</span>
@@ -211,14 +212,13 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
               title="Double click to edit composer (C:)"
               aria-label={`Score composer: ${composer}. Double click to edit.`}
             >
-              <span className="abc-tag-badge" aria-hidden="true">C</span>
               <p className="score-composer-text">{composer}</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Metadata Chips: Key, Meter, Tempo, Voices */}
+      {/* Centered Metadata Chips: Key, Meter, Tempo, Voices */}
       <div className="score-metadata-chips" role="group" aria-label="Score musical attributes">
         {/* Key Signature */}
         <div className="metadata-chip-field">
@@ -250,7 +250,6 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
               title="Double click to edit key signature (K:)"
               aria-label={`Key signature: ${keySignature}. Double click to edit.`}
             >
-              <span className="abc-tag-badge" aria-hidden="true">K</span>
               <span className="chip-label">Key:</span>
               <strong className="chip-value">{keySignature}</strong>
             </button>
@@ -287,7 +286,6 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
               title="Double click to edit time signature (M:)"
               aria-label={`Time signature: ${meter}. Double click to edit.`}
             >
-              <span className="abc-tag-badge" aria-hidden="true">M</span>
               <span className="chip-label">Meter:</span>
               <strong className="chip-value">{meter}</strong>
             </button>
@@ -324,7 +322,6 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
               title="Double click to edit tempo (Q:)"
               aria-label={`Tempo: ${displayBpmText}. Double click to edit.`}
             >
-              <span className="abc-tag-badge" aria-hidden="true">Q</span>
               <span className="chip-label">Tempo:</span>
               <strong className="chip-value">{displayBpmText}</strong>
             </button>
@@ -339,7 +336,6 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
               title={`Score voices defined in ABC (V:): ${voices.join(', ')}`}
               aria-label={`Score has ${voices.length} voice${voices.length === 1 ? '' : 's'}: ${voices.join(', ')}`}
             >
-              <span className="abc-tag-badge" aria-hidden="true">V</span>
               <span className="chip-label">Voices:</span>
               <strong className="chip-value">{voices.length}</strong>
             </span>

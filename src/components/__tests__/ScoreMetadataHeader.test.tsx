@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { ScoreMetadataHeader } from '../ScoreMetadataHeader';
 
 describe('ScoreMetadataHeader Component', () => {
-  it('renders single title, composer, and grouped metadata chips with ABC tag badges', () => {
+  it('renders single title, composer, and grouped metadata chips cleanly in view mode', () => {
     const onUpdate = vi.fn();
     render(
       <ScoreMetadataHeader
@@ -29,12 +29,12 @@ describe('ScoreMetadataHeader Component', () => {
     expect(screen.getByText('Voices:')).toBeDefined();
     expect(screen.getByText('2')).toBeDefined();
 
-    // Check ABC tag badges
-    const badges = screen.getAllByText(/^[TCMQV]$/);
-    expect(badges.length).toBeGreaterThanOrEqual(5);
+    // In view mode, T and C tag badges are hidden to preserve clean engraving
+    expect(screen.queryByText(/^T$/)).toBeNull();
+    expect(screen.queryByText(/^C$/)).toBeNull();
   });
 
-  it('enters edit mode on title double click and commits valid update on Enter', () => {
+  it('enters edit mode on title double click, reveals T badge, and commits valid update on Enter', () => {
     const onUpdate = vi.fn();
     render(
       <ScoreMetadataHeader
@@ -50,6 +50,7 @@ describe('ScoreMetadataHeader Component', () => {
     const input = screen.getByRole('textbox', { name: 'Edit score title' }) as HTMLInputElement;
     expect(input).toBeDefined();
     expect(input.value).toBe('Old Title');
+    expect(screen.getByText(/^T$/)).toBeDefined();
 
     fireEvent.change(input, { target: { value: 'New Masterpiece' } });
     fireEvent.keyDown(input, { key: 'Enter' });
