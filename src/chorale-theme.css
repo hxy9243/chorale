@@ -147,6 +147,8 @@ textarea:disabled,
   font-weight: 450;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
 .header-left {
   display: flex;
   align-items: center;
