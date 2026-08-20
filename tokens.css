@@ -73,6 +73,7 @@
 
   --font-display: "IBM Plex Sans Variable", "IBM Plex Sans", sans-serif;
   --font-body: "IBM Plex Sans Variable", "IBM Plex Sans", sans-serif;
+  --font-serif: "Newsreader", "Playfair Display", "Instrument Serif", "Iowan Old Style", "Apple Garamond", "Baskerville", "Times New Roman", "Georgia", serif;
   --font-mono: "IBM Plex Mono", monospace;
 
   --space-3xs: 0.125rem;
