@@ -9,6 +9,7 @@ import { AudioPlayer } from './components/AudioPlayer';
 import { AbcEditor } from './components/AbcEditor';
 import { AgentChatPanel } from './components/AgentChatPanel';
 import { AISettingsModal } from './components/AISettingsModal';
+import { EditingHistoryModal } from './components/EditingHistoryModal';
 import { useAIProviders } from './agent/useAIProviders';
 import { useInterfaceZoom } from './hooks/useInterfaceZoom';
 import {
@@ -33,8 +34,8 @@ export {
   SHEET_ZOOM_KEY,
 };
 import { useDocumentStore } from './hooks/useDocumentStore';
-import type { BuildResult, ScoreAnchor, ScoreInfo } from './types/document';
-import { parseAbcHeaderMetadata, updateAbcHeaderMetadata, type ScoreMetadata } from './utils/abcMetadata';
+import type { BuildResult, ScoreAnchor } from './types/document';
+import { parseAbcHeaderMetadata, type ScoreMetadata } from './utils/abcMetadata';
 import type { PlaybackPosition } from './utils/repeatPlayback';
 import { prepareAbcForPlayback } from './utils/abcAudio';
 import { extractScore } from './music/scoreSnapshot';
@@ -65,8 +66,16 @@ export const App: React.FC = () => {
     saveStatus,
     loading,
     error,
+    editingHistory,
+    activeHistoryIndex,
+    canUndo,
+    canRedo,
+    handleUndo,
+    handleRedo,
+    handleRevertTo,
     handleSelectFile,
     handleAbcChange,
+    handleUpdateMetadata,
     handleProcessMusicXml,
     handleDeleteDocument,
     handleReorderDocument,
@@ -95,6 +104,7 @@ export const App: React.FC = () => {
 
   const [tunes, setTunes] = useState<abcjs.TuneObject[] | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [buildStatus, setBuildStatus] = useState<BuildStatus>('idle');
   const [buildResult, setBuildResult] = useState<BuildResult | null>(null);
   const [scoreNavigationAnchor, setScoreNavigationAnchor] = useState<ScoreAnchor | null>(null);
@@ -108,6 +118,42 @@ export const App: React.FC = () => {
   const aiProviders = useAIProviders();
   const openSettings = useCallback(() => setSettingsOpen(true), []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  const openHistoryModal = useCallback(() => setHistoryModalOpen(true), []);
+  const closeHistoryModal = useCallback(() => setHistoryModalOpen(false), []);
+
+  // Global Undo / Redo keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isInput =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable ||
+          target.closest('.editor-workspace-card') ||
+          target.closest('.chat-panel'));
+
+      if (isInput) return;
+
+      const isMac = navigator.platform.toUpperCase().includes('MAC');
+      const isCmdOrCtrl = isMac ? event.metaKey : event.ctrlKey;
+
+      if (isCmdOrCtrl && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) {
+          if (canRedo) handleRedo();
+        } else {
+          if (canUndo) handleUndo();
+        }
+      } else if (isCmdOrCtrl && event.key.toLowerCase() === 'y') {
+        event.preventDefault();
+        if (canRedo) handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [canUndo, canRedo, handleUndo, handleRedo]);
 
   const canRenderScore = buildStatus === 'valid';
   const liveMetadata = useMemo(() => parseAbcHeaderMetadata(abcCode), [abcCode]);
@@ -118,24 +164,12 @@ export const App: React.FC = () => {
   const scoreTempoText = liveMetadata.tempoText || activeDocument?.scoreInfo.tempoText || (tunes?.[0]?.getBpm?.() ? `♩ = ${tunes[0].getBpm()}` : '♩ = 120');
   const scoreTempoBpm = liveMetadata.tempoBpm || (tunes?.[0]?.getBpm?.() ?? undefined);
 
-  const handleUpdateMetadata = useCallback((updates: Partial<ScoreMetadata>) => {
-    if (!activeFileId || !abcCode) return;
+  const handleMetadataChange = useCallback((updates: Partial<ScoreMetadata>) => {
     const effectiveUpdates = updates.subtitle !== undefined && !liveMetadata.title
       ? { title: scoreTitle, ...updates }
       : updates;
-    const newAbc = updateAbcHeaderMetadata(abcCode, effectiveUpdates);
-    const nextMetadata = parseAbcHeaderMetadata(newAbc);
-    const scoreInfoOverrides: Partial<ScoreInfo> = {};
-    if (updates.title !== undefined) scoreInfoOverrides.title = nextMetadata.title;
-    if (updates.subtitle !== undefined) scoreInfoOverrides.subtitle = nextMetadata.subtitle;
-    if (updates.composer !== undefined) scoreInfoOverrides.composer = nextMetadata.composer;
-    if (updates.key !== undefined) scoreInfoOverrides.key = nextMetadata.key;
-    if (updates.meter !== undefined) scoreInfoOverrides.meter = nextMetadata.meter;
-    if (updates.tempoText !== undefined || updates.tempoBpm !== undefined) {
-      scoreInfoOverrides.tempoText = nextMetadata.tempoText;
-    }
-    handleAbcChange(newAbc, scoreInfoOverrides);
-  }, [activeFileId, abcCode, handleAbcChange, liveMetadata.title, scoreTitle]);
+    handleUpdateMetadata(effectiveUpdates);
+  }, [handleUpdateMetadata, liveMetadata.title, scoreTitle]);
 
   const totalMeasures = useMemo(() => {
     try {
@@ -242,6 +276,10 @@ export const App: React.FC = () => {
         saveStatus={activeDocument ? saveStatus : undefined}
         canRenderScore={activeDocument ? canRenderScore : undefined}
         hasPlayback={activeDocument ? (buildResult?.hasPlayback || false) : undefined}
+        canUndo={activeDocument ? canUndo : false}
+        canRedo={activeDocument ? canRedo : false}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
       />
 
       <div
@@ -267,6 +305,8 @@ export const App: React.FC = () => {
           editorVisible={editorVisible}
           onToggleEditor={() => setEditorVisible((visible) => !visible)}
           onOpenSettings={openSettings}
+          onOpenHistory={openHistoryModal}
+          historyCount={editingHistory.length}
         />
 
         <main
@@ -312,7 +352,7 @@ export const App: React.FC = () => {
                           meter={scoreMeter}
                           tempoText={scoreTempoText}
                           tempoBpm={scoreTempoBpm}
-                          onUpdateMetadata={handleUpdateMetadata}
+                          onUpdateMetadata={handleMetadataChange}
                         />
                       )}
                       abcCode={canRenderScore ? abcCode : ''}
@@ -403,6 +443,18 @@ export const App: React.FC = () => {
         ai={aiProviders}
         interfaceZoom={interfaceZoom.zoom}
         onInterfaceZoomChange={interfaceZoom.setZoom}
+      />
+      <EditingHistoryModal
+        open={historyModalOpen}
+        onClose={closeHistoryModal}
+        scoreTitle={scoreTitle}
+        history={editingHistory}
+        activeHistoryIndex={activeHistoryIndex}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onRevertTo={handleRevertTo}
       />
     </div>
   );

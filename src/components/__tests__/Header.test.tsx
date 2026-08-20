@@ -53,4 +53,49 @@ describe('Header Component', () => {
     expect(screen.getByText('SVG pending')).toBeDefined();
     expect(screen.getByText('Music pending')).toBeDefined();
   });
+
+  it('renders Undo and Redo buttons and handles clicks', () => {
+    const handleUndo = vi.fn();
+    const handleRedo = vi.fn();
+
+    const { rerender } = render(
+      <Header
+        activeFileName="Test.xml"
+        canUndo={true}
+        canRedo={false}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+      />,
+    );
+
+    const undoBtn = screen.getByRole('button', { name: 'Undo last edit' });
+    const redoBtn = screen.getByRole('button', { name: 'Redo edit' });
+
+    expect(undoBtn).toBeDefined();
+    expect(redoBtn).toBeDefined();
+    expect((undoBtn as HTMLButtonElement).disabled).toBe(false);
+    expect((redoBtn as HTMLButtonElement).disabled).toBe(true);
+
+    fireEvent.click(undoBtn);
+    expect(handleUndo).toHaveBeenCalledOnce();
+
+    fireEvent.click(redoBtn);
+    expect(handleRedo).not.toHaveBeenCalled();
+
+    rerender(
+      <Header
+        activeFileName="Test.xml"
+        canUndo={false}
+        canRedo={true}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+      />,
+    );
+
+    expect((undoBtn as HTMLButtonElement).disabled).toBe(true);
+    expect((redoBtn as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(redoBtn);
+    expect(handleRedo).toHaveBeenCalledOnce();
+  });
 });

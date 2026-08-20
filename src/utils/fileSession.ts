@@ -19,6 +19,11 @@ export function generateId(prefix = 'file'): string {
 }
 
 import { parseAbcHeaderMetadata } from './abcMetadata';
+import {
+  createBodyHistoryEntry,
+  createOriginHistoryEntry,
+  limitHistoryEntries,
+} from './fileHistory';
 
 export function parseAbcMetadata(abc: string): Partial<ScoreInfo> {
   const meta = parseAbcHeaderMetadata(abc);
@@ -48,7 +53,7 @@ export function createDocumentFromAbc(
 
   const parsedMeta = parseAbcMetadata(abcSource);
 
-  return {
+  const docBase: FileDocument = {
     id,
     name,
     sourceType,
@@ -66,6 +71,12 @@ export function createDocumentFromAbc(
     versions: [initialVersion],
     createdAt: now,
     updatedAt: now,
+  };
+
+  return {
+    ...docBase,
+    history: [createOriginHistoryEntry(docBase)],
+    historyIndex: 0,
   };
 }
 
@@ -96,6 +107,15 @@ export function updateDocumentAbc(
   };
 
   const parsedMeta = parseAbcMetadata(newAbc);
+  const currentHistory = doc.history && doc.history.length > 0
+    ? doc.history
+    : [createOriginHistoryEntry(doc)];
+  const currentIndex = doc.historyIndex !== undefined && doc.historyIndex >= 0 && doc.historyIndex < currentHistory.length
+    ? doc.historyIndex
+    : currentHistory.length - 1;
+  const trimmedHistory = currentHistory.slice(0, currentIndex + 1);
+  const historyEntry = createBodyHistoryEntry(doc, newAbc);
+  const nextHistory = limitHistoryEntries([...trimmedHistory, historyEntry]);
 
   return {
     ...doc,
@@ -111,6 +131,8 @@ export function updateDocumentAbc(
       ...scoreInfoOverrides,
     },
     versions: limitScoreVersions([...doc.versions, newVersion]),
+    history: nextHistory,
+    historyIndex: nextHistory.length - 1,
     updatedAt: now,
   };
 }

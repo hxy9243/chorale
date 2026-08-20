@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Redo2, Undo2 } from 'lucide-react';
 
 interface HeaderProps {
   activeFileName?: string;
@@ -8,6 +8,10 @@ interface HeaderProps {
   saveStatus?: 'saved' | 'saving' | 'error';
   canRenderScore?: boolean;
   hasPlayback?: boolean;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,6 +21,10 @@ export const Header: React.FC<HeaderProps> = ({
   saveStatus,
   canRenderScore,
   hasPlayback,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
 }) => {
   const saveLabel = saveStatus === 'saved'
     ? 'Auto-saved'
@@ -38,6 +46,33 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="header-breadcrumb" aria-label="Current score">
           <strong>{activeFileName || 'Untitled score'}</strong>
         </div>
+
+        {(onUndo || onRedo) && (
+          <div className="header-history-actions" role="group" aria-label="Edit history actions">
+            <button
+              type="button"
+              className="header-history-btn undo"
+              onClick={onUndo}
+              disabled={!canUndo}
+              title="Undo last edit (Ctrl+Z / ⌘Z)"
+              aria-label="Undo last edit"
+            >
+              <Undo2 size={14} aria-hidden="true" />
+              <span>Undo</span>
+            </button>
+            <button
+              type="button"
+              className="header-history-btn redo"
+              onClick={onRedo}
+              disabled={!canRedo}
+              title="Redo edit (Ctrl+Shift+Z / ⌘Shift+Z)"
+              aria-label="Redo edit"
+            >
+              <Redo2 size={14} aria-hidden="true" />
+              <span>Redo</span>
+            </button>
+          </div>
+        )}
 
         {(saveLabel || canRenderScore !== undefined || hasPlayback !== undefined) && (
           <div className="header-status-group" role="status" aria-live="polite">
