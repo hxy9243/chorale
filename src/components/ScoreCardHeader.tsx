@@ -32,14 +32,12 @@ export const ScoreCardHeader: React.FC<ScoreCardHeaderProps> = ({
       scrollTimerRef.current = window.setTimeout(() => {
         setScrolling(false);
         scrollTimerRef.current = null;
-      }, 700);
+      }, 320);
     };
 
-    workspace.addEventListener('scroll', indicateScrolling, true);
     workspace.addEventListener('wheel', indicateScrolling, { capture: true, passive: true });
 
     return () => {
-      workspace.removeEventListener('scroll', indicateScrolling, true);
       workspace.removeEventListener('wheel', indicateScrolling, true);
       if (scrollTimerRef.current !== null) {
         window.clearTimeout(scrollTimerRef.current);

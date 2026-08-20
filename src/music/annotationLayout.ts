@@ -91,7 +91,7 @@ const rationalValue = ({ numerator, denominator }: RationalDuration) => numerato
 
 export const CHORD_BADGE_HEIGHT = 38;
 export const CHORD_BADGE_GAP = 6;
-export const CHORD_STAFF_CLEARANCE = 72;
+export const CHORD_STAFF_CLEARANCE = 24;
 const CHORD_SYSTEM_SEPARATION = 132;
 export const ANNOTATION_RAIL_CARD_GAP = 12;
 

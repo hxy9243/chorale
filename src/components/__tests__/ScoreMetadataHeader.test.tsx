@@ -3,31 +3,39 @@ import { describe, it, expect, vi } from 'vitest';
 import { ScoreMetadataHeader } from '../ScoreMetadataHeader';
 
 describe('ScoreMetadataHeader Component', () => {
-  it('renders single title, composer, and grouped metadata chips cleanly in view mode', () => {
+  it('renders single title, composer, author, origin, and grouped metadata chips cleanly in view mode (without voices)', () => {
     const onUpdate = vi.fn();
     render(
       <ScoreMetadataHeader
         title="Für Elise"
+        subtitle="Bagatelle No. 25 in A minor"
         composer="Ludwig van Beethoven"
+        author="Traditional"
+        origin="Germany"
+        rhythm="Bagatelle"
         keySignature="Am"
         meter="3/8"
         tempoText="♩ = 45"
         tempoBpm={45}
-        voices={['1', '2']}
         onUpdateMetadata={onUpdate}
       />,
     );
 
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Für Elise');
+    expect(screen.getByText('Bagatelle No. 25 in A minor')).toBeDefined();
     expect(screen.getByText('Ludwig van Beethoven')).toBeDefined();
+    expect(screen.getByText('Traditional')).toBeDefined();
+    expect(screen.getByText('Germany')).toBeDefined();
+    expect(screen.getByText('Bagatelle')).toBeDefined();
     expect(screen.getByText('Key:')).toBeDefined();
     expect(screen.getByText('Am')).toBeDefined();
     expect(screen.getByText('Meter:')).toBeDefined();
     expect(screen.getByText('3/8')).toBeDefined();
     expect(screen.getByText('Tempo:')).toBeDefined();
     expect(screen.getByText('♩ = 45')).toBeDefined();
-    expect(screen.getByText('Voices:')).toBeDefined();
-    expect(screen.getByText('2')).toBeDefined();
+
+    // Voices badge is removed
+    expect(screen.queryByText('Voices:')).toBeNull();
 
     // In view mode, T and C tag badges are hidden to preserve clean engraving
     expect(screen.queryByText(/^T$/)).toBeNull();
@@ -56,6 +64,29 @@ describe('ScoreMetadataHeader Component', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
 
     expect(onUpdate).toHaveBeenCalledWith({ title: 'New Masterpiece' });
+  });
+
+  it('enters edit mode on composer double click, reveals C badge, and commits update', () => {
+    const onUpdate = vi.fn();
+    render(
+      <ScoreMetadataHeader
+        title="Title"
+        composer="Old Composer"
+        onUpdateMetadata={onUpdate}
+      />,
+    );
+
+    const composerContainer = screen.getByRole('button', { name: /Score composer: Old Composer/i });
+    fireEvent.doubleClick(composerContainer);
+
+    const input = screen.getByRole('textbox', { name: 'Edit score composer' }) as HTMLInputElement;
+    expect(input).toBeDefined();
+    expect(screen.getByTitle('ABC Composer Header (C:)')).toBeDefined();
+
+    fireEvent.change(input, { target: { value: 'Mozart' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onUpdate).toHaveBeenCalledWith({ composer: 'Mozart' });
   });
 
   it('validates tempo BPM in range [20, 400] and shows error if invalid', () => {

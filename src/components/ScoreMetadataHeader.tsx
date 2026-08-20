@@ -10,26 +10,41 @@ import {
 
 export interface ScoreMetadataHeaderProps {
   title?: string;
+  subtitle?: string;
   composer?: string;
+  author?: string;
+  rhythm?: string;
+  origin?: string;
   keySignature?: string;
   meter?: string;
   tempoText?: string;
   tempoBpm?: number;
-  voices?: string[];
   onUpdateMetadata: (updates: Partial<ScoreMetadata>) => void;
   disabled?: boolean;
 }
 
-type EditableField = 'title' | 'composer' | 'key' | 'meter' | 'tempo';
+type EditableField =
+  | 'title'
+  | 'subtitle'
+  | 'composer'
+  | 'author'
+  | 'rhythm'
+  | 'origin'
+  | 'key'
+  | 'meter'
+  | 'tempo';
 
 export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
   title = 'Untitled score',
+  subtitle,
   composer = 'Unknown composer',
+  author,
+  rhythm,
+  origin,
   keySignature = 'C',
   meter = '4/4',
   tempoText = '♩ = 120',
   tempoBpm,
-  voices = [],
   onUpdateMetadata,
   disabled = false,
 }) => {
@@ -73,8 +88,32 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
       return;
     }
 
+    if (editingField === 'subtitle') {
+      onUpdateMetadata({ subtitle: trimmed });
+      cancelEditing();
+      return;
+    }
+
+    if (editingField === 'author') {
+      onUpdateMetadata({ author: trimmed });
+      cancelEditing();
+      return;
+    }
+
     if (editingField === 'composer') {
       onUpdateMetadata({ composer: trimmed });
+      cancelEditing();
+      return;
+    }
+
+    if (editingField === 'rhythm') {
+      onUpdateMetadata({ rhythm: trimmed });
+      cancelEditing();
+      return;
+    }
+
+    if (editingField === 'origin') {
+      onUpdateMetadata({ origin: trimmed });
       cancelEditing();
       return;
     }
@@ -143,46 +182,192 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
 
   return (
     <div className="score-metadata-header" role="region" aria-label="Score metadata">
-      {/* Title and Composer Top Row */}
-      <div className="score-header-top-row">
-        <div className="score-header-spacer" aria-hidden="true" />
+      {/* 1. Center Aligned Title */}
+      <div className="metadata-field score-title-field">
+        {editingField === 'title' ? (
+          <div className="inline-edit-wrapper title-edit-wrapper">
+            <span className="abc-tag-badge" title="ABC Title Header (T:)">T</span>
+            <input
+              ref={inputRef}
+              type="text"
+              className={`inline-edit-input title-input ${errorMessage ? 'has-error' : ''}`}
+              value={draftValue}
+              onChange={(e) => {
+                setDraftValue(e.target.value);
+                setErrorMessage(null);
+              }}
+              onBlur={commitEditing}
+              onKeyDown={handleKeyDown}
+              aria-label="Edit score title"
+            />
+            {errorMessage && <span className="edit-error-tooltip" role="alert">{errorMessage}</span>}
+          </div>
+        ) : (
+          <div
+            className="metadata-view-item title-view-item"
+            onDoubleClick={() => startEditing('title', title)}
+            onKeyDown={(e) => handleContainerKeyDown(e, 'title', title)}
+            tabIndex={0}
+            role="button"
+            title="Double click to edit title (T:)"
+            aria-label={`Score title: ${title}. Double click to edit.`}
+          >
+            <h1 className="score-title-text">{title}</h1>
+          </div>
+        )}
+      </div>
 
-        {/* Centered Title */}
-        <div className="metadata-field score-title-field">
-          {editingField === 'title' ? (
-            <div className="inline-edit-wrapper title-edit-wrapper">
-              <span className="abc-tag-badge" title="ABC Title Header (T:)">T</span>
-              <input
-                ref={inputRef}
-                type="text"
-                className={`inline-edit-input title-input ${errorMessage ? 'has-error' : ''}`}
-                value={draftValue}
-                onChange={(e) => {
-                  setDraftValue(e.target.value);
-                  setErrorMessage(null);
-                }}
-                onBlur={commitEditing}
-                onKeyDown={handleKeyDown}
-                aria-label="Edit score title"
-              />
-              {errorMessage && <span className="edit-error-tooltip" role="alert">{errorMessage}</span>}
-            </div>
-          ) : (
-            <div
-              className="metadata-view-item title-view-item"
-              onDoubleClick={() => startEditing('title', title)}
-              onKeyDown={(e) => handleContainerKeyDown(e, 'title', title)}
-              tabIndex={0}
-              role="button"
-              title="Double click to edit title (T:)"
-              aria-label={`Score title: ${title}. Double click to edit.`}
-            >
-              <h1 className="score-title-text">{title}</h1>
-            </div>
-          )}
-        </div>
+      {/* 2. Taglines and Composer block: right-aligned with measure render width */}
+      <div className="score-header-taglines-block">
+        {/* Tagline / Subtitle */}
+        {subtitle && (
+          <div className="metadata-field score-subtitle-field">
+            {editingField === 'subtitle' ? (
+              <div className="inline-edit-wrapper subtitle-edit-wrapper">
+                <span className="abc-tag-badge" title="ABC Subtitle Header (T:)">T</span>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  className={`inline-edit-input subtitle-input ${errorMessage ? 'has-error' : ''}`}
+                  value={draftValue}
+                  onChange={(e) => {
+                    setDraftValue(e.target.value);
+                    setErrorMessage(null);
+                  }}
+                  onBlur={commitEditing}
+                  onKeyDown={handleKeyDown}
+                  aria-label="Edit score subtitle"
+                />
+                {errorMessage && <span className="edit-error-tooltip" role="alert">{errorMessage}</span>}
+              </div>
+            ) : (
+              <div
+                className="metadata-view-item subtitle-view-item"
+                onDoubleClick={() => startEditing('subtitle', subtitle)}
+                onKeyDown={(e) => handleContainerKeyDown(e, 'subtitle', subtitle)}
+                tabIndex={0}
+                role="button"
+                title="Double click to edit subtitle"
+                aria-label={`Score subtitle: ${subtitle}. Double click to edit.`}
+              >
+                <p className="score-subtitle-text">{subtitle}</p>
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* Right-aligned Composer */}
+        {/* Origin (O:) */}
+        {origin && (
+          <div className="metadata-field score-tagline-field">
+            {editingField === 'origin' ? (
+              <div className="inline-edit-wrapper tagline-edit-wrapper">
+                <span className="abc-tag-badge" title="ABC Origin Header (O:)">O</span>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  className={`inline-edit-input tagline-input ${errorMessage ? 'has-error' : ''}`}
+                  value={draftValue}
+                  onChange={(e) => {
+                    setDraftValue(e.target.value);
+                    setErrorMessage(null);
+                  }}
+                  onBlur={commitEditing}
+                  onKeyDown={handleKeyDown}
+                  aria-label="Edit score origin"
+                />
+                {errorMessage && <span className="edit-error-tooltip" role="alert">{errorMessage}</span>}
+              </div>
+            ) : (
+              <div
+                className="metadata-view-item tagline-view-item"
+                onDoubleClick={() => startEditing('origin', origin)}
+                onKeyDown={(e) => handleContainerKeyDown(e, 'origin', origin)}
+                tabIndex={0}
+                role="button"
+                title="Double click to edit origin (O:)"
+                aria-label={`Score origin: ${origin}. Double click to edit.`}
+              >
+                <span className="score-tagline-text">{origin}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Rhythm (R:) */}
+        {rhythm && (
+          <div className="metadata-field score-tagline-field">
+            {editingField === 'rhythm' ? (
+              <div className="inline-edit-wrapper tagline-edit-wrapper">
+                <span className="abc-tag-badge" title="ABC Rhythm Header (R:)">R</span>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  className={`inline-edit-input tagline-input ${errorMessage ? 'has-error' : ''}`}
+                  value={draftValue}
+                  onChange={(e) => {
+                    setDraftValue(e.target.value);
+                    setErrorMessage(null);
+                  }}
+                  onBlur={commitEditing}
+                  onKeyDown={handleKeyDown}
+                  aria-label="Edit score rhythm"
+                />
+                {errorMessage && <span className="edit-error-tooltip" role="alert">{errorMessage}</span>}
+              </div>
+            ) : (
+              <div
+                className="metadata-view-item tagline-view-item"
+                onDoubleClick={() => startEditing('rhythm', rhythm)}
+                onKeyDown={(e) => handleContainerKeyDown(e, 'rhythm', rhythm)}
+                tabIndex={0}
+                role="button"
+                title="Double click to edit rhythm (R:)"
+                aria-label={`Score rhythm: ${rhythm}. Double click to edit.`}
+              >
+                <span className="score-tagline-text">{rhythm}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Lyricist / Author (A:) */}
+        {author && (
+          <div className="metadata-field score-author-field">
+            {editingField === 'author' ? (
+              <div className="inline-edit-wrapper author-edit-wrapper">
+                <span className="abc-tag-badge" title="ABC Lyricist/Author Header (A:)">A</span>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  className={`inline-edit-input author-input ${errorMessage ? 'has-error' : ''}`}
+                  value={draftValue}
+                  onChange={(e) => {
+                    setDraftValue(e.target.value);
+                    setErrorMessage(null);
+                  }}
+                  onBlur={commitEditing}
+                  onKeyDown={handleKeyDown}
+                  aria-label="Edit score lyricist/author"
+                />
+                {errorMessage && <span className="edit-error-tooltip" role="alert">{errorMessage}</span>}
+              </div>
+            ) : (
+              <div
+                className="metadata-view-item author-view-item"
+                onDoubleClick={() => startEditing('author', author)}
+                onKeyDown={(e) => handleContainerKeyDown(e, 'author', author)}
+                tabIndex={0}
+                role="button"
+                title="Double click to edit lyricist/author (A:)"
+                aria-label={`Score lyricist/author: ${author}. Double click to edit.`}
+              >
+                <p className="score-author-text">{author}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Composer (C:) */}
         <div className="metadata-field score-composer-field">
           {editingField === 'composer' ? (
             <div className="inline-edit-wrapper composer-edit-wrapper">
@@ -218,7 +403,7 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
         </div>
       </div>
 
-      {/* Centered Metadata Chips: Key, Meter, Tempo, Voices */}
+      {/* 3. Centered Metadata Chips: Key, Meter, Tempo (lower down) */}
       <div className="score-metadata-chips" role="group" aria-label="Score musical attributes">
         {/* Key Signature */}
         <div className="metadata-chip-field">
@@ -327,20 +512,6 @@ export const ScoreMetadataHeader: React.FC<ScoreMetadataHeaderProps> = ({
             </button>
           )}
         </div>
-
-        {/* Voices (informational badge) */}
-        {voices.length > 0 && (
-          <div className="metadata-chip-field voice-count-chip-field">
-            <span
-              className="metadata-chip readonly"
-              title={`Score voices defined in ABC (V:): ${voices.join(', ')}`}
-              aria-label={`Score has ${voices.length} voice${voices.length === 1 ? '' : 's'}: ${voices.join(', ')}`}
-            >
-              <span className="chip-label">Voices:</span>
-              <strong className="chip-value">{voices.length}</strong>
-            </span>
-          </div>
-        )}
       </div>
     </div>
   );
