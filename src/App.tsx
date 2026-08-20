@@ -34,7 +34,7 @@ export {
 };
 import { useDocumentStore } from './hooks/useDocumentStore';
 import type { BuildResult, ScoreAnchor } from './types/document';
-import { parseAbcHeaderMetadata, updateAbcHeaderMetadata, ScoreMetadata } from './utils/abcMetadata';
+import { parseAbcHeaderMetadata, updateAbcHeaderMetadata, type ScoreMetadata } from './utils/abcMetadata';
 import type { PlaybackPosition } from './utils/repeatPlayback';
 import { prepareAbcForPlayback } from './utils/abcAudio';
 import { extractScore } from './music/scoreSnapshot';
@@ -108,22 +108,6 @@ export const App: React.FC = () => {
   const aiProviders = useAIProviders();
   const openSettings = useCallback(() => setSettingsOpen(true), []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
-
-  const saveState = !activeDocument
-    ? 'No file'
-    : saveStatus === 'saving'
-      ? 'Saving'
-      : saveStatus === 'error'
-        ? 'Error'
-        : 'Saved';
-
-  const saveLabel = saveState === 'Saved'
-    ? 'Auto-saved'
-    : saveState === 'Saving'
-      ? 'Saving…'
-      : saveState === 'Error'
-        ? 'Save failed'
-        : saveState;
 
   const canRenderScore = buildStatus === 'valid';
   const liveMetadata = useMemo(() => parseAbcHeaderMetadata(abcCode), [abcCode]);
