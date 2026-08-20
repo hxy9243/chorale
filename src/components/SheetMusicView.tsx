@@ -203,7 +203,7 @@ const installLineStartMeasureNumbers = (container: HTMLDivElement) => {
       const staffBoxes = staffElements.map((element) => element.getBBox());
       const measure = Math.min(...measureIndexes) + 1;
       const label = document.createElementNS(SVG_NAMESPACE, 'text');
-      label.classList.add('chorale-line-measure-number');
+      label.classList.add('chorale-line-measure-number', lineClass);
       label.dataset.measure = String(measure);
       label.setAttribute('x', String(Math.min(...staffBoxes.map((box) => box.x))));
       label.setAttribute('y', String(Math.min(...staffBoxes.map((box) => box.y)) - 20));
@@ -211,6 +211,51 @@ const installLineStartMeasureNumbers = (container: HTMLDivElement) => {
       label.textContent = String(measure);
       svg.appendChild(label);
     });
+};
+
+const ABOVE_STAFF_CONTENT_SELECTOR = [
+  '.abcjs-annotation',
+  '.abcjs-tempo',
+  '.abcjs-part',
+  '.abcjs-dynamics',
+  '.abcjs-chord',
+  '.abcjs-ending',
+  '.abcjs-bar-number',
+  '.chorale-line-measure-number',
+].join(',');
+
+const installAboveStaffContentOffsets = (container: HTMLDivElement) => {
+  container.querySelectorAll(
+    '.chorale-above-measure-text, .chorale-above-staff-content',
+  ).forEach((element) => {
+    element.classList.remove('chorale-above-measure-text', 'chorale-above-staff-content');
+  });
+
+  container.querySelectorAll<SVGGraphicsElement>(ABOVE_STAFF_CONTENT_SELECTOR).forEach((element) => {
+    if (typeof element.getBBox !== 'function') return;
+    if (element.parentElement?.closest(ABOVE_STAFF_CONTENT_SELECTOR)) return;
+    const lineClass = Array.from(element.classList)
+      .find((className) => /^abcjs-l\d+$/.test(className));
+    if (!lineClass) return;
+    const voiceClass = Array.from(element.classList)
+      .find((className) => /^abcjs-v\d+$/.test(className));
+    const staffSelector = voiceClass
+      ? `.abcjs-staff.${lineClass}.${voiceClass}`
+      : `.abcjs-staff.${lineClass}`;
+    const staff = container.querySelector<SVGGraphicsElement>(staffSelector)
+      || container.querySelector<SVGGraphicsElement>(`.abcjs-staff.${lineClass}`);
+    if (!staff || typeof staff.getBBox !== 'function') return;
+
+    try {
+      const contentBounds = element.getBBox();
+      const staffBounds = staff.getBBox();
+      if (contentBounds.y < staffBounds.y) {
+        element.classList.add('chorale-above-staff-content');
+      }
+    } catch {
+      // Ignore detached or temporarily unmeasurable SVG nodes.
+    }
+  });
 };
 
 type SelectionModifiers = Readonly<{
@@ -588,6 +633,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       configureAudioPlayback(abcCode, tunes);
       measureOccurrencesRef.current = renderedTune ? buildMeasureOccurrences(renderedTune) : [];
       installLineStartMeasureNumbers(containerRef.current);
+      installAboveStaffContentOffsets(containerRef.current);
       installMeasureHitAreas(containerRef.current, (measure, modifiers) => {
         // Mark that the hit area handled this click so the abcjs clickListener
         // (which may fire after with wrong SVG-space coordinates) gets skipped.

@@ -784,6 +784,10 @@ textarea:disabled,
   user-select: none;
 }
 
+.chorale-above-staff-content {
+  transform: translateY(calc(-3 * var(--space-xs)));
+}
+
 .abcjs-measure-hit-area {
   fill: var(--color-transparent);
   stroke: var(--color-transparent);

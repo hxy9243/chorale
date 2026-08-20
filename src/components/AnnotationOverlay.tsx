@@ -4,6 +4,7 @@ import type { Annotation } from '../types/document';
 import { extractScore, type MeasuredScoreEvent } from '../music/scoreSnapshot';
 import {
   projectAnnotations,
+  CHORD_BADGE_GAP,
   CHORD_BADGE_HEIGHT,
   CHORD_STAFF_CLEARANCE,
   packChordBadgeIntervals,
@@ -34,6 +35,11 @@ type OverlayLayout = Readonly<{
   systems: PositionedSystem[];
   measures: RenderedMeasureGeometry[];
   placements: AnnotationPlacement[];
+  obstacles: ReadonlyArray<Readonly<{
+    systemId: string;
+    lineId?: string;
+    bounds: SvgLocalBounds;
+  }>>;
 }>;
 
 export type AnnotationRailGeometry = Readonly<{
@@ -71,6 +77,40 @@ const unionBounds = (bounds: readonly SvgLocalBounds[]): SvgLocalBounds | null =
   const right = Math.max(...bounds.map((box) => box.x + box.width));
   const bottom = Math.max(...bounds.map((box) => box.y + box.height));
   return { x, y, width: right - x, height: bottom - y };
+};
+
+const SCORE_TEXT_OBSTACLE_SELECTOR = [
+  '.abcjs-annotation',
+  '.abcjs-tempo',
+  '.abcjs-part',
+  '.abcjs-dynamics',
+  '.abcjs-chord',
+  '.abcjs-ending',
+  '.abcjs-bar-number',
+  '.chorale-line-measure-number',
+].join(',');
+
+const screenBoundsInSvg = (
+  svg: SVGSVGElement,
+  element: SVGGraphicsElement,
+): SvgLocalBounds | null => {
+  const svgRect = svg.getBoundingClientRect();
+  const elementRect = element.getBoundingClientRect();
+  const [viewBoxX = 0, viewBoxY = 0, viewBoxWidth = svgRect.width, viewBoxHeight = svgRect.height]
+    = (svg.getAttribute('viewBox') || '').split(/[ ,]+/).map(Number);
+  if (
+    svgRect.width <= 0
+    || svgRect.height <= 0
+    || ![viewBoxX, viewBoxY, viewBoxWidth, viewBoxHeight].every(Number.isFinite)
+  ) return safeBounds(element);
+  const scaleX = viewBoxWidth / svgRect.width;
+  const scaleY = viewBoxHeight / svgRect.height;
+  return {
+    x: viewBoxX + (elementRect.left - svgRect.left) * scaleX,
+    y: viewBoxY + (elementRect.top - svgRect.top) * scaleY,
+    width: elementRect.width * scaleX,
+    height: elementRect.height * scaleY,
+  };
 };
 
 const measureBounds = (
@@ -149,7 +189,7 @@ const captureLayout = (
 ): OverlayLayout => {
   const wrapper = paper.parentElement;
   if (!wrapper || !abcCode.trim() || annotations.length === 0) {
-    return { systems: [], measures: [], placements: [] };
+    return { systems: [], measures: [], placements: [], obstacles: [] };
   }
   const scale = zoom / 100 || 1;
   const wrapperRect = wrapper.getBoundingClientRect();
@@ -169,6 +209,22 @@ const captureLayout = (
   });
   const systemBySvg = new Map(sourceSvgs.map((svg, index) => [svg, systems[index]]));
   const { score, events: sourceEvents } = sourceEventsByStart(abcCode);
+
+  const obstacles = sourceSvgs.flatMap((svg, index) => (
+    Array.from(svg.querySelectorAll<SVGGraphicsElement>(SCORE_TEXT_OBSTACLE_SELECTOR))
+      .filter((element) => !element.parentElement?.closest(SCORE_TEXT_OBSTACLE_SELECTOR))
+      .flatMap((element) => {
+        const bounds = screenBoundsInSvg(svg, element);
+        if (!bounds) return [];
+        const lineId = Array.from(element.classList)
+          .find((className) => /^abcjs-l\d+$/.test(className));
+        return [{
+          systemId: systems[index].id,
+          ...(lineId ? { lineId } : {}),
+          bounds,
+        }];
+      })
+  ));
 
   const measures: RenderedMeasureGeometry[] = [];
   for (const measure of score.measures) {
@@ -243,6 +299,7 @@ const captureLayout = (
     systems,
     measures,
     placements: projectAnnotations({ annotations, systems, measures, events }),
+    obstacles,
   };
 };
 
@@ -312,7 +369,7 @@ const handleKeyboardActivation = (
 const PlacementNode: React.FC<{
   placement: AnnotationPlacement;
   active: boolean;
-  chordBadge?: Readonly<{ width: number; lane: number; left: number }>;
+  chordBadge?: Readonly<{ width: number; lane: number; left: number; top: number }>;
   onActivate(initiator: SVGGElement): void;
 }> = ({ placement, active, chordBadge, onActivate }) => {
   const common = {
@@ -328,7 +385,7 @@ const PlacementNode: React.FC<{
   };
 
   if (placement.track === 'chord' && chordBadge) {
-    const top = placement.y - CHORD_STAFF_CLEARANCE - CHORD_BADGE_HEIGHT;
+    const top = chordBadge.top;
     const left = chordBadge.left;
     const textCenter = left + chordBadge.width / 2;
     return (
@@ -406,6 +463,7 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
     systems: [],
     measures: [],
     placements: [],
+    obstacles: [],
   });
   const [chordWidths, setChordWidths] = useState<Record<string, number>>({});
   const frameRef = useRef<number | null>(null);
@@ -414,7 +472,7 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
     const paper = paperRef.current;
     if (!paper) return;
     if (annotations.length === 0 || !abcCode.trim()) {
-      setLayout({ systems: [], measures: [], placements: [] });
+      setLayout({ systems: [], measures: [], placements: [], obstacles: [] });
       return;
     }
     const schedule = () => {
@@ -424,7 +482,7 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
         try {
           setLayout(captureLayout(paper, abcCode, annotations, tune, zoom));
         } catch {
-          setLayout({ systems: [], measures: [], placements: [] });
+          setLayout({ systems: [], measures: [], placements: [], obstacles: [] });
         }
       });
     };
@@ -505,6 +563,30 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
     () => new Map(packedChords.map((badge) => [badge.id, badge])),
     [packedChords],
   );
+  const chordTopById = useMemo(() => new Map(layout.placements.flatMap((placement) => {
+    if (placement.track !== 'chord') return [];
+    const badge = packedChordById.get(placement.id);
+    if (!badge) return [];
+    let top = placement.y - CHORD_STAFF_CLEARANCE - CHORD_BADGE_HEIGHT;
+    const obstacles = layout.obstacles
+      .filter((obstacle) => (
+        obstacle.systemId === placement.systemId
+        && obstacle.lineId === placement.lineId
+        && badge.left < obstacle.bounds.x + obstacle.bounds.width + CHORD_BADGE_GAP
+        && badge.right > obstacle.bounds.x - CHORD_BADGE_GAP
+      ))
+      .sort((left, right) => (
+        right.bounds.y + right.bounds.height - left.bounds.y - left.bounds.height
+      ));
+    for (const obstacle of obstacles) {
+      const obstacleTop = obstacle.bounds.y - CHORD_BADGE_GAP;
+      const obstacleBottom = obstacle.bounds.y + obstacle.bounds.height + CHORD_BADGE_GAP;
+      if (top < obstacleBottom && top + CHORD_BADGE_HEIGHT > obstacleTop) {
+        top = obstacleTop - CHORD_BADGE_HEIGHT;
+      }
+    }
+    return [[placement.id, top] as const];
+  })), [layout.obstacles, layout.placements, packedChordById]);
   const inlineEditorPosition = useMemo(() => {
     if (!inlineChordEditor || !activeAnnotationId) return null;
     const placement = layout.placements.find((candidate) => (
@@ -521,11 +603,19 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
       left: Math.max(system.left, Math.min(rawLeft, system.left + system.width - width)),
       top: localYToWrapperY(
         system,
-        placement.y - CHORD_STAFF_CLEARANCE - CHORD_BADGE_HEIGHT,
+        chordTopById.get(placement.id)
+          ?? placement.y - CHORD_STAFF_CLEARANCE - CHORD_BADGE_HEIGHT,
       ),
       width,
     };
-  }, [activeAnnotationId, inlineChordEditor, layout.placements, layout.systems, packedChordById]);
+  }, [
+    activeAnnotationId,
+    chordTopById,
+    inlineChordEditor,
+    layout.placements,
+    layout.systems,
+    packedChordById,
+  ]);
 
   return (
     <div
@@ -585,6 +675,8 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
                   width: packedChord.width,
                   lane: packedChord.lane,
                   left: packedChord.left,
+                  top: chordTopById.get(placement.id)
+                    ?? placement.y - CHORD_STAFF_CLEARANCE - CHORD_BADGE_HEIGHT,
                 }}
                 onActivate={(initiator) => onActivate(annotation, initiator)}
               />
