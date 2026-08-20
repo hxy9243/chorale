@@ -28,15 +28,15 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="app-header">
-      <div className="header-brand">
-        <span>Chorale</span>
-      </div>
+      <div className="header-left">
+        <div className="header-brand">
+          <span>Chorale</span>
+        </div>
 
-      <div className="header-breadcrumb" aria-label="Current score">
-        <strong>{activeFileName || 'Untitled score'}</strong>
-      </div>
+        <div className="header-breadcrumb" aria-label="Current score">
+          <strong>{activeFileName || 'Untitled score'}</strong>
+        </div>
 
-      <div className="header-right">
         {(saveLabel || canRenderScore !== undefined || hasPlayback !== undefined) && (
           <div className="header-status-group" role="status" aria-live="polite">
             {saveLabel && (
@@ -47,17 +47,21 @@ export const Header: React.FC<HeaderProps> = ({
             )}
             {canRenderScore !== undefined && (
               <span className={`header-status-pill svg ${canRenderScore ? 'ready' : 'pending'}`}>
+                <span className="status-dot" aria-hidden="true" />
                 <span>SVG {canRenderScore ? 'ready' : 'pending'}</span>
               </span>
             )}
             {hasPlayback !== undefined && (
               <span className={`header-status-pill audio ${hasPlayback ? 'ready' : 'pending'}`}>
+                <span className="status-dot" aria-hidden="true" />
                 <span>Music {hasPlayback ? 'ready' : 'pending'}</span>
               </span>
             )}
           </div>
         )}
+      </div>
 
+      <div className="header-right">
         <button
           type="button"
           className={`header-chat-button ${chatOpen ? 'active' : ''}`}

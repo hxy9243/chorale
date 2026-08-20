@@ -147,6 +147,11 @@ textarea:disabled,
   font-weight: 450;
   text-overflow: ellipsis;
   white-space: nowrap;
+.header-left {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: var(--space-md);
 }
 
 .header-right {
@@ -158,32 +163,34 @@ textarea:disabled,
 .header-status-group {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: 6px;
+  margin-left: var(--space-lg);
 }
 
 .header-status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  min-height: 1.5rem;
-  padding: 0 var(--space-xs);
+  gap: 4px;
+  min-height: 1.25rem;
+  padding: 1px 7px;
   border: var(--rule-thin) solid var(--color-rule);
   border-radius: var(--radius-round);
   background: transparent;
   color: var(--color-muted);
-  font-size: var(--text-xs);
-  font-weight: 450;
+  font-size: 11px;
+  font-weight: 400;
   line-height: 1;
   user-select: none;
-  opacity: 0.85;
+  opacity: 0.72;
 }
 
 .header-status-pill .status-dot {
-  width: 5px;
-  height: 5px;
+  width: 4.5px;
+  height: 4.5px;
   border-radius: 50%;
   background: currentColor;
-  opacity: 0.75;
+  opacity: 0.8;
+  flex: none;
 }
 
 .header-status-pill.save.saved {
@@ -202,10 +209,18 @@ textarea:disabled,
   color: var(--color-warning);
 }
 
+.header-status-pill.save.saving .status-dot {
+  background: var(--color-warning);
+}
+
 .header-status-pill.save.error {
   border-color: rgba(239, 68, 68, 0.3);
   background: var(--color-error-soft);
   color: var(--color-error);
+}
+
+.header-status-pill.save.error .status-dot {
+  background: var(--color-error);
 }
 
 .header-status-pill.svg.ready,
@@ -213,7 +228,12 @@ textarea:disabled,
   border-color: var(--color-rule);
   background: transparent;
   color: var(--color-muted);
-  opacity: 0.75;
+  opacity: 0.72;
+}
+
+.header-status-pill.svg.ready .status-dot,
+.header-status-pill.audio.ready .status-dot {
+  background: var(--color-success);
 }
 
 .header-status-pill.svg.pending,
@@ -222,6 +242,11 @@ textarea:disabled,
   background: transparent;
   color: var(--color-muted);
   opacity: 0.5;
+}
+
+.header-status-pill.svg.pending .status-dot,
+.header-status-pill.audio.pending .status-dot {
+  background: var(--color-muted);
 }
 
 .header-icon-btn,
