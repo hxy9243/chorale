@@ -707,7 +707,7 @@ try {
       deltaY: -100,
       cancelable: true,
     }));
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    await new Promise((resolve) => setTimeout(resolve, 120));
     const sheetZoomAfter = sheet?.querySelector('.scale-val')?.textContent;
     const annotationRailZoomAfter = scoreScene?.getAttribute('data-score-zoom');
     const interfaceZoomAfterSheet = document.documentElement.style.getPropertyValue('--ui-zoom');
