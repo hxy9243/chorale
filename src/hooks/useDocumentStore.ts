@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Annotation, AnnotationId, FileDocument, ScoreAnchor } from '../types/document';
+import type { Annotation, AnnotationId, FileDocument, ScoreAnchor, ScoreInfo } from '../types/document';
 import type { MusicSample } from '../types/music';
 import { PRESET_SAMPLES } from '../data/samples';
 import { extractMusicXml, parseMusicXmlToAbc } from '../utils/xmlParser';
@@ -106,10 +106,14 @@ export const useDocumentStore = () => {
     }
   }, [activeFileId]);
 
-  const handleAbcChange = useCallback((newAbc: string) => {
+  const handleAbcChange = useCallback((newAbc: string, scoreInfoOverrides?: Partial<ScoreInfo>) => {
     if (!activeFileId) return;
     setDocuments((docs) =>
-      docs.map((doc) => (doc.id === activeFileId ? updateDocumentAbc(doc, newAbc, 'manual-edit') : doc))
+      docs.map((doc) => (
+        doc.id === activeFileId
+          ? updateDocumentAbc(doc, newAbc, 'manual-edit', scoreInfoOverrides)
+          : doc
+      ))
     );
   }, [activeFileId]);
 
