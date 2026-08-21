@@ -495,6 +495,29 @@ describe('AgentChatPanel', () => {
     expect(onNavigateMeasure).toHaveBeenCalledWith({ startMeasure: 1, endMeasure: 2 });
   });
 
+  it('navigates to score measures when clicking measure links inside proposal cards', async () => {
+    const onNavigateMeasure = vi.fn();
+    seedProposalThread('doc-proposals', [proposal]);
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-proposals"
+        abcCode={'X:1\nT:Score\nK:C\nCDEF|GABc|'}
+        activeFileName="Score.abc"
+        revision={1}
+        totalMeasures={2}
+        ai={ai}
+        onOpenSettings={() => undefined}
+        onNavigateMeasure={onNavigateMeasure}
+      />,
+    );
+
+    const proposalMeasureLink = screen.getByRole('button', { name: 'Select m. 1' });
+    fireEvent.click(proposalMeasureLink);
+    expect(onNavigateMeasure).toHaveBeenCalledWith({ startMeasure: 1, endMeasure: 1 });
+  });
+
   it('persists server-created proposals on the assistant turn and marks them unavailable on failure', async () => {
     agentSendMock.mockImplementation(async (_request, callbacks) => {
       callbacks.onStart({

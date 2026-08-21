@@ -833,6 +833,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
                       proposal={proposal}
                       readOnly={message.status === 'streaming'}
                       invalid={invalidProposalIds[message.id]?.includes(proposal.id)}
+                      onNavigateMeasure={onNavigateMeasure}
                       onEdit={() => {
                         setEditingProposal({ messageId: message.id, proposalId: proposal.id });
                       }}

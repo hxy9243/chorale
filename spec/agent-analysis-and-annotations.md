@@ -3,7 +3,7 @@ title: "Passage-Aware Music Tutor, Agent Tools, and Annotations"
 description: "Authoritative product specification for passage analysis, analysis profiles, score tools, proposal review, and canonical annotation overlay rendering"
 category: "core-product"
 date: 2026-08-05
-updated: 2026-08-15
+updated: 2026-08-21
 status: "implemented"
 source_files:
   - src/components/SheetMusicView.tsx
@@ -342,6 +342,7 @@ Agent proposals appear inline with the assistant turn. Cards are read-only while
 
 - **Edit** updates one staged proposal after validation; it does not apply it.
 - **Reject** collapses one proposal and excludes it from Apply All.
+- **Proposal presentation**: cards in the chat panel share the same square, borderless, kind-derived palette surface as sheet annotations, and clicking the measure span reference links to and selects the measure on the score.
 - **Apply All** is the only apply action. It considers every remaining `proposed` proposal in the turn, including edited proposals.
 
 Apply All is atomic:

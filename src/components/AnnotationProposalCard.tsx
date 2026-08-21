@@ -1,11 +1,12 @@
 import React from 'react';
-import type { AnnotationProposal } from '../types/document';
+import type { AnnotationProposal, ScoreAnchor } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
 
 interface AnnotationProposalCardProps {
   proposal: AnnotationProposal;
   readOnly?: boolean;
   invalid?: boolean;
+  onNavigateMeasure?: (anchor: ScoreAnchor) => void;
   onEdit?(trigger: HTMLButtonElement): void;
   onReject?(): void;
 }
@@ -22,6 +23,7 @@ export const AnnotationProposalCard: React.FC<AnnotationProposalCardProps> = ({
   proposal,
   readOnly = false,
   invalid = false,
+  onNavigateMeasure,
   onEdit,
   onReject,
 }) => {
@@ -31,21 +33,32 @@ export const AnnotationProposalCard: React.FC<AnnotationProposalCardProps> = ({
 
   return (
     <section
-      className={`annotation-proposal-card ${collapsed ? 'collapsed' : ''}`}
+      className={`annotation-proposal-card annotation-${annotation.kind} ${collapsed ? 'collapsed' : ''}`}
       data-state={proposal.state}
       data-invalid={invalid || undefined}
+      data-annotation-kind={annotation.kind}
       aria-label={`${annotation.label} annotation proposal`}
     >
       <div className="annotation-proposal-heading">
-        <div>
+        <div className="annotation-proposal-title-group">
           <span className="annotation-proposal-kind">{annotation.kind.replace('-', ' ')}</span>
-          <strong>{annotation.label}</strong>
+          <strong className="annotation-proposal-label">{annotation.label}</strong>
         </div>
         <span className="annotation-proposal-state">{STATE_LABELS[proposal.state]}</span>
       </div>
       {!collapsed && (
         <>
-          <div className="annotation-proposal-span">{formatAnchorLabel(annotation.span)}</div>
+          <div className="annotation-proposal-meta">
+            <button
+              type="button"
+              className="annotation-proposal-span score-reference-link"
+              onClick={() => onNavigateMeasure?.(annotation.span)}
+              title={`Select ${formatAnchorLabel(annotation.span)}`}
+              aria-label={`Select ${formatAnchorLabel(annotation.span)}`}
+            >
+              {formatAnchorLabel(annotation.span)}
+            </button>
+          </div>
           {annotation.kind === 'chord' && (
             <div className="annotation-proposal-chord">
               <strong>{annotation.chordSymbol}</strong>

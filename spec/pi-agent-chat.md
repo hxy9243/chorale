@@ -3,7 +3,7 @@ title: "Chat With Music Sheet and Agent Tooling"
 description: "Specification for the passage-aware Music Tutor chat panel, profile routing, score tools, Markdown formatting with score references, thinking traces, and proposal review"
 category: "agent-chat"
 date: 2026-08-05
-updated: 2026-08-15
+updated: 2026-08-21
 status: "implemented"
 source_files:
   - src/components/AgentChatPanel.tsx
@@ -71,7 +71,7 @@ Chat is a passage-aware Music Tutor attached to the active score file. Students 
 - Tool rows correlated by `toolCallId` with compact start/success/error summaries.
 - Collapsible thinking traces (`<think>...</think>`) displaying reasoning progress.
 - Sanitized CommonMark/GFM assistant messages.
-- Inline proposal cards with individual Edit and Reject.
+- Inline proposal cards styled like sheet annotations (square, borderless, kind-derived palette surface) with individual Edit and Reject, plus clickable measure links that select the referenced measure on the sheet.
 - One Apply All action for the assistant turn; no individual Apply buttons.
 
 ### Composer

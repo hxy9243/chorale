@@ -26,6 +26,6 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     testTimeout: 20000,
-    exclude: [...configDefaults.exclude, 'worktrees/**', 'dist-electron/**'],
+    exclude: [...configDefaults.exclude, '.agents/**', 'worktrees/**', 'dist-electron/**'],
   },
 });

@@ -58,4 +58,42 @@ describe('AnnotationProposalCard', () => {
     rerender(<AnnotationProposalCard proposal={proposal()} invalid />);
     expect(screen.getByRole('alert').textContent).toContain('Fix this proposal');
   });
+
+  it('navigates to corresponding measures when clicking the measure reference link', () => {
+    const onNavigateMeasure = vi.fn();
+    render(<AnnotationProposalCard proposal={proposal()} onNavigateMeasure={onNavigateMeasure} />);
+
+    const measureLink = screen.getByRole('button', { name: 'Select m. 2' });
+    expect(measureLink).toBeTruthy();
+    expect(measureLink.classList.contains('score-reference-link')).toBe(true);
+
+    fireEvent.click(measureLink);
+    expect(onNavigateMeasure).toHaveBeenCalledWith({ startMeasure: 2, endMeasure: 2 });
+  });
+
+  it('applies kind-specific class names matching sheet annotation styling', () => {
+    const chordProposal = proposal();
+    const explanationProposal: AnnotationProposal = {
+      ...proposal(),
+      id: 'proposal-exp',
+      annotation: {
+        id: 'annotation-exp',
+        kind: 'explanation',
+        span: { startMeasure: 3, endMeasure: 4 },
+        label: 'Cadential progression',
+        body: 'Smooth voice-leading into tonic.',
+        source: 'assistant',
+        createdAt: '2026-08-05T00:00:00.000Z',
+        updatedAt: '2026-08-05T00:00:00.000Z',
+      },
+    };
+
+    const { container, rerender } = render(<AnnotationProposalCard proposal={chordProposal} />);
+    const card = container.querySelector('.annotation-proposal-card');
+    expect(card?.classList.contains('annotation-chord')).toBe(true);
+
+    rerender(<AnnotationProposalCard proposal={explanationProposal} />);
+    expect(card?.classList.contains('annotation-explanation')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Select mm. 3–4' })).toBeTruthy();
+  });
 });

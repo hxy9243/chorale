@@ -3,7 +3,7 @@ title: "Annotations and Proposals Implementation Spec"
 description: "Specification for canonical annotation data model, storage normalization, proposal lifecycle, atomic Apply All, and overlay/rail rendering"
 category: "annotations"
 date: 2026-08-05
-updated: 2026-08-15
+updated: 2026-08-21
 status: "implemented"
 source_files:
   - src/types/document.ts
@@ -241,12 +241,13 @@ same height.
 One shared zoom wrapper contains both notation and the annotation rail, so they scale around the same
 score center and at the same instant. Each card is vertically anchored to the center of its rendered
 measure span. Actual card heights are packed with a fixed gap so nearby annotations do not overlap.
-The rail itself has no gray panel background; only the palette-derived annotation surfaces carry fill.
-
 Semantic Nordic Ledger tokens provide warning surfaces for modulation, success surfaces for voice
-leading, and accent surfaces for explanations and chords. Selected cards use a stronger matching
+leading, accent surfaces for chords (cool fjord blue), and distinct heather/lavender surfaces for
+explanations so every annotation kind visually stands out. Selected cards use a stronger matching
 fill plus visible “Selected” text and a check icon, so state never relies on color alone. Annotation
-surfaces are square, borderless, and shadowless.
+surfaces are square, borderless, and shadowless. Proposal preview cards in the chat panel share this
+same square, kind-colored, borderless style and provide an interactive measure reference linking
+directly to the score to select the corresponding measures when clicked.
 
 ## 7. Conversation persistence
 

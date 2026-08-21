@@ -62,10 +62,10 @@
   --color-annotation-voice-ink: var(--color-success);
   --color-annotation-voice-selected: var(--color-success);
   --color-annotation-voice-selected-ink: var(--color-paper);
-  --color-annotation-explanation-surface: var(--color-accent-soft);
-  --color-annotation-explanation-ink: var(--color-accent-strong);
-  --color-annotation-explanation-selected: var(--color-accent);
-  --color-annotation-explanation-selected-ink: var(--color-accent-ink);
+  --color-annotation-explanation-surface: oklch(90.5% 0.028 305);
+  --color-annotation-explanation-ink: oklch(36% 0.082 305);
+  --color-annotation-explanation-selected: oklch(40% 0.095 305);
+  --color-annotation-explanation-selected-ink: var(--color-paper);
   --color-overlay: oklch(20% 0.014 245 / 0.48);
   --color-shadow: oklch(20% 0.014 245 / 0.08);
   --color-shadow-deep: oklch(20% 0.014 245 / 0.16);
