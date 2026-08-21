@@ -101,4 +101,30 @@ describe('AnnotationProposalCard', () => {
     expect(card?.classList.contains('annotation-explanation')).toBe(true);
     expect(screen.getByRole('button', { name: 'Select mm. 3–4' })).toBeTruthy();
   });
+
+  it('renders long labels and descriptions within target structure for boundary wrapping', () => {
+    const longProposal: AnnotationProposal = {
+      ...proposal(),
+      id: 'proposal-long',
+      annotation: {
+        id: 'annotation-long',
+        kind: 'voice-leading',
+        span: { startMeasure: 1, endMeasure: 4 },
+        label: 'Parallel fifths between Soprano and Tenor on beat 2 leading into deceptive cadence',
+        body: 'Very detailed explanation describing voice-leading motion across multiple measures that needs wrapping inside the chat panel.',
+        source: 'assistant',
+        createdAt: '2026-08-05T00:00:00.000Z',
+        updatedAt: '2026-08-05T00:00:00.000Z',
+      },
+    };
+
+    const { container } = render(<AnnotationProposalCard proposal={longProposal} />);
+    const card = container.querySelector('.annotation-proposal-card');
+    const label = container.querySelector('.annotation-proposal-label');
+    const body = container.querySelector('.annotation-proposal-body');
+    expect(card).toBeTruthy();
+    expect(label?.textContent).toContain('Parallel fifths');
+    expect(body?.textContent).toContain('Very detailed explanation');
+  });
 });
+

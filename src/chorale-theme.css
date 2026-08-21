@@ -1740,6 +1740,7 @@ textarea:disabled,
   width: min(24.5rem, 100%);
   height: 100%;
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   border-inline-start: var(--rule-thin) solid var(--color-rule);
   background: var(--color-paper-raised);
@@ -1753,9 +1754,12 @@ textarea:disabled,
 .agent-panel {
   position: static;
   display: flex;
+  box-sizing: border-box;
   width: 100%;
   height: 100%;
   min-height: 0;
+  min-width: 0;
+  max-width: 100%;
   max-height: none;
   flex-direction: column;
   padding: 0;
@@ -1841,12 +1845,16 @@ textarea:disabled,
 
 .agent-transcript {
   display: flex;
+  box-sizing: border-box;
   min-height: 0;
+  min-width: 0;
+  max-width: 100%;
   flex: 1;
   flex-direction: column;
   gap: var(--space-sm);
   padding: var(--space-md);
   overflow-y: auto;
+  overflow-x: hidden;
   color: var(--color-ink);
   scrollbar-color: var(--color-rule-2) var(--color-transparent);
 }
@@ -1953,12 +1961,16 @@ textarea:disabled,
 }
 
 .agent-message {
+  box-sizing: border-box;
+  min-width: 0;
   max-width: 92%;
   padding: var(--space-sm);
   border-radius: var(--radius-control);
   color: var(--color-ink);
   font-size: var(--text-sm);
   line-height: 1.6;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .agent-message.user {
@@ -1984,7 +1996,10 @@ textarea:disabled,
 
 .agent-message.assistant {
   align-self: flex-start;
+  box-sizing: border-box;
+  width: 100%;
   max-width: 100%;
+  min-width: 0;
   border: 0;
   border-inline-start: var(--rule-active) solid var(--color-rule-2);
   border-radius: 0;
@@ -1996,6 +2011,13 @@ textarea:disabled,
 .agent-message-label span,
 .agent-message-content {
   color: var(--color-ink);
+}
+
+.agent-message-content {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .markdown-message > :first-child,
@@ -2090,15 +2112,26 @@ textarea:disabled,
   display: grid;
   gap: var(--space-xs);
   margin-block-start: var(--space-sm);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .annotation-proposal-card {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: var(--space-sm);
   border: 0;
   border-radius: 0;
   box-shadow: none;
   background: var(--color-paper-raised);
   color: var(--color-ink);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   transition: background-color 200ms var(--ease-out), color 200ms var(--ease-out);
 }
 
@@ -2139,7 +2172,10 @@ textarea:disabled,
 
 .annotation-proposal-target {
   display: block;
+  box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -2147,6 +2183,9 @@ textarea:disabled,
   color: inherit;
   font: inherit;
   text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   cursor: pointer;
   transition: opacity var(--dur-micro) var(--ease-out);
 }
@@ -2171,14 +2210,22 @@ textarea:disabled,
 }
 
 .annotation-proposal-heading {
+  align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: var(--space-2xs);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .annotation-proposal-title-group {
   display: flex;
   align-items: baseline;
-  gap: var(--space-xs);
+  flex-wrap: wrap;
+  gap: var(--space-2xs) var(--space-xs);
   min-width: 0;
+  max-width: 100%;
+  flex: 1 1 auto;
 }
 
 .annotation-proposal-label {
@@ -2186,6 +2233,9 @@ textarea:disabled,
   font-size: var(--text-md);
   font-weight: 700;
   line-height: 1.2;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .annotation-proposal-card :is(.annotation-proposal-heading, .annotation-proposal-kind, .annotation-proposal-state, .annotation-proposal-body, .annotation-proposal-chord) {
@@ -2201,19 +2251,30 @@ textarea:disabled,
 
 .annotation-proposal-kind {
   text-transform: capitalize;
+  min-width: 0;
+}
+
+.annotation-proposal-state {
+  flex-shrink: 0;
+  margin-inline-start: auto;
+  white-space: nowrap;
 }
 
 .annotation-proposal-meta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-xs);
   margin-block-start: var(--space-2xs);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .annotation-proposal-span {
   display: inline-flex;
   align-items: center;
   min-height: 1.5rem;
+  max-width: 100%;
   padding: var(--space-3xs) var(--space-2xs);
   border: 0;
   border-radius: 0;
@@ -2224,31 +2285,45 @@ textarea:disabled,
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .annotation-proposal-chord {
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: var(--space-xs);
   margin-block: var(--space-xs) 0;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .annotation-proposal-chord strong {
   font-family: var(--font-display);
   font-size: var(--text-lg);
   font-weight: 700;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .annotation-proposal-chord span {
   font-family: var(--font-serif);
   font-size: var(--text-sm);
   font-style: italic;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .annotation-proposal-body {
   margin-block: var(--space-xs) 0;
   font-size: var(--text-base);
   line-height: 1.55;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .annotation-proposal-notice,
@@ -2256,10 +2331,30 @@ textarea:disabled,
   color: var(--color-error);
 }
 
+.annotation-proposal-notice {
+  margin-block: var(--space-xs) 0;
+  font-size: var(--text-xs);
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .annotation-proposal-actions,
 .annotation-editor-actions {
   justify-content: flex-end;
   margin-block-start: var(--space-sm);
+}
+
+.annotation-proposal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .annotation-proposal-actions button,
@@ -2292,6 +2387,7 @@ textarea:disabled,
 
 .annotation-apply-all {
   justify-self: end;
+  max-width: 100%;
   background: var(--color-ink);
   color: var(--color-paper);
 }
@@ -2310,13 +2406,25 @@ textarea:disabled,
 .annotation-editor {
   display: grid;
   gap: var(--space-sm);
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.annotation-proposal-list .annotation-editor {
+  padding: var(--space-sm);
+  background: var(--color-paper-raised);
+  border: var(--rule-thin) solid var(--color-rule-2);
 }
 
 .annotation-editor-grid,
 .annotation-position-fields {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
   gap: var(--space-xs);
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .annotation-editor label {
@@ -2324,10 +2432,15 @@ textarea:disabled,
   gap: var(--space-3xs);
   color: var(--color-muted);
   font-size: var(--text-xs);
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .annotation-editor :is(input, select, textarea) {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 2.25rem;
   padding: var(--space-xs);
   border: var(--rule-thin) solid var(--color-rule-2);
@@ -2335,6 +2448,7 @@ textarea:disabled,
   background: var(--color-paper);
   color: var(--color-ink);
   font: inherit;
+  box-sizing: border-box;
 }
 
 .annotation-position-fields {
