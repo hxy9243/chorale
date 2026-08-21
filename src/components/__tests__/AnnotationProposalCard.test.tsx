@@ -59,16 +59,21 @@ describe('AnnotationProposalCard', () => {
     expect(screen.getByRole('alert').textContent).toContain('Fix this proposal');
   });
 
-  it('navigates to corresponding measures when clicking the measure reference link', () => {
+  it('navigates to corresponding measures when clicking anywhere on the annotation block', () => {
     const onNavigateMeasure = vi.fn();
     render(<AnnotationProposalCard proposal={proposal()} onNavigateMeasure={onNavigateMeasure} />);
 
-    const measureLink = screen.getByRole('button', { name: 'Select m. 2' });
-    expect(measureLink).toBeTruthy();
-    expect(measureLink.classList.contains('score-reference-link')).toBe(true);
+    const annotationTarget = screen.getByRole('button', { name: 'Select m. 2' });
+    expect(annotationTarget).toBeTruthy();
+    expect(annotationTarget.classList.contains('annotation-proposal-target')).toBe(true);
+    expect(annotationTarget.classList.contains('score-reference-link')).toBe(true);
 
-    fireEvent.click(measureLink);
+    // Clicking anywhere on the block (e.g. label or body inside the target)
+    fireEvent.click(screen.getByText('Dominant'));
     expect(onNavigateMeasure).toHaveBeenCalledWith({ startMeasure: 2, endMeasure: 2 });
+
+    fireEvent.click(screen.getByText('Prepares the cadence.'));
+    expect(onNavigateMeasure).toHaveBeenCalledTimes(2);
   });
 
   it('applies kind-specific class names matching sheet annotation styling', () => {

@@ -39,33 +39,37 @@ export const AnnotationProposalCard: React.FC<AnnotationProposalCardProps> = ({
       data-annotation-kind={annotation.kind}
       aria-label={`${annotation.label} annotation proposal`}
     >
-      <div className="annotation-proposal-heading">
-        <div className="annotation-proposal-title-group">
-          <span className="annotation-proposal-kind">{annotation.kind.replace('-', ' ')}</span>
-          <strong className="annotation-proposal-label">{annotation.label}</strong>
+      <button
+        type="button"
+        className="annotation-proposal-target score-reference-link"
+        onClick={() => onNavigateMeasure?.(annotation.span)}
+        title={`Select ${formatAnchorLabel(annotation.span)} in score`}
+        aria-label={`Select ${formatAnchorLabel(annotation.span)}`}
+      >
+        <div className="annotation-proposal-heading">
+          <div className="annotation-proposal-title-group">
+            <span className="annotation-proposal-kind">{annotation.kind.replace('-', ' ')}</span>
+            <strong className="annotation-proposal-label">{annotation.label}</strong>
+          </div>
+          <span className="annotation-proposal-state">{STATE_LABELS[proposal.state]}</span>
         </div>
-        <span className="annotation-proposal-state">{STATE_LABELS[proposal.state]}</span>
-      </div>
+        {!collapsed && (
+          <>
+            <div className="annotation-proposal-meta">
+              <span className="annotation-proposal-span">{formatAnchorLabel(annotation.span)}</span>
+            </div>
+            {annotation.kind === 'chord' && (
+              <div className="annotation-proposal-chord">
+                <strong>{annotation.chordSymbol}</strong>
+                {annotation.romanNumeral && <span>{annotation.romanNumeral}</span>}
+              </div>
+            )}
+            <p className="annotation-proposal-body">{annotation.body}</p>
+          </>
+        )}
+      </button>
       {!collapsed && (
         <>
-          <div className="annotation-proposal-meta">
-            <button
-              type="button"
-              className="annotation-proposal-span score-reference-link"
-              onClick={() => onNavigateMeasure?.(annotation.span)}
-              title={`Select ${formatAnchorLabel(annotation.span)}`}
-              aria-label={`Select ${formatAnchorLabel(annotation.span)}`}
-            >
-              {formatAnchorLabel(annotation.span)}
-            </button>
-          </div>
-          {annotation.kind === 'chord' && (
-            <div className="annotation-proposal-chord">
-              <strong>{annotation.chordSymbol}</strong>
-              {annotation.romanNumeral && <span>{annotation.romanNumeral}</span>}
-            </div>
-          )}
-          <p>{annotation.body}</p>
           {proposal.state === 'outdated' && (
             <p className="annotation-proposal-notice">Rerun analysis for the current score revision.</p>
           )}

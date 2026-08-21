@@ -66,12 +66,12 @@ Chat is a passage-aware Music Tutor attached to the active score file. Students 
 
 ### Conversation
 
-- User prompts with their captured range chip.
+- User prompts styled in a light warm sandstone ledger tone (`--color-chat-user-surface`) with their captured range chip.
 - Visible profile route such as `Harmony analysis`.
 - Tool rows correlated by `toolCallId` with compact start/success/error summaries.
 - Collapsible thinking traces (`<think>...</think>`) displaying reasoning progress.
 - Sanitized CommonMark/GFM assistant messages.
-- Inline proposal cards styled like sheet annotations (square, borderless, kind-derived palette surface) with individual Edit and Reject, plus clickable measure links that select the referenced measure on the sheet.
+- Inline proposal cards styled like sheet annotations (square, borderless, kind-derived palette surface) where the entire annotation block acts as an interactive link reference to the measure, with individual Edit and Reject actions.
 - One Apply All action for the assistant turn; no individual Apply buttons.
 
 ### Composer

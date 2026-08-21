@@ -1912,8 +1912,22 @@ textarea:disabled,
 .agent-message.user {
   align-self: flex-end;
   border: 0;
-  background: var(--color-paper-3);
-  color: var(--color-ink);
+  border-radius: var(--radius-control);
+  background: var(--color-chat-user-surface);
+  color: var(--color-chat-user-ink);
+}
+
+.agent-message.user :is(.agent-message-label, .agent-message-content) {
+  color: var(--color-chat-user-ink);
+}
+
+.agent-message.user .agent-message-label {
+  color: var(--color-chat-user-muted);
+}
+
+.agent-message.user .agent-anchor-pill {
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  color: inherit;
 }
 
 .agent-message.assistant {
@@ -2071,6 +2085,29 @@ textarea:disabled,
   opacity: 0.65;
 }
 
+.annotation-proposal-target {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: opacity var(--dur-micro) var(--ease-out);
+}
+
+.annotation-proposal-target:hover {
+  opacity: 0.85;
+}
+
+.annotation-proposal-target:focus-visible {
+  outline: var(--rule-active) solid var(--color-focus);
+  outline-offset: 2px;
+}
+
 .annotation-proposal-heading,
 .annotation-proposal-title-group,
 .annotation-proposal-chord,
@@ -2121,7 +2158,7 @@ textarea:disabled,
   margin-block-start: var(--space-2xs);
 }
 
-.annotation-proposal-span.score-reference-link {
+.annotation-proposal-span {
   display: inline-flex;
   align-items: center;
   min-height: 1.5rem;
@@ -2135,17 +2172,6 @@ textarea:disabled,
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 2px;
-  cursor: pointer;
-  transition: background-color var(--dur-micro) var(--ease-out), opacity var(--dur-micro) var(--ease-out);
-}
-
-.annotation-proposal-span.score-reference-link:hover {
-  background: color-mix(in srgb, currentColor 22%, transparent);
-}
-
-.annotation-proposal-span.score-reference-link:focus-visible {
-  outline: var(--rule-active) solid var(--color-focus);
-  outline-offset: 2px;
 }
 
 .annotation-proposal-chord {
@@ -3628,8 +3654,8 @@ body {
 }
 
 .agent-message.user {
-  background: var(--color-citron);
-  color: var(--color-citron-ink);
+  background: var(--color-chat-user-surface);
+  color: var(--color-chat-user-ink);
 }
 
 .agent-composer {
@@ -4779,8 +4805,7 @@ body,
   border-top: var(--rule-thin) solid var(--color-assistant-rule);
 }
 
-.agent-message,
-.agent-message.user {
+.agent-message {
   border: 0;
   border-bottom: var(--rule-active) solid var(--color-assistant-rule);
   border-radius: var(--radius-card) var(--radius-card) 0 0;
@@ -4789,8 +4814,10 @@ body,
 }
 
 .agent-message.user {
-  border-bottom-color: var(--color-accent);
-  background: var(--color-accent-soft);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--color-chat-user-surface);
+  color: var(--color-chat-user-ink);
 }
 
 .agent-composer {

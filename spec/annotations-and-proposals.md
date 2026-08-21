@@ -246,8 +246,8 @@ leading, accent surfaces for chords (cool fjord blue), and distinct heather/lave
 explanations so every annotation kind visually stands out. Selected cards use a stronger matching
 fill plus visible “Selected” text and a check icon, so state never relies on color alone. Annotation
 surfaces are square, borderless, and shadowless. Proposal preview cards in the chat panel share this
-same square, kind-colored, borderless style and provide an interactive measure reference linking
-directly to the score to select the corresponding measures when clicked.
+same square, kind-colored, borderless style, and the entire annotation block acts as an interactive
+link reference to the measure, navigating to and selecting the referenced passage on the sheet when clicked.
 
 ## 7. Conversation persistence
 
