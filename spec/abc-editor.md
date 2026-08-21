@@ -3,16 +3,20 @@ title: "ABC Editor Spec"
 description: "Specification for the ABC code editor pane, split view, draggable divider, and score/playback synchronization"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-08-15
+updated: 2026-08-21
 status: "implemented"
 source_files:
   - src/components/AbcEditor.tsx
+  - src/components/ScoreMetadataHeader.tsx
+  - src/utils/abcMetadata.ts
   - src/hooks/useWorkspaceLayout.ts
   - src/utils/abcAudio.ts
   - src/components/FileRail.tsx
   - src/App.tsx
 test_files:
   - src/components/__tests__/AbcEditor.test.tsx
+  - src/components/__tests__/ScoreMetadataHeader.test.tsx
+  - src/utils/__tests__/abcMetadata.test.ts
   - src/App.test.tsx
 related_specs:
   - spec/design.md
@@ -24,7 +28,7 @@ related_specs:
 # ABC Editor Spec
 
 Date: 2026-07-28  
-Updated: 2026-08-15  
+Updated: 2026-08-21  
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 ## 1. Goal
@@ -61,6 +65,7 @@ These communicate whether the current text can safely drive score and playback o
 The editor stays synchronized with:
 
 - rendered score output (debounced rebuild pipeline)
+- visual score metadata header (`ScoreMetadataHeader`): edits in `ScoreMetadataHeader` update the underlying ABC code in the editor, and text edits in `AbcEditor` modifying header tags (`T:`, `C:`, `A:`, `K:`, `M:`, `Q:`, `O:`, `R:`) immediately reflect in the visual score header chips
 - playback preparation (`prepareAbcForPlayback`)
 - active file revision number
 
@@ -82,6 +87,7 @@ The current implementation provides:
 - editable ABC text in a dedicated pane
 - live score re-rendering with debounced validation (140ms debounce)
 - split-pane workspace integration with a draggable resize divider
+- bidirectional metadata synchronization with `ScoreMetadataHeader`
 - revision-aware status chrome (`Valid · r{revision}`, `Rebuilding`, `Invalid ABC`)
 - persistent pane visibility and width in `localStorage`
 - copy to clipboard functionality

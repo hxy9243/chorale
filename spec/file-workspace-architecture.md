@@ -3,7 +3,7 @@ title: "File Workspace Architecture"
 description: "Architecture specification covering runtime layers, document store, shared music libraries, data contracts, and invariants"
 category: "architecture"
 date: 2026-08-05
-updated: 2026-08-15
+updated: 2026-08-21
 status: "implemented"
 source_files:
   - src/types/document.ts
@@ -13,8 +13,12 @@ source_files:
   - src/music/scoreSnapshot.ts
   - src/music/annotationLayout.ts
   - src/music/annotationMutations.ts
+  - src/utils/abcMetadata.ts
+  - src/utils/fileHistory.ts
   - src/utils/storageAdapter.ts
   - src/utils/fileSession.ts
+  - src/components/ScoreMetadataHeader.tsx
+  - src/components/EditingHistoryModal.tsx
   - src/agent/conversationStore.ts
   - electron/ai/sheetAgentRuntime.ts
   - electron/ipcValidation.ts
@@ -24,6 +28,10 @@ test_files:
   - src/music/__tests__/scoreSnapshot.test.ts
   - src/music/__tests__/annotationMutations.test.ts
   - src/music/__tests__/rational.test.ts
+  - src/utils/__tests__/abcMetadata.test.ts
+  - src/utils/__tests__/fileHistory.test.ts
+  - src/components/__tests__/ScoreMetadataHeader.test.tsx
+  - src/components/__tests__/EditingHistoryModal.test.tsx
   - src/utils/__tests__/storageAdapter.test.ts
   - src/utils/__tests__/fileSession.test.ts
   - src/agent/__tests__/conversationStore.test.ts
@@ -40,7 +48,7 @@ related_specs:
 # File Workspace Architecture
 
 Date: 2026-08-05  
-Updated: 2026-08-15  
+Updated: 2026-08-21  
 Source: Existing workspace architecture plus `spec/agent-analysis-and-annotations.md`
 
 ## 1. Goal
@@ -51,8 +59,8 @@ Define ownership, persistence, and process boundaries for the passage-aware Musi
 
 ### Renderer UI
 
-- Files rail, score/editor workspace, playback dock, and chat panel.
-- React-owned range state, proposal review state, and annotation overlays.
+- Files rail, score/editor workspace, playback dock, chat panel, and editing history timeline modal (`EditingHistoryModal`).
+- React-owned range state, proposal review state, annotation overlays, and visual metadata header (`ScoreMetadataHeader`).
 - No score parsing, provider credentials, or Pi tool execution.
 
 ### Document store
@@ -60,7 +68,9 @@ Define ownership, persistence, and process boundaries for the passage-aware Musi
 - Active file identity and canonical `FileDocument` values.
 - Shared `ScoreAnchor` range using `startMeasure` and `endMeasure`.
 - Annotation CRUD mutations and existing debounced IndexedDB autosave.
+- Score editing history timeline (`EditHistoryEntry[]`, max 100 entries) with categories (`origin`, `metadata`, `body`, `annotation`), undo/redo stack, and non-destructive revert.
 - ABC changes alone increment document revision and create `ScoreVersion` records.
+- Bidirectional synchronization between ABC header tags (T, C, A, K, M, Q, O, R) and `FileDocument.scoreInfo`.
 
 ### Shared music libraries
 
@@ -68,6 +78,8 @@ Define ownership, persistence, and process boundaries for the passage-aware Musi
 - `src/music/scoreSnapshot.ts`: pure written-measure/event extraction and runtime indexes.
 - `src/music/documentSchema.ts`: persisted document and annotation normalization.
 - `src/music/annotationLayout.ts`: pure musical-position-to-overlay placement.
+- `src/utils/abcMetadata.ts`: pure ABC header metadata parsing, validation (key, meter, tempo), and non-destructive header updates.
+- `src/utils/fileHistory.ts`: pure edit history creation, action classification, categorization, and history restoration.
 
 These modules are independent of React and Electron UI code.
 

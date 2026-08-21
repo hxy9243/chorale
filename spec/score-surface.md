@@ -3,21 +3,26 @@ title: "Score Surface Spec"
 description: "Specification for score rendering, continuous range selection, chord overlays, range annotation rail, line measure numbers, and auto-centering playback"
 category: "core-workspace"
 date: 2026-08-05
-updated: 2026-08-15
+updated: 2026-08-21
 status: "implemented"
 source_files:
   - src/components/SheetMusicView.tsx
+  - src/components/ScoreMetadataHeader.tsx
+  - src/components/ScoreCardHeader.tsx
   - src/components/AnnotationOverlay.tsx
   - src/components/AnnotationRail.tsx
   - src/components/AnnotationEditor.tsx
-  - src/components/ScoreCardHeader.tsx
+  - src/utils/abcMetadata.ts
   - src/music/annotationLayout.ts
   - src/utils/abcAudio.ts
   - src/utils/repeatPlayback.ts
   - src/utils/autoScroll.ts
   - src/hooks/useInterfaceZoom.ts
+  - tokens.css
 test_files:
   - src/components/__tests__/SheetMusicView.test.tsx
+  - src/components/__tests__/ScoreMetadataHeader.test.tsx
+  - src/utils/__tests__/abcMetadata.test.ts
   - src/components/__tests__/AnnotationRail.test.tsx
   - src/components/__tests__/AnnotationOverlay.test.tsx
   - src/components/__tests__/AnnotationEditor.test.tsx
@@ -33,17 +38,22 @@ related_specs:
 # Score Surface Spec
 
 Date: 2026-08-05  
-Updated: 2026-08-15  
+Updated: 2026-08-21  
 Source: `spec/agent-analysis-and-annotations.md`
 
 ## 1. Goal
 
-Keep the score the primary reading surface while adding continuous passage selection, chat navigation, line-start measure numbers, and lightweight annotation overlays.
+Keep the score the primary reading surface while adding continuous passage selection, chat navigation, line-start measure numbers, lightweight annotation overlays, and visual score metadata presentation with inline ABC header editing.
 
 ## 2. Existing presentation invariants
 
 - abcjs renders responsive continuous SVG systems with smooth rendering transitions.
-- Score metadata and build/save status remain visible.
+- Score title is displayed in centered classical serif typography (`--font-serif`), providing an authentic engraving appearance.
+- Secondary score metadata (composer, author/lyricist, subtitle, origin, rhythm) is right-aligned to match the right edge of the rendered sheet music.
+- Musical attributes (Key, Meter, Tempo) are presented as centered interactive metadata chips beneath the title block.
+- Clean score engraving in view mode: ABC tag badges (`T:`, `C:`, etc.) are hidden during normal reading and only displayed when an input is actively being edited.
+- Save and build status pills (`Auto-saved`, `SVG ready`, `Music ready`) are hosted in the global application header so they remain permanently visible regardless of score scroll position.
+- Floating score display options (`ScoreCardHeader`) float over the top-center of the score paper with scroll-reactive translucency (`is-scrolling`), providing synchronized zoom controls (−, %, +, Fit).
 - Score zoom remains independently persisted and centered without clipping.
 - Line-start measure numbers (`.chorale-line-measure-number`) are rendered above the start of each staff system for rapid orientation.
 - Playback auto-centering and its manual-scroll pause behavior remain intact.
@@ -120,8 +130,19 @@ A valid `#measure-N` or `#measure-N-M` chat reference:
 4. seeks paused playback to `startMeasure` using repeat-aware behavior;
 5. does not start playback.
 
-## 7. Toolbar
+## 7. Toolbar and display options
 
-Existing transpose and zoom controls remain. The active-range badge retains its clear action. The
-annotation rail is the accepted range-annotation navigation and editing surface. Chords edit inline
-over the notation, and proposal review cards remain in chat.
+Existing transpose and zoom controls remain. The floating display options pill provides synchronized zoom controls (`onZoomIn`, `onZoomOut`, `onResetZoom`). The active-range badge retains its clear action. The annotation rail is the accepted range-annotation navigation and editing surface. Chords edit inline over the notation, and proposal review cards remain in chat.
+
+## 8. Score metadata header and inline ABC editing
+
+The `ScoreMetadataHeader` component provides visual display and inline editing for tune headers:
+
+- **Editable fields:** Title (`T:`), Subtitle (2nd `T:`), Composer (`C:`), Lyricist/Author (`A:`), Origin (`O:`), Rhythm (`R:`), Key (`K:`), Meter (`M:`), Tempo (`Q:`).
+- **Validation:**
+  - Key signatures validate against standard roots, accidentals, and modes (`validateKeySignature`).
+  - Meters validate standard time signatures and common/cut time symbols (`validateMeter`).
+  - Tempos validate BPM values within bounds (20–500 BPM) and note-value prefixes (`validateTempo`).
+- **Add field menu:** A subtle `+` button in the attribution row opens a dropdown to add optional header fields (Subtitle, Composer, Lyricist/Author, Origin, Rhythm).
+- **Non-destructive synchronization:** `updateAbcHeaderMetadata` in `src/utils/abcMetadata.ts` modifies header fields in the first tune's header section without touching musical notes, voice blocks, lyrics, or comments.
+- **Bi-directional updates:** Changes to ABC code (via file import, ABC editor, or agent) immediately update `ScoreMetadataHeader` fields; editing headers in `ScoreMetadataHeader` immediately updates ABC code, increments document revisions, triggers autosave, and re-renders the score.

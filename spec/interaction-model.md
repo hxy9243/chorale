@@ -3,22 +3,30 @@ title: "Interaction Model Spec"
 description: "Specification for cross-surface interaction flows connecting score selection, playback seek, chat references, and annotation proposals"
 category: "interaction"
 date: 2026-08-05
-updated: 2026-08-15
+updated: 2026-08-21
 status: "implemented"
 source_files:
   - src/types/document.ts
   - src/utils/anchor.ts
   - src/utils/repeatPlayback.ts
+  - src/utils/abcMetadata.ts
+  - src/utils/fileHistory.ts
   - src/agent/promptUtils.ts
   - src/agent/proposalActions.ts
   - src/agent/measureReferences.ts
   - src/hooks/useDocumentStore.ts
   - src/components/SheetMusicView.tsx
+  - src/components/ScoreMetadataHeader.tsx
+  - src/components/EditingHistoryModal.tsx
   - src/components/AgentChatPanel.tsx
   - src/components/MarkdownMessage.tsx
 test_files:
   - src/utils/__tests__/anchor.test.ts
   - src/utils/__tests__/repeatPlayback.test.ts
+  - src/utils/__tests__/abcMetadata.test.ts
+  - src/utils/__tests__/fileHistory.test.ts
+  - src/components/__tests__/ScoreMetadataHeader.test.tsx
+  - src/components/__tests__/EditingHistoryModal.test.tsx
   - src/agent/__tests__/measureReferences.test.ts
   - src/agent/__tests__/proposalActions.test.ts
   - src/components/__tests__/passageAnalysisJourney.integration.test.tsx
@@ -33,12 +41,12 @@ related_specs:
 # Interaction Model Spec
 
 Date: 2026-08-05  
-Updated: 2026-08-15  
+Updated: 2026-08-21  
 Source: `spec/agent-analysis-and-annotations.md`
 
 ## 1. Goal
 
-Define the shared interactions connecting score selection, playback, chat references, annotation proposals, and applied annotations.
+Define the shared interactions connecting score selection, playback, chat references, annotation proposals, applied annotations, visual score metadata editing, and editing history undo/redo.
 
 ## 2. Shared score anchor
 
@@ -104,11 +112,34 @@ Other Markdown links are highlighted but non-navigating for this phase.
 - Agent-initiated deletion is unsupported.
 - Chord annotations can occur multiple times per measure at distinct rational offsets.
 
-## 7. Interaction invariants
+## 7. Score metadata editing flow
+
+- **Double-click / Keyboard activation:** Double-clicking or pressing Enter/Space on any rendered metadata element (Title, Subtitle, Composer, Author/Lyricist, Origin, Rhythm, Key, Meter, Tempo) switches the field to inline editing mode.
+- **Visual tag feedback:** In edit mode, the field displays its corresponding ABC header badge (e.g. `T`, `C`, `A`, `K`, `M`, `Q`, `O`, `R`) alongside the input field.
+- **Validation & Tooltips:**
+  - Key signatures validate note root, optional accidentals, and mode types.
+  - Meter inputs validate time fraction format (e.g. `4/4`, `6/8`) and standard symbols (`C`, `C|`).
+  - Tempo inputs validate BPM range (20–500 BPM) and note-value prefixes.
+  - Invalid entries display an inline error tooltip and prevent invalid commits.
+- **Commit & Cancel:** Pressing Enter or blurring the input with valid data commits the edit; pressing Escape cancels editing and restores previous text.
+- **Add field menu:** The `+` action button reveals a menu of unpopulated header tags to insert into the score.
+- **Source synchronization:** Commits invoke `updateAbcHeaderMetadata`, modifying the underlying ABC string, updating `FileDocument.scoreInfo`, incrementing the document revision, and triggering autosave without losing notation data.
+
+## 8. Score editing history and undo/redo flow
+
+- **Header Undo/Redo:**
+  - Accessible Undo (`Ctrl+Z` / `⌘Z`) and Redo (`Ctrl+Shift+Z` / `⌘Shift+Z`) buttons in the center header chrome allow instant sequential navigation through score edit states.
+  - Controls enable/disable dynamically based on `canUndo` / `canRedo` history stack boundaries.
+- **Editing History Modal:**
+  - Opened via the **Tools** rail panel (`Editing history` button).
+  - Displays a chronological list of up to 100 version snapshots with category badges (`origin`, `metadata`, `body`, `annotation`), action summaries, timestamps, and active state indicators.
+  - Selecting "Revert to this version" restores the document's ABC source, score info, and annotations to that exact historical state without losing the undo trail.
+
+## 9. Interaction invariants
 
 - Tools read only the prompt-time immutable snapshot.
 - Tool calls do not mutate `FileDocument`.
 - Apply All is the only proposal-application action.
-- Annotation changes do not create ABC revisions.
+- Annotation changes do not create ABC revisions; metadata and musical note edits in ABC create document revisions.
 - User scrolling retains the existing playback auto-centering pause behavior.
 - Staleness and regeneration are deferred; Outdated applies only to pending proposals whose snapshot revision no longer matches.

@@ -3,13 +3,17 @@ title: "Workspace Layout Spec"
 description: "Specification for the top-level desktop workspace structure, header, file rail, central score workspace, and chat panel"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-08-19
+updated: 2026-08-21
 status: "implemented"
 source_files:
   - src/App.tsx
   - src/components/Header.tsx
   - src/components/FileRail.tsx
+  - src/components/ScoreMetadataHeader.tsx
   - src/components/ScoreCardHeader.tsx
+  - src/components/EditingHistoryModal.tsx
+  - src/utils/abcMetadata.ts
+  - src/utils/fileHistory.ts
   - src/hooks/useWorkspaceLayout.ts
   - src/hooks/useResizablePanel.ts
   - src/styles/workspace-responsive.css
@@ -17,6 +21,10 @@ test_files:
   - src/App.test.tsx
   - src/components/__tests__/FileRail.test.tsx
   - src/components/__tests__/Header.test.tsx
+  - src/components/__tests__/ScoreMetadataHeader.test.tsx
+  - src/components/__tests__/EditingHistoryModal.test.tsx
+  - src/utils/__tests__/abcMetadata.test.ts
+  - src/utils/__tests__/fileHistory.test.ts
   - src/hooks/__tests__/useResizablePanel.test.ts
 related_specs:
   - spec/design.md
@@ -30,7 +38,7 @@ related_specs:
 # Workspace Layout Spec
 
 Date: 2026-07-28  
-Updated: 2026-08-19
+Updated: 2026-08-21
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 ## 1. Goal
@@ -46,15 +54,18 @@ The design is a persistent application workspace with four primary regions:
 
 ## 2. Header
 
-The header communicates application identity without duplicating score-local state.
+The header communicates application identity, score context, editing actions, and persistence/render health without cluttering the score reading surface.
 
-Required regions:
+Required regions (3-column centered layout):
 
 - left: plain `Chorale` wordmark; no separate brand icon or redundant toggle button (the left sidebar rail is always accessible)
-- center: active file title
+- center:
+  - active file title/breadcrumb
+  - edit history actions (`Undo` / `Redo` buttons with tooltips indicating shortcuts Ctrl+Z / ⌘Z and Ctrl+Shift+Z / ⌘Shift+Z)
+  - consolidated status group (`Auto-saved`/`Saving…`/`Save failed`, `SVG ready`/`SVG pending`, `Music ready`/`Music pending` with status dot indicators)
 - right: Chat Panel visibility toggle
 
-The Electron window and renderer document title are exactly `Chorale`. Save and build state belong under the score title rather than in global chrome.
+The Electron window and renderer document title are exactly `Chorale`. Save and build state capsules live in the global header so they remain continuously visible when scrolling through long musical scores.
 
 ## 3. Left work rail
 
@@ -63,7 +74,7 @@ The left rail uses a persistent narrow vertical selection bar (`3.5rem` / `56px`
 Required content:
 
 - **Files**: a compact, centered import score action (`.xml`, `.musicxml`, `.mxl`, `.abc`) directly under the panel title, plus the active and available file list with format badge (MXL, ABC, MusicXML) and state indicator (`original`, `edited`)
-- **Tools**: an `ABC display` toggle; future score tools join this panel rather than the score header
+- **Tools**: an `ABC display` toggle and an `Editing history` button to open the score history timeline modal; future score tools join this panel rather than the score header
 - **Settings**: its action icon anchors to the bottom of the selection bar and opens application settings directly
 - icon-only panel selections expose hover titles and accessible names
 - file management actions: compact 44px rows omit a leading document icon and use the full row as the pointer drag surface; sortable transforms move neighboring rows around a persistent source slot while a matching overlay follows the pointer and settles into place, without a native drag-image handoff or disappearing placeholder; Arrow Up/Arrow Down on the focused file name provides keyboard reordering; score deletion allows deleting documents down to 0, which displays an empty workspace placeholder until a file is imported or loaded
@@ -83,9 +94,9 @@ The center column is the primary editing and reading surface.
 
 It contains:
 
-- score title and composer with `Auto-saved`, `SVG ready`, and `Audio ready` status directly underneath
-- a compact rounded display-options panel floating at the score's upper center; it is highly translucent at rest, becomes less translucent during score scrolling, and becomes clearest on hover or keyboard focus
-- score zoom controls inside that floating panel, without `Score` or `ABC code` view tabs
+- score metadata header (`ScoreMetadataHeader`): centered serif title (`--font-serif`), right-aligned score taglines/attribution (composer, author/lyricist, subtitle, origin, rhythm) with an Add Field menu (`+`), and centered interactive metadata chips (Key, Meter, Tempo) supporting inline ABC editing and validation
+- a compact rounded display-options panel (`ScoreCardHeader`) floating at the score's upper center; it is highly translucent at rest, becomes less translucent during score scrolling, and becomes clearest on hover or keyboard focus
+- score zoom controls inside that floating panel (−, %, +, Fit), without `Score` or `ABC code` view tabs
 - rendered score surface (with auto-centering playback line, line-start measure numbers, and zoom layout space reservation)
 - optional split ABC editor pane (horizontal drag-to-resize, width bounded between 320px and 720px, default 420px, persisted as `chorale.workspace.editorWidth`)
 - playback dock anchored to the visible bottom of the central workspace, independent of content height and interface zoom (max-width bounded to 800px for centered desktop presentation)
