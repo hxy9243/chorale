@@ -97,7 +97,7 @@ It contains:
 - score metadata header (`ScoreMetadataHeader`): centered serif title (`--font-serif`), right-aligned score taglines/attribution (composer, author/lyricist, subtitle, origin, rhythm) with an Add Field menu (`+`), and centered interactive metadata chips (Key, Meter, Tempo) supporting inline ABC editing and validation
 - a compact rounded display-options panel (`ScoreCardHeader`) floating at the score's upper center; it is highly translucent at rest, becomes less translucent during score scrolling, and becomes clearest on hover or keyboard focus
 - score zoom controls inside that floating panel (−, %, +, Fit), without `Score` or `ABC code` view tabs
-- rendered score surface (with auto-centering playback line, line-start measure numbers, and zoom layout space reservation)
+- continuous full-page paper score surface (`.sheet-viewport` spanning 100% width and height with pure-CSS paper texture, centered notation track, auto-centering playback line, line-start measure numbers, and zoom layout space reservation)
 - optional split ABC editor pane (horizontal drag-to-resize, width bounded between 320px and 720px, default 420px, persisted as `chorale.workspace.editorWidth`)
 - playback dock anchored to the visible bottom of the central workspace, independent of content height and interface zoom (max-width bounded to 800px for centered desktop presentation)
 

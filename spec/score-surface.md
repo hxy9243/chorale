@@ -47,7 +47,7 @@ Keep the score the primary reading surface while adding continuous passage selec
 
 ## 2. Existing presentation invariants
 
-- abcjs renders responsive continuous SVG systems with smooth rendering transitions.
+- abcjs renders responsive continuous SVG systems with smooth rendering transitions on a continuous full-page pure-CSS paper surface (`.sheet-viewport`).
 - Score title is displayed in centered classical serif typography (`--font-serif`), providing an authentic engraving appearance.
 - Secondary score metadata (composer, author/lyricist, subtitle, origin, rhythm) is right-aligned to match the right edge of the rendered sheet music.
 - Musical attributes (Key, Meter, Tempo) are presented as centered interactive metadata chips beneath the title block.
