@@ -56,6 +56,46 @@ const VALID_CLEFS = new Set([
   'treble-8', 'treble+8', 'bass-8', 'bass+8',
 ]);
 
+type HeaderRange = {
+  start: number;
+  end: number;
+};
+
+function findFirstTuneHeaderRange(lines: string[]): HeaderRange {
+  const firstTuneIndex = lines.findIndex((line) => line.trim().startsWith('X:'));
+  const start = firstTuneIndex >= 0 ? firstTuneIndex : 0;
+  const keyIndex = lines.findIndex((line, index) => (
+    index >= start && line.trim().startsWith('K:')
+  ));
+
+  if (keyIndex >= 0) {
+    return { start, end: keyIndex + 1 };
+  }
+
+  const nextTuneIndex = lines.findIndex((line, index) => (
+    index > start && line.trim().startsWith('X:')
+  ));
+  return { start, end: nextTuneIndex >= 0 ? nextTuneIndex : lines.length };
+}
+
+function sanitizeAbcHeaderValue(value: string): string {
+  const singleLineValue = value.replace(/[\r\n\u2028\u2029]+/g, ' ');
+  const withoutControlCharacters = Array.from(singleLineValue)
+    .filter((character) => {
+      const codePoint = character.codePointAt(0) ?? 0;
+      return codePoint === 9 || (codePoint >= 32 && codePoint !== 127);
+    })
+    .join('');
+
+  return withoutControlCharacters
+    .replace(/(^|[^\\])%/g, '$1\\%')
+    .trim();
+}
+
+function parseAbcHeaderValue(value: string): string {
+  return value.replace(/\\%/g, '%').trim();
+}
+
 /**
  * Validates and normalizes a musical key signature.
  * Supports standard major, minor (m, min, minor), and modes (dorian, mixolydian, etc.).
@@ -266,10 +306,11 @@ export function parseAbcHeaderMetadata(abc: string): ScoreMetadata {
   let unitLength: string | undefined;
 
   const lines = abc.split(/\r?\n/);
-  for (const line of lines) {
+  const headerRange = findFirstTuneHeaderRange(lines);
+  for (const line of lines.slice(headerRange.start, headerRange.end)) {
     const trimmed = line.trim();
     if (trimmed.startsWith('T:')) {
-      const val = trimmed.slice(2).trim();
+      const val = parseAbcHeaderValue(trimmed.slice(2));
       if (val) {
         if (!title) {
           title = val;
@@ -278,22 +319,22 @@ export function parseAbcHeaderMetadata(abc: string): ScoreMetadata {
         }
       }
     } else if (trimmed.startsWith('C:')) {
-      const val = trimmed.slice(2).trim();
+      const val = parseAbcHeaderValue(trimmed.slice(2));
       if (val && !composer) composer = val;
     } else if (trimmed.startsWith('A:')) {
-      const val = trimmed.slice(2).trim();
+      const val = parseAbcHeaderValue(trimmed.slice(2));
       if (val && !author) author = val;
     } else if (trimmed.startsWith('R:')) {
-      const val = trimmed.slice(2).trim();
+      const val = parseAbcHeaderValue(trimmed.slice(2));
       if (val && !rhythm) rhythm = val;
     } else if (trimmed.startsWith('O:')) {
-      const val = trimmed.slice(2).trim();
+      const val = parseAbcHeaderValue(trimmed.slice(2));
       if (val && !origin) origin = val;
     } else if (trimmed.startsWith('S:')) {
-      const val = trimmed.slice(2).trim();
+      const val = parseAbcHeaderValue(trimmed.slice(2));
       if (val && !source) source = val;
     } else if (trimmed.startsWith('B:')) {
-      const val = trimmed.slice(2).trim();
+      const val = parseAbcHeaderValue(trimmed.slice(2));
       if (val && !book) book = val;
     } else if (trimmed.startsWith('K:')) {
       const val = trimmed.slice(2).trim();
@@ -347,13 +388,22 @@ export function updateAbcHeaderMetadata(
   const lines = abc.split(/\r?\n/);
   const updatedLines = [...lines];
 
-  const findHeaderIndex = (prefix: string): number => {
-    return updatedLines.findIndex((line) => line.trim().startsWith(prefix));
+  const findHeaderIndices = (prefix: string): number[] => {
+    const range = findFirstTuneHeaderRange(updatedLines);
+    const indices: number[] = [];
+    for (let index = range.start; index < range.end; index += 1) {
+      if (updatedLines[index].trim().startsWith(prefix)) indices.push(index);
+    }
+    return indices;
   };
+
+  const findHeaderIndex = (prefix: string): number => findHeaderIndices(prefix)[0] ?? -1;
+
+  const findLastHeaderIndex = (prefix: string): number => findHeaderIndices(prefix).at(-1) ?? -1;
 
   const updateSimpleHeader = (fieldPrefix: string, value: string | undefined, afterPrefix = 'T:') => {
     if (value === undefined) return;
-    const trimmedVal = value.trim();
+    const trimmedVal = sanitizeAbcHeaderValue(value);
     const idx = findHeaderIndex(fieldPrefix);
     if (idx >= 0) {
       if (trimmedVal) {
@@ -362,7 +412,7 @@ export function updateAbcHeaderMetadata(
         updatedLines.splice(idx, 1);
       }
     } else if (trimmedVal) {
-      const afterIdx = findHeaderIndex(afterPrefix);
+      const afterIdx = findLastHeaderIndex(afterPrefix);
       const xIdx = findHeaderIndex('X:');
       const insertAt = afterIdx >= 0 ? afterIdx + 1 : xIdx >= 0 ? xIdx + 1 : 0;
       updatedLines.splice(insertAt, 0, `${fieldPrefix}${trimmedVal}`);
@@ -371,7 +421,7 @@ export function updateAbcHeaderMetadata(
 
   // 1. Update Title (T:)
   if (updates.title !== undefined) {
-    const titleVal = updates.title.trim();
+    const titleVal = sanitizeAbcHeaderValue(updates.title);
     const titleIdx = findHeaderIndex('T:');
     if (titleIdx >= 0) {
       if (titleVal) {
@@ -386,7 +436,26 @@ export function updateAbcHeaderMetadata(
     }
   }
 
-  // 2. Update Composer (C:), Author (A:), Rhythm (R:), Origin (O:), Source (S:), Book (B:)
+  // 2. Update Subtitle (the second T: field)
+  if (updates.subtitle !== undefined) {
+    const subtitleVal = sanitizeAbcHeaderValue(updates.subtitle);
+    const titleIndices = findHeaderIndices('T:');
+    const subtitleIdx = titleIndices[1] ?? -1;
+    if (subtitleIdx >= 0) {
+      if (subtitleVal) {
+        updatedLines[subtitleIdx] = `T:${subtitleVal}`;
+      } else {
+        updatedLines.splice(subtitleIdx, 1);
+      }
+    } else if (subtitleVal) {
+      const titleIdx = titleIndices[0] ?? -1;
+      const xIdx = findHeaderIndex('X:');
+      const insertAt = titleIdx >= 0 ? titleIdx + 1 : xIdx >= 0 ? xIdx + 1 : 0;
+      updatedLines.splice(insertAt, 0, `T:${subtitleVal}`);
+    }
+  }
+
+  // 3. Update Composer (C:), Author (A:), Rhythm (R:), Origin (O:), Source (S:), Book (B:)
   updateSimpleHeader('C:', updates.composer, 'T:');
   updateSimpleHeader('A:', updates.author, 'C:');
   updateSimpleHeader('R:', updates.rhythm, 'T:');
@@ -394,9 +463,9 @@ export function updateAbcHeaderMetadata(
   updateSimpleHeader('S:', updates.source, 'T:');
   updateSimpleHeader('B:', updates.book, 'T:');
 
-  // 3. Update Meter (M:)
+  // 4. Update Meter (M:)
   if (updates.meter !== undefined) {
-    const meterVal = updates.meter.trim();
+    const meterVal = sanitizeAbcHeaderValue(updates.meter);
     const meterIdx = findHeaderIndex('M:');
     if (meterIdx >= 0) {
       if (meterVal) {
@@ -411,7 +480,7 @@ export function updateAbcHeaderMetadata(
     }
   }
 
-  // 4. Update Tempo (Q:)
+  // 5. Update Tempo (Q:)
   if (updates.tempoBpm !== undefined || updates.tempoText !== undefined) {
     let qString: string | undefined;
     if (updates.tempoBpm !== undefined) {
@@ -423,7 +492,7 @@ export function updateAbcHeaderMetadata(
         const unit = parsed.tempoUnit || '1/4';
         qString = `Q:${unit}=${parsed.bpm}`;
       } else if (updates.tempoText.trim()) {
-        qString = `Q:${updates.tempoText.trim()}`;
+        qString = `Q:${sanitizeAbcHeaderValue(updates.tempoText)}`;
       }
     }
 
@@ -441,9 +510,9 @@ export function updateAbcHeaderMetadata(
     }
   }
 
-  // 5. Update Key (K:)
+  // 6. Update Key (K:)
   if (updates.key !== undefined) {
-    const keyVal = updates.key.trim();
+    const keyVal = sanitizeAbcHeaderValue(updates.key);
     const keyIdx = findHeaderIndex('K:');
     if (keyIdx >= 0) {
       if (keyVal) {

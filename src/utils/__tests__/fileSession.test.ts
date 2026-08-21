@@ -63,6 +63,22 @@ describe('fileSession Utilities', () => {
     expect(updated).toBe(doc);
   });
 
+  it('applies explicit metadata removals instead of restoring stale fallbacks', () => {
+    const doc = createDocumentFromAbc(
+      'Test.abc',
+      'abc',
+      'X:1\nT:Test\nC:Old Composer\nK:C\nC',
+    );
+    const updated = updateDocumentAbc(
+      doc,
+      'X:1\nT:Test\nK:C\nC',
+      'manual-edit',
+      { composer: undefined },
+    );
+
+    expect(updated.scoreInfo.composer).toBeUndefined();
+  });
+
   it('sampleToDocument converts a MusicSample into a FileDocument', () => {
     const sample: MusicSample = {
       id: 'sample-1',

@@ -133,6 +133,21 @@ GAB |
       expect(meta.tempoText).toBe('♩ = 116');
       expect(meta.key).toBe('G');
     });
+
+    it('stops parsing metadata at the first tune key field', () => {
+      const abc = `X:1
+T:Body Safety
+K:C
+C:| D E F |
+T:This is music, not a subtitle`;
+
+      expect(parseAbcHeaderMetadata(abc)).toMatchObject({
+        title: 'Body Safety',
+        subtitle: undefined,
+        composer: undefined,
+        key: 'C',
+      });
+    });
   });
 
   describe('updateAbcHeaderMetadata', () => {
@@ -199,6 +214,47 @@ C D E F |`;
 
       expect(updated).not.toContain('C:Composer');
       expect(updated).toContain('T:Title');
+    });
+
+    it('updates subtitle separately from the primary title', () => {
+      const abc = `X:1
+T:Primary Title
+T:Old Subtitle
+K:C
+C D E F |`;
+
+      const updated = updateAbcHeaderMetadata(abc, { subtitle: 'New Subtitle' });
+
+      expect(updated).toContain('T:Primary Title\nT:New Subtitle');
+      expect(parseAbcHeaderMetadata(updated).subtitle).toBe('New Subtitle');
+    });
+
+    it('does not mistake a body C:| chord for a composer header', () => {
+      const abc = `X:1
+T:Body Safety
+K:C
+C:| D E F |`;
+
+      const updated = updateAbcHeaderMetadata(abc, { composer: 'Claude Debussy' });
+
+      expect(updated).toContain('T:Body Safety\nC:Claude Debussy\nK:C');
+      expect(updated).toContain('K:C\nC:| D E F |');
+    });
+
+    it('collapses line-breaking metadata input so it cannot inject ABC fields', () => {
+      const abc = `X:1
+T:Old Title
+K:C
+C D E F |`;
+
+      const updated = updateAbcHeaderMetadata(abc, {
+        title: '100% safe title\nK:G\r\nC:Injected composer',
+      });
+
+      expect(updated).toContain('T:100\\% safe title K:G C:Injected composer');
+      expect(updated).toContain('K:C\nC D E F |');
+      expect(updated.match(/^K:/gm)).toHaveLength(1);
+      expect(parseAbcHeaderMetadata(updated).title).toBe('100% safe title K:G C:Injected composer');
     });
   });
 });

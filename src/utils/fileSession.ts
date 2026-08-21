@@ -72,9 +72,19 @@ export function createDocumentFromAbc(
 export function updateDocumentAbc(
   doc: FileDocument,
   newAbc: string,
-  reason: ScoreVersion['reason'] = 'manual-edit'
+  reason: ScoreVersion['reason'] = 'manual-edit',
+  scoreInfoOverrides?: Partial<ScoreInfo>,
 ): FileDocument {
-  if (doc.abcSource === newAbc) return doc;
+  const hasScoreInfoOverrides = scoreInfoOverrides !== undefined
+    && Object.keys(scoreInfoOverrides).length > 0;
+  if (doc.abcSource === newAbc) {
+    if (!hasScoreInfoOverrides) return doc;
+    return {
+      ...doc,
+      scoreInfo: { ...doc.scoreInfo, ...scoreInfoOverrides },
+      updatedAt: new Date().toISOString(),
+    };
+  }
 
   const now = new Date().toISOString();
   const nextRevision = doc.revision + 1;
@@ -98,6 +108,7 @@ export function updateDocumentAbc(
       key: parsedMeta.key || doc.scoreInfo.key,
       meter: parsedMeta.meter || doc.scoreInfo.meter,
       tempoText: parsedMeta.tempoText || doc.scoreInfo.tempoText,
+      ...scoreInfoOverrides,
     },
     versions: limitScoreVersions([...doc.versions, newVersion]),
     updatedAt: now,

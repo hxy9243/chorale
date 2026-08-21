@@ -33,7 +33,7 @@ export {
   SHEET_ZOOM_KEY,
 };
 import { useDocumentStore } from './hooks/useDocumentStore';
-import type { BuildResult, ScoreAnchor } from './types/document';
+import type { BuildResult, ScoreAnchor, ScoreInfo } from './types/document';
 import { parseAbcHeaderMetadata, updateAbcHeaderMetadata, type ScoreMetadata } from './utils/abcMetadata';
 import type { PlaybackPosition } from './utils/repeatPlayback';
 import { prepareAbcForPlayback } from './utils/abcAudio';
@@ -120,9 +120,22 @@ export const App: React.FC = () => {
 
   const handleUpdateMetadata = useCallback((updates: Partial<ScoreMetadata>) => {
     if (!activeFileId || !abcCode) return;
-    const newAbc = updateAbcHeaderMetadata(abcCode, updates);
-    handleAbcChange(newAbc);
-  }, [activeFileId, abcCode, handleAbcChange]);
+    const effectiveUpdates = updates.subtitle !== undefined && !liveMetadata.title
+      ? { title: scoreTitle, ...updates }
+      : updates;
+    const newAbc = updateAbcHeaderMetadata(abcCode, effectiveUpdates);
+    const nextMetadata = parseAbcHeaderMetadata(newAbc);
+    const scoreInfoOverrides: Partial<ScoreInfo> = {};
+    if (updates.title !== undefined) scoreInfoOverrides.title = nextMetadata.title;
+    if (updates.subtitle !== undefined) scoreInfoOverrides.subtitle = nextMetadata.subtitle;
+    if (updates.composer !== undefined) scoreInfoOverrides.composer = nextMetadata.composer;
+    if (updates.key !== undefined) scoreInfoOverrides.key = nextMetadata.key;
+    if (updates.meter !== undefined) scoreInfoOverrides.meter = nextMetadata.meter;
+    if (updates.tempoText !== undefined || updates.tempoBpm !== undefined) {
+      scoreInfoOverrides.tempoText = nextMetadata.tempoText;
+    }
+    handleAbcChange(newAbc, scoreInfoOverrides);
+  }, [activeFileId, abcCode, handleAbcChange, liveMetadata.title, scoreTitle]);
 
   const totalMeasures = useMemo(() => {
     try {
