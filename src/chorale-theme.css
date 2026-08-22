@@ -7518,3 +7518,14 @@ body,
   white-space: nowrap;
 }
 
+/* When a rail's panel is expanded, the icon bar and the panel read as one
+   continuous surface: the divider between them disappears. Collapsed rails
+   keep their edge so the strip still reads as a boundary. */
+.file-rail:not(.collapsed) .file-rail-tabs {
+  border-inline-end-color: transparent;
+}
+
+.workspace-body.chat-open .right-rail-tabs {
+  border-inline-start-color: transparent;
+}
+

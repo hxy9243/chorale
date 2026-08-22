@@ -75,7 +75,7 @@ The left rail uses a persistent narrow vertical selection bar (`3.5rem` / `56px`
 
 A dedicated **toggle expansion** icon sits at the very top of the selection bar (typical sidebar-toggle glyph: `PanelLeftClose` when expanded, `PanelLeft` when collapsed). Clicking it collapses the rail or re-expands it restoring the **last focused panel tab**. The last focused panel persists across refreshes as `chorale.workspace.fileRailActivePanel`.
 
-A bottom-anchored **Settings** icon is a direct action that opens the settings dialog without replacing the selected work panel. Project and library hierarchy is omitted until the product has real project-backed behavior.
+A bottom-anchored **Settings** icon is a direct action that opens the settings dialog without replacing the selected work panel. When the panel stack is expanded, the icon bar and the panel read as one continuous surface — the divider between them is invisible; it returns only when the rail collapses to its strip. Project and library hierarchy is omitted until the product has real project-backed behavior.
 
 Required content:
 
@@ -112,7 +112,7 @@ The score remains the dominant surface. The editor is subordinate even when visi
 
 ## 5. Right work rail and chat panel
 
-The right side mirrors the left work rail: a persistent narrow vertical icon bar (`3.5rem` / `56px`) anchored to the right screen edge remains visible at all times and spans the entire page height. A dedicated toggle expansion icon sits at the very top of the bar (`PanelRightClose` when the chat panel is open, `PanelRight` when closed), symmetric with the left rail; it toggles the chat panel, and re-expanding restores the last focused icon (Chat). Its **Chat** button also toggles the chat panel; the open/closed state persists as `chorale.workspace.chatOpen`.
+The right side mirrors the left work rail: a persistent narrow vertical icon bar (`3.5rem` / `56px`) anchored to the right screen edge remains visible at all times and spans the entire page height. A dedicated toggle expansion icon sits at the very top of the bar (`PanelRightClose` when the chat panel is open, `PanelRight` when closed), symmetric with the left rail; it toggles the chat panel, and re-expanding restores the last focused icon (Chat). Its **Chat** button also toggles the chat panel; the open/closed state persists as `chorale.workspace.chatOpen`. As on the left, the divider between the icon bar and an open panel is invisible so both read as one surface.
 
 The chat panel is part of the fixed workspace layout on desktop. It supports horizontal drag-to-resize (minimum 280px, maximum one half of the whole logical layout viewport, default 392px) via a left drag handle. Its resized width persists as `chorale.workspace.chatWidth` and is restored across refreshes (re-clamped to the current viewport maximum on load and resize). Closing it collapses the workspace back to the persistent icon bar.
 
