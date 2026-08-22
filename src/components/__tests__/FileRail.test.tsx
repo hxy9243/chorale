@@ -278,4 +278,75 @@ describe('FileRail Component', () => {
     fireEvent.click(toolsTab);
     expect(onToggleCollapse).toHaveBeenCalledTimes(2);
   });
+
+  it('renders a top-anchored toggle icon that toggles the rail', () => {
+    const onToggleCollapse = vi.fn();
+    const { rerender } = render(
+      <FileRail
+        {...defaultProps}
+        onToggleCollapse={onToggleCollapse}
+        activePanel="tools"
+        onActivePanelChange={vi.fn()}
+      />,
+    );
+
+    const toggle = screen.getByRole('button', { name: 'Collapse sidebar' });
+    expect(toggle.classList.contains('rail-toggle')).toBe(true);
+
+    // Toggle icon sits at the top of the selection bar.
+    const tabsNav = document.querySelector('.file-rail-tabs')!;
+    expect(tabsNav.firstElementChild).toBe(toggle);
+
+    fireEvent.click(toggle);
+    expect(onToggleCollapse).toHaveBeenCalledOnce();
+
+    // Collapsed rail keeps the toggle icon visible for re-expansion.
+    rerender(
+      <FileRail
+        {...defaultProps}
+        collapsed
+        onToggleCollapse={onToggleCollapse}
+        activePanel="tools"
+        onActivePanelChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeDefined();
+  });
+
+  it('restores the last focused panel when re-expanded via the toggle icon', () => {
+    const onToggleCollapse = vi.fn();
+    const onActivePanelChange = vi.fn();
+    const { rerender } = render(
+      <FileRail
+        {...defaultProps}
+        collapsed
+        onToggleCollapse={onToggleCollapse}
+        activePanel="tools"
+        onActivePanelChange={onActivePanelChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
+    expect(onToggleCollapse).toHaveBeenCalledOnce();
+    expect(onActivePanelChange).not.toHaveBeenCalled();
+
+    rerender(
+      <FileRail
+        {...defaultProps}
+        onToggleCollapse={onToggleCollapse}
+        activePanel="tools"
+        onActivePanelChange={onActivePanelChange}
+      />,
+    );
+    expect(screen.getByRole('tabpanel', { name: 'Tools' })).toBeDefined();
+  });
+
+  it('renders the brand mark beneath the toggle icon', () => {
+    render(<FileRail {...defaultProps} />);
+
+    const brand = document.querySelector<HTMLElement>('.rail-brand')!;
+    expect(brand.textContent).toBe('C');
+    const tabsNav = document.querySelector('.file-rail-tabs')!;
+    expect(tabsNav.children[1]).toBe(brand);
+  });
 });

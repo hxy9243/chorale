@@ -3957,8 +3957,8 @@ body {
   }
 
   .right-panel {
-    top: 4.5rem;
-    height: calc(100dvh - 4.5rem);
+    top: 0;
+    height: 100dvh;
   }
 
   .header-brand {
@@ -4152,13 +4152,13 @@ body {
 }
 
 .right-panel {
-  top: 4rem;
-  height: calc(100dvh - 4rem);
+  top: 0;
+  height: 100dvh;
 }
 
 #current-sheet-agent {
   position: fixed;
-  inset: 4rem 0 0 auto;
+  inset: 0 0 0 auto;
   width: min(24.5rem, 100%);
   height: auto;
   padding: 0;
@@ -4170,7 +4170,7 @@ body {
 
 .workspace-body.chat-open .right-panel {
   position: fixed;
-  inset: 4rem 0 0 auto;
+  inset: 0 0 0 auto;
   height: auto;
 }
 
@@ -4237,16 +4237,16 @@ body {
   }
 
   .right-panel {
-    top: 4.5rem;
-    height: calc(100dvh - 4.5rem);
+    top: 0;
+    height: 100dvh;
   }
 
   #current-sheet-agent {
-    inset: 4.5rem 0 0 auto;
+    inset: 0 0 0 auto;
   }
 
   .workspace-body.chat-open .right-panel {
-    inset: 4.5rem 0 0 auto;
+    inset: 0 0 0 auto;
     height: auto;
   }
 
@@ -7428,7 +7428,7 @@ body,
    to its icon bar when chat is closed. */
 #current-sheet-agent {
   position: fixed;
-  inset: 4rem 0 0 auto;
+  inset: 0 0 0 auto;
   display: flex;
   width: 3.5rem;
   height: auto;
@@ -7440,7 +7440,7 @@ body,
 
 @media (min-width: 40rem) {
   #current-sheet-agent {
-    inset-block-start: 4.5rem;
+    inset-block-start: 0;
   }
 }
 
@@ -7463,4 +7463,53 @@ body,
   .workspace-body.chat-open .chat-panel-stack {
     flex: 1 1 auto;
   }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Hallmark · refinement: full-height work rails · tone: austere · fjord
+   Both icon rails own the page edges from the very top to the bottom; the
+   global header lives between them, above the central workspace only.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.workspace-body {
+  height: 100%;
+}
+
+.central-column {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.app-header {
+  flex: none;
+}
+
+.central-workspace {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Dedicated toggle expansion icon at the top of each rail. */
+.file-rail-tab.rail-toggle,
+.right-rail-tab.rail-toggle {
+  color: var(--color-ink-2);
+}
+
+.rail-brand {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  place-items: center;
+  margin-block: var(--space-3xs) var(--space-xs);
+  border-bottom: var(--rule-active) solid var(--color-accent);
+  border-radius: var(--radius-small);
+  background: var(--color-paper-raised);
+  color: var(--color-accent-strong);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 800;
+  user-select: none;
 }

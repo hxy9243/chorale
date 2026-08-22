@@ -7,6 +7,7 @@ import App, {
   EDITOR_WIDTH_KEY,
   FILE_RAIL_WIDTH_KEY,
   FILE_RAIL_COLLAPSED_KEY,
+  FILE_RAIL_ACTIVE_PANEL_KEY,
   SHEET_ZOOM_KEY,
 } from './App';
 import * as xmlParser from './utils/xmlParser';
@@ -66,7 +67,8 @@ describe('App Integration', () => {
   it('renders the Figma workspace and opens the ABC editor on demand', async () => {
     render(<App />);
 
-    expect(screen.getByRole('banner').textContent).toContain('Chorale');
+    expect(screen.getByRole('banner').textContent).not.toContain('Chorale');
+    expect(document.querySelector('.rail-brand')).not.toBeNull();
     expect(screen.getByText('Import score')).toBeDefined();
     expect(screen.getByRole('tabpanel', { name: 'Files' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Tools' })).toBeDefined();
@@ -570,6 +572,37 @@ describe('App Integration', () => {
     const freshWorkspaceBody = document.querySelector<HTMLElement>('.workspace-body')!;
     expect(freshWorkspaceBody.classList.contains('rail-collapsed')).toBe(false);
     expect(freshWorkspaceBody.style.gridTemplateColumns).not.toMatch(/^56px\b/);
+  });
+
+  it('toggle icon collapses and re-expands the rail to the last focused panel', async () => {
+    render(<App />);
+
+    const workspaceBody = document.querySelector<HTMLElement>('.workspace-body')!;
+    const toggle = screen.getByRole('button', { name: 'Collapse sidebar' });
+
+    // Focus the Tools panel, then collapse via the dedicated toggle icon.
+    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
+    fireEvent.click(toggle);
+    expect(workspaceBody.classList.contains('rail-collapsed')).toBe(true);
+    expect(localStorage.getItem(FILE_RAIL_ACTIVE_PANEL_KEY)).toBe('tools');
+
+    // Re-expanding restores the last focused icon (Tools).
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
+    expect(workspaceBody.classList.contains('rail-collapsed')).toBe(false);
+    expect(screen.getByRole('tabpanel', { name: 'Tools' }).hasAttribute('hidden')).toBe(false);
+  });
+
+  it('persists the last focused rail panel across page refreshes', async () => {
+    localStorage.setItem(FILE_RAIL_ACTIVE_PANEL_KEY, 'tools');
+    const { unmount } = render(<App />);
+
+    expect(screen.getByRole('tabpanel', { name: 'Tools' }).hasAttribute('hidden')).toBe(false);
+
+    unmount();
+    localStorage.setItem(FILE_RAIL_ACTIVE_PANEL_KEY, 'files');
+    render(<App />);
+
+    expect(screen.getByRole('tabpanel', { name: 'Files' }).hasAttribute('hidden')).toBe(false);
   });
 
   it('updates ABC source and auto-saves when editing metadata from the score header', async () => {

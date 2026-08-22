@@ -22,6 +22,8 @@ import {
   Braces,
   FolderOpen,
   History,
+  PanelLeft,
+  PanelLeftClose,
   Plus,
   Settings,
   Trash2,
@@ -71,6 +73,8 @@ interface FileRailProps {
   error?: string | null;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  activePanel?: RailPanel;
+  onActivePanelChange?: (panel: RailPanel) => void;
   onBeginResize?: (e: React.PointerEvent<HTMLButtonElement>) => void;
   editorVisible?: boolean;
   onToggleEditor?: () => void;
@@ -203,6 +207,8 @@ export const FileRail: React.FC<FileRailProps> = ({
   error = null,
   collapsed = false,
   onToggleCollapse,
+  activePanel: activePanelProp,
+  onActivePanelChange,
   onBeginResize,
   editorVisible = false,
   onToggleEditor,
@@ -211,7 +217,8 @@ export const FileRail: React.FC<FileRailProps> = ({
   historyCount = 0,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activePanel, setActivePanel] = useState<RailPanel>('files');
+  const [internalActivePanel, setInternalActivePanel] = useState<RailPanel>('files');
+  const activePanel = activePanelProp ?? internalActivePanel;
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [documentOrder, setDocumentOrder] = useState<string[]>(() => (
     documents.map((document) => document.id)
@@ -259,6 +266,14 @@ export const FileRail: React.FC<FileRailProps> = ({
         easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
       };
 
+  const setActivePanel = (panel: RailPanel) => {
+    if (onActivePanelChange) {
+      onActivePanelChange(panel);
+    } else {
+      setInternalActivePanel(panel);
+    }
+  };
+
   const handleTabClick = (panel: RailPanel) => {
     if (activePanel === panel) {
       onToggleCollapse?.();
@@ -266,6 +281,12 @@ export const FileRail: React.FC<FileRailProps> = ({
       setActivePanel(panel);
       if (collapsed) onToggleCollapse?.();
     }
+  };
+
+  const handleToggleExpand = () => {
+    // Re-expanding restores the last focused panel tab, which stays tracked
+    // (and persisted) even while the rail is collapsed.
+    onToggleCollapse?.();
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -324,6 +345,20 @@ export const FileRail: React.FC<FileRailProps> = ({
   return (
     <aside className={`file-rail ${collapsed ? 'collapsed' : ''}`} aria-label="Workspace panels">
       <nav className="file-rail-tabs" aria-label="Workspace panels">
+        <button
+          type="button"
+          className="file-rail-tab rail-toggle"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          onClick={handleToggleExpand}
+        >
+          {collapsed
+            ? <PanelLeft size={18} aria-hidden="true" />
+            : <PanelLeftClose size={18} aria-hidden="true" />}
+        </button>
+        <div className="rail-brand" title="Chorale">
+          C
+        </div>
         <div className="file-rail-tablist" role="tablist" aria-label="Workspace panels">
           <button
             type="button"
