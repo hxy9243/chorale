@@ -7498,9 +7498,10 @@ body,
 }
 
 /* Header trifold: history actions left, status indicators right, and the
-   score title centered between them. The three regions share one grid row
-   with equal fluid side tracks, so they never collide with each other or
-   with the side rails — when the central column gets narrow, status pills
+   score title centered between them. The legacy .header-center wrapper is
+   flattened with display:contents so the three groups become direct flex
+   children of the header bar — one row, vertically centered, no legacy
+   grid interference. When the central column gets narrow, status pills
    drop out first (container queries), then history labels; the title
    truncates instead of overlapping. */
 .central-column {
@@ -7508,38 +7509,37 @@ body,
 }
 
 .app-header {
-  position: relative;
+  display: flex;
+  height: auto;
+  min-height: 4rem;
+  align-items: center;
+  gap: var(--space-md);
+  padding-inline: var(--space-md);
 }
 
 .header-center {
-  display: grid;
-  width: 100%;
-  /* Span every track of the legacy app-header grid so the trifold owns
-     the full header width instead of the first third. */
-  grid-column: 1 / -1;
-  align-items: center;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  gap: var(--space-md);
+  display: contents;
 }
 
 .header-history-actions {
-  grid-column: 1;
-  justify-self: start;
+  order: -1;
+  flex: none;
   border: 0;
   background: transparent;
 }
 
 .header-breadcrumb {
-  grid-column: 2;
+  order: 0;
   display: flex;
-  justify-content: center;
+  flex: 1 1 0;
   min-width: 0;
-  max-width: 100%;
+  align-items: center;
+  justify-content: center;
   padding: 0;
   border-inline-start: 0;
   background: transparent;
   transform: none;
-  font-size: var(--text-md);
+  font-size: var(--text-sm);
 }
 
 .header-breadcrumb strong {
@@ -7549,8 +7549,8 @@ body,
 }
 
 .header-status-group {
-  grid-column: 3;
-  justify-self: end;
+  order: 1;
+  flex: none;
 }
 
 @container (max-width: 56rem) {
