@@ -106,7 +106,13 @@ instead of being fixed. Track order never changes and the scene never stacks.
 Track sizing is a pure projection (`fitScoreSceneTracks` in `src/utils/scoreSceneSizing.ts`). It
 receives the viewport's visible width converted into unscaled wrapper coordinates (visible width
 divided by the active zoom-wrapper scale) plus preferred track widths, and returns the balance and
-rail widths to apply as grid custom properties. The projection follows a strict priority order:
+rail widths to apply as grid custom properties.
+
+The TypeScript scene constants are also the runtime source of truth for the notation width,
+preferred rail width, minimum rail width, and inter-track gap. `SheetMusicView` applies them as grid
+custom properties, so the projection inputs cannot drift from duplicate dimension literals in CSS.
+
+The projection follows a strict priority order:
 
 1. When the full symmetric scene fits, both side tracks keep their preferred widths (symmetric
    `24rem / 48rem / 24rem` with one small spacing-token gap between notation and rail).

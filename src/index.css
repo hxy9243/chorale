@@ -2402,16 +2402,14 @@ textarea {
 }
 
 .sheet-annotation-layout {
-  --score-notation-width: 48rem;
-  --score-annotation-width: 24rem;
   display: grid;
   width: max-content;
   min-width: max-content;
   grid-template-columns:
-    var(--score-balance-width, var(--score-annotation-width))
+    var(--score-balance-width)
     var(--score-notation-width)
     var(--score-annotation-width);
-  gap: 8px;
+  gap: var(--score-scene-gap);
   align-items: start;
 }
 
