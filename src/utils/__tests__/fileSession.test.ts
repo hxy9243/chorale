@@ -2,10 +2,12 @@ import { describe, it, expect } from 'vitest';
 import {
   MAX_SCORE_VERSIONS,
   createDocumentFromAbc,
+  duplicateDocument,
   updateDocumentAbc,
   sampleToDocument,
   parseAbcMetadata,
 } from '../fileSession';
+import type { Annotation } from '../../types/document';
 import type { MusicSample } from '../../types/music';
 
 describe('fileSession Utilities', () => {
@@ -92,5 +94,81 @@ describe('fileSession Utilities', () => {
     expect(doc.name).toBe('Bach Minuet (XML)');
     expect(doc.scoreInfo.title).toBe('Bach Minuet');
     expect(doc.sourceType).toBe('xml');
+  });
+
+  describe('duplicateDocument', () => {
+    const makeAnnotation = (id: string): Annotation => ({
+      id,
+      kind: 'explanation',
+      span: { startMeasure: 1, endMeasure: 2 },
+      label: 'Phrase',
+      body: 'Slurred phrase',
+      source: 'user',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: '2024-01-01T00:00:00.000Z',
+    });
+
+    it('creates a copy titled "<original title> (Copy)" with a fresh document id', () => {
+      const doc = createDocumentFromAbc('Minuet.xml', 'musicxml', 'X:1\nT:Minuet in G\nK:G\nGAB');
+      const copy = duplicateDocument(doc);
+
+      expect(copy.id).not.toBe(doc.id);
+      expect(copy.id).toMatch(/^doc-/);
+      expect(copy.scoreInfo.title).toBe('Minuet in G (Copy)');
+      expect(copy.name).toBe('Minuet (Copy).xml');
+      expect(copy.abcSource).toContain('T:Minuet in G (Copy)');
+      expect(copy.sourceType).toBe(doc.sourceType);
+      expect(copy.revision).toBe(1);
+    });
+
+    it('copies current annotations but starts fresh history, versions, and chats', () => {
+      const doc = createDocumentFromAbc('Song.abc', 'abc', 'X:1\nT:Song\nK:C\nC');
+      const edited = updateDocumentAbc(doc, 'X:1\nT:Song\nK:C\nC D E');
+      edited.annotations = [makeAnnotation('ann-1'), makeAnnotation('ann-2')];
+      edited.chats = [{
+        id: 'thread-1',
+        title: 'Discussion',
+        messageCount: 4,
+        updatedAt: '2024-01-01T00:00:00.000Z',
+      }];
+
+      const copy = duplicateDocument(edited);
+
+      expect(copy.revision).toBe(1);
+      expect(copy.versions).toHaveLength(1);
+      expect(copy.versions[0]).toMatchObject({
+        revision: 1,
+        abcSource: copy.abcSource,
+        reason: 'import',
+      });
+      expect(copy.history).toHaveLength(1);
+      expect(copy.historyIndex).toBe(0);
+      expect(copy.history?.[0]).toMatchObject({
+        revision: 1,
+        abcSource: copy.abcSource,
+        scoreInfo: { title: 'Song (Copy)' },
+      });
+      expect(copy.chats).toEqual([]);
+      expect(copy.annotations).toHaveLength(2);
+      expect(copy.annotations.map((annotation) => annotation.id))
+        .not.toEqual(edited.annotations.map((annotation) => annotation.id));
+      expect(copy.history?.[0].annotations.map((annotation) => annotation.id))
+        .toEqual(copy.annotations.map((annotation) => annotation.id));
+      expect(copy.annotations[0]).toMatchObject({
+        label: 'Phrase',
+        body: 'Slurred phrase',
+      });
+
+      copy.annotations[0].span.startMeasure = 9;
+      expect(edited.annotations[0].span.startMeasure).toBe(1);
+    });
+
+    it('falls back to the file name for the copy title when no score title exists', () => {
+      const doc = createDocumentFromAbc('Untitled Piece.xml', 'musicxml', 'X:1\nK:C\nC', '');
+      const copy = duplicateDocument(doc);
+
+      expect(copy.scoreInfo.title).toBe('Untitled Piece (Copy)');
+      expect(copy.name).toBe('Untitled Piece (Copy).xml');
+    });
   });
 });

@@ -32,12 +32,6 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="app-header">
-      <div className="header-left">
-        <div className="header-brand">
-          <span>Chorale</span>
-        </div>
-      </div>
-
       <div className="header-center">
         <div className="header-breadcrumb" aria-label="Current score">
           <strong>{activeFileName || 'Untitled score'}</strong>

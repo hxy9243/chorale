@@ -18,7 +18,7 @@ export function generateId(prefix = 'file'): string {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 }
 
-import { parseAbcHeaderMetadata } from './abcMetadata';
+import { parseAbcHeaderMetadata, updateAbcHeaderMetadata } from './abcMetadata';
 import {
   createBodyHistoryEntry,
   createOriginHistoryEntry,
@@ -150,5 +150,50 @@ export function sampleToDocument(sample: MusicSample, abcSource: string): FileDo
       ...document.scoreInfo,
       composer: sample.composer || document.scoreInfo.composer,
     },
+  };
+}
+
+const SOURCE_EXTENSION_PATTERN = /\.(xml|musicxml|mxl|abc)$/i;
+
+/**
+ * Builds a new document from the source's current score state as
+ * "<original title> (Copy)". The duplicate receives fresh document and
+ * annotation identities and starts its own version and editing history.
+ */
+export function duplicateDocument(source: FileDocument): FileDocument {
+  const baseTitle = source.scoreInfo.title
+    || source.name.replace(SOURCE_EXTENSION_PATTERN, '');
+  const copyTitle = `${baseTitle} (Copy)`;
+
+  const extensionMatch = source.name.match(SOURCE_EXTENSION_PATTERN);
+  const copyName = extensionMatch
+    ? `${source.name.slice(0, -extensionMatch[0].length)} (Copy)${extensionMatch[0]}`
+    : `${source.name} (Copy)`;
+
+  const copyAbc = updateAbcHeaderMetadata(source.abcSource, { title: copyTitle });
+  const baseCopy = createDocumentFromAbc(
+    copyName,
+    source.sourceType,
+    copyAbc,
+    copyTitle,
+  );
+  const annotations = source.annotations.map((annotation) => ({
+    ...structuredClone(annotation),
+    id: generateId('ann'),
+  }));
+  const copy: FileDocument = {
+    ...baseCopy,
+    scoreInfo: {
+      ...source.scoreInfo,
+      title: copyTitle,
+    },
+    annotations,
+    chats: [],
+  };
+
+  return {
+    ...copy,
+    history: [createOriginHistoryEntry(copy)],
+    historyIndex: 0,
   };
 }

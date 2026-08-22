@@ -22,6 +22,7 @@ import {
   CHAT_WIDTH_KEY,
   FILE_RAIL_WIDTH_KEY,
   FILE_RAIL_COLLAPSED_KEY,
+  FILE_RAIL_ACTIVE_PANEL_KEY,
   SHEET_ZOOM_KEY,
 } from './hooks/useWorkspaceLayout';
 
@@ -32,6 +33,7 @@ export {
   CHAT_WIDTH_KEY,
   FILE_RAIL_WIDTH_KEY,
   FILE_RAIL_COLLAPSED_KEY,
+  FILE_RAIL_ACTIVE_PANEL_KEY,
   SHEET_ZOOM_KEY,
 };
 import { useDocumentStore } from './hooks/useDocumentStore';
@@ -80,6 +82,7 @@ export const App: React.FC = () => {
     handleUpdateMetadata,
     handleProcessMusicXml,
     handleDeleteDocument,
+    handleDuplicateDocument,
     handleReorderDocument,
     handleAddAnnotation,
     handleAddAnnotations,
@@ -99,6 +102,8 @@ export const App: React.FC = () => {
     fittedPanelLayout,
     railCollapsed,
     setRailCollapsed,
+    railActivePanel,
+    setRailActivePanel,
     beginEditorResize,
     beginRailResize,
     beginChatResize,
@@ -273,17 +278,6 @@ export const App: React.FC = () => {
 
   return (
     <div className="chorale-app-shell">
-      <Header
-        activeFileName={scoreTitle}
-        saveStatus={activeDocument ? saveStatus : undefined}
-        canRenderScore={activeDocument ? canRenderScore : undefined}
-        hasPlayback={activeDocument ? (buildResult?.hasPlayback || false) : undefined}
-        canUndo={activeDocument ? canUndo : false}
-        canRedo={activeDocument ? canRedo : false}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
-      />
-
       <div
         className={`workspace-body ${chatOpen ? 'chat-open' : ''} ${railCollapsed ? 'rail-collapsed' : ''} ${fittedPanelLayout.overlaySidePanels ? 'side-panels-overlay' : ''}`}
         style={{
@@ -298,11 +292,14 @@ export const App: React.FC = () => {
           onSelectDocument={handleSelectFile}
           onFileLoaded={handleProcessMusicXml}
           onDeleteDocument={handleDeleteDocument}
+          onDuplicateDocument={handleDuplicateDocument}
           onReorderDocument={handleReorderDocument}
           loading={loading}
           error={error}
           collapsed={railCollapsed}
           onToggleCollapse={() => setRailCollapsed((c) => !c)}
+          activePanel={railActivePanel}
+          onActivePanelChange={setRailActivePanel}
           onBeginResize={beginRailResize}
           editorVisible={editorVisible}
           onToggleEditor={() => setEditorVisible((visible) => !visible)}
@@ -311,10 +308,21 @@ export const App: React.FC = () => {
           historyCount={editingHistory.length}
         />
 
-        <main
-          className={`central-workspace ${editorVisible ? 'editor-open' : 'editor-hidden'}`}
-          style={{ '--editor-panel-width': editorVisible ? `${fittedPanelLayout.editorPanelWidth}px` : '0px' } as React.CSSProperties}
-        >
+        <div className="central-column">
+          <Header
+            activeFileName={scoreTitle}
+            saveStatus={activeDocument ? saveStatus : undefined}
+            canRenderScore={activeDocument ? canRenderScore : undefined}
+            hasPlayback={activeDocument ? (buildResult?.hasPlayback || false) : undefined}
+            canUndo={activeDocument ? canUndo : false}
+            canRedo={activeDocument ? canRedo : false}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+          />
+          <main
+            className={`central-workspace ${editorVisible ? 'editor-open' : 'editor-hidden'}`}
+            style={{ '--editor-panel-width': editorVisible ? `${fittedPanelLayout.editorPanelWidth}px` : '0px' } as React.CSSProperties}
+          >
           <div className="score-editor-shell">
             <section className="score-workspace-card">
               <ScoreCardHeader
@@ -409,7 +417,8 @@ export const App: React.FC = () => {
               onPlaybackPositionChange={handlePlaybackPositionChange}
             />
           </div>
-        </main>
+          </main>
+        </div>
 
         <div id="current-sheet-agent" className="right-panel">
           <div id="chat-panel" className="chat-panel-stack">

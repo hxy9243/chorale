@@ -3957,8 +3957,8 @@ body {
   }
 
   .right-panel {
-    top: 4.5rem;
-    height: calc(100dvh - 4.5rem);
+    top: 0;
+    height: 100dvh;
   }
 
   .header-brand {
@@ -4152,13 +4152,13 @@ body {
 }
 
 .right-panel {
-  top: 4rem;
-  height: calc(100dvh - 4rem);
+  top: 0;
+  height: 100dvh;
 }
 
 #current-sheet-agent {
   position: fixed;
-  inset: 4rem 0 0 auto;
+  inset: 0 0 0 auto;
   width: min(24.5rem, 100%);
   height: auto;
   padding: 0;
@@ -4170,7 +4170,7 @@ body {
 
 .workspace-body.chat-open .right-panel {
   position: fixed;
-  inset: 4rem 0 0 auto;
+  inset: 0 0 0 auto;
   height: auto;
 }
 
@@ -4237,16 +4237,16 @@ body {
   }
 
   .right-panel {
-    top: 4.5rem;
-    height: calc(100dvh - 4.5rem);
+    top: 0;
+    height: 100dvh;
   }
 
   #current-sheet-agent {
-    inset: 4.5rem 0 0 auto;
+    inset: 0 0 0 auto;
   }
 
   .workspace-body.chat-open .right-panel {
-    inset: 4.5rem 0 0 auto;
+    inset: 0 0 0 auto;
     height: auto;
   }
 
@@ -7428,7 +7428,7 @@ body,
    to its icon bar when chat is closed. */
 #current-sheet-agent {
   position: fixed;
-  inset: 4rem 0 0 auto;
+  inset: 0 0 0 auto;
   display: flex;
   width: 3.5rem;
   height: auto;
@@ -7440,7 +7440,7 @@ body,
 
 @media (min-width: 40rem) {
   #current-sheet-agent {
-    inset-block-start: 4.5rem;
+    inset-block-start: 0;
   }
 }
 
@@ -7463,4 +7463,375 @@ body,
   .workspace-body.chat-open .chat-panel-stack {
     flex: 1 1 auto;
   }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Hallmark · refinement: full-height work rails · tone: austere · fjord
+   Both icon rails own the page edges from the very top to the bottom; the
+   global header lives between them, above the central workspace only.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.workspace-body {
+  height: 100%;
+}
+
+.central-column {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.app-header {
+  flex: none;
+}
+
+.central-workspace {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Dedicated toggle expansion icon at the top of each rail. */
+.file-rail-tab.rail-toggle,
+.right-rail-tab.rail-toggle {
+  color: var(--color-ink-2);
+}
+
+/* Header trifold: history actions left, status indicators right, and the
+   score title centered between them. The legacy .header-center wrapper is
+   flattened with display:contents so the three groups become direct flex
+   children of the header bar — one row, vertically centered, no legacy
+   grid interference. When the central column gets narrow, status pills
+   drop out first (container queries), then history labels; the title
+   truncates instead of overlapping. */
+.central-column {
+  container-type: inline-size;
+}
+
+.app-header {
+  display: flex;
+  height: auto;
+  min-height: 4rem;
+  align-items: center;
+  gap: var(--space-md);
+  padding-inline: var(--space-md);
+}
+
+.header-center {
+  display: contents;
+}
+
+.header-history-actions {
+  order: -1;
+  flex: none;
+  border: 0;
+  background: transparent;
+}
+
+.header-breadcrumb {
+  order: 0;
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-inline-start: 0;
+  background: transparent;
+  transform: none;
+  font-size: var(--text-sm);
+}
+
+.header-breadcrumb strong {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.header-status-group {
+  order: 1;
+  flex: none;
+}
+
+@container (max-width: 56rem) {
+  .header-status-group .header-status-pill.svg,
+  .header-status-group .header-status-pill.audio {
+    display: none;
+  }
+}
+
+@container (max-width: 34rem) {
+  .header-status-group {
+    display: none;
+  }
+
+  .header-history-btn span {
+    display: none;
+  }
+}
+
+/* When a rail's panel is expanded, the icon bar and the panel read as one
+   continuous surface: the divider between them disappears. Collapsed rails
+   keep their edge so the strip still reads as a boundary. */
+.file-rail:not(.collapsed) .file-rail-tabs {
+  border-inline-end-color: transparent;
+}
+
+.workspace-body.chat-open .right-rail-tabs {
+  border-inline-start-color: transparent;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Hallmark · refinement: sidebar panel titles · tone: austere · anchor hue: fjord
+   Both rail panels share one fixed title-row height, so switching between the
+   Files and Tools panels never shifts the heading baseline. Titles use the
+   editorial serif and read as small document headings instead of micro-labels.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.rail-section-header {
+  display: flex;
+  height: 2rem;
+  min-height: 2rem;
+  flex: none;
+  align-items: center;
+}
+
+/* The legacy nth-of-type(2) rule out-specifies the theme reset and pushed
+   the second panel's title row down; both panels share one margin now. */
+.file-rail-section,
+.file-rail-section:nth-of-type(2) {
+  margin-top: 0;
+}
+
+.rail-section-title {
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-ink);
+  font-family: var(--font-serif);
+  font-size: 0.9375rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  line-height: 2rem;
+  text-transform: none;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Hallmark · component: file context menu (right-click actions)
+   Open · Duplicate · Delete, anchored to the pointer and clamped to the
+   viewport so it never spills past the window edge.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.file-context-menu {
+  position: fixed;
+  z-index: var(--z-dropdown);
+  display: flex;
+  width: 13rem;
+  flex-direction: column;
+  padding: var(--space-3xs);
+  border: var(--rule-thin) solid var(--color-rule-2);
+  border-radius: var(--radius-control);
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-modal);
+}
+
+.file-context-menu-heading {
+  display: block;
+  margin-bottom: var(--space-3xs);
+  padding: var(--space-2xs) var(--space-xs);
+  border-bottom: var(--rule-thin) solid var(--color-rule);
+}
+
+.file-context-menu-title {
+  display: block;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-family: var(--font-serif);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-context-menu-item {
+  display: flex;
+  width: 100%;
+  min-height: 2rem;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 0 var(--space-xs);
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  text-align: start;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .file-context-menu-item:hover:not(:disabled) {
+    background: var(--color-paper-3);
+    color: var(--color-ink);
+  }
+}
+
+.file-context-menu-item:focus-visible {
+  outline: var(--rule-active) solid var(--color-focus);
+  outline-offset: calc(-1 * var(--rule-active));
+}
+
+.file-context-menu-item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.file-context-menu-item.danger {
+  color: var(--color-error);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .file-context-menu-item.danger:hover:not(:disabled) {
+    background: var(--color-error-soft);
+    color: var(--color-error);
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Hallmark · component: delete-file confirmation window
+   A compact centered dialog; the dimmed backdrop blocks the workspace until
+   the user confirms or cancels.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.delete-file-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: var(--space-md);
+  background: var(--color-overlay);
+  backdrop-filter: blur(2px);
+  animation: history-fade-in 150ms ease-out;
+}
+
+.delete-file-modal-window {
+  display: flex;
+  width: min(26rem, 100%);
+  flex-direction: column;
+  overflow: hidden;
+  border: var(--rule-thin) solid var(--color-rule-2);
+  border-radius: var(--radius-card);
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-modal);
+}
+
+.delete-file-modal-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: var(--rule-thin) solid var(--color-rule);
+  background: var(--color-paper-raised);
+}
+
+.delete-file-icon-badge {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  place-items: center;
+  border-radius: var(--radius-small);
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+
+.delete-file-modal-heading {
+  margin: 0;
+  flex: 1 1 auto;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.delete-file-close-btn {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.delete-file-close-btn:hover {
+  background: var(--color-paper-3);
+  color: var(--color-ink);
+}
+
+.delete-file-modal-body {
+  padding: var(--space-md);
+}
+
+.delete-file-modal-description {
+  margin: 0;
+  color: var(--color-ink-2);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.delete-file-modal-description strong {
+  color: var(--color-ink);
+}
+
+.delete-file-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border-top: var(--rule-thin) solid var(--color-rule);
+  background: var(--color-paper-2);
+}
+
+.delete-file-cancel-btn {
+  display: inline-flex;
+  height: 2.25rem;
+  align-items: center;
+  padding: 0 var(--space-sm);
+  border: var(--rule-thin) solid var(--color-rule-2);
+  border-radius: var(--radius-control);
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.delete-file-cancel-btn:hover {
+  background: var(--color-paper-3);
+}
+
+.delete-file-confirm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  height: 2.25rem;
+  padding: 0 var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--color-error);
+  color: #fff;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.delete-file-confirm-btn:hover {
+  filter: brightness(1.08);
 }

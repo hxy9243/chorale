@@ -13,6 +13,7 @@ import { PRESET_SAMPLES } from '../data/samples';
 import { extractMusicXml, parseMusicXmlToAbc } from '../utils/xmlParser';
 import {
   createDocumentFromAbc,
+  duplicateDocument,
   limitScoreVersions,
   parseAbcMetadata,
   sampleToDocument,
@@ -352,6 +353,17 @@ export const useDocumentStore = () => {
     });
   }, [activeFileId]);
 
+  const handleDuplicateDocument = useCallback((fileId: string) => {
+    setDocuments((prevDocs) => {
+      const sourceIndex = prevDocs.findIndex((doc) => doc.id === fileId);
+      if (sourceIndex === -1) return prevDocs;
+      const copy = duplicateDocument(prevDocs[sourceIndex]);
+      const nextDocs = [...prevDocs];
+      nextDocs.splice(sourceIndex + 1, 0, copy);
+      return nextDocs;
+    });
+  }, []);
+
   const handleReorderDocument = useCallback((
     sourceFileId: string,
     targetFileId: string,
@@ -532,6 +544,7 @@ export const useDocumentStore = () => {
     handleUpdateMetadata,
     handleProcessMusicXml,
     handleDeleteDocument,
+    handleDuplicateDocument,
     handleReorderDocument,
     handleAddAnnotation,
     handleAddAnnotations,

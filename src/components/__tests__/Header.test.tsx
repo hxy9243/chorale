@@ -3,11 +3,12 @@ import { describe, it, expect, vi } from 'vitest';
 import { Header } from '../Header';
 
 describe('Header Component', () => {
-  it('renders the title and current score without a brand icon', () => {
+  it('renders the title and current score without a brand wordmark', () => {
     render(<Header activeFileName="Test Score.xml" />);
-    expect(screen.getByText('Chorale')).toBeDefined();
+    expect(screen.queryByText('Chorale')).toBeNull();
     expect(screen.getByText('Test Score.xml')).toBeDefined();
     expect(document.querySelector('.brand-mark')).toBeNull();
+    expect(document.querySelector('.header-left')).toBeNull();
     expect(screen.queryByText('Baroque Studies')).toBeNull();
     expect(screen.queryByText('Share')).toBeNull();
     expect(document.querySelector('.header-chat-button')).toBeNull();

@@ -129,14 +129,88 @@ describe('FileRail Component', () => {
     expect(defaultProps.onSelectDocument).toHaveBeenCalledWith(doc2.id);
   });
 
-  it('calls onDeleteDocument when delete button is clicked', () => {
+  it('does not render inline delete buttons in the file list', () => {
+    const onDeleteDocument = vi.fn();
+    const { container } = render(
+      <FileRail {...defaultProps} onDeleteDocument={onDeleteDocument} />,
+    );
+
+    expect(screen.queryByLabelText(`Delete ${doc1.name}`)).toBeNull();
+    expect(container.querySelector('.file-item-actions')).toBeNull();
+    expect(container.querySelector('.file-action-btn')).toBeNull();
+  });
+
+  it('opens a right-click context menu and opens the chosen file', () => {
+    const onDuplicateDocument = vi.fn();
+    const onDeleteDocument = vi.fn();
+    render(
+      <FileRail
+        {...defaultProps}
+        onDuplicateDocument={onDuplicateDocument}
+        onDeleteDocument={onDeleteDocument}
+      />,
+    );
+
+    const doc2Button = screen.getByText('Beethoven Ode');
+    fireEvent.contextMenu(doc2Button);
+
+    expect(screen.getByRole('menu')).toBeDefined();
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Open' }));
+    expect(defaultProps.onSelectDocument).toHaveBeenCalledWith(doc2.id);
+  });
+
+  it('keeps Open inert for the already-opened file', () => {
+    render(<FileRail {...defaultProps} />);
+
+    fireEvent.contextMenu(getFirstFileButton());
+    const openItem = screen.getByRole('menuitem', { name: 'Open' });
+    expect(openItem.hasAttribute('disabled')).toBe(true);
+
+    fireEvent.click(openItem);
+    expect(defaultProps.onSelectDocument).not.toHaveBeenCalledWith(doc1.id);
+  });
+
+  it('duplicates a file from the context menu', () => {
+    const onDuplicateDocument = vi.fn();
+    render(<FileRail {...defaultProps} onDuplicateDocument={onDuplicateDocument} />);
+
+    fireEvent.contextMenu(getFirstFileButton());
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Duplicate' }));
+
+    expect(onDuplicateDocument).toHaveBeenCalledWith(doc1.id);
+  });
+
+  it('confirms deletion through a centered dialog before deleting', () => {
     const onDeleteDocument = vi.fn();
     render(<FileRail {...defaultProps} onDeleteDocument={onDeleteDocument} />);
 
-    const deleteBtn = screen.getByLabelText(`Delete ${doc1.name}`);
-    fireEvent.click(deleteBtn);
+    fireEvent.contextMenu(getFirstFileButton());
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
 
+    const dialog = screen.getByRole('alertdialog');
+    expect(dialog).toBeDefined();
+    expect(onDeleteDocument).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onDeleteDocument).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+
+    fireEvent.contextMenu(getFirstFileButton());
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     expect(onDeleteDocument).toHaveBeenCalledWith(doc1.id);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('closes the context menu on Escape', () => {
+    render(<FileRail {...defaultProps} />);
+
+    fireEvent.contextMenu(getFirstFileButton());
+    expect(screen.getByRole('menu')).toBeDefined();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
   });
 
   it('removes the leading file icon and avoids native draggable rows', () => {
@@ -277,5 +351,67 @@ describe('FileRail Component', () => {
     // Clicking different tab while collapsed switches tab and triggers expand.
     fireEvent.click(toolsTab);
     expect(onToggleCollapse).toHaveBeenCalledTimes(2);
+  });
+
+  it('renders a top-anchored toggle icon that toggles the rail', () => {
+    const onToggleCollapse = vi.fn();
+    const { rerender } = render(
+      <FileRail
+        {...defaultProps}
+        onToggleCollapse={onToggleCollapse}
+        activePanel="tools"
+        onActivePanelChange={vi.fn()}
+      />,
+    );
+
+    const toggle = screen.getByRole('button', { name: 'Collapse sidebar' });
+    expect(toggle.classList.contains('rail-toggle')).toBe(true);
+
+    // Toggle icon sits at the top of the selection bar.
+    const tabsNav = document.querySelector('.file-rail-tabs')!;
+    expect(tabsNav.firstElementChild).toBe(toggle);
+
+    fireEvent.click(toggle);
+    expect(onToggleCollapse).toHaveBeenCalledOnce();
+
+    // Collapsed rail keeps the toggle icon visible for re-expansion.
+    rerender(
+      <FileRail
+        {...defaultProps}
+        collapsed
+        onToggleCollapse={onToggleCollapse}
+        activePanel="tools"
+        onActivePanelChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeDefined();
+  });
+
+  it('restores the last focused panel when re-expanded via the toggle icon', () => {
+    const onToggleCollapse = vi.fn();
+    const onActivePanelChange = vi.fn();
+    const { rerender } = render(
+      <FileRail
+        {...defaultProps}
+        collapsed
+        onToggleCollapse={onToggleCollapse}
+        activePanel="tools"
+        onActivePanelChange={onActivePanelChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
+    expect(onToggleCollapse).toHaveBeenCalledOnce();
+    expect(onActivePanelChange).not.toHaveBeenCalled();
+
+    rerender(
+      <FileRail
+        {...defaultProps}
+        onToggleCollapse={onToggleCollapse}
+        activePanel="tools"
+        onActivePanelChange={onActivePanelChange}
+      />,
+    );
+    expect(screen.getByRole('tabpanel', { name: 'Tools' })).toBeDefined();
   });
 });

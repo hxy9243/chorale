@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDocumentStore } from '../useDocumentStore';
 import { storageAdapter } from '../../utils/storageAdapter';
+import { createDocumentFromAbc, updateDocumentAbc } from '../../utils/fileSession';
 import type { FileDocument } from '../../types/document';
 import * as xmlParser from '../../utils/xmlParser';
 
@@ -67,6 +68,40 @@ describe('useDocumentStore', () => {
     act(() => result.current.handleSelectFile(secondDoc.id));
     expect(result.current.activeFileId).toBe(secondDoc.id);
     expect(result.current.activeAnchor).toBeNull();
+  });
+
+  it('duplicates only the current score state and preserves the copy title through undo', async () => {
+    const source = updateDocumentAbc(
+      createDocumentFromAbc('Song.abc', 'abc', 'X:1\nT:Song\nK:C\nC'),
+      'X:1\nT:Song\nK:C\nC D E',
+    );
+    source.chats = [{
+      id: 'source-thread',
+      title: 'Source discussion',
+      messageCount: 2,
+      updatedAt: '2026-08-22T00:00:00.000Z',
+    }];
+    localStorage.setItem('chorale.workspace.activeFileId', source.id);
+    vi.spyOn(storageAdapter, 'getDocuments').mockResolvedValue([source]);
+
+    const { result } = renderHook(() => useDocumentStore());
+    await waitFor(() => expect(result.current.hydrationStatus).toBe('ready'));
+
+    act(() => result.current.handleDuplicateDocument(source.id));
+    const copy = result.current.documents[1];
+    expect(copy.scoreInfo.title).toBe('Song (Copy)');
+    expect(copy.revision).toBe(1);
+    expect(copy.history).toHaveLength(1);
+    expect(copy.versions).toHaveLength(1);
+    expect(copy.chats).toEqual([]);
+
+    act(() => result.current.handleSelectFile(copy.id));
+    act(() => result.current.handleAbcChange(`${copy.abcSource}\nD E F`));
+    expect(result.current.canUndo).toBe(true);
+
+    act(() => result.current.handleUndo());
+    expect(result.current.activeDocument?.scoreInfo.title).toBe('Song (Copy)');
+    expect(result.current.activeDocument?.abcSource).toBe(copy.abcSource);
   });
 
   it('loads sample track safely when no IndexedDB documents exist and hydration completes', async () => {

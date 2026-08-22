@@ -14,7 +14,12 @@ export const CHAT_OPEN_KEY = 'chorale.workspace.chatOpen';
 export const CHAT_WIDTH_KEY = 'chorale.workspace.chatWidth';
 export const FILE_RAIL_WIDTH_KEY = 'chorale.workspace.fileRailWidth';
 export const FILE_RAIL_COLLAPSED_KEY = 'chorale.workspace.fileRailCollapsed';
+export const FILE_RAIL_ACTIVE_PANEL_KEY = 'chorale.workspace.fileRailActivePanel';
 export const SHEET_ZOOM_KEY = 'chorale.workspace.sheetZoom';
+
+export type RailPanelId = 'files' | 'tools';
+
+const DEFAULT_RAIL_PANEL: RailPanelId = 'files';
 
 const DEFAULT_EDITOR_WIDTH = 420;
 const DEFAULT_SHEET_ZOOM = 100;
@@ -27,6 +32,11 @@ const readStoredBool = (key: string, fallback: boolean) => {
   if (typeof window === 'undefined') return fallback;
   const value = window.localStorage.getItem(key);
   return value === null ? fallback : value === 'true';
+};
+
+const readStoredRailPanel = (key: string): RailPanelId => {
+  if (typeof window === 'undefined') return DEFAULT_RAIL_PANEL;
+  return window.localStorage.getItem(key) === 'tools' ? 'tools' : DEFAULT_RAIL_PANEL;
 };
 
 const readStoredNumber = (
@@ -66,6 +76,9 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
   const [railCollapsed, setRailCollapsed] = useState<boolean>(() => (
     readStoredBool(FILE_RAIL_COLLAPSED_KEY, false)
   ));
+  const [railActivePanel, setRailActivePanel] = useState<RailPanelId>(() => (
+    readStoredRailPanel(FILE_RAIL_ACTIVE_PANEL_KEY)
+  ));
   const [chatWidth, setChatWidth] = useState<number>(() => (
     readStoredNumber(
       CHAT_WIDTH_KEY,
@@ -93,6 +106,10 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
   useEffect(() => {
     window.localStorage.setItem(FILE_RAIL_COLLAPSED_KEY, String(railCollapsed));
   }, [railCollapsed]);
+
+  useEffect(() => {
+    window.localStorage.setItem(FILE_RAIL_ACTIVE_PANEL_KEY, railActivePanel);
+  }, [railActivePanel]);
 
   useEffect(() => {
     window.localStorage.setItem(CHAT_OPEN_KEY, String(chatOpen));
@@ -158,6 +175,8 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
     railWidth,
     railCollapsed,
     setRailCollapsed,
+    railActivePanel,
+    setRailActivePanel,
     chatWidth,
     fittedPanelLayout,
     beginEditorResize,
