@@ -9,6 +9,7 @@ source_files:
   - src/App.tsx
   - src/components/Header.tsx
   - src/components/FileRail.tsx
+  - src/components/RightRail.tsx
   - src/components/ScoreMetadataHeader.tsx
   - src/components/ScoreCardHeader.tsx
   - src/components/EditingHistoryModal.tsx
@@ -20,6 +21,7 @@ source_files:
 test_files:
   - src/App.test.tsx
   - src/components/__tests__/FileRail.test.tsx
+  - src/components/__tests__/RightRail.test.tsx
   - src/components/__tests__/Header.test.tsx
   - src/components/__tests__/ScoreMetadataHeader.test.tsx
   - src/components/__tests__/EditingHistoryModal.test.tsx
@@ -63,7 +65,7 @@ Required regions (3-column centered layout):
   - active file title/breadcrumb
   - edit history actions (`Undo` / `Redo` buttons with tooltips indicating shortcuts Ctrl+Z / ⌘Z and Ctrl+Shift+Z / ⌘Shift+Z)
   - consolidated status group (`Auto-saved`/`Saving…`/`Save failed`, `SVG ready`/`SVG pending`, `Music ready`/`Music pending` with status dot indicators)
-- right: Chat Panel visibility toggle
+- right: none; chat visibility moved to the persistent right work rail icon bar
 
 The Electron window and renderer document title are exactly `Chorale`. Save and build state capsules live in the global header so they remain continuously visible when scrolling through long musical scores.
 
@@ -103,9 +105,11 @@ It contains:
 
 The score remains the dominant surface. The editor is subordinate even when visible.
 
-## 5. Right-side chat panel
+## 5. Right work rail and chat panel
 
-The chat panel is part of the fixed workspace layout on desktop. It supports horizontal drag-to-resize (minimum 280px, maximum one third of the logical layout viewport, default 392px) via a left drag handle. Its resized width persists as `chorale.workspace.chatWidth`. Closing it expands the score workspace, but a persistent header control always allows the user to reopen it.
+The right side mirrors the left work rail: a persistent narrow vertical icon bar (`3.5rem` / `56px`) anchored to the right screen edge remains visible at all times. Its **Chat** button toggles the chat panel; the open/closed state persists as `chorale.workspace.chatOpen`.
+
+The chat panel is part of the fixed workspace layout on desktop. It supports horizontal drag-to-resize (minimum 280px, maximum one half of the whole logical layout viewport, default 392px) via a left drag handle. Its resized width persists as `chorale.workspace.chatWidth` and is restored across refreshes (re-clamped to the current viewport maximum on load and resize). Closing it collapses the workspace back to the persistent icon bar.
 
 It functions as a persistent product surface with:
 
