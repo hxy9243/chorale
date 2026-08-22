@@ -289,7 +289,7 @@ describe('App Integration', () => {
     expect(screen.queryByLabelText('Current sheet assistant')).toBeNull();
     expect(screen.getByText('m. 1')).toBeDefined();
 
-    fireEvent.click(screen.getByTitle('Show score chat'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Chat' }));
     expect(screen.getByLabelText('Current sheet assistant')).toBeDefined();
   });
 
@@ -321,7 +321,7 @@ describe('App Integration', () => {
 
     const workspace = document.querySelector<HTMLElement>('.workspace-body')!;
     expect(workspace.style.gridTemplateColumns).toContain('360px');
-    expect(workspace.style.gridTemplateColumns).toContain('320px');
+    expect(workspace.style.gridTemplateColumns).toContain('376px');
     expect(document.querySelector('.zoom-level-text')?.textContent).toBe('130%');
 
     fireEvent.click(screen.getByTitle('Zoom in'));
@@ -356,10 +356,10 @@ describe('App Integration', () => {
     const { unmount } = render(<App />);
 
     expect(screen.queryByLabelText('Current sheet assistant')).toBeNull();
-    fireEvent.click(screen.getByTitle('Show score chat'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Chat' }));
     expect(screen.getByLabelText('Current sheet assistant')).toBeDefined();
     const workspace = document.querySelector<HTMLElement>('.workspace-body')!;
-    expect(workspace.style.gridTemplateColumns).toContain('320px');
+    expect(workspace.style.gridTemplateColumns).toContain('376px');
     await waitFor(() => expect(localStorage.getItem(CHAT_OPEN_KEY)).toBe('true'));
 
     fireEvent.click(screen.getByTitle('Close assistant'));
@@ -369,9 +369,9 @@ describe('App Integration', () => {
 
     render(<App />);
     expect(screen.queryByLabelText('Current sheet assistant')).toBeNull();
-    fireEvent.click(screen.getByTitle('Show score chat'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Chat' }));
     expect(document.querySelector<HTMLElement>('.workspace-body')!.style.gridTemplateColumns)
-      .toContain('320px');
+      .toContain('376px');
   });
 
   it('allows deleting files from the file rail', async () => {

@@ -1,10 +1,8 @@
 import React from 'react';
-import { MessageSquare, Redo2, Undo2 } from 'lucide-react';
+import { Redo2, Undo2 } from 'lucide-react';
 
 interface HeaderProps {
   activeFileName?: string;
-  chatOpen?: boolean;
-  onToggleChat?: () => void;
   saveStatus?: 'saved' | 'saving' | 'error';
   canRenderScore?: boolean;
   hasPlayback?: boolean;
@@ -16,8 +14,6 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   activeFileName = '',
-  chatOpen = true,
-  onToggleChat,
   saveStatus,
   canRenderScore,
   hasPlayback,
@@ -96,20 +92,6 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
         )}
-      </div>
-
-      <div className="header-right">
-        <button
-          type="button"
-          className={`header-chat-button ${chatOpen ? 'active' : ''}`}
-          onClick={onToggleChat}
-          aria-expanded={chatOpen}
-          aria-controls="current-sheet-agent"
-          title={chatOpen ? 'Hide score chat' : 'Show score chat'}
-        >
-          <MessageSquare size={15} aria-hidden="true" />
-          <span>Chat</span>
-        </button>
       </div>
     </header>
   );

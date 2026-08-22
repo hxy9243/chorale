@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import abcjs from 'abcjs';
 import { Header } from './components/Header';
 import { FileRail } from './components/FileRail';
+import { RightRail } from './components/RightRail';
 import { ScoreCardHeader } from './components/ScoreCardHeader';
 import { ScoreMetadataHeader } from './components/ScoreMetadataHeader';
 import { SheetMusicView } from './components/SheetMusicView';
@@ -39,6 +40,7 @@ import { parseAbcHeaderMetadata, type ScoreMetadata } from './utils/abcMetadata'
 import type { PlaybackPosition } from './utils/repeatPlayback';
 import { prepareAbcForPlayback } from './utils/abcAudio';
 import { extractScore } from './music/scoreSnapshot';
+import { FILE_RAIL_BAR_WIDTH } from './utils/workspaceSizing';
 
 const DEFAULT_SHEET_ZOOM = 100;
 
@@ -267,12 +269,12 @@ export const App: React.FC = () => {
     [buildResult, buildStatus],
   );
 
+  const chatColumnWidth = FILE_RAIL_BAR_WIDTH + (chatOpen ? fittedPanelLayout.chatPanelWidth : 0);
+
   return (
     <div className="chorale-app-shell">
       <Header
         activeFileName={scoreTitle}
-        chatOpen={chatOpen}
-        onToggleChat={() => setChatOpen((open) => !open)}
         saveStatus={activeDocument ? saveStatus : undefined}
         canRenderScore={activeDocument ? canRenderScore : undefined}
         hasPlayback={activeDocument ? (buildResult?.hasPlayback || false) : undefined}
@@ -285,9 +287,9 @@ export const App: React.FC = () => {
       <div
         className={`workspace-body ${chatOpen ? 'chat-open' : ''} ${railCollapsed ? 'rail-collapsed' : ''} ${fittedPanelLayout.overlaySidePanels ? 'side-panels-overlay' : ''}`}
         style={{
-          gridTemplateColumns: `${fittedPanelLayout.fileRailWidth}px minmax(0, 1fr) ${chatOpen ? `${fittedPanelLayout.chatPanelWidth}px` : '0px'}`,
+          gridTemplateColumns: `${fittedPanelLayout.fileRailWidth}px minmax(0, 1fr) ${chatColumnWidth}px`,
           '--file-rail-width': `${fittedPanelLayout.fileRailWidth}px`,
-          '--chat-rail-width': chatOpen ? `${fittedPanelLayout.chatPanelWidth}px` : '0px',
+          '--chat-rail-width': `${chatColumnWidth}px`,
         } as React.CSSProperties}
       >
         <FileRail
@@ -410,30 +412,36 @@ export const App: React.FC = () => {
         </main>
 
         <div id="current-sheet-agent" className="right-panel">
-          {chatOpen && (
-            <button
-              type="button"
-              className="chat-rail-resize-handle"
-              onPointerDown={beginChatResize}
-              title="Drag to resize chat sidebar width"
-              aria-label="Resize chat sidebar"
+          <div id="chat-panel" className="chat-panel-stack">
+            {chatOpen && (
+              <button
+                type="button"
+                className="chat-rail-resize-handle"
+                onPointerDown={beginChatResize}
+                title="Drag to resize chat sidebar width"
+                aria-label="Resize chat sidebar"
+              />
+            )}
+            <AgentChatPanel
+              open={chatOpen}
+              onClose={() => setChatOpen(false)}
+              fileId={activeFileId}
+              abcCode={abcCode}
+              activeFileName={scoreTitle}
+              revision={abcRevision}
+              annotations={activeDocument?.annotations || []}
+              activeAnchor={activeAnchor}
+              totalMeasures={totalMeasures}
+              scoreMeter={scoreMeter}
+              ai={aiProviders}
+              onOpenSettings={openSettings}
+              onNavigateMeasure={handleNavigateMeasure}
+              onApplyAnnotations={handleAddAnnotations}
             />
-          )}
-          <AgentChatPanel
-            open={chatOpen}
-            onClose={() => setChatOpen(false)}
-            fileId={activeFileId}
-            abcCode={abcCode}
-            activeFileName={scoreTitle}
-            revision={abcRevision}
-            annotations={activeDocument?.annotations || []}
-            activeAnchor={activeAnchor}
-            totalMeasures={totalMeasures}
-            scoreMeter={scoreMeter}
-            ai={aiProviders}
-            onOpenSettings={openSettings}
-            onNavigateMeasure={handleNavigateMeasure}
-            onApplyAnnotations={handleAddAnnotations}
+          </div>
+          <RightRail
+            chatOpen={chatOpen}
+            onToggleChat={() => setChatOpen((open) => !open)}
           />
         </div>
       </div>
