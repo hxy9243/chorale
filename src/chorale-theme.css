@@ -7497,25 +7497,71 @@ body,
   color: var(--color-ink-2);
 }
 
-/* The score title is the header: it stays dead-center and covers any
-   history/status content it would otherwise collide with. */
+/* Header trifold: history actions left, status indicators right, and the
+   score title centered between them. The three regions share the row, so
+   they never collide with each other or with the side rails — when the
+   central column gets narrow, status pills drop out first (container
+   queries), then history labels; the title truncates instead of overlapping. */
+.central-column {
+  container-type: inline-size;
+}
+
 .app-header {
   position: relative;
 }
 
+.header-center {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.header-history-actions {
+  order: -1;
+  flex: none;
+  border: 0;
+  background: transparent;
+}
+
 .header-breadcrumb {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  z-index: var(--z-raised);
-  padding-inline: var(--space-sm);
+  position: static;
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+  padding: 0;
   border-inline-start: 0;
-  background: var(--color-paper-2);
-  transform: translate(-50%, -50%);
+  background: transparent;
+  transform: none;
 }
 
 .header-breadcrumb strong {
+  overflow: hidden;
   white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.header-status-group {
+  order: 1;
+  flex: none;
+}
+
+@container (max-width: 56rem) {
+  .header-status-group .header-status-pill.svg,
+  .header-status-group .header-status-pill.audio {
+    display: none;
+  }
+}
+
+@container (max-width: 34rem) {
+  .header-status-group {
+    display: none;
+  }
+
+  .header-history-btn span {
+    display: none;
+  }
 }
 
 /* When a rail's panel is expanded, the icon bar and the panel read as one

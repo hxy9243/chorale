@@ -61,11 +61,13 @@ The header communicates score context, editing actions, and persistence/render h
 
 Required regions:
 
-- center:
-  - active file title/breadcrumb, dead-centered in the header and layered above the other header content: when a long title would collide with the history actions or status group, it covers them rather than being pushed aside
-  - edit history actions (`Undo` / `Redo` buttons with tooltips indicating shortcuts Ctrl+Z / ⌘Z and Ctrl+Shift+Z / ⌘Shift+Z)
-  - consolidated status group (`Auto-saved`/`Saving…`/`Save failed`, `SVG ready`/`SVG pending`, `Music ready`/`Music pending` with status dot indicators)
-- left/right: none; chat visibility lives in the persistent right work rail icon bar, and no branding icon or wordmark appears in either the header or the rails (the application name lives only in the window/document title)
+- left: edit history actions (`Undo` / `Redo` buttons without borders, tooltips indicating shortcuts Ctrl+Z / ⌘Z and Ctrl+Shift+Z / ⌘Shift+Z)
+- center: active file title/breadcrumb, dead-centered between the two flanking groups; it truncates with an ellipsis rather than overlapping anything
+- right: consolidated status group (`Auto-saved`/`Saving…`/`Save failed`, `SVG ready`/`SVG pending`, `Music ready`/`Music pending` with status dot indicators)
+
+The three regions share one row and never collide with each other or with the side rails. Adaptivity is driven by the central column's own width (container queries), not the viewport: below 56rem of column width the SVG/Music pills drop out, below 34rem the status group hides entirely and history buttons collapse to icons; the title keeps truncating throughout.
+
+No branding icon or wordmark appears in either the header or the rails; the application name lives only in the window/document title.
 
 The Electron window and renderer document title are exactly `Chorale`. Save and build state capsules live in the global header so they remain continuously visible when scrolling through long musical scores.
 
