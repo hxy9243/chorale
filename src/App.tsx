@@ -82,6 +82,7 @@ export const App: React.FC = () => {
     handleUpdateMetadata,
     handleProcessMusicXml,
     handleDeleteDocument,
+    handleDuplicateDocument,
     handleReorderDocument,
     handleAddAnnotation,
     handleAddAnnotations,
@@ -291,6 +292,7 @@ export const App: React.FC = () => {
           onSelectDocument={handleSelectFile}
           onFileLoaded={handleProcessMusicXml}
           onDeleteDocument={handleDeleteDocument}
+          onDuplicateDocument={handleDuplicateDocument}
           onReorderDocument={handleReorderDocument}
           loading={loading}
           error={error}

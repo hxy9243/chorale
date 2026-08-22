@@ -18,7 +18,8 @@ export function generateId(prefix = 'file'): string {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 }
 
-import { parseAbcHeaderMetadata } from './abcMetadata';
+import { parseAbcHeaderMetadata, updateAbcHeaderMetadata } from './abcMetadata';
+import type { Annotation } from '../types/document';
 import {
   createBodyHistoryEntry,
   createOriginHistoryEntry,
@@ -150,5 +151,53 @@ export function sampleToDocument(sample: MusicSample, abcSource: string): FileDo
       ...document.scoreInfo,
       composer: sample.composer || document.scoreInfo.composer,
     },
+  };
+}
+
+const SOURCE_EXTENSION_PATTERN = /\.(xml|musicxml|mxl|abc)$/i;
+
+/**
+ * Builds a deep copy of a document as "<original title> (Copy)".
+ * The copy mirrors the source exactly — ABC source, revision, versions,
+ * editing history, annotations and chat summaries — but gets a fresh
+ * document id and regenerated annotation ids so the two documents
+ * stay independent from here on.
+ */
+export function duplicateDocument(source: FileDocument): FileDocument {
+  const now = new Date().toISOString();
+  const baseTitle = source.scoreInfo.title
+    || source.name.replace(SOURCE_EXTENSION_PATTERN, '');
+  const copyTitle = `${baseTitle} (Copy)`;
+
+  const extensionMatch = source.name.match(SOURCE_EXTENSION_PATTERN);
+  const copyName = extensionMatch
+    ? `${source.name.slice(0, -extensionMatch[0].length)} (Copy)${extensionMatch[0]}`
+    : `${source.name} (Copy)`;
+
+  const copyId = generateId('doc');
+  const copyAbc = updateAbcHeaderMetadata(source.abcSource, { title: copyTitle });
+
+  const copyAnnotations: Annotation[] = source.annotations.map((annotation) => ({
+    ...annotation,
+    id: `ann-${copyId}-${annotation.id}`,
+  }));
+
+  return {
+    id: copyId,
+    name: copyName,
+    sourceType: source.sourceType,
+    abcSource: copyAbc,
+    revision: source.revision,
+    scoreInfo: {
+      ...source.scoreInfo,
+      title: copyTitle,
+    },
+    annotations: copyAnnotations,
+    chats: source.chats.map((chat) => ({ ...chat })),
+    versions: source.versions.map((version) => ({ ...version })),
+    history: source.history?.map((entry) => ({ ...entry })),
+    historyIndex: source.historyIndex,
+    createdAt: now,
+    updatedAt: now,
   };
 }

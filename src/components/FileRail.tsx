@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -20,6 +20,7 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   AlertCircle,
   Braces,
+  Copy,
   FolderOpen,
   History,
   PanelLeft,
@@ -29,6 +30,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { FileDocument } from '../types/document';
+import { DeleteFileConfirmModal } from './DeleteFileConfirmModal';
 
 type RailPanel = 'files' | 'tools';
 type DropPlacement = 'before' | 'after';
@@ -58,12 +60,19 @@ const normalizeSortableTransform = (
   };
 };
 
+interface ContextMenuState {
+  fileId: string;
+  x: number;
+  y: number;
+}
+
 interface FileRailProps {
   documents: FileDocument[];
   activeFileId: string;
   onSelectDocument: (fileId: string) => void;
   onFileLoaded: (fileData: ArrayBuffer | string, fileName: string) => void;
   onDeleteDocument?: (fileId: string) => void;
+  onDuplicateDocument?: (fileId: string) => void;
   onReorderDocument?: (
     sourceFileId: string,
     targetFileId: string,
@@ -114,7 +123,7 @@ interface SortableFileItemProps {
   interfaceZoom: number;
   reducedMotion: boolean;
   onSelectDocument: (fileId: string) => void;
-  onDeleteDocument?: (fileId: string) => void;
+  onContextMenu: (fileId: string, point: { clientX: number; clientY: number }) => void;
   onKeyboardReorder: (fileId: string, direction: -1 | 1) => void;
 }
 
@@ -127,7 +136,7 @@ const SortableFileItem: React.FC<SortableFileItemProps> = ({
   interfaceZoom,
   reducedMotion,
   onSelectDocument,
-  onDeleteDocument,
+  onContextMenu,
   onKeyboardReorder,
 }) => {
   const {
@@ -148,6 +157,27 @@ const SortableFileItem: React.FC<SortableFileItemProps> = ({
   });
   const normalizedTransform = normalizeSortableTransform(transform, interfaceZoom);
 
+  const handleContextMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    onContextMenu(document.id, { clientX: event.clientX, clientY: event.clientY });
+  };
+
+  const handleSelectKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'ArrowUp' && index > 0) {
+      event.preventDefault();
+      onKeyboardReorder(document.id, -1);
+    }
+    if (event.key === 'ArrowDown' && index < documentCount - 1) {
+      event.preventDefault();
+      onKeyboardReorder(document.id, 1);
+    }
+    if (event.key === 'ContextMenu') {
+      event.preventDefault();
+      const rect = event.currentTarget.getBoundingClientRect();
+      onContextMenu(document.id, { clientX: rect.left, clientY: rect.bottom });
+    }
+  };
+
   return (
     <div
       ref={setNodeRef}
@@ -157,6 +187,7 @@ const SortableFileItem: React.FC<SortableFileItemProps> = ({
         transform: CSS.Transform.toString(normalizedTransform),
         transition,
       }}
+      onContextMenu={handleContextMenu}
       {...listeners}
     >
       <button
@@ -165,33 +196,125 @@ const SortableFileItem: React.FC<SortableFileItemProps> = ({
         onClick={() => onSelectDocument(document.id)}
         aria-label={`Open ${document.scoreInfo.title || document.name}`}
         aria-describedby={canReorder ? 'file-reorder-help' : undefined}
-        onKeyDown={(event) => {
-          if (event.key === 'ArrowUp' && index > 0) {
-            event.preventDefault();
-            onKeyboardReorder(document.id, -1);
-          }
-          if (event.key === 'ArrowDown' && index < documentCount - 1) {
-            event.preventDefault();
-            onKeyboardReorder(document.id, 1);
-          }
-        }}
+        onKeyDown={handleSelectKeyDown}
       >
         <FileItemText document={document} />
       </button>
-      <div className="file-item-actions">
-        {onDeleteDocument && (
-          <button
-            type="button"
-            className="file-action-btn delete-btn"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={() => onDeleteDocument(document.id)}
-            title="Delete file"
-            aria-label={`Delete ${document.name}`}
-          >
-            <Trash2 size={13} aria-hidden="true" />
-          </button>
-        )}
+    </div>
+  );
+};
+
+interface FileItemContextMenuProps {
+  fileId: string;
+  x: number;
+  y: number;
+  documents: FileDocument[];
+  activeFileId: string;
+  onOpen: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  onClose: () => void;
+}
+
+const CONTEXT_MENU_WIDTH = 208;
+const CONTEXT_MENU_HEIGHT_ESTIMATE = 208;
+
+const FileItemContextMenu: React.FC<FileItemContextMenuProps> = ({
+  fileId,
+  x,
+  y,
+  documents,
+  activeFileId,
+  onOpen,
+  onDuplicate,
+  onDelete,
+  onClose,
+}) => {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const document = documents.find((doc) => doc.id === fileId);
+  const isActive = fileId === activeFileId;
+
+  useEffect(() => {
+    if (!menuRef.current) return undefined;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    const handleScroll = () => onClose();
+
+    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('scroll', handleScroll, true);
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
+  }, [onClose]);
+
+  if (!document) return null;
+
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const left = Math.max(8, Math.min(x, viewportWidth - CONTEXT_MENU_WIDTH - 8));
+  const top = Math.max(8, Math.min(y, viewportHeight - CONTEXT_MENU_HEIGHT_ESTIMATE - 8));
+
+  return (
+    <div
+      ref={menuRef}
+      className="file-context-menu"
+      style={{ left, top }}
+      role="menu"
+      aria-label={`Actions for ${document.scoreInfo.title || document.name}`}
+      onContextMenu={(event) => event.preventDefault()}
+    >
+      <div className="file-context-menu-heading">
+        <span className="file-context-menu-title" title={document.scoreInfo.title || document.name}>
+          {document.scoreInfo.title || document.name}
+        </span>
       </div>
+      <button
+        type="button"
+        role="menuitem"
+        className="file-context-menu-item"
+        onClick={() => {
+          onOpen();
+          onClose();
+        }}
+        disabled={isActive}
+        title={isActive ? 'This file is already open' : undefined}
+      >
+        <FolderOpen size={15} aria-hidden="true" />
+        <span>Open</span>
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        className="file-context-menu-item"
+        onClick={() => {
+          onDuplicate();
+          onClose();
+        }}
+      >
+        <Copy size={15} aria-hidden="true" />
+        <span>Duplicate</span>
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        className="file-context-menu-item danger"
+        onClick={() => {
+          onDelete();
+        }}
+      >
+        <Trash2 size={15} aria-hidden="true" />
+        <span>Delete</span>
+      </button>
     </div>
   );
 };
@@ -202,6 +325,7 @@ export const FileRail: React.FC<FileRailProps> = ({
   onSelectDocument,
   onFileLoaded,
   onDeleteDocument,
+  onDuplicateDocument,
   onReorderDocument,
   loading = false,
   error = null,
@@ -223,6 +347,8 @@ export const FileRail: React.FC<FileRailProps> = ({
   const [documentOrder, setDocumentOrder] = useState<string[]>(() => (
     documents.map((document) => document.id)
   ));
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<FileDocument | null>(null);
   const reducedMotion = typeof window !== 'undefined'
     && typeof window.matchMedia === 'function'
     && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -329,6 +455,7 @@ export const FileRail: React.FC<FileRailProps> = ({
 
   const handleDragStart = ({ active }: DragStartEvent) => {
     setActiveDragId(String(active.id));
+    setContextMenu(null);
   };
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
@@ -338,6 +465,42 @@ export const FileRail: React.FC<FileRailProps> = ({
     const sourceFileId = String(active.id);
     const targetIndex = documentOrder.indexOf(String(over.id));
     reorderByIndex(sourceFileId, targetIndex);
+  };
+
+  const openContextMenu = (fileId: string, point: { clientX: number; clientY: number }) => {
+    setContextMenu({ fileId, x: point.clientX, y: point.clientY });
+  };
+
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  const handleContextOpen = () => {
+    if (!contextMenu) return;
+    const fileId = contextMenu.fileId;
+    if (fileId !== activeFileId) {
+      onSelectDocument(fileId);
+    }
+  };
+
+  const handleContextDuplicate = () => {
+    if (contextMenu && onDuplicateDocument) {
+      onDuplicateDocument(contextMenu.fileId);
+    }
+  };
+
+  const handleContextDelete = () => {
+    if (!contextMenu) return;
+    const target = documents.find((doc) => doc.id === contextMenu.fileId);
+    if (target) {
+      setDeleteTarget(target);
+    }
+    setContextMenu(null);
+  };
+
+  const handleConfirmDelete = () => {
+    if (deleteTarget && onDeleteDocument) {
+      onDeleteDocument(deleteTarget.id);
+    }
+    setDeleteTarget(null);
   };
 
   const canReorder = Boolean(onReorderDocument && documents.length > 1);
@@ -448,7 +611,7 @@ export const FileRail: React.FC<FileRailProps> = ({
                     interfaceZoom={interfaceZoom}
                     reducedMotion={reducedMotion}
                     onSelectDocument={onSelectDocument}
-                    onDeleteDocument={onDeleteDocument}
+                    onContextMenu={openContextMenu}
                     onKeyboardReorder={(fileId, direction) => {
                       reorderByIndex(fileId, index + direction);
                     }}
@@ -526,6 +689,27 @@ export const FileRail: React.FC<FileRailProps> = ({
           aria-label="Resize sidebar"
         />
       )}
+
+      {contextMenu && (
+        <FileItemContextMenu
+          fileId={contextMenu.fileId}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          documents={documents}
+          activeFileId={activeFileId}
+          onOpen={handleContextOpen}
+          onDuplicate={handleContextDuplicate}
+          onDelete={handleContextDelete}
+          onClose={closeContextMenu}
+        />
+      )}
+
+      <DeleteFileConfirmModal
+        open={Boolean(deleteTarget)}
+        fileTitle={deleteTarget?.scoreInfo.title || deleteTarget?.name || ''}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+      />
     </aside>
   );
 };

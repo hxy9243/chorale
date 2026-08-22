@@ -254,14 +254,20 @@ describe('App Integration', () => {
 
     render(<App />);
 
+    const deleteViaContextMenu = async (title: string) => {
+      await waitFor(() => {
+        expect(screen.getByText(title, { selector: '.file-item-name' })).toBeDefined();
+      });
+      fireEvent.contextMenu(screen.getByText(title, { selector: '.file-item-name' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    };
+
+    await deleteViaContextMenu('First');
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Delete First.abc' })).toBeDefined();
+      expect(screen.queryByText('First', { selector: '.file-item-name' })).toBeNull();
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Delete First.abc' }));
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Delete Second.abc' })).toBeDefined();
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Delete Second.abc' }));
+    await deleteViaContextMenu('Second');
 
     expect(await screen.findByText('please import a music sheet to start working')).toBeDefined();
     expect(screen.queryByTestId('sheet-svg')).toBeNull();
@@ -411,11 +417,13 @@ describe('App Integration', () => {
       expect(screen.getByTestId('sheet-svg')).toBeDefined();
     });
 
-    const deleteBtn = screen.getByLabelText(/Delete Twinkle, Twinkle, Little Star.xml/);
-    fireEvent.click(deleteBtn);
+    const twinkleName = screen.getByText('Twinkle, Twinkle, Little Star', { selector: '.file-item-name' });
+    fireEvent.contextMenu(twinkleName);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {
-      expect(screen.queryByLabelText(/Delete Twinkle, Twinkle, Little Star.xml/)).toBeNull();
+      expect(screen.queryByText('Twinkle, Twinkle, Little Star', { selector: '.file-item-name' })).toBeNull();
     });
   });
 
