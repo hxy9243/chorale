@@ -7498,10 +7498,11 @@ body,
 }
 
 /* Header trifold: history actions left, status indicators right, and the
-   score title centered between them. The three regions share the row, so
-   they never collide with each other or with the side rails — when the
-   central column gets narrow, status pills drop out first (container
-   queries), then history labels; the title truncates instead of overlapping. */
+   score title centered between them. The three regions share one grid row
+   with equal fluid side tracks, so they never collide with each other or
+   with the side rails — when the central column gets narrow, status pills
+   drop out first (container queries), then history labels; the title
+   truncates instead of overlapping. */
 .central-column {
   container-type: inline-size;
 }
@@ -7511,29 +7512,34 @@ body,
 }
 
 .header-center {
-  display: flex;
+  display: grid;
   width: 100%;
+  /* Span every track of the legacy app-header grid so the trifold owns
+     the full header width instead of the first third. */
+  grid-column: 1 / -1;
   align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   gap: var(--space-md);
 }
 
 .header-history-actions {
-  order: -1;
-  flex: none;
+  grid-column: 1;
+  justify-self: start;
   border: 0;
   background: transparent;
 }
 
 .header-breadcrumb {
-  position: static;
+  grid-column: 2;
   display: flex;
-  flex: 1 1 0;
-  min-width: 0;
   justify-content: center;
+  min-width: 0;
+  max-width: 100%;
   padding: 0;
   border-inline-start: 0;
   background: transparent;
   transform: none;
+  font-size: var(--text-md);
 }
 
 .header-breadcrumb strong {
@@ -7543,8 +7549,8 @@ body,
 }
 
 .header-status-group {
-  order: 1;
-  flex: none;
+  grid-column: 3;
+  justify-self: end;
 }
 
 @container (max-width: 56rem) {
