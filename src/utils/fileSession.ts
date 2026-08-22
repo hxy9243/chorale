@@ -19,7 +19,6 @@ export function generateId(prefix = 'file'): string {
 }
 
 import { parseAbcHeaderMetadata, updateAbcHeaderMetadata } from './abcMetadata';
-import type { Annotation } from '../types/document';
 import {
   createBodyHistoryEntry,
   createOriginHistoryEntry,
@@ -157,14 +156,11 @@ export function sampleToDocument(sample: MusicSample, abcSource: string): FileDo
 const SOURCE_EXTENSION_PATTERN = /\.(xml|musicxml|mxl|abc)$/i;
 
 /**
- * Builds a deep copy of a document as "<original title> (Copy)".
- * The copy mirrors the source exactly — ABC source, revision, versions,
- * editing history, annotations and chat summaries — but gets a fresh
- * document id and regenerated annotation ids so the two documents
- * stay independent from here on.
+ * Builds a new document from the source's current score state as
+ * "<original title> (Copy)". The duplicate receives fresh document and
+ * annotation identities and starts its own version and editing history.
  */
 export function duplicateDocument(source: FileDocument): FileDocument {
-  const now = new Date().toISOString();
   const baseTitle = source.scoreInfo.title
     || source.name.replace(SOURCE_EXTENSION_PATTERN, '');
   const copyTitle = `${baseTitle} (Copy)`;
@@ -174,30 +170,30 @@ export function duplicateDocument(source: FileDocument): FileDocument {
     ? `${source.name.slice(0, -extensionMatch[0].length)} (Copy)${extensionMatch[0]}`
     : `${source.name} (Copy)`;
 
-  const copyId = generateId('doc');
   const copyAbc = updateAbcHeaderMetadata(source.abcSource, { title: copyTitle });
-
-  const copyAnnotations: Annotation[] = source.annotations.map((annotation) => ({
-    ...annotation,
-    id: `ann-${copyId}-${annotation.id}`,
+  const baseCopy = createDocumentFromAbc(
+    copyName,
+    source.sourceType,
+    copyAbc,
+    copyTitle,
+  );
+  const annotations = source.annotations.map((annotation) => ({
+    ...structuredClone(annotation),
+    id: generateId('ann'),
   }));
-
-  return {
-    id: copyId,
-    name: copyName,
-    sourceType: source.sourceType,
-    abcSource: copyAbc,
-    revision: source.revision,
+  const copy: FileDocument = {
+    ...baseCopy,
     scoreInfo: {
       ...source.scoreInfo,
       title: copyTitle,
     },
-    annotations: copyAnnotations,
-    chats: source.chats.map((chat) => ({ ...chat })),
-    versions: source.versions.map((version) => ({ ...version })),
-    history: source.history?.map((entry) => ({ ...entry })),
-    historyIndex: source.historyIndex,
-    createdAt: now,
-    updatedAt: now,
+    annotations,
+    chats: [],
+  };
+
+  return {
+    ...copy,
+    history: [createOriginHistoryEntry(copy)],
+    historyIndex: 0,
   };
 }
