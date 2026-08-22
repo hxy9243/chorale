@@ -356,9 +356,6 @@ export const FileRail: React.FC<FileRailProps> = ({
             ? <PanelLeft size={18} aria-hidden="true" />
             : <PanelLeftClose size={18} aria-hidden="true" />}
         </button>
-        <div className="rail-brand" title="Chorale">
-          C
-        </div>
         <div className="file-rail-tablist" role="tablist" aria-label="Workspace panels">
           <button
             type="button"

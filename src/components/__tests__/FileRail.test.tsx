@@ -340,13 +340,4 @@ describe('FileRail Component', () => {
     );
     expect(screen.getByRole('tabpanel', { name: 'Tools' })).toBeDefined();
   });
-
-  it('renders the brand mark beneath the toggle icon', () => {
-    render(<FileRail {...defaultProps} />);
-
-    const brand = document.querySelector<HTMLElement>('.rail-brand')!;
-    expect(brand.textContent).toBe('C');
-    const tabsNav = document.querySelector('.file-rail-tabs')!;
-    expect(tabsNav.children[1]).toBe(brand);
-  });
 });

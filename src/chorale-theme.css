@@ -7497,19 +7497,24 @@ body,
   color: var(--color-ink-2);
 }
 
-.rail-brand {
-  display: grid;
-  width: 2rem;
-  height: 2rem;
-  flex: none;
-  place-items: center;
-  margin-block: var(--space-3xs) var(--space-xs);
-  border-bottom: var(--rule-active) solid var(--color-accent);
-  border-radius: var(--radius-small);
-  background: var(--color-paper-raised);
-  color: var(--color-accent-strong);
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  font-weight: 800;
-  user-select: none;
+/* The score title is the header: it stays dead-center and covers any
+   history/status content it would otherwise collide with. */
+.app-header {
+  position: relative;
 }
+
+.header-breadcrumb {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: var(--z-raised);
+  padding-inline: var(--space-sm);
+  border-inline-start: 0;
+  background: var(--color-paper-2);
+  transform: translate(-50%, -50%);
+}
+
+.header-breadcrumb strong {
+  white-space: nowrap;
+}
+

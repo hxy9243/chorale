@@ -68,7 +68,6 @@ describe('App Integration', () => {
     render(<App />);
 
     expect(screen.getByRole('banner').textContent).not.toContain('Chorale');
-    expect(document.querySelector('.rail-brand')).not.toBeNull();
     expect(screen.getByText('Import score')).toBeDefined();
     expect(screen.getByRole('tabpanel', { name: 'Files' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Tools' })).toBeDefined();

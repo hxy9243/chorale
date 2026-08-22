@@ -62,10 +62,10 @@ The header communicates score context, editing actions, and persistence/render h
 Required regions:
 
 - center:
-  - active file title/breadcrumb
+  - active file title/breadcrumb, dead-centered in the header and layered above the other header content: when a long title would collide with the history actions or status group, it covers them rather than being pushed aside
   - edit history actions (`Undo` / `Redo` buttons with tooltips indicating shortcuts Ctrl+Z / ⌘Z and Ctrl+Shift+Z / ⌘Shift+Z)
   - consolidated status group (`Auto-saved`/`Saving…`/`Save failed`, `SVG ready`/`SVG pending`, `Music ready`/`Music pending` with status dot indicators)
-- left/right: none; application branding moved into the left work rail icon bar, and chat visibility lives in the persistent right work rail icon bar
+- left/right: none; chat visibility lives in the persistent right work rail icon bar, and no branding icon or wordmark appears in either the header or the rails (the application name lives only in the window/document title)
 
 The Electron window and renderer document title are exactly `Chorale`. Save and build state capsules live in the global header so they remain continuously visible when scrolling through long musical scores.
 
@@ -74,8 +74,6 @@ The Electron window and renderer document title are exactly `Chorale`. Save and 
 The left rail uses a persistent narrow vertical selection bar (`3.5rem` / `56px`) that remains visible at all times and spans the entire page height to switch between **Files** and **Tools** panels. Each selection is one icon with a tooltip and accessible name. Clicking the currently active panel icon collapses the secondary content panel stack; clicking an icon while collapsed expands the rail with that panel active.
 
 A dedicated **toggle expansion** icon sits at the very top of the selection bar (typical sidebar-toggle glyph: `PanelLeftClose` when expanded, `PanelLeft` when collapsed). Clicking it collapses the rail or re-expands it restoring the **last focused panel tab**. The last focused panel persists across refreshes as `chorale.workspace.fileRailActivePanel`.
-
-Application branding is carried by the rail itself: a compact brand mark sits directly beneath the toggle icon in the selection bar; the header no longer repeats the wordmark.
 
 A bottom-anchored **Settings** icon is a direct action that opens the settings dialog without replacing the selected work panel. Project and library hierarchy is omitted until the product has real project-backed behavior.
 
@@ -86,7 +84,6 @@ Required content:
 - **Settings**: its action icon anchors to the bottom of the selection bar and opens application settings directly
 - icon-only panel selections expose hover titles and accessible names
 - dedicated top-anchored toggle expansion icon (`PanelLeftClose` / `PanelLeft`) that collapses the rail and re-expands it to the last focused panel; last focused panel persists as `chorale.workspace.fileRailActivePanel`
-- compact brand mark in the selection bar (branding moved here from the header)
 - file management actions: compact 44px rows omit a leading document icon and use the full row as the pointer drag surface; sortable transforms move neighboring rows around a persistent source slot while a matching overlay follows the pointer and settles into place, without a native drag-image handoff or disappearing placeholder; Arrow Up/Arrow Down on the focused file name provides keyboard reordering; score deletion allows deleting documents down to 0, which displays an empty workspace placeholder until a file is imported or loaded
 - vertical scrolling is allowed inside the selected panel; horizontal scrolling is clipped
 - persistent icon rail with collapsible content panel state (`railCollapsed` state) and horizontal drag-to-resize handle when expanded
