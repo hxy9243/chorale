@@ -27,6 +27,13 @@ import {
 import { AnnotationEditor } from './AnnotationEditor';
 import { AnnotationOverlay, type AnnotationRailGeometry } from './AnnotationOverlay';
 import { chordStaffSpacing } from '../music/annotationLayout';
+import {
+  fitScoreSceneTracks,
+  MIN_SCORE_ANNOTATION_WIDTH_REM,
+  PREFERRED_SCORE_ANNOTATION_WIDTH_REM,
+  PREFERRED_SCORE_NOTATION_WIDTH_REM,
+  SCORE_SCENE_GAP_REM,
+} from '../utils/scoreSceneSizing';
 import { AnnotationRail } from './AnnotationRail';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
@@ -404,6 +411,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   const sheetViewportRef = useRef<HTMLDivElement>(null);
   const sheetSceneRef = useRef<HTMLDivElement>(null);
   const viewportWidthRef = useRef(0);
+  const [sheetViewportWidth, setSheetViewportWidth] = useState(0);
   const [internalZoom, setInternalZoom] = useState<number>(zoom);
   const currentZoom = onZoomChange !== undefined ? zoom : internalZoom;
   const currentZoomRef = useRef(currentZoom);
@@ -421,6 +429,31 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     anchorYByAnnotationId: {},
     scoreHeight: 0,
   });
+
+  const [rootFontSize] = useState(() => (
+    typeof document !== 'undefined'
+      ? parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16
+      : 16
+  ));
+  const sceneTracks = sheetViewportWidth > 0
+    ? fitScoreSceneTracks({
+      availableWidth: sheetViewportWidth / effectiveZoom,
+      notationWidth: rootFontSize * PREFERRED_SCORE_NOTATION_WIDTH_REM,
+      annotationWidth: rootFontSize * PREFERRED_SCORE_ANNOTATION_WIDTH_REM,
+      minAnnotationWidth: rootFontSize * MIN_SCORE_ANNOTATION_WIDTH_REM,
+      gap: rootFontSize * SCORE_SCENE_GAP_REM,
+    })
+    : null;
+  const sceneTrackStyle = {
+    '--score-notation-width': `${PREFERRED_SCORE_NOTATION_WIDTH_REM}rem`,
+    '--score-balance-width': sceneTracks
+      ? `${sceneTracks.balanceWidth}px`
+      : `${PREFERRED_SCORE_ANNOTATION_WIDTH_REM}rem`,
+    '--score-annotation-width': sceneTracks
+      ? `${sceneTracks.annotationWidth}px`
+      : `${PREFERRED_SCORE_ANNOTATION_WIDTH_REM}rem`,
+    '--score-scene-gap': `${SCORE_SCENE_GAP_REM}rem`,
+  } as React.CSSProperties;
 
   const handleAnnotationRailGeometry = React.useCallback((geometry: AnnotationRailGeometry) => {
     setAnnotationRailGeometry((current) => {
@@ -500,7 +533,15 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     const previousZoom = previousEffectiveZoomRef.current;
     previousEffectiveZoomRef.current = effectiveZoom;
     if (!viewport || previousZoom === effectiveZoom) return;
-    const viewportWidth = viewportWidthRef.current;
+    const measuredViewportWidth = viewport.clientWidth;
+    if (
+      measuredViewportWidth > 0
+      && measuredViewportWidth !== viewportWidthRef.current
+    ) {
+      viewportWidthRef.current = measuredViewportWidth;
+      setSheetViewportWidth(measuredViewportWidth);
+    }
+    const viewportWidth = measuredViewportWidth || viewportWidthRef.current;
     if (viewportWidth <= 0) return;
     if (sceneSize && sceneSize.width * effectiveZoom <= viewportWidth) {
       viewport.scrollLeft = 0;
@@ -514,6 +555,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     const viewport = sheetViewportRef.current;
     if (!viewport) return;
     viewportWidthRef.current = viewport.clientWidth;
+    setSheetViewportWidth(viewport.clientWidth);
     if (typeof ResizeObserver === 'undefined') return;
     let frame: number | null = null;
     const schedule = () => {
@@ -524,7 +566,9 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       });
     };
     const observer = new ResizeObserver((entries) => {
-      viewportWidthRef.current = entries[0]?.contentRect.width || viewport.clientWidth;
+      const width = entries[0]?.contentRect.width || viewport.clientWidth;
+      viewportWidthRef.current = width;
+      setSheetViewportWidth(width);
       schedule();
     });
     observer.observe(viewport);
@@ -1090,7 +1134,10 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
               data-interface-zoom={interfaceZoom}
               style={{ transform: `scale(${effectiveZoom})` }}
             >
-              <div className="sheet-annotation-layout">
+              <div
+                className="sheet-annotation-layout"
+                style={sceneTrackStyle}
+              >
                 <div className="sheet-layout-balance" aria-hidden="true" />
                 <div className="sheet-notation-column">
                   {header}

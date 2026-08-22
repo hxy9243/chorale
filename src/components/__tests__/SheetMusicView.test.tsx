@@ -1102,6 +1102,82 @@ describe('SheetMusicView Component', () => {
     expect(wrapper.getAttribute('data-score-zoom')).toBe('50');
   });
 
+  it('projects viewport and zoom changes into the score scene grid tracks', () => {
+    const observers: Array<{
+      callback: ResizeObserverCallback;
+      targets: Element[];
+    }> = [];
+    const OriginalResizeObserver = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      readonly targets: Element[] = [];
+
+      constructor(callback: ResizeObserverCallback) {
+        observers.push({ callback, targets: this.targets });
+      }
+
+      observe(target: Element) {
+        this.targets.push(target);
+      }
+
+      unobserve() {}
+      disconnect() {}
+    };
+
+    const { container, rerender, unmount } = render(
+      <SheetMusicView abcCode={sampleAbc} zoom={100} onZoomChange={vi.fn()} />,
+    );
+    const viewport = container.querySelector<HTMLElement>('.sheet-viewport')!;
+    const layout = container.querySelector<HTMLElement>('.sheet-annotation-layout')!;
+    const viewportObserver = observers.find(({ targets }) => targets.includes(viewport));
+    expect(viewportObserver).toBeDefined();
+
+    const resizeViewport = (width: number) => {
+      act(() => viewportObserver!.callback([{
+        contentRect: { width },
+      } as ResizeObserverEntry], {} as ResizeObserver));
+    };
+
+    resizeViewport(1_552);
+    expect(layout.style.getPropertyValue('--score-notation-width')).toBe('48rem');
+    expect(layout.style.getPropertyValue('--score-scene-gap')).toBe('0.5rem');
+    expect(layout.style.getPropertyValue('--score-balance-width')).toBe('384px');
+    expect(layout.style.getPropertyValue('--score-annotation-width')).toBe('384px');
+
+    resizeViewport(1_168);
+    expect(layout.style.getPropertyValue('--score-balance-width')).toBe('0px');
+    expect(layout.style.getPropertyValue('--score-annotation-width')).toBe('384px');
+
+    resizeViewport(1_088);
+    expect(layout.style.getPropertyValue('--score-balance-width')).toBe('0px');
+    expect(layout.style.getPropertyValue('--score-annotation-width')).toBe('304px');
+
+    resizeViewport(1_024);
+    expect(layout.style.getPropertyValue('--score-annotation-width')).toBe('256px');
+
+    resizeViewport(1_552);
+    rerender(
+      <SheetMusicView abcCode={sampleAbc} zoom={200} onZoomChange={vi.fn()} />,
+    );
+    expect(layout.style.getPropertyValue('--score-balance-width')).toBe('0px');
+    expect(layout.style.getPropertyValue('--score-annotation-width')).toBe('256px');
+
+    resizeViewport(1_000);
+    Object.defineProperty(viewport, 'clientWidth', { configurable: true, value: 667 });
+    rerender(
+      <SheetMusicView
+        abcCode={sampleAbc}
+        zoom={100}
+        interfaceZoom={150}
+        onZoomChange={vi.fn()}
+      />,
+    );
+    expect(layout.style.getPropertyValue('--score-balance-width')).toBe('0px');
+    expect(layout.style.getPropertyValue('--score-annotation-width')).toBe('256px');
+
+    unmount();
+    globalThis.ResizeObserver = OriginalResizeObserver;
+  });
+
   it('preserves the viewport center arithmetically without replacing the score SVG', () => {
     const observers: ResizeObserverCallback[] = [];
     const OriginalResizeObserver = globalThis.ResizeObserver;

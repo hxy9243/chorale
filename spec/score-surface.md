@@ -3,7 +3,7 @@ title: "Score Surface Spec"
 description: "Specification for score rendering, continuous range selection, chord overlays, range annotation rail, line measure numbers, and auto-centering playback"
 category: "core-workspace"
 date: 2026-08-05
-updated: 2026-08-21
+updated: 2026-08-22
 status: "implemented"
 source_files:
   - src/components/SheetMusicView.tsx
@@ -13,6 +13,7 @@ source_files:
   - src/components/AnnotationRail.tsx
   - src/components/AnnotationEditor.tsx
   - src/utils/abcMetadata.ts
+  - src/utils/scoreSceneSizing.ts
   - src/music/annotationLayout.ts
   - src/utils/abcAudio.ts
   - src/utils/repeatPlayback.ts
@@ -23,6 +24,7 @@ test_files:
   - src/components/__tests__/SheetMusicView.test.tsx
   - src/components/__tests__/ScoreMetadataHeader.test.tsx
   - src/utils/__tests__/abcMetadata.test.ts
+  - src/utils/__tests__/scoreSceneSizing.test.ts
   - src/components/__tests__/AnnotationRail.test.tsx
   - src/components/__tests__/AnnotationOverlay.test.tsx
   - src/components/__tests__/AnnotationEditor.test.tsx
@@ -97,11 +99,37 @@ badges horizontally with a fixed gap while keeping one baseline per rendered sys
 `musicspace` and `staffsep` values always reserve the chord band, so annotation measurement never
 feeds back into score geometry or makes systems jump.
 
-The score surface uses one fixed, symmetric `24rem / 48rem / 24rem` scene: empty balancing space,
-centered notation, and the annotation rail. The rail sits one small spacing token from the rendered
-sheet and remains at least half the notation width. The scene never changes tracks or stacks. When the
-viewport is narrower than the scene, horizontal overflow exposes the side content while the viewport
-continues to center the notation track.
+The score surface uses one three-track scene — empty balancing space, centered notation, and the
+annotation rail — whose side-track widths are computed elastically from the visible sheet viewport
+instead of being fixed. Track order never changes and the scene never stacks.
+
+Track sizing is a pure projection (`fitScoreSceneTracks` in `src/utils/scoreSceneSizing.ts`). It
+receives the viewport's visible width converted into unscaled wrapper coordinates (visible width
+divided by the active zoom-wrapper scale) plus preferred track widths, and returns the balance and
+rail widths to apply as grid custom properties.
+
+The TypeScript scene constants are also the runtime source of truth for the notation width,
+preferred rail width, minimum rail width, and inter-track gap. `SheetMusicView` applies them as grid
+custom properties, so the projection inputs cannot drift from duplicate dimension literals in CSS.
+
+The projection follows a strict priority order:
+
+1. When the full symmetric scene fits, both side tracks keep their preferred widths (symmetric
+   `24rem / 48rem / 24rem` with one small spacing-token gap between notation and rail).
+2. The balance spacer absorbs all missing width first and collapses to `0` before anything else
+   shrinks. This is what keeps the rail fully visible when panels such as the chat panel squeeze
+   the central workspace: the notation track shifts left instead of the rail being pushed under
+   or clipped by the neighboring panel.
+3. Only after the balance spacer reaches `0` does the rail narrow proportionally toward its
+   minimum floor of `16rem`.
+4. When even balance `0` + rail at its floor cannot fit, the previous overflow behavior applies:
+   horizontal scroll exposes the side content while the viewport continues to center the notation
+   track.
+
+The rail therefore always remains between `16rem` and `24rem` wide while any balance slack exists.
+Scene rebalancing is derived state only: it is recomputed from viewport measurements (ResizeObserver)
+and zoom changes on every render, is never persisted, and does not alter overlay geometry, rail card
+layout, or vertical alignment because those all operate inside the same wrapper coordinate space.
 
 Range cards are score-sorted, show two lines when collapsed, and allow one expanded card at a time.
 Activating a card selects and reveals its passage without moving focus into the score. Type-specific
