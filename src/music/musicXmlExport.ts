@@ -1,4 +1,4 @@
-import { parseAbc, serialize } from 'musicxml-io/browser';
+import { abc2xml } from 'abc-utils';
 
 export class ScoreExportError extends Error {
   readonly cause?: unknown;
@@ -40,23 +40,8 @@ export const exportToMusicXml = ({ abcSource, fallbackTitle }: ScoreExportInput)
   }
   let xml: string;
   try {
-    const score = parseAbc(abcSource);
-    if (!score.metadata.movementTitle && !score.metadata.workTitle && fallbackTitle) {
-      score.metadata.movementTitle = fallbackTitle;
-    }
-    const noteCount = score.parts.reduce(
-      (total, part) => total + part.measures.reduce(
-        (measureTotal, measure) => measureTotal + measure.entries.filter(
-          (entry) => entry.type === 'note',
-        ).length,
-        0,
-      ),
-      0,
-    );
-    if (noteCount === 0) {
-      throw new ScoreExportError('No musical content was found — nothing to export.');
-    }
-    xml = serialize(score);
+    const result = abc2xml(abcSource, { fallbackTitle });
+    xml = result.xml;
   } catch (error) {
     if (error instanceof ScoreExportError) throw error;
     throw new ScoreExportError(
@@ -69,3 +54,4 @@ export const exportToMusicXml = ({ abcSource, fallbackTitle }: ScoreExportInput)
   }
   return xml;
 };
+

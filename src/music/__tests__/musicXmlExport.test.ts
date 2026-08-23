@@ -40,7 +40,7 @@ describe('exportToMusicXml', () => {
     });
     const doc = parseXml(xml);
 
-    expect(doc.getElementsByTagName('movement-title')[0]?.textContent).toBe('Simple Scale');
+    expect(doc.getElementsByTagName('work-title')[0]?.textContent).toBe('Simple Scale');
     expect(doc.getElementsByTagName('creator')[0]?.textContent).toBe('Test Composer');
   });
 
@@ -51,7 +51,7 @@ describe('exportToMusicXml', () => {
     });
     const doc = parseXml(xml);
 
-    expect(doc.getElementsByTagName('movement-title')[0]?.textContent).toBe('Untitled Export');
+    expect(doc.getElementsByTagName('work-title')[0]?.textContent).toBe('Untitled Export');
   });
 
   it('emits one part per voice with rests preserved', () => {
@@ -68,7 +68,7 @@ describe('exportToMusicXml', () => {
     });
     const doc = parseXml(xml);
 
-    expect(doc.getElementsByTagName('tie').length).toBeGreaterThan(0);
+    expect(doc.getElementsByTagName('tied').length).toBeGreaterThan(0);
     expect(doc.getElementsByTagName('chord').length).toBeGreaterThan(0);
     expect(doc.getElementsByTagName('harmony').length).toBeGreaterThan(0);
   });
