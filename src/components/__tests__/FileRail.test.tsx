@@ -160,6 +160,21 @@ describe('FileRail Component', () => {
     expect(defaultProps.onSelectDocument).toHaveBeenCalledWith(doc2.id);
   });
 
+  it('converts right-click screen coordinates by interface zoom for menu placement', () => {
+    document.documentElement.style.setProperty('--ui-zoom', '1.5');
+    try {
+      render(<FileRail {...defaultProps} />);
+
+      fireEvent.contextMenu(getFirstFileButton(), { clientX: 300, clientY: 240 });
+
+      const menu = screen.getByRole('menu') as HTMLElement;
+      expect(menu.style.left).toBe(`${300 / 1.5}px`);
+      expect(menu.style.top).toBe(`${240 / 1.5}px`);
+    } finally {
+      document.documentElement.style.removeProperty('--ui-zoom');
+    }
+  });
+
   it('keeps Open inert for the already-opened file', () => {
     render(<FileRail {...defaultProps} />);
 

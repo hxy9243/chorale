@@ -208,6 +208,7 @@ interface FileItemContextMenuProps {
   fileId: string;
   x: number;
   y: number;
+  interfaceZoom: number;
   documents: FileDocument[];
   activeFileId: string;
   onOpen: () => void;
@@ -223,6 +224,7 @@ const FileItemContextMenu: React.FC<FileItemContextMenuProps> = ({
   fileId,
   x,
   y,
+  interfaceZoom,
   documents,
   activeFileId,
   onOpen,
@@ -259,10 +261,13 @@ const FileItemContextMenu: React.FC<FileItemContextMenuProps> = ({
 
   if (!document) return null;
 
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-  const left = Math.max(8, Math.min(x, viewportWidth - CONTEXT_MENU_WIDTH - 8));
-  const top = Math.max(8, Math.min(y, viewportHeight - CONTEXT_MENU_HEIGHT_ESTIMATE - 8));
+  // Pointer coordinates are screen-space pixels, but the menu is rendered inside
+  // the body's interface zoom, which multiplies its fixed-position coordinates.
+  const uiZoom = Number.isFinite(interfaceZoom) && interfaceZoom > 0 ? interfaceZoom : 1;
+  const viewportWidth = window.innerWidth / uiZoom;
+  const viewportHeight = window.innerHeight / uiZoom;
+  const left = Math.max(8, Math.min(x / uiZoom, viewportWidth - CONTEXT_MENU_WIDTH - 8));
+  const top = Math.max(8, Math.min(y / uiZoom, viewportHeight - CONTEXT_MENU_HEIGHT_ESTIMATE - 8));
 
   return (
     <div
@@ -695,6 +700,7 @@ export const FileRail: React.FC<FileRailProps> = ({
           fileId={contextMenu.fileId}
           x={contextMenu.x}
           y={contextMenu.y}
+          interfaceZoom={interfaceZoom}
           documents={documents}
           activeFileId={activeFileId}
           onOpen={handleContextOpen}
