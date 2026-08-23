@@ -35,6 +35,7 @@ interface AgentChatPanelProps {
   revision: number;
   annotations?: Annotation[];
   activeAnchor?: ScoreAnchor | null;
+  onClearAnchor?: () => void;
   totalMeasures?: number;
   scoreMeter?: string;
   ai: AIProviderState;
@@ -139,6 +140,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   revision,
   annotations = [],
   activeAnchor = null,
+  onClearAnchor,
   totalMeasures = 0,
   scoreMeter,
   ai,
@@ -988,6 +990,17 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         {anchorLabel && (
           <div className="agent-composer-anchor">
             <span>Selected {anchorLabel}</span>
+            {onClearAnchor && (
+              <button
+                type="button"
+                className="agent-anchor-clear-btn"
+                onClick={onClearAnchor}
+                title="Clear selection"
+                aria-label={`Deselect ${anchorLabel} from chat context`}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
           </div>
         )}
         <label htmlFor="agent-question" className="sr-only">Ask about the current sheet</label>

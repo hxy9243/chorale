@@ -1647,6 +1647,23 @@ body {
   margin-bottom: 0.65rem;
 }
 
+.agent-anchor-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 0.1rem;
+  margin-left: 0.15rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.agent-anchor-clear-btn:hover {
+  background: rgba(251, 146, 60, 0.25);
+}
+
 @keyframes spin {
   from {
     transform: rotate(0deg);

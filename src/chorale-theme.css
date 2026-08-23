@@ -6147,6 +6147,15 @@ body,
   white-space: nowrap;
 }
 
+.agent-anchor-clear-btn {
+  flex: none;
+  color: var(--color-accent-strong);
+}
+
+.agent-anchor-clear-btn:hover {
+  background: color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
 .agent-composer,
 .agent-composer textarea {
   background: var(--color-paper-2);

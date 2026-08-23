@@ -460,6 +460,27 @@ describe('AgentChatPanel', () => {
     expect(screen.getByText('mm. 3–5').closest('.agent-anchor-pill')).not.toBeNull();
   });
 
+  it('deselects the measure context when the composer clear button is clicked', () => {
+    const onClearAnchor = vi.fn();
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-clear"
+        abcCode={'X:1\nT:Clear\nK:C\nCDEF|'}
+        activeFileName="Clear.abc"
+        revision={2}
+        activeAnchor={{ startMeasure: 3, endMeasure: 5 }}
+        onClearAnchor={onClearAnchor}
+        ai={ai}
+        onOpenSettings={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Deselect mm. 3–5 from chat context' }));
+    expect(onClearAnchor).toHaveBeenCalledTimes(1);
+  });
+
   it('renders assistant Markdown measure links through the score navigation callback', async () => {
     const onNavigateMeasure = vi.fn();
     agentSendMock.mockImplementation(async (_request, callbacks) => {

@@ -440,6 +440,7 @@ export const App: React.FC = () => {
               revision={abcRevision}
               annotations={activeDocument?.annotations || []}
               activeAnchor={activeAnchor}
+              onClearAnchor={() => handleSelectAnchor(null)}
               totalMeasures={totalMeasures}
               scoreMeter={scoreMeter}
               ai={aiProviders}
