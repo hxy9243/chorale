@@ -37,6 +37,7 @@ export {
   SHEET_ZOOM_KEY,
 };
 import { useDocumentStore } from './hooks/useDocumentStore';
+import { useScoreExport } from './hooks/useScoreExport';
 import type { BuildResult, ScoreAnchor } from './types/document';
 import { parseAbcHeaderMetadata, type ScoreMetadata } from './utils/abcMetadata';
 import type { PlaybackPosition } from './utils/repeatPlayback';
@@ -274,6 +275,21 @@ export const App: React.FC = () => {
     [buildResult, buildStatus],
   );
 
+  const { exportState: exportStatus, exportDocument, dismissStatus: dismissExportStatus } = useScoreExport();
+
+  const handleExportDocument = (fileId: string, format: 'musicxml' = 'musicxml') => {
+    const targetDoc = documents.find((doc) => doc.id === fileId);
+    if (targetDoc) {
+      void exportDocument(targetDoc, format);
+    }
+  };
+
+  useEffect(() => {
+    if (exportStatus.status !== 'success' && exportStatus.status !== 'error') return undefined;
+    const timeout = window.setTimeout(() => dismissExportStatus(), 3500);
+    return () => window.clearTimeout(timeout);
+  }, [exportStatus.status, dismissExportStatus]);
+
   const chatColumnWidth = FILE_RAIL_BAR_WIDTH + (chatOpen ? fittedPanelLayout.chatPanelWidth : 0);
 
   return (
@@ -293,6 +309,7 @@ export const App: React.FC = () => {
           onFileLoaded={handleProcessMusicXml}
           onDeleteDocument={handleDeleteDocument}
           onDuplicateDocument={handleDuplicateDocument}
+          onExportDocument={handleExportDocument}
           onReorderDocument={handleReorderDocument}
           loading={loading}
           error={error}
@@ -474,6 +491,16 @@ export const App: React.FC = () => {
         onRedo={handleRedo}
         onRevertTo={handleRevertTo}
       />
+      {exportStatus.status === 'success' && (
+        <div className="export-status-toast" role="status">
+          Exported {exportStatus.message ?? 'file'}
+        </div>
+      )}
+      {exportStatus.status === 'error' && (
+        <div className="export-status-toast error" role="alert">
+          Export failed: {exportStatus.message ?? 'unknown error'}
+        </div>
+      )}
     </div>
   );
 };

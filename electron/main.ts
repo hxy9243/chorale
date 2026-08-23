@@ -13,6 +13,7 @@ import { AIController } from './ai/controller';
 import { ElectronCodexOAuthAdapter } from './ai/codexOAuth';
 import { ElectronSecretCipher } from './ai/electronCipher';
 import { registerAIIPC } from './ipc';
+import { registerFileIPC } from './fileIpc';
 import { JSONLAgentTraceStore } from './ai/agentTrace';
 import { resolveChoraleDataPaths } from './dataPaths';
 
@@ -35,6 +36,7 @@ const preloadPath = path.join(desktopDirectory, 'preload.cjs');
 let mainWindow: BrowserWindow | null = null;
 let controller: AIController | null = null;
 let removeIPCHandlers: (() => void) | null = null;
+let removeFileIPCHandlers: (() => void) | null = null;
 let storageFlushed = false;
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -159,6 +161,7 @@ if (!hasSingleInstanceLock) {
       (directory) => shell.openPath(directory),
     );
     removeIPCHandlers = registerAIIPC(controller, () => mainWindow);
+    removeFileIPCHandlers = registerFileIPC(() => mainWindow);
     await createWindow();
 
     app.on('activate', () => {
@@ -178,6 +181,7 @@ app.on('before-quit', (event) => {
   setImmediate(() => {
     storageFlushed = true;
     removeIPCHandlers?.();
+    removeFileIPCHandlers?.();
     app.quit();
   });
 });
