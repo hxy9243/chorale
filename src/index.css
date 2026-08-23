@@ -755,7 +755,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
-  scrollbar-color: var(--text-muted) transparent;
 }
 
 .agent-empty-state {
@@ -1958,7 +1957,6 @@ textarea {
   position: relative;
   border: 0;
   color: #d4d7dd;
-  scrollbar-width: thin;
 }
 
 .file-rail.collapsed {
@@ -2886,7 +2884,6 @@ textarea {
   padding: 16px;
   overflow-y: auto;
   color: var(--figma-ink);
-  scrollbar-color: #c9c6c0 transparent;
 }
 
 .agent-empty-state {
