@@ -14,3 +14,7 @@ export const AI_IPC = {
   abortChat: 'chorale-ai:abort-chat',
   event: 'chorale-ai:event',
 } as const;
+
+export const FILE_IPC = {
+  saveTextFile: 'chorale-file:save-text',
+} as const;

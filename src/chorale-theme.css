@@ -7733,6 +7733,61 @@ body,
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
+    Hallmark · component: file context menu export submenu
+    Export entry with an expandable submenu (MusicXML now, PDF reserved),
+    anchored to the file context menu item.
+    ────────────────────────────────────────────────────────────────────────── */
+
+.file-context-menu-group {
+  position: relative;
+}
+
+.file-context-menu-export .file-context-menu-chevron {
+  margin-left: auto;
+  color: var(--color-muted);
+}
+
+.file-context-menu-submenu {
+  position: absolute;
+  top: calc(-1 * var(--space-3xs));
+  left: calc(100% + var(--space-3xs));
+  z-index: calc(var(--z-dropdown) + 1);
+  display: flex;
+  width: 14rem;
+  flex-direction: column;
+  padding: var(--space-3xs);
+  border: var(--rule-thin) solid var(--color-rule-2);
+  border-radius: var(--radius-control);
+  background: var(--color-paper-raised);
+  box-shadow: var(--shadow-modal);
+}
+
+.file-context-menu-submenu--flip-left {
+  left: auto;
+  right: calc(100% + var(--space-3xs));
+}
+
+.export-status-toast {
+  position: fixed;
+  bottom: var(--space-md);
+  left: 50%;
+  z-index: calc(var(--z-dropdown) + 2);
+  padding: var(--space-2xs) var(--space-sm);
+  border: var(--rule-thin) solid var(--color-rule-2);
+  border-radius: var(--radius-control);
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
+  font-size: var(--text-sm);
+  box-shadow: var(--shadow-modal);
+  transform: translateX(-50%);
+}
+
+.export-status-toast.error {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
    Hallmark · component: delete-file confirmation window
    A compact centered dialog; the dimmed backdrop blocks the workspace until
    the user confirms or cancels.

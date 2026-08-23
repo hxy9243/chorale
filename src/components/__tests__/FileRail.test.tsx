@@ -196,6 +196,48 @@ describe('FileRail Component', () => {
     expect(onDuplicateDocument).toHaveBeenCalledWith(doc1.id);
   });
 
+  it('renders context menu with Open, Duplicate, Export, and Delete items', () => {
+    render(<FileRail {...defaultProps} />);
+
+    fireEvent.contextMenu(getFirstFileButton());
+
+    expect(screen.getByRole('menu', { name: `Actions for ${doc1.scoreInfo.title}` })).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: 'Open' })).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: 'Duplicate' })).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: /Export/ })).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeDefined();
+  });
+
+  it('opens the Export submenu with MusicXML active and PDF disabled', () => {
+    render(<FileRail {...defaultProps} />);
+
+    fireEvent.contextMenu(getFirstFileButton());
+    expect(screen.queryByRole('menu', { name: 'Export options' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('menuitem', { name: /Export/ }));
+    expect(screen.getByRole('menu', { name: 'Export options' })).toBeDefined();
+
+    const musicXmlItem = screen.getByRole('menuitem', { name: /MusicXML/ });
+    expect(musicXmlItem).toBeDefined();
+    expect((musicXmlItem as HTMLButtonElement).disabled).toBe(false);
+
+    const pdfItem = screen.getByRole('menuitem', { name: /PDF/ });
+    expect(pdfItem).toBeDefined();
+    expect((pdfItem as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('triggers MusicXML export and closes the menu', () => {
+    const onExportDocument = vi.fn();
+    render(<FileRail {...defaultProps} onExportDocument={onExportDocument} />);
+
+    fireEvent.contextMenu(getFirstFileButton());
+    fireEvent.click(screen.getByRole('menuitem', { name: /Export/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /MusicXML/ }));
+
+    expect(onExportDocument).toHaveBeenCalledWith(doc1.id, 'musicxml');
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
   it('confirms deletion through a centered dialog before deleting', () => {
     const onDeleteDocument = vi.fn();
     render(<FileRail {...defaultProps} onDeleteDocument={onDeleteDocument} />);

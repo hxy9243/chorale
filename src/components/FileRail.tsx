@@ -20,7 +20,11 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   AlertCircle,
   Braces,
+  ChevronRight,
   Copy,
+  Download,
+  FileMusic,
+  FileText,
   FolderOpen,
   History,
   PanelLeft,
@@ -73,6 +77,7 @@ interface FileRailProps {
   onFileLoaded: (fileData: ArrayBuffer | string, fileName: string) => void;
   onDeleteDocument?: (fileId: string) => void;
   onDuplicateDocument?: (fileId: string) => void;
+  onExportDocument?: (fileId: string, format: 'musicxml') => void;
   onReorderDocument?: (
     sourceFileId: string,
     targetFileId: string,
@@ -213,6 +218,7 @@ interface FileItemContextMenuProps {
   activeFileId: string;
   onOpen: () => void;
   onDuplicate: () => void;
+  onExport: (format: 'musicxml') => void;
   onDelete: () => void;
   onClose: () => void;
 }
@@ -229,10 +235,12 @@ const FileItemContextMenu: React.FC<FileItemContextMenuProps> = ({
   activeFileId,
   onOpen,
   onDuplicate,
+  onExport,
   onDelete,
   onClose,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
+  const [submenuOpen, setSubmenuOpen] = useState(false);
   const document = documents.find((doc) => doc.id === fileId);
   const isActive = fileId === activeFileId;
 
@@ -309,6 +317,51 @@ const FileItemContextMenu: React.FC<FileItemContextMenuProps> = ({
         <Copy size={15} aria-hidden="true" />
         <span>Duplicate</span>
       </button>
+      <div
+        className="file-context-menu-group"
+        onMouseEnter={() => setSubmenuOpen(true)}
+        onMouseLeave={() => setSubmenuOpen(false)}
+      >
+        <button
+          type="button"
+          role="menuitem"
+          aria-haspopup="menu"
+          aria-expanded={submenuOpen}
+          className="file-context-menu-item file-context-menu-export"
+          onClick={() => setSubmenuOpen((open) => !open)}
+        >
+          <Download size={15} aria-hidden="true" />
+          <span>Export</span>
+          <ChevronRight size={13} aria-hidden="true" className="file-context-menu-chevron" />
+        </button>
+        {submenuOpen && (
+          <div className="file-context-menu-submenu" role="menu" aria-label="Export options">
+            <button
+              type="button"
+              role="menuitem"
+              className="file-context-menu-item"
+              onClick={() => {
+                setSubmenuOpen(false);
+                onExport('musicxml');
+                onClose();
+              }}
+            >
+              <FileMusic size={15} aria-hidden="true" />
+              <span>MusicXML (.musicxml)</span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="file-context-menu-item"
+              disabled
+              title="Coming soon"
+            >
+              <FileText size={15} aria-hidden="true" />
+              <span>PDF (coming soon)</span>
+            </button>
+          </div>
+        )}
+      </div>
       <button
         type="button"
         role="menuitem"
@@ -331,6 +384,7 @@ export const FileRail: React.FC<FileRailProps> = ({
   onFileLoaded,
   onDeleteDocument,
   onDuplicateDocument,
+  onExportDocument,
   onReorderDocument,
   loading = false,
   error = null,
@@ -490,6 +544,15 @@ export const FileRail: React.FC<FileRailProps> = ({
     if (contextMenu && onDuplicateDocument) {
       onDuplicateDocument(contextMenu.fileId);
     }
+  };
+
+  const handleContextExport = (format: 'musicxml') => {
+    if (!contextMenu) return;
+    const fileId = contextMenu.fileId;
+    if (onExportDocument) {
+      onExportDocument(fileId, format);
+    }
+    setContextMenu(null);
   };
 
   const handleContextDelete = () => {
@@ -705,6 +768,7 @@ export const FileRail: React.FC<FileRailProps> = ({
           activeFileId={activeFileId}
           onOpen={handleContextOpen}
           onDuplicate={handleContextDuplicate}
+          onExport={handleContextExport}
           onDelete={handleContextDelete}
           onClose={closeContextMenu}
         />
