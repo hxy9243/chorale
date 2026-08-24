@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { parseAbcHeaderMetadata } from '../../utils/abcMetadata';
 import { extractScore } from '../scoreSnapshot';
-import { applyMeasureMutation, createBlankPianoScore, rebaseAnnotationsForMutation } from '../scoreDrafting';
+import {
+  applyMeasureMutation,
+  applyWholeScoreReplacement,
+  createBlankPianoScore,
+  rebaseAnnotationsForMutation,
+} from '../scoreDrafting';
 import type { Annotation } from '../../types/document';
 
 describe('createBlankPianoScore', () => {
@@ -165,25 +170,52 @@ describe('applyMeasureMutation', () => {
     }
   });
 
-  it('edits every piano voice and requires the same voice set', () => {
+  it('edits every piano voice, retains existing voices, and adds new voices across the full score', () => {
     const abc = pianoScore();
     const result = applyMeasureMutation(abc, {
       kind: 'replace',
       span: { startMeasure: 2, endMeasure: 3 },
-      replacementAbc: '[V:upper] C D E F | G A B c |\n[V:lower] C, D, E, F, | G, A, B, C |',
+      replacementAbc: [
+        '[V:upper] C D E F | G A B c |',
+        '[V:lower] C, D, E, F, | G, A, B, C |',
+        '[V:counter] E4 | F4 |',
+      ].join('\n'),
     });
     expect(result.status).toBe('valid');
     if (result.status === 'valid') {
       const score = extractScore(result.abcSource);
       expect(score.measures).toHaveLength(4);
-      expect(score.voices).toEqual(['upper', 'lower']);
-      expect(score.measures[1].events.every((event) => event.type === 'note')).toBe(true);
+      expect(score.voices).toEqual(['upper', 'lower', 'counter']);
+      expect(result.abcSource).toContain('%%score { upper | lower | counter }');
+      expect(result.abcSource).toContain('V:counter\nK:C');
+      expect(score.measures[0].events.find(({ voiceId }) => voiceId === 'counter')?.type).toBe('rest');
+      expect(score.measures[1].events.find(({ voiceId }) => voiceId === 'counter')?.type).toBe('note');
+      expect(score.measures[2].events.find(({ voiceId }) => voiceId === 'counter')?.type).toBe('note');
+      expect(score.measures[3].events.find(({ voiceId }) => voiceId === 'counter')?.type).toBe('rest');
     }
 
     const missingVoice = applyMeasureMutation(abc, {
       kind: 'replace', span: { startMeasure: 2, endMeasure: 2 }, replacementAbc: '[V:upper] C4 |',
     });
     expect(missingVoice.status).toBe('invalid');
+  });
+
+  it('adds an explicit voice to a score whose original voice was implicit', () => {
+    const result = applyMeasureMutation(singleVoice, {
+      kind: 'replace',
+      span: { startMeasure: 2, endMeasure: 3 },
+      replacementAbc: '[V:voice-1] G4 | A4 |\n[V:counter] C4 | D4 |',
+    });
+    expect(result.status).toBe('valid');
+    if (result.status === 'valid') {
+      const score = extractScore(result.abcSource);
+      expect(score.voices).toEqual(['voice-1', 'counter']);
+      expect(score.measures).toHaveLength(4);
+      expect(result.abcSource).toContain('V:voice-1\nV:counter\nK:C');
+      expect(result.abcSource).toContain('[V:voice-1] C D E F |');
+      expect(score.measures[0].events.find(({ voiceId }) => voiceId === 'counter')?.type).toBe('rest');
+      expect(score.measures[3].events.find(({ voiceId }) => voiceId === 'counter')?.type).toBe('rest');
+    }
   });
 
   it('supports inline voice switches when each selected source segment remains isolated', () => {
@@ -203,6 +235,42 @@ describe('applyMeasureMutation', () => {
     expect(result.status).toBe('valid');
     if (result.status === 'valid') {
       expect(extractScore(result.abcSource).measures[0].events.every((event) => event.type === 'rest')).toBe(true);
+    }
+  });
+
+  it('replaces content across repeat and volta boundaries while preserving their source bytes', () => {
+    const repeated = [
+      'X:1', 'M:4/4', 'L:1/4', 'K:C',
+      '|: C4 |[1 D4 :|[2 E4 |]', '',
+    ].join('\n');
+    const result = applyMeasureMutation(repeated, {
+      kind: 'replace',
+      span: { startMeasure: 1, endMeasure: 2 },
+      replacementAbc: 'z4 | z4 |',
+    });
+    expect(result.status).toBe('valid');
+    if (result.status === 'valid') {
+      expect(result.abcSource).toContain('|: z4|[1 z4:|[2 E4 |]');
+      expect(extractScore(result.abcSource).measures).toHaveLength(3);
+    }
+  });
+
+  it('adds a voice while replacing a repeated range', () => {
+    const repeated = [
+      'X:1', 'M:4/4', 'L:1/4', 'V:one', 'K:C',
+      '[V:one] |: C4 | D4 :| E4 |]', '',
+    ].join('\n');
+    const result = applyMeasureMutation(repeated, {
+      kind: 'replace',
+      span: { startMeasure: 1, endMeasure: 2 },
+      replacementAbc: '[V:one] z4 | z4 |\n[V:counter] E4 | F4 |',
+    });
+    expect(result.status).toBe('valid');
+    if (result.status === 'valid') {
+      const score = extractScore(result.abcSource);
+      expect(score.voices).toEqual(['one', 'counter']);
+      expect(score.measures).toHaveLength(3);
+      expect(result.abcSource).toContain('[V:counter] |: E4 | F4 :| Z |]');
     }
   });
 
@@ -237,5 +305,63 @@ describe('applyMeasureMutation', () => {
       kind: 'replace', span: { startMeasure: 2, endMeasure: 2 }, replacementAbc: 'C'.repeat(64 * 1024),
     });
     expect(oversized.status).toBe('invalid');
+  });
+
+  it('routes inline tempo changes through whole-score replacement', () => {
+    const result = applyMeasureMutation(singleVoice, {
+      kind: 'replace',
+      span: { startMeasure: 2, endMeasure: 2 },
+      replacementAbc: '[Q:1/4=180] A4 |',
+    });
+
+    expect(result).toEqual({
+      status: 'invalid',
+      errors: ['Focused replacement ABC cannot change tempo. Use a whole-score edit instead.'],
+    });
+  });
+});
+
+describe('applyWholeScoreReplacement', () => {
+  const source = [
+    'X:1', 'T:Source', 'M:4/4', 'L:1/4', 'Q:1/4=120', 'K:C',
+    'C D E F | G A B c |]', '',
+  ].join('\n');
+
+  it('accepts structural ABC edits including global and inline key and tempo changes', () => {
+    const candidate = [
+      'X:1', 'T:Reworked', 'M:4/4', 'L:1/4', 'Q:1/4=92',
+      'V:melody clef=treble', 'V:counter clef=bass', 'K:G',
+      '[V:melody] G A B c | [K:D] [Q:1/4=108] d c B A |]',
+      '[V:counter] Z | D,4 |]', '',
+    ].join('\n');
+    const result = applyWholeScoreReplacement(source, candidate);
+    expect(result.status).toBe('valid');
+    if (result.status === 'valid') {
+      const score = extractScore(result.abcSource);
+      expect(score.key).toBe('G');
+      expect(score.voices).toEqual(['melody', 'counter']);
+      expect(score.measures[1].keyChange).toBe('D');
+      expect(result.affectedSpan).toEqual({ startMeasure: 1, endMeasure: 2 });
+      expect(result.abcSource).toContain('[Q:1/4=108]');
+    }
+  });
+
+  it('extends the score with new measures without requiring them to exist first', () => {
+    const candidate = source.replace('G A B c |]', 'G A B c | c4 | d4 | e4 | f4 |]');
+    const result = applyWholeScoreReplacement(source, candidate);
+    expect(result.status).toBe('valid');
+    if (result.status === 'valid') {
+      expect(extractScore(result.abcSource).measures).toHaveLength(6);
+      expect(result.affectedSpan).toEqual({ startMeasure: 1, endMeasure: 6 });
+    }
+  });
+
+  it('rejects invalid, unchanged, oversized, and measure-removing candidates', () => {
+    expect(applyWholeScoreReplacement(source, source).status).toBe('invalid');
+    expect(applyWholeScoreReplacement(source, '').status).toBe('invalid');
+    expect(applyWholeScoreReplacement(source, 'X:1\nM:broken\nK:C\nC|').status).toBe('invalid');
+    expect(applyWholeScoreReplacement(source, `${source}\nX:2\nK:C\nC4 |]`).status).toBe('invalid');
+    expect(applyWholeScoreReplacement(source, `${source} ${'C'.repeat(2_000_000)}`).status).toBe('invalid');
+    expect(applyWholeScoreReplacement(source, source.replace('C D E F | G A B c |]', 'C D E F |]')).status).toBe('invalid');
   });
 });

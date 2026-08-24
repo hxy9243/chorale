@@ -15,7 +15,7 @@ describe('MeasureDraftingToolbar', () => {
       affectedSpan: { startMeasure: 3, endMeasure: 4 },
     }));
     render(<MeasureDraftingToolbar {...baseProps} onMutate={onMutate} />);
-    expect(screen.getByRole('toolbar', { name: 'Edit Measures 3–4' })).toBeDefined();
+    expect(screen.getByRole('group', { name: 'Edit Measures 3–4' })).toBeDefined();
 
     fireEvent.click(screen.getByRole('button', { name: /Add before/ }));
     fireEvent.change(screen.getByLabelText(/^Number of measures/), { target: { value: '2' } });

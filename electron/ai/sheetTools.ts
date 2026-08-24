@@ -14,7 +14,10 @@ import {
 } from '../../src/music/scoreSnapshot';
 import { validateAnnotation } from '../../src/music/documentSchema';
 import { selectAnalysisProfiles } from './agentProfiles';
-import { applyMeasureMutation } from '../../src/music/scoreDrafting';
+import {
+  applyMeasureMutation,
+  applyWholeScoreReplacement,
+} from '../../src/music/scoreDrafting';
 
 export type SheetToolErrorCode =
   | 'profile_required'
@@ -23,7 +26,6 @@ export type SheetToolErrorCode =
   | 'measure_not_found'
   | 'invalid_proposals'
   | 'proposal_limit'
-  | 'selection_required'
   | 'range_not_read'
   | 'invalid_replacement';
 
@@ -301,28 +303,29 @@ export const createSheetTools = (
   const proposeMeasureReplacementTool: AgentTool<typeof ProposeMeasureReplacementParameters> = {
     name: 'propose_measure_replacement',
     label: 'Propose measure replacement',
-    description: 'Stage one validated replacement for the exact selected measure range without changing the score.',
+    description: 'Stage one validated replacement for any previously read measure range, including ranges across repeat or volta boundaries. The active selection is an optional hint, not a limit. Retain every existing voice; explicit new [V:<id>] voices are allowed.',
     parameters: ProposeMeasureReplacementParameters,
     executionMode: 'sequential',
     execute: async (_toolCallId, params, signal) => {
       throwIfAborted(signal);
       requireProfile();
-      const selection = options.selection;
-      if (!selection) {
-        throw new SheetToolValidationError('selection_required', 'Select one or more measures before composing.');
+      const { startMeasure, endMeasure } = params.span;
+      if (endMeasure < startMeasure) {
+        throw new SheetToolValidationError('invalid_range', 'endMeasure must be at least startMeasure.', {
+          startMeasure,
+          endMeasure,
+        });
       }
-      if (selection.endMeasure - selection.startMeasure + 1 > 32) {
-        throw new SheetToolValidationError('range_too_large', 'Compose for at most 32 selected measures.');
+      if (endMeasure - startMeasure + 1 > 32) {
+        throw new SheetToolValidationError('range_too_large', 'Compose for at most 32 continuous measures.', {
+          startMeasure,
+          endMeasure,
+          maximumMeasures: 32,
+        });
       }
-      if (
-        params.span.startMeasure !== selection.startMeasure
-        || params.span.endMeasure !== selection.endMeasure
-      ) {
-        throw new SheetToolValidationError('selection_required', 'The proposal must target the exact active selection.');
-      }
-      const rangeKey = `${selection.startMeasure}:${selection.endMeasure}`;
+      const rangeKey = `${startMeasure}:${endMeasure}`;
       if (!state.readRanges.has(rangeKey)) {
-        throw new SheetToolValidationError('range_not_read', 'Read the exact selected range before proposing replacement music.');
+        throw new SheetToolValidationError('range_not_read', 'Read the exact proposed range before proposing replacement music.');
       }
       if (state.scoreProposalCount >= 1) {
         throw new SheetToolValidationError('proposal_limit', 'Propose at most one score change per run.');
@@ -356,6 +359,44 @@ export const createSheetTools = (
     },
   };
 
+  const proposeScoreEditTool: AgentTool<typeof ProposeScoreEditParameters> = {
+    name: 'propose_score_edit',
+    label: 'Propose score edit',
+    description: 'Stage one validated whole-score ABC edit. The candidate may change key, tempo, voices, staves, headers, notation, and add written measures without a pre-existing selection.',
+    parameters: ProposeScoreEditParameters,
+    executionMode: 'sequential',
+    execute: async (_toolCallId, params, signal) => {
+      throwIfAborted(signal);
+      requireProfile();
+      if (state.scoreProposalCount >= 1) {
+        throw new SheetToolValidationError('proposal_limit', 'Propose at most one score change per run.');
+      }
+      const result = applyWholeScoreReplacement(snapshot.abc, params.abcSource);
+      if (result.status !== 'valid') {
+        throw new SheetToolValidationError(
+          'invalid_replacement',
+          result.errors.join(' '),
+          { totalMeasures: snapshot.measureIndex.size },
+        );
+      }
+      const proposal: ScoreChangeProposal = {
+        id: createId(),
+        runId: options.runId ?? snapshot.snapshotId,
+        documentId: snapshot.documentId,
+        sourceRevision: snapshot.revision,
+        state: 'proposed',
+        kind: 'replace-score',
+        span: result.affectedSpan,
+        summary: params.summary.trim(),
+        replacementAbc: params.abcSource,
+        validation: { status: 'valid', errors: [] },
+      };
+      state.scoreProposalCount += 1;
+      options.onScoreProposalCreated?.(proposal);
+      return jsonResult({ proposalId: proposal.id, validation: proposal.validation });
+    },
+  };
+
   return Object.freeze({
     state,
     tools: Object.freeze([
@@ -365,6 +406,7 @@ export const createSheetTools = (
       getAnnotationsTool,
       proposeAnnotationsTool,
       proposeMeasureReplacementTool,
+      proposeScoreEditTool,
     ]),
   });
 };
@@ -431,4 +473,9 @@ const ProposeMeasureReplacementParameters = Type.Object({
   span: MeasureSpanSchema,
   summary: Type.String({ minLength: 1, maxLength: 240 }),
   replacementAbc: Type.String({ minLength: 1, maxLength: 65_535 }),
+}, { additionalProperties: false });
+
+const ProposeScoreEditParameters = Type.Object({
+  summary: Type.String({ minLength: 1, maxLength: 240 }),
+  abcSource: Type.String({ minLength: 1, maxLength: 1_999_999 }),
 }, { additionalProperties: false });

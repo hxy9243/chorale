@@ -100,8 +100,9 @@ The score tool suite is:
 - `get_annotations`
 - `propose_annotations`
 - `propose_measure_replacement`
+- `propose_score_edit`
 
-`read_measure_range` returns ABC source slices and is capped at 32 measures per call. `propose_annotations` is capped at 32 proposals per run. `propose_measure_replacement` requires an exact active selection and prior exact-range read, and emits at most one validated replacement proposal per run. There is no agent removal, direct document mutation, metadata mutation, insertion/deletion, or navigation tool.
+`read_measure_range` returns ABC source slices and is capped at 32 measures per call. `propose_annotations` is capped at 32 proposals per run. `propose_measure_replacement` treats the active selection as an optional hint, requires a prior exact read of its proposed range, and emits at most one validated replacement proposal per run. There is no direct document mutation or navigation tool.
 
 ## 6. Proposal review
 

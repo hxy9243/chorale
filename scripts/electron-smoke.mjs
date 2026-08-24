@@ -714,6 +714,20 @@ try {
     const annotationLayoutBounds = sheet?.querySelector('.sheet-annotation-layout')
       ?.getBoundingClientRect();
     const notationBounds = sheet?.querySelector('.sheet-notation-column')?.getBoundingClientRect();
+    const annotationLayoutStyle = sheet?.querySelector('.sheet-annotation-layout')
+      ? getComputedStyle(sheet.querySelector('.sheet-annotation-layout'))
+      : null;
+    const annotationBalanceWidth = Number.parseFloat(
+      annotationLayoutStyle?.getPropertyValue('--score-balance-width') || '',
+    );
+    const annotationTrackWidth = Number.parseFloat(
+      annotationLayoutStyle?.getPropertyValue('--score-annotation-width') || '',
+    );
+    const scoreSceneZoom = Number.parseFloat(annotationRailZoomAfter || '') / 100;
+    const expectedAnnotationCenterDelta = [annotationBalanceWidth, annotationTrackWidth, scoreSceneZoom]
+      .every(Number.isFinite)
+      ? Math.abs(annotationTrackWidth - annotationBalanceWidth) * scoreSceneZoom / 2
+      : null;
     const annotationNotationCenterDelta = annotationLayoutBounds && notationBounds
       ? Math.abs(
         (annotationLayoutBounds.left + annotationLayoutBounds.width / 2)
@@ -830,7 +844,7 @@ try {
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
     const chatWidth = document.querySelector('.right-panel')?.getBoundingClientRect().width;
-    const chatWidthLimit = Math.floor(window.innerWidth / 3);
+    const chatWidthLimit = Math.floor(window.innerWidth / 2);
     const chatPreferenceAfterResize = Number(localStorage.getItem('chorale.workspace.chatWidth'));
     window.dispatchEvent(new WheelEvent('wheel', {
       ctrlKey: true,
@@ -994,7 +1008,7 @@ try {
       : null;
     document.querySelector('[aria-label="Close assistant"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 25));
-    const closedPanel = document.querySelector('.right-panel');
+    const closedPanel = document.querySelector('.chat-panel-stack');
     const closedPanelStyle = closedPanel && {
       display: getComputedStyle(closedPanel).display,
       width: closedPanel.getBoundingClientRect().width,
@@ -1046,6 +1060,7 @@ try {
       annotationRailZoomBefore,
       annotationRailZoomAfter,
       annotationNotationCenterDelta,
+      expectedAnnotationCenterDelta,
       sheetZoomCenterDelta,
       annotationRailProximity,
       annotationSceneShared,
@@ -1216,12 +1231,17 @@ try {
   );
   assert(
     shellState.annotationNotationCenterDelta !== null
-      && shellState.annotationNotationCenterDelta <= 1,
-    `Notation did not remain on the sheet centerline (${shellState.annotationNotationCenterDelta}).`,
+      && shellState.expectedAnnotationCenterDelta !== null
+      && Math.abs(
+        shellState.annotationNotationCenterDelta - shellState.expectedAnnotationCenterDelta
+      ) <= 1,
+    `Notation did not follow the fitted annotation-scene tracks (${shellState.annotationNotationCenterDelta} vs ${shellState.expectedAnnotationCenterDelta}).`,
   );
   assert(
-    shellState.sheetZoomCenterDelta !== null && shellState.sheetZoomCenterDelta <= 1,
-    `Zoomed notation did not remain centered in its viewport (${shellState.sheetZoomCenterDelta}).`,
+    shellState.sheetZoomCenterDelta !== null
+      && shellState.expectedAnnotationCenterDelta !== null
+      && Math.abs(shellState.sheetZoomCenterDelta - shellState.expectedAnnotationCenterDelta) <= 1,
+    `Zoomed score scene did not preserve its fitted track offset (${shellState.sheetZoomCenterDelta} vs ${shellState.expectedAnnotationCenterDelta}).`,
   );
   assert(shellState.annotationSceneShared, 'Notation and annotations do not share one zoom scene.');
   assert(
@@ -1258,7 +1278,7 @@ try {
   assert(
     shellState.chatWidth <= shellState.chatWidthLimit
       && Math.abs(shellState.chatPreferenceAfterResize - shellState.chatWidthLimit) <= 1,
-    `Chat panel did not persist a one-third preference and fit it to the score (${shellState.chatWidth}, stored ${shellState.chatPreferenceAfterResize}, limit ${shellState.chatWidthLimit}).`,
+    `Chat panel did not persist a one-half preference and fit it to the score (${shellState.chatWidth}, stored ${shellState.chatPreferenceAfterResize}, limit ${shellState.chatWidthLimit}).`,
   );
   assert(shellState.interfaceZoom === '1.1', 'Ctrl+wheel did not increase interface zoom.');
   assert(shellState.computedInterfaceZoom === '1.1', 'Interface zoom was not applied to the renderer.');
@@ -1359,7 +1379,7 @@ try {
   );
   assert(
     shellState.closedPanelStyle.display === 'none' && shellState.closedPanelStyle.width === 0,
-    `Closed chat left visible panel chrome (${JSON.stringify(shellState.closedPanelStyle)}).`,
+    `Closed chat left its panel stack visible (${JSON.stringify(shellState.closedPanelStyle)}).`,
   );
   assert(shellState.storedChatOpen === 'false', 'Closed chat state was not persisted.');
   assert(Number.isFinite(shellState.storedChatWidth), 'Resized chat width was not persisted.');
@@ -1576,7 +1596,7 @@ try {
       try {
         if (document.readyState !== 'loading') {
           const value = localStorage.getItem('chorale.electron-smoke');
-          const showChat = document.querySelector('[title="Show score chat"]');
+          const showChat = document.querySelector('[aria-label="Expand chat panel"]');
           const fileOrder = [...document.querySelectorAll('.file-list .file-item-name')]
             .map((element) => element.textContent);
           if (

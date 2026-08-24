@@ -8116,7 +8116,8 @@ body,
   gap: var(--space-sm);
 }
 
-.empty-sheet-placeholder > strong {
+.empty-sheet-placeholder > h2 {
+  margin: 0;
   font: 600 1.35rem/1.3 var(--font-serif);
   color: var(--color-ink);
 }
@@ -8319,8 +8320,8 @@ body,
   font-size: var(--text-sm);
 }
 
-.score-change-proposal-notice {
-  color: var(--color-error) !important;
+.score-change-proposal-card > p.score-change-proposal-notice {
+  color: var(--color-error);
 }
 
 .score-change-proposal-actions {

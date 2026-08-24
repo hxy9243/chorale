@@ -45,7 +45,11 @@ import { parseAbcHeaderMetadata, type ScoreMetadata } from './utils/abcMetadata'
 import type { PlaybackPosition } from './utils/repeatPlayback';
 import { prepareAbcForPlayback } from './utils/abcAudio';
 import { extractScore } from './music/scoreSnapshot';
-import { applyMeasureMutation, readMeasureReplacementAbc } from './music/scoreDrafting';
+import {
+  applyMeasureMutation,
+  applyWholeScoreReplacement,
+  readMeasureReplacementAbc,
+} from './music/scoreDrafting';
 import { FILE_RAIL_BAR_WIDTH } from './utils/workspaceSizing';
 
 const DEFAULT_SHEET_ZOOM = 100;
@@ -86,6 +90,7 @@ export const App: React.FC = () => {
     handleUpdateMetadata,
     handleCreateDocument,
     handleMeasureMutation,
+    handleWholeScoreReplacement,
     handleProcessMusicXml,
     handleDeleteDocument,
     handleDuplicateDocument,
@@ -125,6 +130,7 @@ export const App: React.FC = () => {
   const [scorePreview, setScorePreview] = useState<{
     proposal: ScoreChangeProposal;
     abcSource: string;
+    previousAnchor: ScoreAnchor | null;
   } | null>(null);
 
   const playbackPositionRef = useRef<PlaybackPosition>({
@@ -138,6 +144,7 @@ export const App: React.FC = () => {
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const openHistoryModal = useCallback(() => setHistoryModalOpen(true), []);
   const closeHistoryModal = useCallback(() => setHistoryModalOpen(false), []);
+  const closeNewScoreModal = useCallback(() => setNewScoreModalOpen(false), []);
 
   // Global Undo / Redo keyboard shortcuts
   useEffect(() => {
@@ -234,34 +241,51 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     if (scorePreview && scorePreview.proposal.sourceRevision !== abcRevision) {
+      setActiveAnchor(null);
       setScorePreview(null);
     }
-  }, [abcRevision, scorePreview]);
+  }, [abcRevision, scorePreview, setActiveAnchor]);
 
   const handlePreviewScoreProposal = useCallback((proposal: ScoreChangeProposal) => {
     if (proposal.documentId !== activeFileId || proposal.sourceRevision !== abcRevision) return 'outdated' as const;
-    const result = applyMeasureMutation(abcCode, {
-      kind: 'replace', span: proposal.span, replacementAbc: proposal.replacementAbc,
-    });
+    const result = proposal.kind === 'replace-score'
+      ? applyWholeScoreReplacement(abcCode, proposal.replacementAbc)
+      : applyMeasureMutation(abcCode, {
+          kind: 'replace', span: proposal.span, replacementAbc: proposal.replacementAbc,
+        });
     if (result.status !== 'valid') return 'invalid' as const;
-    setScorePreview({ proposal, abcSource: result.abcSource });
+    setScorePreview({
+      proposal,
+      abcSource: result.abcSource,
+      previousAnchor: scorePreview?.previousAnchor ?? activeAnchor,
+    });
     setActiveAnchor(proposal.span);
     return 'ready' as const;
-  }, [abcCode, abcRevision, activeFileId, setActiveAnchor]);
+  }, [abcCode, abcRevision, activeAnchor, activeFileId, scorePreview, setActiveAnchor]);
 
   const handleApplyScoreProposal = useCallback((proposal: ScoreChangeProposal) => {
     if (proposal.documentId !== activeFileId || proposal.sourceRevision !== abcRevision) return 'outdated' as const;
-    const result = handleMeasureMutation({
-      kind: 'replace', span: proposal.span, replacementAbc: proposal.replacementAbc,
-    }, 'tool-apply');
+    const result = proposal.kind === 'replace-score'
+      ? handleWholeScoreReplacement(proposal.replacementAbc, 'tool-apply')
+      : handleMeasureMutation({
+          kind: 'replace', span: proposal.span, replacementAbc: proposal.replacementAbc,
+        }, 'tool-apply');
     if (result.status !== 'valid') return 'invalid' as const;
     setScorePreview(null);
     return 'accepted' as const;
-  }, [abcRevision, activeFileId, handleMeasureMutation]);
+  }, [abcRevision, activeFileId, handleMeasureMutation, handleWholeScoreReplacement]);
 
   const handleDiscardScoreProposal = useCallback((proposal: ScoreChangeProposal) => {
-    setScorePreview((current) => current?.proposal.id === proposal.id ? null : current);
-  }, []);
+    if (scorePreview?.proposal.id !== proposal.id) return;
+    setActiveAnchor(scorePreview.previousAnchor);
+    setScorePreview(null);
+  }, [scorePreview, setActiveAnchor]);
+
+  const handleExitScorePreview = useCallback(() => {
+    if (!scorePreview) return;
+    setActiveAnchor(scorePreview.previousAnchor);
+    setScorePreview(null);
+  }, [scorePreview, setActiveAnchor]);
 
   const getPlaybackPosition = useCallback(() => playbackPositionRef.current, []);
 
@@ -404,14 +428,14 @@ export const App: React.FC = () => {
               />
 
               {!activeDocument && (
-                <div className="empty-sheet-placeholder" role="status">
-                  <strong>Start a score</strong>
+                <section className="empty-sheet-placeholder" aria-labelledby="empty-score-heading">
+                  <h2 id="empty-score-heading">Start a score</h2>
                   <span>Create a blank piano score or import an existing file.</span>
                   <div className="empty-score-actions">
                     <button type="button" onClick={() => setNewScoreModalOpen(true)}>New Score</button>
                     <button type="button" onClick={() => document.querySelector<HTMLInputElement>('.file-rail input[type="file"]')?.click()}>Import Score</button>
                   </div>
-                </div>
+                </section>
               )}
               {activeDocument && <>
               {scorePreview && (
@@ -419,7 +443,7 @@ export const App: React.FC = () => {
                   <span>Previewing {scorePreview.proposal.span.startMeasure === scorePreview.proposal.span.endMeasure
                     ? `measure ${scorePreview.proposal.span.startMeasure}`
                     : `measures ${scorePreview.proposal.span.startMeasure}–${scorePreview.proposal.span.endMeasure}`}</span>
-                  <button type="button" onClick={() => setScorePreview(null)}>Back to current</button>
+                  <button type="button" onClick={handleExitScorePreview}>Back to current</button>
                 </div>
               )}
 
@@ -528,7 +552,7 @@ export const App: React.FC = () => {
               open={chatOpen}
               onClose={() => {
                 setChatOpen(false);
-                setScorePreview(null);
+                handleExitScorePreview();
               }}
               fileId={activeFileId}
               abcCode={abcCode}
@@ -575,7 +599,7 @@ export const App: React.FC = () => {
       />
       <NewScoreModal
         open={newScoreModalOpen}
-        onClose={() => setNewScoreModalOpen(false)}
+        onClose={closeNewScoreModal}
         onCreate={handleCreateDocument}
       />
       {exportStatus.status === 'success' && (

@@ -9,9 +9,12 @@ import {
   isAIThinkingLevel,
 } from '../agent/aiTypes';
 import {
+  conversationNeedsDurableHydration,
   loadConversation,
+  loadConversationAsync,
   makeEmptyConversation,
   saveConversation,
+  saveConversationAsync,
 } from '../agent/conversationStore';
 import type { ChatMessage, ChatThread, MusicContextSnapshot, PersistedFileConversation } from '../agent/types';
 import type { Annotation, ScoreAnchor, ScoreChangeProposal } from '../types/document';
@@ -174,6 +177,9 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   const [conversation, setConversation] = useState<PersistedFileConversation>(() => (
     fileId ? loadConversation(fileId) : makeEmptyConversation()
   ));
+  const [durableHydrationPending, setDurableHydrationPending] = useState(() => (
+    Boolean(fileId) && conversationNeedsDurableHydration(fileId)
+  ));
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -188,6 +194,8 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   const [invalidProposalIds, setInvalidProposalIds] = useState<Record<string, string[]>>({});
   const conversationRef = useRef(conversation);
   conversationRef.current = conversation;
+  const documentRevisionRef = useRef({ fileId, revision });
+  documentRevisionRef.current = { fileId, revision };
   const agentRef = useRef<DesktopSheetAgent | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeRunRef = useRef<{
@@ -253,25 +261,42 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         );
         conversationRef.current = unavailable;
         saveConversation(activeRun.fileId, unavailable);
+        void saveConversationAsync(activeRun.fileId, unavailable);
       }
       stop();
       setIsStreaming(false);
     }
     if (!fileId) {
       setConversation(makeEmptyConversation());
+      setDurableHydrationPending(false);
       return;
     }
     setConversation(loadConversation(fileId));
+    let cancelled = false;
+    const needsDurableHydration = conversationNeedsDurableHydration(fileId);
+    setDurableHydrationPending(needsDurableHydration);
+    if (needsDurableHydration) {
+      void loadConversationAsync(fileId).then((loaded) => {
+        if (!cancelled) {
+          setConversation(loaded);
+          setDurableHydrationPending(false);
+        }
+      });
+    }
     setDraft('');
     setError(null);
     setEditingProposal(null);
     setInvalidProposalIds({});
+    return () => {
+      cancelled = true;
+    };
   }, [fileId]);
 
   useEffect(() => {
-    if (!fileId) return;
+    if (!fileId || isStreaming || durableHydrationPending) return;
     saveConversation(fileId, conversation);
-  }, [conversation, fileId]);
+    void saveConversationAsync(fileId, conversation);
+  }, [conversation, durableHydrationPending, fileId, isStreaming]);
 
   useEffect(() => {
     try {
@@ -341,14 +366,13 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   useEffect(() => () => {
     const activeRun = activeRunRef.current;
     if (activeRun) {
-      saveConversation(
-        activeRun.fileId,
-        markRunUnavailable(
-          conversationRef.current,
-          activeRun.threadId,
-          activeRun.assistantId,
-        ),
+      const unavailable = markRunUnavailable(
+        conversationRef.current,
+        activeRun.threadId,
+        activeRun.assistantId,
       );
+      saveConversation(activeRun.fileId, unavailable);
+      void saveConversationAsync(activeRun.fileId, unavailable);
     }
     abortControllerRef.current?.abort();
   }, []);
@@ -558,7 +582,10 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   const sendMessage = async (event: React.FormEvent) => {
     event.preventDefault();
     const question = draft.trim();
-    if (!question || !abcCode.trim() || isStreaming || !activeThread || !providerReady) return;
+    if (
+      !question || !abcCode.trim() || isStreaming || durableHydrationPending
+      || !activeThread || !providerReady
+    ) return;
 
     const context = captureContext();
     const userMessage: ChatMessage = {
@@ -676,13 +703,18 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         },
         onScoreProposalCreated: (proposal) => {
           if (!isCurrentRun()) return;
+          const currentDocument = documentRevisionRef.current;
+          const currentProposal = (
+            proposal.documentId === currentDocument.fileId
+            && proposal.sourceRevision === currentDocument.revision
+          ) ? proposal : { ...proposal, state: 'outdated' as const };
           updateMessages(threadId, (current) => current.map((message) => (
             message.id === assistantId
               ? {
                   ...message,
                   scoreProposals: [
                     ...(message.scoreProposals || []).filter(({ id }) => id !== proposal.id),
-                    proposal,
+                    currentProposal,
                   ],
                 }
               : message
@@ -756,7 +788,13 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   if (!open) return null;
 
   return (
-    <aside className="agent-panel" aria-label="Current sheet assistant" ref={panelRef}>
+    <aside
+      className="agent-panel"
+      aria-label="Current sheet assistant"
+      aria-busy={durableHydrationPending}
+      inert={durableHydrationPending}
+      ref={panelRef}
+    >
       <div className="agent-panel-header">
         <div className="agent-title-row">
           <div>

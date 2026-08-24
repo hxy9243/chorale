@@ -1,7 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { FilePenLine, ListMinus, ListPlus, X } from 'lucide-react';
 import type { MeasureSpan } from '../types/document';
-import type { MeasureMutation, MeasureMutationResult } from '../music/scoreDrafting';
+import {
+  MAX_DRAFT_MEASURES,
+  MIN_DRAFT_MEASURES,
+  type MeasureMutation,
+  type MeasureMutationResult,
+} from '../music/scoreDrafting';
 
 type DraftingAction = 'insert-before' | 'insert-after' | 'edit' | 'delete';
 
@@ -95,7 +100,7 @@ export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
 
   return (
     <>
-      <div className="measure-drafting-toolbar" role="toolbar" aria-label={`Edit ${spanLabel(span)}`}>
+      <div className="measure-drafting-toolbar" role="group" aria-label={`Edit ${spanLabel(span)}`}>
         <span className="measure-drafting-toolbar-label">{spanLabel(span)}</span>
         <button type="button" onClick={() => open('insert-before')}><ListPlus size={15} /> Add before</button>
         <button type="button" onClick={() => open('insert-after')}><ListPlus size={15} /> Add after</button>
@@ -135,7 +140,7 @@ export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
                       rows={10}
                       spellCheck={false}
                     />
-                    <small>Keep the same measures and voices. Multi-voice scores use [V:&lt;id&gt;] sections.</small>
+                    <small>Keep the same measures and existing voices. New [V:&lt;id&gt;] voices are added as separate staves.</small>
                   </label>
                 )}
                 {(action === 'insert-before' || action === 'insert-after') && (
@@ -144,8 +149,8 @@ export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
                     <input
                       ref={initialRef}
                       type="number"
-                      min="1"
-                      max="32"
+                      min={MIN_DRAFT_MEASURES}
+                      max={MAX_DRAFT_MEASURES}
                       step="1"
                       value={count}
                       onChange={(event) => setCount(event.target.value)}

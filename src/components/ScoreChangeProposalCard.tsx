@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, RotateCcw, Trash2 } from 'lucide-react';
+import { Check, Eye, Trash2 } from 'lucide-react';
 import type { ScoreChangeProposal } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
 
@@ -31,8 +31,8 @@ export const ScoreChangeProposalCard: React.FC<ScoreChangeProposalCardProps> = (
     <section className="score-change-proposal-card" data-state={proposal.state} aria-label="Score change proposal">
       <div className="score-change-proposal-heading">
         <div>
-          <span>Composition</span>
-          <strong>{formatAnchorLabel(proposal.span)}</strong>
+          <span>{proposal.kind === 'replace-score' ? 'Score edit' : 'Composition'}</span>
+          <strong>{proposal.kind === 'replace-score' ? 'Whole score' : formatAnchorLabel(proposal.span)}</strong>
         </div>
         <span>{stateLabel[proposal.state]}</span>
       </div>
@@ -42,7 +42,7 @@ export const ScoreChangeProposalCard: React.FC<ScoreChangeProposalCardProps> = (
       {proposal.state === 'proposed' && (
         <div className="score-change-proposal-actions">
           <button type="button" onClick={onPreview} disabled={!actionable}><Eye size={14} /> Preview</button>
-          <button type="button" className="primary" onClick={onApply} disabled={!actionable}><RotateCcw size={14} /> Apply</button>
+          <button type="button" className="primary" onClick={onApply} disabled={!actionable}><Check size={14} /> Apply</button>
           <button type="button" onClick={onDiscard} disabled={!actionable}><Trash2 size={14} /> Discard</button>
         </div>
       )}

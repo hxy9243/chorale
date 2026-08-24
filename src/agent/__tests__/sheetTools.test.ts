@@ -216,10 +216,11 @@ describe('sheet tools', () => {
       'get_annotations',
       'propose_annotations',
       'propose_measure_replacement',
+      'propose_score_edit',
     ]);
   });
 
-  it('requires the exact selected range to be read before one score proposal', async () => {
+  it('requires the exact proposed range to be read before one score proposal', async () => {
     const created = vi.fn();
     const registry = createSheetTools(createSnapshot(), {
       runId: 'run-compose',
@@ -264,24 +265,118 @@ describe('sheet tools', () => {
     })).rejects.toMatchObject({ code: 'proposal_limit' });
   });
 
-  it('rejects score proposals without selection, for a different range, or with invalid ABC', async () => {
+  it('accepts a score proposal that retains the current voice and adds a new voice', async () => {
+    const created = vi.fn();
+    const registry = createSheetTools(createSnapshot(), {
+      selection: { startMeasure: 1, endMeasure: 2 },
+      createId: () => 'score-proposal-with-voice',
+      onScoreProposalCreated: created,
+    });
+    await registry.tools[0].execute('route', { profiles: ['general'] });
+    await registry.tools[2].execute('read', { startMeasure: 1, endMeasure: 2 });
+    const propose = registry.tools.find(({ name }) => name === 'propose_measure_replacement')!;
+
+    await expect(propose.execute('propose', {
+      span: { startMeasure: 1, endMeasure: 2 },
+      summary: 'Add a counterline',
+      replacementAbc: '[V:voice-1] C E G c | c G E C |\n[V:counter] E4 | F4 |',
+    })).resolves.toMatchObject({
+      details: { validation: { status: 'valid', errors: [] } },
+    });
+    expect(created).toHaveBeenCalledOnce();
+  });
+
+  it('stages a selected replacement across repeat and volta boundaries', async () => {
+    const snapshot = createScoreSnapshot({
+      snapshotId: 'snapshot-repeat-tools',
+      documentId: 'document-repeat-tools',
+      revision: 3,
+      abc: 'X:1\nM:4/4\nL:1/4\nK:C\n|: C4 |[1 D4 :|[2 E4 |]',
+      annotations: [],
+    });
+    const registry = createSheetTools(snapshot, {
+      selection: { startMeasure: 1, endMeasure: 2 },
+    });
+    await registry.tools[0].execute('route', { profiles: ['general'] });
+    await registry.tools[2].execute('read', { startMeasure: 1, endMeasure: 2 });
+    const propose = registry.tools.find(({ name }) => name === 'propose_measure_replacement')!;
+
+    await expect(propose.execute('repeat-replacement', {
+      span: { startMeasure: 1, endMeasure: 2 },
+      summary: 'Enrich the repeated phrase',
+      replacementAbc: 'z4 | z4 |',
+    })).resolves.toMatchObject({
+      details: { validation: { status: 'valid', errors: [] } },
+    });
+  });
+
+  it('accepts one validated whole-score edit with new key, tempo, and voices', async () => {
+    const created = vi.fn();
+    const registry = createSheetTools(createSnapshot(), {
+      createId: () => 'whole-score-proposal',
+      onScoreProposalCreated: created,
+    });
+    await registry.tools[0].execute('route', { profiles: ['general'] });
+    const propose = registry.tools.find(({ name }) => name === 'propose_score_edit')!;
+    const abcSource = [
+      'X:1', 'T:Tool score reworked', 'M:4/4', 'L:1/4', 'Q:1/4=88',
+      'V:melody', 'V:counter clef=bass', 'K:G',
+      '[V:melody] G A B c | [K:D] [Q:1/4=104] d c B A | e4 | f4 |]',
+      '[V:counter] Z | D,4 | Z | Z |]',
+    ].join('\n');
+
+    await expect(propose.execute('whole-score', {
+      summary: 'Revoice and change the tonal plan',
+      abcSource,
+    })).resolves.toMatchObject({
+      details: { validation: { status: 'valid', errors: [] } },
+    });
+    expect(created).toHaveBeenCalledWith(expect.objectContaining({
+      kind: 'replace-score',
+      span: { startMeasure: 1, endMeasure: 4 },
+      replacementAbc: abcSource,
+    }));
+    await expect(propose.execute('second-whole-score', {
+      summary: 'Try again',
+      abcSource: abcSource.replace('Q:1/4=88', 'Q:1/4=90'),
+    })).rejects.toMatchObject({ code: 'proposal_limit' });
+  });
+
+  it('allows no selection or a different selected range while still validating the proposal', async () => {
     const noSelection = createSheetTools(createSnapshot());
     await noSelection.tools[0].execute('route', { profiles: ['general'] });
     const noSelectionPropose = noSelection.tools.find(({ name }) => name === 'propose_measure_replacement')!;
+    await noSelection.tools[2].execute('read', { startMeasure: 1, endMeasure: 1 });
     await expect(noSelectionPropose.execute('none', {
       span: { startMeasure: 1, endMeasure: 1 }, summary: 'Music', replacementAbc: 'C4 |',
-    })).rejects.toMatchObject({ code: 'selection_required' });
+    })).resolves.toMatchObject({ details: { validation: { status: 'valid', errors: [] } } });
 
-    const registry = createSheetTools(createSnapshot(), {
-      selection: { startMeasure: 1, endMeasure: 1 },
+    const fiveMeasureSnapshot = createScoreSnapshot({
+      snapshotId: 'snapshot-selection-hint',
+      documentId: 'document-selection-hint',
+      revision: 1,
+      abc: 'X:1\nM:4/4\nL:1/4\nK:C\nC4 | D4 | E4 | F4 | G4 |]',
+      annotations: [],
+    });
+    const registry = createSheetTools(fiveMeasureSnapshot, {
+      selection: { startMeasure: 1, endMeasure: 5 },
     });
     await registry.tools[0].execute('route', { profiles: ['general'] });
-    await registry.tools[2].execute('read', { startMeasure: 1, endMeasure: 1 });
+    await registry.tools[2].execute('read', { startMeasure: 1, endMeasure: 4 });
     const propose = registry.tools.find(({ name }) => name === 'propose_measure_replacement')!;
-    await expect(propose.execute('wrong-range', {
-      span: { startMeasure: 1, endMeasure: 2 }, summary: 'Music', replacementAbc: 'C4 | C4 |',
-    })).rejects.toMatchObject({ code: 'selection_required' });
-    await expect(propose.execute('wrong-count', {
+    await expect(propose.execute('different-range', {
+      span: { startMeasure: 1, endMeasure: 4 },
+      summary: 'Shorten the requested rewrite relative to the selection',
+      replacementAbc: 'C4 | C4 | C4 | C4 |',
+    })).resolves.toMatchObject({ details: { validation: { status: 'valid', errors: [] } } });
+
+    const invalid = createSheetTools(createSnapshot(), {
+      selection: { startMeasure: 1, endMeasure: 2 },
+    });
+    await invalid.tools[0].execute('route', { profiles: ['general'] });
+    await invalid.tools[2].execute('read', { startMeasure: 1, endMeasure: 1 });
+    const invalidPropose = invalid.tools.find(({ name }) => name === 'propose_measure_replacement')!;
+    await expect(invalidPropose.execute('wrong-count', {
       span: { startMeasure: 1, endMeasure: 1 }, summary: 'Music', replacementAbc: 'C4 | C4 |',
     })).rejects.toMatchObject({ code: 'invalid_replacement' });
   });

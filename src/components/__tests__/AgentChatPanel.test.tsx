@@ -179,6 +179,68 @@ describe('AgentChatPanel', () => {
     await waitFor(() => expect(localStorage.getItem(CONVERSATION_STORAGE_KEY)).toContain('"state":"accepted"'));
   });
 
+  it('defers conversation persistence while a score proposal is streaming', async () => {
+    let finishRun: (() => void) | undefined;
+    let emitScoreProposal: ((proposal: ScoreChangeProposal) => void) | undefined;
+    let emitDelta: ((delta: string) => void) | undefined;
+    agentSendMock.mockImplementation((_request, callbacks) => {
+      callbacks.onStart({
+        connectionId: 'openai-test',
+        providerKind: 'openai',
+        modelId: 'gpt-test',
+      });
+      emitScoreProposal = callbacks.onScoreProposalCreated;
+      emitDelta = callbacks.onDelta;
+      return new Promise<void>((resolve) => {
+        finishRun = resolve;
+      });
+    });
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-streaming-score"
+        abcCode={'X:1\nM:4/4\nL:1/4\nK:C\nCDEF |]'}
+        activeFileName="Streaming.abc"
+        revision={1}
+        ai={ai}
+        onOpenSettings={() => undefined}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Ask about the current sheet'), {
+      target: { value: 'Rewrite the score' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(emitScoreProposal).toBeDefined());
+
+    const streamedProposal: ScoreChangeProposal = {
+      id: 'score-proposal-streaming',
+      runId: 'run-streaming',
+      documentId: 'doc-streaming-score',
+      sourceRevision: 1,
+      state: 'proposed',
+      kind: 'replace-score',
+      span: { startMeasure: 1, endMeasure: 1 },
+      summary: 'Rewrite the score.',
+      replacementAbc: `X:1\nK:C\n${'C'.repeat(100_000)} |]`,
+      validation: { status: 'valid', errors: [] },
+    };
+    await act(async () => {
+      emitScoreProposal?.(streamedProposal);
+      emitDelta?.('First delta.');
+      emitDelta?.(' Second delta.');
+      await Promise.resolve();
+    });
+    expect(localStorage.getItem(CONVERSATION_STORAGE_KEY)).not.toContain(streamedProposal.id);
+
+    await act(async () => {
+      finishRun?.();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(localStorage.getItem(CONVERSATION_STORAGE_KEY)).toContain(streamedProposal.id));
+  });
+
   it('marks a persisted score proposal outdated when the document revision changes', () => {
     seedScoreProposalThread('doc-score-outdated', {
       id: 'score-proposal-old', runId: 'run-old', documentId: 'doc-score-outdated', sourceRevision: 2,
@@ -199,6 +261,82 @@ describe('AgentChatPanel', () => {
     );
     expect(screen.getByText('Outdated')).toBeDefined();
     expect((screen.queryByRole('button', { name: /Preview/ }) as HTMLButtonElement | null)).toBeNull();
+  });
+
+  it('marks a score proposal outdated when it arrives after the document revision changes', async () => {
+    let finishRun: (() => void) | undefined;
+    let emitScoreProposal: ((proposal: ScoreChangeProposal) => void) | undefined;
+    agentSendMock.mockImplementation((_request, callbacks) => {
+      callbacks.onStart({
+        connectionId: 'openai-test',
+        providerKind: 'openai',
+        modelId: 'gpt-test',
+      });
+      emitScoreProposal = callbacks.onScoreProposalCreated;
+      return new Promise<void>((resolve) => {
+        finishRun = resolve;
+      });
+    });
+    const props = {
+      open: true,
+      onClose: () => undefined,
+      fileId: 'doc-late-score-proposal',
+      abcCode: 'X:1\nK:C\nC4 |]',
+      activeFileName: 'Late.abc',
+      ai,
+      onOpenSettings: () => undefined,
+    };
+    const { rerender } = render(<AgentChatPanel {...props} revision={1} />);
+    fireEvent.change(screen.getByLabelText('Ask about the current sheet'), {
+      target: { value: 'Rewrite this score' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(emitScoreProposal).toBeDefined());
+
+    rerender(<AgentChatPanel {...props} revision={2} />);
+    await act(async () => {
+      emitScoreProposal?.({
+        id: 'late-score-proposal',
+        runId: 'late-run',
+        documentId: props.fileId,
+        sourceRevision: 1,
+        state: 'proposed',
+        kind: 'replace-score',
+        span: { startMeasure: 1, endMeasure: 1 },
+        summary: 'Late rewrite.',
+        replacementAbc: 'X:1\nK:C\nD4 |]',
+        validation: { status: 'valid', errors: [] },
+      });
+      finishRun?.();
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText('Outdated')).toBeDefined();
+    expect(screen.queryByRole('button', { name: /Preview/ })).toBeNull();
+  });
+
+  it('restores and labels persisted whole-score edit proposals', () => {
+    seedScoreProposalThread('doc-whole-score', {
+      id: 'score-proposal-whole', runId: 'run-whole', documentId: 'doc-whole-score', sourceRevision: 3,
+      state: 'proposed', kind: 'replace-score', span: { startMeasure: 1, endMeasure: 2 },
+      summary: 'Change the key, tempo, and orchestration.',
+      replacementAbc: 'X:1\nM:4/4\nQ:1/4=90\nV:one\nV:two\nK:G\n[V:one] G4 | A4 |]\n[V:two] D4 | E4 |]',
+      validation: { status: 'valid', errors: [] },
+    });
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-whole-score"
+        abcCode={'X:1\nM:4/4\nK:C\nC4 | D4 |]'}
+        activeFileName="Draft"
+        revision={3}
+        ai={ai}
+        onOpenSettings={() => undefined}
+      />,
+    );
+    expect(screen.getByText('Score edit')).toBeDefined();
+    expect(screen.getByText('Whole score')).toBeDefined();
   });
 
   it('sends the current ABC revision and persists the conversation', async () => {

@@ -126,6 +126,7 @@ export function updateDocumentAbc(
     scoreInfo: {
       ...doc.scoreInfo,
       title: parsedMeta.title || doc.scoreInfo.title,
+      subtitle: parsedMeta.subtitle,
       composer: parsedMeta.composer || doc.scoreInfo.composer,
       key: parsedMeta.key || doc.scoreInfo.key,
       meter: parsedMeta.meter || doc.scoreInfo.meter,

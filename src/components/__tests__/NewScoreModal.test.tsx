@@ -44,4 +44,15 @@ describe('NewScoreModal', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('preserves form input when the parent supplies a new close callback', () => {
+    const { rerender } = render(
+      <NewScoreModal open onClose={() => undefined} onCreate={() => undefined} />,
+    );
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Work in progress' } });
+
+    rerender(<NewScoreModal open onClose={() => undefined} onCreate={() => undefined} />);
+
+    expect((screen.getByLabelText('Title') as HTMLInputElement).value).toBe('Work in progress');
+  });
 });

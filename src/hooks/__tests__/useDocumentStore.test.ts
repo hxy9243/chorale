@@ -157,6 +157,52 @@ describe('useDocumentStore', () => {
     expect(result.current.activeDocument?.versions).toBe(initialVersions);
   });
 
+  it('applies a validated whole-score proposal through tool history', async () => {
+    localStorage.setItem('chorale.workspace.activeFileId', sampleDoc.id);
+    vi.spyOn(storageAdapter, 'getDocuments').mockResolvedValue([sampleDoc]);
+    const { result } = renderHook(() => useDocumentStore());
+    await waitFor(() => expect(result.current.hydrationStatus).toBe('ready'));
+    const candidate = [
+      'X:1', 'T:IDB Score', 'T:A new subtitle', 'M:4/4', 'L:1/4', 'Q:1/4=90',
+      'V:melody', 'V:counter clef=bass', 'K:G',
+      '[V:melody] G4 | A4 |]', '[V:counter] D,4 | E,4 |]',
+    ].join('\n');
+
+    let applyResult: ReturnType<typeof result.current.handleWholeScoreReplacement> | undefined;
+    act(() => {
+      applyResult = result.current.handleWholeScoreReplacement(candidate);
+    });
+
+    expect(applyResult?.status).toBe('valid');
+    expect(result.current.abcCode).toBe(candidate);
+    expect(result.current.abcRevision).toBe(2);
+    expect(result.current.activeDocument?.versions.at(-1)?.reason).toBe('tool-apply');
+    expect(result.current.activeDocument?.scoreInfo).toMatchObject({
+      subtitle: 'A new subtitle', key: 'G', tempoText: '♩ = 90', measures: 2,
+    });
+    expect(result.current.activeDocument?.history?.at(-1)?.scoreInfo.subtitle).toBe('A new subtitle');
+    expect(result.current.activeAnchor).toEqual({ startMeasure: 1, endMeasure: 2 });
+  });
+
+  it('keeps subtitle metadata synchronized when raw ABC or metadata edits remove it', async () => {
+    const subtitleDocument: FileDocument = {
+      ...sampleDoc,
+      abcSource: 'X:1\nT:IDB Score\nT:Old subtitle\nK:C\nCDEF|',
+      scoreInfo: { title: 'IDB Score', subtitle: 'Old subtitle' },
+    };
+    localStorage.setItem('chorale.workspace.activeFileId', subtitleDocument.id);
+    vi.spyOn(storageAdapter, 'getDocuments').mockResolvedValue([subtitleDocument]);
+    const { result } = renderHook(() => useDocumentStore());
+    await waitFor(() => expect(result.current.hydrationStatus).toBe('ready'));
+
+    act(() => result.current.handleAbcChange('X:1\nT:IDB Score\nT:Raw subtitle\nK:C\nCDEF|'));
+    expect(result.current.activeDocument?.scoreInfo.subtitle).toBe('Raw subtitle');
+
+    act(() => result.current.handleUpdateMetadata({ subtitle: '' }));
+    expect(result.current.activeDocument?.scoreInfo.subtitle).toBeUndefined();
+    expect(result.current.activeDocument?.history?.at(-1)?.scoreInfo.subtitle).toBeUndefined();
+  });
+
   it('rehydrates accepted and manual annotations after an autosaved reload', async () => {
     vi.restoreAllMocks();
     localStorage.setItem('chorale.workspace.activeFileId', sampleDoc.id);

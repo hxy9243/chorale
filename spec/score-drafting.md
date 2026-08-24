@@ -47,7 +47,7 @@ user has explicitly entered proposal preview.
 `ScoreSnapshot` retains an internal source slice and absolute source range for every written measure
 and active voice. The public `read_measure_range` result remains concise and unchanged.
 
-All manual and agent-authored score edits pass through one pure mutation function:
+Focused manual and agent-authored measure edits pass through one pure mutation function:
 
 ```ts
 type MeasureMutation =
@@ -57,15 +57,28 @@ type MeasureMutation =
 ```
 
 - Insert adds 1 through 32 full-measure rests to every active voice.
-- Replace requires the same written-measure count and voice set. Multi-voice replacement uses
-  explicit `[V:<id>]` sections.
+- Replace requires the same written-measure count and must retain every existing voice. Multi-voice
+  replacement uses explicit `[V:<id>]` sections. A replacement may add voices; each added voice is
+  declared as a separate staff and padded with full-measure rests outside the selected range.
 - Delete requires confirmation and cannot remove all measures.
-- Every mutation preserves all bytes outside the source segments it owns. Missing, overlapping, or
-  ambiguous segments; complex repeats or endings; and any structure that cannot be losslessly
-  isolated return `unsupported` and create no revision.
+- Every mutation preserves all bytes outside the source segments it owns. Adding a voice is the
+  narrow exception: it also inserts the required declaration, score-layout entry, original-voice
+  marker when needed, and full-length voice body. Missing, overlapping, or ambiguous segments;
+  and any structure that cannot be losslessly isolated return `unsupported` and create no revision.
+  Content replacement may cross repeats and volta endings because it edits only the music between
+  leading and rightmost barlines and preserves the target's repeat/ending bytes. Insert and delete
+  remain unsupported at repeat or ending boundaries because they change measure structure.
 - Successful mutations use existing revision, history, autosave, undo, and redo paths. Replacement
   preserves annotation anchors. Insert/delete rebase anchors, and delete removes annotations wholly
   contained by the deleted span.
+
+Agent-authored structural edits use a second pure whole-score replacement validator. The candidate
+must be a non-empty, changed, valid single-score ABC source below 2 MB and may retain or increase the
+written-measure count. Existing annotation anchors remain attached to their original measures, while
+new measures begin without annotations. Within that boundary it may freely change
+headers and body fields, including global or inline `K:` and `Q:` fields, voice declarations, score
+layout, clefs, and notation content. The accepted document is still changed only through preview and
+Apply against the proposal's immutable source revision.
 
 ## 4. Selection controls
 
@@ -79,20 +92,32 @@ selection, editor, and preview state.
 
 ## 5. Agent score proposals
 
-The existing desktop agent adds `propose_measure_replacement`. It may emit at most one score proposal
-per run and only after reading the exact active selection. The selection is limited to 32 measures.
-The replacement must be below 64 KiB, target the same span, contain the same voice set and measure
-count, pass the shared mutation engine, and produce a valid complete score.
+The desktop agent exposes focused `propose_measure_replacement` and structural `propose_score_edit`
+tools. They share a limit of one score proposal per run. The active selection is an optional intent
+and navigation hint, not an authorization boundary: measure replacement may target any existing
+span after reading that exact proposed span, including when there is no active selection. A focused
+replacement is limited to 32 measures.
+The replacement must be below 64 KiB, target the same span, retain every existing voice and measure
+count, pass the shared mutation engine, and produce a valid complete score. It may add explicitly
+named voices, which become complete score-length parts with rests outside the proposed span.
+
+`propose_score_edit` accepts a complete candidate ABC source already available in the immutable music
+context. It does not require a selection. The shared whole-score validator checks size, syntax,
+non-destructive measure expansion, and that the candidate differs from the source before a proposal
+is created. The agent may extend a score to the musically appropriate length without pre-creating or
+selecting destination measures.
 
 Score proposals are persisted separately from annotation proposals and include their source document
-and revision. A proposal card provides **Preview**, **Apply**, and **Discard**.
+and revision. The complete conversation, including large whole-score replacement payloads, is backed
+by IndexedDB; local storage remains a synchronous mirror and may omit score payloads when its quota is
+exhausted. A proposal card provides **Preview**, **Apply**, and **Discard**.
 
 - Preview reconstructs the candidate score and temporarily routes the main score surface and playback
   dock to it without mutating the document.
 - A persistent banner identifies the affected measures and provides **Back to current**.
 - Apply rechecks document identity and revision, commits one `tool-apply` revision, and exits preview.
 - A revision mismatch marks the proposal Outdated. Discard creates no history.
-- Without an exact selection/read or safe source segmentation, the agent explains the recovery action
+- Without an exact read of the proposed span or safe source segmentation, the agent explains the recovery action
   and emits no proposal.
 
 Existing annotation proposals and old conversations remain backward compatible through optional
@@ -100,6 +125,5 @@ score-proposal fields.
 
 ## 6. Deferred
 
-Note-entry controls, drag editing, configurable instruments or staff counts, agent-driven insertion or
-deletion, metadata changes, repair loops, side-by-side comparison, arbitrary orchestration, and a
-general lossless ABC serializer are outside this MVP.
+Note-entry controls, drag editing, agent-driven measure removal, repair loops, side-by-side comparison,
+and a general lossless ABC serializer are outside this MVP.

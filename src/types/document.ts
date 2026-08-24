@@ -87,8 +87,10 @@ export type ScoreChangeProposal = {
   documentId: FileId;
   sourceRevision: RevisionNumber;
   state: ProposalState;
+  kind?: 'replace-measures' | 'replace-score';
   span: MeasureSpan;
   summary: string;
+  /** Selected-range ABC for replace-measures; complete ABC source for replace-score. */
   replacementAbc: string;
   validation: { status: 'valid' | 'invalid'; errors: string[] };
 };

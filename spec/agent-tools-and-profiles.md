@@ -106,7 +106,7 @@ type MusicalPosition = {
 
 ## 5. Tool contracts
 
-The runtime exposes five score tools in addition to `select_analysis_profile`.
+The runtime exposes six score tools in addition to `select_analysis_profile`.
 
 ### 5.1 `get_score_summary`
 
@@ -207,16 +207,34 @@ The main process validates at most 32 inputs and creates server-controlled IDs, 
 ### 5.5 `propose_measure_replacement`
 
 The tool accepts an inclusive target span, a short summary, and replacement ABC. It requires an
-active selection of at most 32 measures and a prior `read_measure_range` call for that exact span.
-Only one score proposal may be emitted per run. The replacement must preserve the selected measure
-count and voice set, remain below 64 KiB, and pass both the shared fail-closed mutation engine and
-full-score validation. The tool emits `score-proposal-created` and never mutates `FileDocument`.
+exact prior `read_measure_range` call for the proposed span, which may contain at most 32 measures.
+The active selection is an optional intent and navigation hint; it is not required and does not
+constrain the proposed span.
+Only one score proposal may be emitted per run. The replacement must preserve the proposed measure
+count and every existing voice, remain below 64 KiB, and pass both the shared fail-closed mutation
+engine and full-score validation. Explicitly named new voices are allowed; the mutation engine adds
+them as complete score-length parts with rests outside the proposed span. Proposed ranges may cross
+repeat and volta boundaries; the mutation engine preserves the target barline and ending bytes while
+replacing musical content. The tool emits
+`score-proposal-created` and never mutates `FileDocument`.
+
+### 5.6 `propose_score_edit`
+
+The tool accepts a short summary and a complete candidate ABC source. It does not require a measure
+selection because the immutable prompt context already contains the full source. The candidate may
+change key and tempo headers, add inline key or tempo changes, add or reconfigure voices and staves,
+and make other valid ABC mutations. It must differ from the source, remain below 2 MB, parse as valid
+ABC, and may retain or increase the written-measure count. Added measures require no pre-existing
+selection and begin without annotations; removing existing measures remains unsupported so persisted
+anchors cannot be orphaned. It shares the
+one-score-proposal-per-run limit with `propose_measure_replacement`, emits
+`score-proposal-created`, and never mutates `FileDocument`.
 
 ## 6. Tool and IPC invariants
 
 - Invalid tool input returns a compact structured error.
 - Tools receive no credentials and no filesystem or network access.
-- There is no `remove_annotations`, direct ABC mutation, metadata mutation, agent-driven insertion/deletion, or navigation tool.
+- There is no `remove_annotations`, direct document mutation, agent-driven measure removal, or navigation tool.
 - Tool execution uses Pi's built-in loop; Chorale forwards normalized lifecycle events rather than implementing a second loop.
 - Late events are ignored after cancellation or supersession.
 

@@ -203,13 +203,16 @@ export const validateScoreChangeProposal = (value: unknown): ScoreChangeProposal
   const span = normalizeMeasureSpan(value.span);
   const summary = nonEmptyString(value.summary);
   const replacementAbc = typeof value.replacementAbc === 'string' ? value.replacementAbc : null;
+  const kind = value.kind === undefined || value.kind === 'replace-measures' || value.kind === 'replace-score'
+    ? value.kind as ScoreChangeProposal['kind']
+    : null;
   const validation = isRecord(value.validation) ? value.validation : null;
   const validationErrors = validation && Array.isArray(validation.errors)
     ? validation.errors.filter((error): error is string => typeof error === 'string')
     : null;
   if (
-    !id || !runId || !documentId || !span || !summary || replacementAbc === null
-    || new TextEncoder().encode(replacementAbc).byteLength >= 64 * 1024
+    !id || !runId || !documentId || !span || !summary || replacementAbc === null || kind === null
+    || new TextEncoder().encode(replacementAbc).byteLength >= (kind === 'replace-score' ? 2_000_000 : 64 * 1024)
     || !Number.isSafeInteger(value.sourceRevision) || (value.sourceRevision as number) <= 0
     || !['proposed', 'accepted', 'rejected', 'outdated', 'unavailable'].includes(value.state as string)
     || !validation || !['valid', 'invalid'].includes(validation.status as string)
@@ -221,6 +224,7 @@ export const validateScoreChangeProposal = (value: unknown): ScoreChangeProposal
     documentId,
     sourceRevision: value.sourceRevision as number,
     state: value.state as ScoreChangeProposal['state'],
+    ...(kind ? { kind } : {}),
     span,
     summary,
     replacementAbc,

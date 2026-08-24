@@ -38,6 +38,7 @@ import {
 } from '../music/annotationMutations';
 import {
   applyMeasureMutation,
+  applyWholeScoreReplacement,
   rebaseAnnotationsForMutation,
   type MeasureMutation,
   type MeasureMutationResult,
@@ -196,6 +197,7 @@ export const useDocumentStore = () => {
           scoreInfo: {
             ...doc.scoreInfo,
             title: parsedMeta.title || doc.scoreInfo.title,
+            subtitle: parsedMeta.subtitle,
             composer: parsedMeta.composer || doc.scoreInfo.composer,
             key: parsedMeta.key || doc.scoreInfo.key,
             meter: parsedMeta.meter || doc.scoreInfo.meter,
@@ -245,7 +247,7 @@ export const useDocumentStore = () => {
           scoreInfo: {
             ...doc.scoreInfo,
             title: parsedMeta.title || doc.scoreInfo.title,
-            subtitle: parsedMeta.subtitle !== undefined ? parsedMeta.subtitle : doc.scoreInfo.subtitle,
+            subtitle: parsedMeta.subtitle,
             composer: parsedMeta.composer || doc.scoreInfo.composer,
             key: parsedMeta.key || doc.scoreInfo.key,
             meter: parsedMeta.meter || doc.scoreInfo.meter,
@@ -317,6 +319,27 @@ export const useDocumentStore = () => {
       { measures: (() => {
         try { return extractScore(result.abcSource).measures.length; } catch { return activeDocument.scoreInfo.measures; }
       })() },
+    );
+    setDocuments((current) => current.map((document) => (
+      document.id === activeDocument.id ? updatedDocument : document
+    )));
+    setActiveAnchor(result.affectedSpan);
+    setError(null);
+    return result;
+  }, [activeDocument]);
+
+  const handleWholeScoreReplacement = useCallback((
+    replacementAbc: string,
+    reason: ScoreVersion['reason'] = 'tool-apply',
+  ): MeasureMutationResult => {
+    if (!activeDocument) return { status: 'invalid', errors: ['Open a score before editing it.'] };
+    const result = applyWholeScoreReplacement(activeDocument.abcSource, replacementAbc);
+    if (result.status !== 'valid') return result;
+    const updatedDocument = updateDocumentAbc(
+      activeDocument,
+      result.abcSource,
+      reason,
+      { measures: result.affectedSpan.endMeasure },
     );
     setDocuments((current) => current.map((document) => (
       document.id === activeDocument.id ? updatedDocument : document
@@ -587,6 +610,7 @@ export const useDocumentStore = () => {
     handleUpdateMetadata,
     handleCreateDocument,
     handleMeasureMutation,
+    handleWholeScoreReplacement,
     handleProcessMusicXml,
     handleDeleteDocument,
     handleDuplicateDocument,

@@ -18,6 +18,8 @@ export const NewScoreModal: React.FC<NewScoreModalProps> = ({ open, onClose, onC
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const [title, setTitle] = useState('Untitled score');
   const [subtitle, setSubtitle] = useState('');
   const [composer, setComposer] = useState('');
@@ -46,7 +48,7 @@ export const NewScoreModal: React.FC<NewScoreModalProps> = ({ open, onClose, onC
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== 'Tab' || !dialogRef.current) return;
@@ -68,7 +70,7 @@ export const NewScoreModal: React.FC<NewScoreModalProps> = ({ open, onClose, onC
       document.removeEventListener('keydown', handleKeyDown);
       returnFocusRef.current?.focus();
     };
-  }, [onClose, open]);
+  }, [open]);
 
   if (!open) return null;
 

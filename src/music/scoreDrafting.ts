@@ -7,6 +7,7 @@ export const MIN_DRAFT_MEASURES = 1;
 export const MAX_DRAFT_MEASURES = 32;
 export const MIN_DRAFT_TEMPO = 20;
 export const MAX_DRAFT_TEMPO = 300;
+export const MAX_SCORE_EDIT_BYTES = 2_000_000;
 
 export type NewScoreInput = Readonly<{
   title: string;
@@ -30,6 +31,45 @@ export type MeasureMutation =
 export type MeasureMutationResult =
   | Readonly<{ status: 'valid'; abcSource: string; affectedSpan: MeasureSpan }>
   | Readonly<{ status: 'invalid' | 'unsupported'; errors: readonly string[] }>;
+
+export const applyWholeScoreReplacement = (
+  abcSource: string,
+  replacementAbc: string,
+): MeasureMutationResult => {
+  if (!replacementAbc.trim()) {
+    return { status: 'invalid', errors: ['Replacement score ABC cannot be empty.'] };
+  }
+  if (new TextEncoder().encode(replacementAbc).byteLength >= MAX_SCORE_EDIT_BYTES) {
+    return { status: 'invalid', errors: ['Replacement score ABC must be smaller than 2 MB.'] };
+  }
+  if (replacementAbc === abcSource) {
+    return { status: 'invalid', errors: ['Replacement score ABC must change the score.'] };
+  }
+  if ([...replacementAbc.matchAll(/^X:/gm)].length > 1) {
+    return { status: 'invalid', errors: ['Replacement score ABC must contain only one tune.'] };
+  }
+
+  try {
+    const source = extractScore(abcSource);
+    const replacement = extractScore(replacementAbc);
+    if (replacement.measures.length < source.measures.length) {
+      return {
+        status: 'invalid',
+        errors: [`Replacement score cannot remove the existing ${source.measures.length} written measure${source.measures.length === 1 ? '' : 's'}.`],
+      };
+    }
+    return {
+      status: 'valid',
+      abcSource: replacementAbc,
+      affectedSpan: { startMeasure: 1, endMeasure: replacement.measures.length },
+    };
+  } catch (error) {
+    return {
+      status: 'invalid',
+      errors: [error instanceof Error ? error.message : 'Replacement score ABC is invalid.'],
+    };
+  }
+};
 
 const sanitizeHeaderValue = (value: string): string => Array.from(
   value.replace(/[\r\n\u2028\u2029]+/g, ' '),
@@ -132,6 +172,7 @@ const sourceForVoice = (
 const validateWritableSource = (
   measures: readonly WrittenMeasure[],
   voices: readonly string[],
+  mode: 'content' | 'structure' = 'structure',
 ): string[] => {
   const errors: string[] = [];
   for (const measure of measures) {
@@ -141,15 +182,23 @@ const validateWritableSource = (
     }
     for (const voiceId of voices) {
       const source = sourceForVoice(measure, voiceId);
-      if (!source || source.segments.length !== 1 || source.barRanges.length !== 1) {
+      if (
+        !source
+        || source.segments.length !== 1
+        || source.barRanges.length < 1
+        || (mode === 'structure' && source.barRanges.length !== 1)
+      ) {
         errors.push(`Measure ${measure.measureNumber}, voice ${voiceId}, does not have one isolated source segment.`);
         continue;
       }
-      if (source.barTypes.some((barType) => !plainBarTypes.has(barType))) {
+      if (source.segments.some((segment) => /\[Q:[^\]]+\]/i.test(segment.abcSlice))) {
+        errors.push(`Measure ${measure.measureNumber}, voice ${voiceId}, contains an inline tempo change.`);
+      }
+      if (mode === 'structure' && source.barTypes.some((barType) => !plainBarTypes.has(barType))) {
         errors.push(`Measure ${measure.measureNumber} crosses a repeat or ending boundary.`);
       }
       const segment = source.segments[0].abcRange;
-      const bar = source.barRanges[0];
+      const bar = source.barRanges.at(-1)!;
       if (bar.start < segment.start || bar.end > segment.end || bar.start >= bar.end) {
         errors.push(`Measure ${measure.measureNumber}, voice ${voiceId}, has incomplete source offsets.`);
       }
@@ -190,10 +239,11 @@ const replacementSnapshot = (
   if (score.voices.length > 1 && explicitVoices.length === 0) {
     throw new Error('Multi-voice replacement ABC must use [V:<id>] sections.');
   }
+  const replacementVoices = [...new Set([...score.voices, ...explicitVoices])];
   const body = score.voices.length === 1 && explicitVoices.length === 0
     ? `[V:${score.voices[0]}] ${replacementAbc}`
     : replacementAbc;
-  const voiceDeclarations = score.voices.map((voiceId) => `V:${voiceId}`).join('\n');
+  const voiceDeclarations = replacementVoices.map((voiceId) => `V:${voiceId}`).join('\n');
   return extractScore([
     'X:1',
     `M:${meter}`,
@@ -206,9 +256,114 @@ const replacementSnapshot = (
 };
 
 const measureContent = (source: VoiceMeasureSource): Readonly<{ start: number; end: number }> => ({
-  start: source.segments[0].abcRange.start,
-  end: source.barRanges[0].start,
+  start: source.barRanges.length > 1
+    ? source.barRanges.at(-2)!.end
+    : source.segments[0].abcRange.start,
+  end: source.barRanges.at(-1)!.start,
 });
+
+const addVoicesToScoreDirective = (
+  abcSource: string,
+  voiceIds: readonly string[],
+): SourceEdit | null => {
+  const directive = /^%%score\s+([^\n]*)$/m.exec(abcSource);
+  if (!directive || voiceIds.length === 0) return null;
+  const line = directive[0];
+  const closeBrace = line.lastIndexOf('}');
+  const addition = ` | ${voiceIds.join(' | ')}`;
+  const replacement = closeBrace >= 0
+    ? `${line.slice(0, closeBrace).trimEnd()}${addition} ${line.slice(closeBrace)}`
+    : `${line}${addition}`;
+  return {
+    start: directive.index,
+    end: directive.index + line.length,
+    replacement,
+  };
+};
+
+const addNewVoiceEdits = (
+  abcSource: string,
+  score: ExtractedScore,
+  replacement: ExtractedScore,
+  selectedStartIndex: number,
+  selectedEndIndex: number,
+  newVoiceIds: readonly string[],
+): SourceEdit[] | null => {
+  if (newVoiceIds.length === 0) return [];
+  const keyLine = /^K:[^\n]*(?:\n|$)/m.exec(abcSource);
+  if (!keyLine) return null;
+
+  const edits: SourceEdit[] = [];
+  const declaredVoices = new Set(
+    [...abcSource.matchAll(/^V:\s*([^\s]+)/gm)].map((match) => match[1]),
+  );
+  const missingDeclarations = [...score.voices, ...newVoiceIds]
+    .filter((voiceId, index, voices) => !declaredVoices.has(voiceId) && voices.indexOf(voiceId) === index);
+  if (missingDeclarations.length > 0) {
+    edits.push({
+      start: keyLine.index,
+      end: keyLine.index,
+      replacement: `${missingDeclarations.map((voiceId) => `V:${voiceId}`).join('\n')}\n`,
+    });
+  }
+
+  if (score.voices.length === 1 && !/(?:^|\n|\[)V:\s*/.test(abcSource)) {
+    const firstSource = sourceForVoice(score.measures[0], score.voices[0]);
+    const firstSegment = firstSource?.segments[0];
+    if (!firstSegment) return null;
+    edits.push({
+      start: firstSegment.abcRange.start,
+      end: firstSegment.abcRange.start,
+      replacement: `[V:${score.voices[0]}] `,
+    });
+  }
+
+  const scoreDirectiveEdit = addVoicesToScoreDirective(abcSource, newVoiceIds);
+  if (scoreDirectiveEdit) edits.push(scoreDirectiveEdit);
+
+  const voiceLines: string[] = [];
+  for (const voiceId of newVoiceIds) {
+    const measures: string[] = [];
+    for (const [measureIndex, targetMeasure] of score.measures.entries()) {
+      const barSource = score.voices
+        .map((existingVoiceId) => sourceForVoice(targetMeasure, existingVoiceId))
+        .find((source) => source?.segments.length === 1 && source.barRanges.length >= 1);
+      if (!barSource) return null;
+      const bar = barSource.barRanges.at(-1)!;
+      const barText = abcSource.slice(bar.start, bar.end).trim();
+      if (!barText) return null;
+      const leadingBarText = barSource.barRanges.length > 1
+        ? barSource.barRanges.slice(0, -1).map((range) => abcSource.slice(range.start, range.end).trim()).join(' ')
+        : '';
+
+      let content = 'Z';
+      if (measureIndex >= selectedStartIndex && measureIndex <= selectedEndIndex) {
+        const replacementMeasure = replacement.measures[measureIndex - selectedStartIndex];
+        const replacementSource = sourceForVoice(replacementMeasure, voiceId);
+        if (!replacementSource || replacementSource.segments.length !== 1 || replacementSource.barRanges.length !== 1) {
+          return null;
+        }
+        const contentRange = measureContent(replacementSource);
+        content = replacementSource.segments[0].abcSlice.slice(
+          contentRange.start - replacementSource.segments[0].abcRange.start,
+          contentRange.end - replacementSource.segments[0].abcRange.start,
+        ).trim();
+        if (!content) return null;
+      }
+      measures.push(`${leadingBarText ? `${leadingBarText} ` : ''}${content} ${barText}`);
+    }
+    voiceLines.push(`[V:${voiceId}] ${measures.join(' ')}`);
+  }
+
+  const trailingWhitespace = /\s*$/.exec(abcSource)?.[0] || '';
+  const insertionPoint = abcSource.length - trailingWhitespace.length;
+  edits.push({
+    start: insertionPoint,
+    end: insertionPoint,
+    replacement: `\n${voiceLines.join('\n')}`,
+  });
+  return edits;
+};
 
 export const applyMeasureMutation = (
   abcSource: string,
@@ -224,11 +379,16 @@ export const applyMeasureMutation = (
   const spanError = validateSpan(mutation.span, score.measures.length);
   if (spanError) return { status: 'invalid', errors: [spanError] };
   const selectedMeasures = score.measures.slice(mutation.span.startMeasure - 1, mutation.span.endMeasure);
-  const sourceErrors = validateWritableSource(selectedMeasures, score.voices);
+  const sourceErrors = validateWritableSource(
+    selectedMeasures,
+    score.voices,
+    mutation.kind === 'replace' ? 'content' : 'structure',
+  );
   if (sourceErrors.length > 0) return { status: 'unsupported', errors: sourceErrors };
 
   const edits: SourceEdit[] = [];
   let expectedMeasureCount = score.measures.length;
+  let expectedVoiceIds = score.voices;
   let affectedSpan: MeasureSpan = mutation.span;
 
   if (mutation.kind === 'insert') {
@@ -281,6 +441,9 @@ export const applyMeasureMutation = (
     if (new TextEncoder().encode(mutation.replacementAbc).byteLength >= 64 * 1024) {
       return { status: 'invalid', errors: ['Replacement ABC must be smaller than 64 KiB.'] };
     }
+    if (/\[Q:[^\]]+\]/i.test(mutation.replacementAbc)) {
+      return { status: 'invalid', errors: ['Focused replacement ABC cannot change tempo. Use a whole-score edit instead.'] };
+    }
     let replacement: ExtractedScore;
     try {
       replacement = replacementSnapshot(abcSource, score, mutation.replacementAbc);
@@ -293,13 +456,11 @@ export const applyMeasureMutation = (
         errors: [`Replacement must contain ${selectedMeasures.length} measure${selectedMeasures.length === 1 ? '' : 's'}.`],
       };
     }
-    if (
-      replacement.voices.length !== score.voices.length
-      || score.voices.some((voiceId) => !replacement.voices.includes(voiceId))
-    ) {
-      return { status: 'invalid', errors: [`Replacement voices must be exactly: ${score.voices.join(', ')}.`] };
+    if (score.voices.some((voiceId) => !replacement.voices.includes(voiceId))) {
+      return { status: 'invalid', errors: [`Replacement must retain every existing voice: ${score.voices.join(', ')}.`] };
     }
-    const replacementErrors = validateWritableSource(replacement.measures, score.voices);
+    expectedVoiceIds = replacement.voices;
+    const replacementErrors = validateWritableSource(replacement.measures, replacement.voices, 'content');
     if (replacementErrors.length > 0) return { status: 'invalid', errors: replacementErrors };
     for (const [index, targetMeasure] of selectedMeasures.entries()) {
       const replacementMeasure = replacement.measures[index];
@@ -318,6 +479,19 @@ export const applyMeasureMutation = (
         });
       }
     }
+    const newVoiceIds = replacement.voices.filter((voiceId) => !score.voices.includes(voiceId));
+    const newVoiceEdits = addNewVoiceEdits(
+      abcSource,
+      score,
+      replacement,
+      mutation.span.startMeasure - 1,
+      mutation.span.endMeasure - 1,
+      newVoiceIds,
+    );
+    if (newVoiceEdits === null) {
+      return { status: 'unsupported', errors: ['The score source cannot safely declare and align the new voices.'] };
+    }
+    edits.push(...newVoiceEdits);
   }
 
   const candidate = applySourceEdits(abcSource, edits);
@@ -330,10 +504,10 @@ export const applyMeasureMutation = (
       return { status: 'invalid', errors: [`Expected ${expectedMeasureCount} measures after the edit, but parsed ${candidateScore.measures.length}.`] };
     }
     if (
-      candidateScore.voices.length !== score.voices.length
-      || score.voices.some((voiceId) => !candidateScore.voices.includes(voiceId))
+      candidateScore.voices.length !== expectedVoiceIds.length
+      || expectedVoiceIds.some((voiceId) => !candidateScore.voices.includes(voiceId))
     ) {
-      return { status: 'invalid', errors: ['The edit changed the score voice set.'] };
+      return { status: 'invalid', errors: ['The edited score did not retain the expected voices.'] };
     }
   } catch (error) {
     return { status: 'invalid', errors: [error instanceof Error ? error.message : 'The edited score ABC is invalid.'] };
@@ -422,7 +596,7 @@ export const readMeasureReplacementAbc = (
   const spanError = validateSpan(span, score.measures.length);
   if (spanError) throw new Error(spanError);
   const measures = score.measures.slice(span.startMeasure - 1, span.endMeasure);
-  const errors = validateWritableSource(measures, score.voices);
+  const errors = validateWritableSource(measures, score.voices, 'content');
   if (errors.length > 0) throw new Error(errors.join(' '));
   const sections = score.voices.map((voiceId) => {
     const music = measures.map((measure) => sourceForVoice(measure, voiceId)!.segments[0].abcSlice.trim()).join(' ');

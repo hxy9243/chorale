@@ -1,12 +1,15 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CONVERSATION_STORAGE_KEY,
+  conversationNeedsDurableHydration,
   VERSION_2_CONVERSATION_STORAGE_KEY,
   clearConversation,
   loadConversation,
+  loadConversationAsync,
   makeEmptyConversation,
   migrateConversationStore,
   saveConversation,
+  saveConversationAsync,
 } from '../conversationStore';
 import type { ChatMessage, PersistedFileConversation } from '../types';
 
@@ -32,7 +35,10 @@ const buildConversation = (nextMessages: ChatMessage[]): PersistedFileConversati
 };
 
 describe('conversationStore', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
 
   it('round-trips the versioned Chorale conversation schema', () => {
     saveConversation(fileId, buildConversation(messages));
@@ -44,6 +50,48 @@ describe('conversationStore', () => {
       proposals: [],
     })));
     expect(JSON.parse(localStorage.getItem(CONVERSATION_STORAGE_KEY) ?? '{}').version).toBe(3);
+  });
+
+  it('round-trips conversations through durable storage', async () => {
+    await saveConversationAsync(fileId, buildConversation(messages));
+
+    await expect(loadConversationAsync(fileId)).resolves.toMatchObject({
+      threads: [{ messages: [{ id: 'message-1', content: 'Explain this phrase.' }] }],
+    });
+  });
+
+  it('falls back to a compact local mirror when score proposals exceed local storage quota', () => {
+    const originalSetItem = Storage.prototype.setItem;
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
+      if (key === CONVERSATION_STORAGE_KEY && value.includes('replacementAbc')) {
+        throw new DOMException('Quota exceeded', 'QuotaExceededError');
+      }
+      return originalSetItem.call(this, key, value);
+    });
+    const scoreProposalMessage: ChatMessage = {
+      ...messages[0],
+      role: 'assistant',
+      scoreProposals: [{
+        id: 'score-proposal-large',
+        runId: 'run-large',
+        documentId: fileId,
+        sourceRevision: 1,
+        state: 'proposed',
+        kind: 'replace-score',
+        span: { startMeasure: 1, endMeasure: 1 },
+        summary: 'Large score rewrite.',
+        replacementAbc: 'X:1\nK:C\nC4 |]',
+        validation: { status: 'valid', errors: [] },
+      }],
+    };
+
+    saveConversation(fileId, buildConversation([scoreProposalMessage]));
+
+    expect(conversationNeedsDurableHydration(fileId)).toBe(true);
+    expect(localStorage.getItem(CONVERSATION_STORAGE_KEY)).not.toContain('replacementAbc');
+    saveConversation('doc-small', buildConversation(messages));
+    expect(conversationNeedsDurableHydration(fileId)).toBe(true);
+    setItem.mockRestore();
   });
 
   it('purely migrates version 2 messages with default proposal and tool metadata', () => {
