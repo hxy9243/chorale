@@ -420,8 +420,8 @@ try {
     };
     try {
       await waitFor(
-        () => document.querySelectorAll('.score-reference-link').length === 2
-          ? [...document.querySelectorAll('.score-reference-link')]
+        () => document.querySelectorAll('.markdown-message .score-reference-link').length === 2
+          ? [...document.querySelectorAll('.markdown-message .score-reference-link')]
           : null,
         'Seeded Markdown score links did not render.',
       );
@@ -442,7 +442,7 @@ try {
     window.addEventListener('chorale-playback-state', (event) => {
       playbackStates.push(Boolean(event.detail?.isPlaying));
     });
-    document.querySelectorAll('.score-reference-link')[0].click();
+    document.querySelectorAll('.markdown-message .score-reference-link')[0].click();
     try {
       await waitFor(
         () => document.querySelector('.active-anchor-badge')?.textContent?.includes('m. 2')
@@ -452,7 +452,7 @@ try {
       );
     } catch (error) {
       throw new Error(error.message + ' ' + JSON.stringify({
-        links: [...document.querySelectorAll('.score-reference-link')].map((link) => link.textContent),
+        links: [...document.querySelectorAll('.markdown-message .score-reference-link')].map((link) => link.textContent),
         badge: document.querySelector('.active-anchor-badge')?.textContent,
         pressed: [...document.querySelectorAll('.abcjs-measure-hit-area[aria-pressed="true"]')]
           .map((element) => element.getAttribute('data-measure')),
@@ -469,7 +469,7 @@ try {
       playTitle: document.querySelector('.main-play-buttons button')?.getAttribute('title'),
     };
 
-    document.querySelectorAll('.score-reference-link')[1].click();
+    document.querySelectorAll('.markdown-message .score-reference-link')[1].click();
     try {
       await waitFor(
         () => document.querySelectorAll('.abcjs-measure-hit-area[aria-pressed="true"]').length === 3,
@@ -789,12 +789,14 @@ try {
     }
     const fileRailWidth = document.querySelector('.file-rail')?.getBoundingClientRect().width;
     const filePanelStack = document.querySelector('.file-rail-panel-stack');
-    const importButton = document.querySelector('.file-rail-section:not([hidden]) .import-btn');
-    const importBounds = importButton?.getBoundingClientRect();
+    const createActions = document.querySelector('.file-rail-section:not([hidden]) .file-create-actions');
+    const createActionButtons = [...(createActions?.querySelectorAll('.import-btn') ?? [])];
+    const createActionWidths = createActionButtons.map((button) => button.getBoundingClientRect().width);
+    const createActionsBounds = createActions?.getBoundingClientRect();
     const filePanelBounds = filePanelStack?.getBoundingClientRect();
-    const importCenterDelta = importBounds && filePanelBounds
+    const createActionsCenterDelta = createActionsBounds && filePanelBounds
       ? Math.abs(
-        (importBounds.left + importBounds.width / 2)
+        (createActionsBounds.left + createActionsBounds.width / 2)
         - (filePanelBounds.left + filePanelBounds.width / 2)
       )
       : null;
@@ -1005,8 +1007,8 @@ try {
       railSectionNames: [...document.querySelectorAll('.rail-section-title')].map((element) => element.textContent),
       railTabs,
       visibleRailPanelCount,
-      importWidth: importBounds?.width ?? null,
-      importCenterDelta,
+      createActionWidths,
+      createActionsCenterDelta,
       fileRailHorizontalOverflow,
       hasFileMoveButtons,
       hasScoreViewSwitch: Boolean(document.querySelector('.score-view-switch')),
@@ -1118,7 +1120,7 @@ try {
     `Left rail sections are incomplete (${shellState.railSectionNames.join(',')}).`,
   );
   assert(
-    shellState.railTabs.length === 3
+    shellState.railTabs.length === 4
       && shellState.railTabs.every((tab) => tab.label === tab.title && tab.text === ''),
     `Left rail tabs are not icon-only selections with tooltips (${JSON.stringify(shellState.railTabs)}).`,
   );
@@ -1127,11 +1129,11 @@ try {
     `Left rail displays more than one panel (${shellState.visibleRailPanelCount}).`,
   );
   assert(
-    Number.isFinite(shellState.importWidth)
-      && shellState.importWidth <= 145
-      && Number.isFinite(shellState.importCenterDelta)
-      && shellState.importCenterDelta <= 1,
-    `Import action is not compact and centered (${shellState.importWidth}px, delta ${shellState.importCenterDelta}px).`,
+    shellState.createActionWidths.length === 2
+      && Math.abs(shellState.createActionWidths[0] - shellState.createActionWidths[1]) <= 1
+      && Number.isFinite(shellState.createActionsCenterDelta)
+      && shellState.createActionsCenterDelta <= 1,
+    `New/Import actions are not equal and centered (${JSON.stringify(shellState.createActionWidths)}, delta ${shellState.createActionsCenterDelta}px).`,
   );
   assert(
     Number.isFinite(shellState.fileRailHorizontalOverflow)
