@@ -3,7 +3,7 @@ title: "Score Export Spec"
 description: "Specification for exporting scores to external formats via the file sidebar context menu — MusicXML first, PDF later"
 category: "core-workspace"
 date: 2026-08-22
-updated: 2026-08-22
+updated: 2026-08-23
 status: "implemented"
 source_files:
   - src/music/musicXmlExport.ts
@@ -27,7 +27,7 @@ related_specs:
 # Score Export Spec
 
 Date: 2026-08-22  
-Updated: 2026-08-22  
+Updated: 2026-08-23  
 Source: `spec/score-export.md`
 
 ## 1. Goal
@@ -42,14 +42,13 @@ Let a musician export a score to an interchange format from a right-click contex
 
 ## 3. Conversion pipeline (ABC → MusicXML)
 
-### 3.1 Library choice: `musicxml-io`
+### 3.1 Library choice: `abc-utils`
 
-- The conversion uses the **`musicxml-io`** npm package (MIT, TypeScript, browser-safe build): `parseAbc(abc)` → Score model → `serialize(score)` → MusicXML 4.0 string.
+- The conversion uses the **`abc-utils`** library (`github:hxy9243/abc-utils`, MIT, zero runtime dependencies, pure TypeScript): `abc2xml(abc, { fallbackTitle })` → `{ xml: string, warnings: string[] }` → MusicXML 4.0 string.
 - Rationale (evaluated against alternatives):
-  - No ABC→MusicXML writer exists in the current dependency tree (`abcjs`, `@educandu/abc-tools` are import/MIDI only).
-  - `abc2xml.py` has gold-standard fidelity but is Python-only; bundling Python into an Electron + web app adds a per-platform runtime, packaging matrix, and a second process boundary — rejected.
-  - Hand-rolling a writer was rejected as unnecessary given `musicxml-io` coverage of ABC v2.1 (voices, ties, chords, broken rhythm, grace notes, tuplets, repeats/voltas, chord symbols, lyrics).
-- Known limitation to verify during implementation: clef/name attributes on `V:` lines may be dropped by the upstream parser; if confirmed, patch at the adapter layer or upstream.
+  - Pure TypeScript with zero runtime dependencies; 100% browser and Node.js compatible.
+  - Replaces `musicxml-io` with robust ABC v2.1 feature coverage: multi-voice and grand-staff synchronization, clef attributes on `V:` headers, exact rational duration LCM divisions, ties (`<tied>`), chord notation, tuplets, lyrics, and guitar harmonies.
+  - Direct, clean API without intermediate DOM or Python subprocess dependencies.
 
 ### 3.2 Module placement
 
