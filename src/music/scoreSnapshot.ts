@@ -94,8 +94,19 @@ export type WrittenMeasure = Readonly<{
   events: readonly MeasuredScoreEvent[];
   activeKey: string;
   activeMeter: string;
+  voiceSources: readonly VoiceMeasureSource[];
   keyChange?: string;
   meterChange?: string;
+}>;
+
+export type VoiceMeasureSource = Readonly<{
+  voiceId: string;
+  segments: readonly Readonly<{
+    abcSlice: string;
+    abcRange: AbcSourceRange;
+  }>[];
+  barTypes: readonly string[];
+  barRanges: readonly AbcSourceRange[];
 }>;
 
 export type ExtractedScore = Readonly<{
@@ -180,6 +191,8 @@ type VoiceSegment = {
   voiceId: string;
   starts: number[];
   ends: number[];
+  barTypes: string[];
+  barRanges: AbcSourceRange[];
 };
 
 type MutableMeasure = {
@@ -255,11 +268,36 @@ const addElementRange = (
   measure.ends.push(range.end);
   let segment = measure.voiceSegments.at(-1);
   if (!segment || segment.voiceId !== voiceId) {
-    segment = { voiceId, starts: [], ends: [] };
+    segment = { voiceId, starts: [], ends: [], barTypes: [], barRanges: [] };
     measure.voiceSegments.push(segment);
   }
   segment.starts.push(range.start);
   segment.ends.push(range.end);
+  if (element.el_type === 'bar') {
+    segment.barTypes.push(element.type || 'unknown');
+    segment.barRanges.push(range);
+  }
+};
+
+const buildVoiceSources = (abc: string, measure: MutableMeasure): VoiceMeasureSource[] => {
+  const grouped = new Map<string, VoiceSegment[]>();
+  for (const segment of measure.voiceSegments) {
+    const current = grouped.get(segment.voiceId) || [];
+    current.push(segment);
+    grouped.set(segment.voiceId, current);
+  }
+  return [...grouped].map(([voiceId, segments]) => ({
+    voiceId,
+    segments: segments
+      .filter((segment) => segment.starts.length > 0 && segment.ends.length > 0)
+      .map((segment) => {
+        const start = Math.min(...segment.starts);
+        const end = Math.max(...segment.ends);
+        return { abcSlice: abc.slice(start, end), abcRange: { start, end } };
+      }),
+    barTypes: segments.flatMap((segment) => segment.barTypes),
+    barRanges: segments.flatMap((segment) => segment.barRanges),
+  }));
 };
 
 const formatVoiceSlice = (voiceId: string, sliceText: string): string => {
@@ -354,6 +392,15 @@ const freezeExtractedScore = (score: ExtractedScore): ExtractedScore => {
   const measures = score.measures.map((measure) => Object.freeze({
     ...measure,
     abcRange: Object.freeze({ ...measure.abcRange }),
+    voiceSources: Object.freeze(measure.voiceSources.map((voiceSource) => Object.freeze({
+      ...voiceSource,
+      segments: Object.freeze(voiceSource.segments.map((segment) => Object.freeze({
+        ...segment,
+        abcRange: Object.freeze({ ...segment.abcRange }),
+      }))),
+      barTypes: Object.freeze([...voiceSource.barTypes]),
+      barRanges: Object.freeze(voiceSource.barRanges.map((range) => Object.freeze({ ...range }))),
+    }))),
     events: Object.freeze(measure.events.map((event) => Object.freeze({
       ...event,
       position: Object.freeze({
@@ -538,6 +585,7 @@ export const extractScore = (abc: string): ExtractedScore => {
         events,
         activeKey: runningKey,
         activeMeter: runningMeter,
+        voiceSources: buildVoiceSources(abc, measure),
         ...(measure.keyChange ? { keyChange: measure.keyChange } : {}),
         ...(measure.meterChange ? { meterChange: measure.meterChange } : {}),
       };

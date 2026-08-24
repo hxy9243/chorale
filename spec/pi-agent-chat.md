@@ -52,7 +52,7 @@ Chat is a passage-aware Music Tutor attached to the active score file. Students 
 - Prompt send captures an immutable `MusicContextSnapshot` containing ABC, document identity and revision, active range, and canonical annotations.
 - One visible Music Tutor internally selects predefined analysis profiles.
 - Passage-specific claims require registered score tools.
-- Tool calls never mutate a document.
+- Tool calls never mutate a document directly. Score replacements remain proposals until the user applies one in the renderer.
 - Accepted annotations outlive the thread that created them.
 - Existing provider settings, streaming, cancellation, error mapping, panel resize, and desktop-only production behavior remain unchanged.
 
@@ -99,8 +99,9 @@ The score tool suite is:
 - `read_measure_range`
 - `get_annotations`
 - `propose_annotations`
+- `propose_measure_replacement`
 
-`read_measure_range` returns ABC source slices and is capped at 32 measures per call. `propose_annotations` is capped at 32 proposals per run. There is no agent removal, ABC mutation, metadata mutation, or navigation tool.
+`read_measure_range` returns ABC source slices and is capped at 32 measures per call. `propose_annotations` is capped at 32 proposals per run. `propose_measure_replacement` requires an exact active selection and prior exact-range read, and emits at most one validated replacement proposal per run. There is no agent removal, direct document mutation, metadata mutation, insertion/deletion, or navigation tool.
 
 ## 6. Proposal review
 

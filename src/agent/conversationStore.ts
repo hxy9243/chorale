@@ -5,7 +5,7 @@ import type {
   PersistedFileConversation,
 } from './types';
 import type { AgentProfileId } from '../types/document';
-import { validateAnnotationProposal } from '../music/documentSchema';
+import { validateAnnotationProposal, validateScoreChangeProposal } from '../music/documentSchema';
 
 export const LEGACY_CONVERSATION_STORAGE_KEY = 'chorale.pi-agent-conversation.v1';
 export const VERSION_2_CONVERSATION_STORAGE_KEY = 'chorale.pi-agent-conversation.v2';
@@ -53,6 +53,14 @@ const normalizeMessages = (messages: ChatMessage[]): ChatMessage[] => (
           return validated ? [validated] : [];
         })
       : [],
+    ...(Array.isArray(message.scoreProposals)
+      ? {
+          scoreProposals: message.scoreProposals.flatMap((proposal) => {
+            const validated = validateScoreChangeProposal(proposal);
+            return validated ? [validated] : [];
+          }),
+        }
+      : {}),
   }))
 );
 

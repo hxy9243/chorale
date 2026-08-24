@@ -18,6 +18,7 @@ export const summarizeToolStart = (event: ToolStartEvent): string => {
   }
   if (event.toolName === 'get_annotations') return 'Reading score annotations';
   if (event.toolName === 'propose_annotations') return 'Preparing annotation proposals';
+  if (event.toolName === 'propose_measure_replacement') return 'Composing replacement measures';
   return 'Using score tool';
 };
 
@@ -43,6 +44,7 @@ export const summarizeToolDone = (event: ToolDoneEvent): string => {
       ? 'Annotation proposals ready'
       : `Proposed ${count} annotation${count === 1 ? '' : 's'}`;
   }
+  if (event.toolName === 'propose_measure_replacement') return 'Score proposal ready';
   return 'Score tool complete';
 };
 

@@ -11,6 +11,8 @@ import { AbcEditor } from './components/AbcEditor';
 import { AgentChatPanel } from './components/AgentChatPanel';
 import { AISettingsModal } from './components/AISettingsModal';
 import { EditingHistoryModal } from './components/EditingHistoryModal';
+import { NewScoreModal } from './components/NewScoreModal';
+import { MeasureDraftingToolbar } from './components/MeasureDraftingToolbar';
 import { useAIProviders } from './agent/useAIProviders';
 import { useInterfaceZoom } from './hooks/useInterfaceZoom';
 import {
@@ -38,11 +40,12 @@ export {
 };
 import { useDocumentStore } from './hooks/useDocumentStore';
 import { useScoreExport } from './hooks/useScoreExport';
-import type { BuildResult, ScoreAnchor } from './types/document';
+import type { BuildResult, ScoreAnchor, ScoreChangeProposal } from './types/document';
 import { parseAbcHeaderMetadata, type ScoreMetadata } from './utils/abcMetadata';
 import type { PlaybackPosition } from './utils/repeatPlayback';
 import { prepareAbcForPlayback } from './utils/abcAudio';
 import { extractScore } from './music/scoreSnapshot';
+import { applyMeasureMutation, readMeasureReplacementAbc } from './music/scoreDrafting';
 import { FILE_RAIL_BAR_WIDTH } from './utils/workspaceSizing';
 
 const DEFAULT_SHEET_ZOOM = 100;
@@ -81,6 +84,8 @@ export const App: React.FC = () => {
     handleSelectFile,
     handleAbcChange,
     handleUpdateMetadata,
+    handleCreateDocument,
+    handleMeasureMutation,
     handleProcessMusicXml,
     handleDeleteDocument,
     handleDuplicateDocument,
@@ -113,9 +118,14 @@ export const App: React.FC = () => {
   const [tunes, setTunes] = useState<abcjs.TuneObject[] | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [newScoreModalOpen, setNewScoreModalOpen] = useState(false);
   const [buildStatus, setBuildStatus] = useState<BuildStatus>('idle');
   const [buildResult, setBuildResult] = useState<BuildResult | null>(null);
   const [scoreNavigationAnchor, setScoreNavigationAnchor] = useState<ScoreAnchor | null>(null);
+  const [scorePreview, setScorePreview] = useState<{
+    proposal: ScoreChangeProposal;
+    abcSource: string;
+  } | null>(null);
 
   const playbackPositionRef = useRef<PlaybackPosition>({
     currentSeconds: 0,
@@ -163,8 +173,9 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [canUndo, canRedo, handleUndo, handleRedo]);
 
+  const displayAbc = scorePreview?.abcSource || abcCode;
   const canRenderScore = buildStatus === 'valid';
-  const liveMetadata = useMemo(() => parseAbcHeaderMetadata(abcCode), [abcCode]);
+  const liveMetadata = useMemo(() => parseAbcHeaderMetadata(displayAbc), [displayAbc]);
   const scoreTitle = liveMetadata.title || activeDocument?.scoreInfo.title || activeFileName || 'Untitled score';
   const scoreComposer = liveMetadata.composer || activeDocument?.scoreInfo.composer || 'Unknown composer';
   const scoreKey = liveMetadata.key || activeDocument?.scoreInfo.key || 'C';
@@ -186,6 +197,15 @@ export const App: React.FC = () => {
       return 0;
     }
   }, [abcCode]);
+
+  const selectedMeasureAbc = useMemo(() => {
+    if (!activeAnchor) return '';
+    try {
+      return readMeasureReplacementAbc(abcCode, activeAnchor);
+    } catch {
+      return '';
+    }
+  }, [abcCode, activeAnchor]);
 
   const handleTuneRendered = useCallback((renderedTunes: abcjs.TuneObject[] | null) => {
     setTunes((prev) => {
@@ -209,7 +229,39 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     setScoreNavigationAnchor(null);
+    setScorePreview(null);
   }, [activeFileId]);
+
+  useEffect(() => {
+    if (scorePreview && scorePreview.proposal.sourceRevision !== abcRevision) {
+      setScorePreview(null);
+    }
+  }, [abcRevision, scorePreview]);
+
+  const handlePreviewScoreProposal = useCallback((proposal: ScoreChangeProposal) => {
+    if (proposal.documentId !== activeFileId || proposal.sourceRevision !== abcRevision) return 'outdated' as const;
+    const result = applyMeasureMutation(abcCode, {
+      kind: 'replace', span: proposal.span, replacementAbc: proposal.replacementAbc,
+    });
+    if (result.status !== 'valid') return 'invalid' as const;
+    setScorePreview({ proposal, abcSource: result.abcSource });
+    setActiveAnchor(proposal.span);
+    return 'ready' as const;
+  }, [abcCode, abcRevision, activeFileId, setActiveAnchor]);
+
+  const handleApplyScoreProposal = useCallback((proposal: ScoreChangeProposal) => {
+    if (proposal.documentId !== activeFileId || proposal.sourceRevision !== abcRevision) return 'outdated' as const;
+    const result = handleMeasureMutation({
+      kind: 'replace', span: proposal.span, replacementAbc: proposal.replacementAbc,
+    }, 'tool-apply');
+    if (result.status !== 'valid') return 'invalid' as const;
+    setScorePreview(null);
+    return 'accepted' as const;
+  }, [abcRevision, activeFileId, handleMeasureMutation]);
+
+  const handleDiscardScoreProposal = useCallback((proposal: ScoreChangeProposal) => {
+    setScorePreview((current) => current?.proposal.id === proposal.id ? null : current);
+  }, []);
 
   const getPlaybackPosition = useCallback(() => playbackPositionRef.current, []);
 
@@ -221,7 +273,7 @@ export const App: React.FC = () => {
   const lastActiveDocIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!activeDocument || !abcCode.trim()) {
+    if (!activeDocument || !displayAbc.trim()) {
       setBuildStatus('idle');
       setBuildResult(null);
       setTunes(null);
@@ -237,8 +289,8 @@ export const App: React.FC = () => {
     const timeout = window.setTimeout(() => {
       try {
         const parsedTunes = typeof abcjs.parseOnly === 'function'
-          ? abcjs.parseOnly(prepareAbcForPlayback(abcCode))
-          : abcjs.renderAbc(document.createElement('div'), prepareAbcForPlayback(abcCode));
+          ? abcjs.parseOnly(prepareAbcForPlayback(displayAbc))
+          : abcjs.renderAbc(document.createElement('div'), prepareAbcForPlayback(displayAbc));
         if (requestId !== buildRequestRef.current) return;
 
         const result: BuildResult = {
@@ -268,7 +320,7 @@ export const App: React.FC = () => {
     }, delay);
 
     return () => window.clearTimeout(timeout);
-  }, [abcCode, abcRevision, activeDocument]);
+  }, [displayAbc, abcRevision, activeDocument]);
 
   const workspaceMessage = useMemo(
     () => buildValidationMessage(buildStatus, buildResult),
@@ -307,6 +359,7 @@ export const App: React.FC = () => {
           activeFileId={activeFileId}
           onSelectDocument={handleSelectFile}
           onFileLoaded={handleProcessMusicXml}
+          onNewScore={() => setNewScoreModalOpen(true)}
           onDeleteDocument={handleDeleteDocument}
           onDuplicateDocument={handleDuplicateDocument}
           onExportDocument={handleExportDocument}
@@ -352,10 +405,32 @@ export const App: React.FC = () => {
 
               {!activeDocument && (
                 <div className="empty-sheet-placeholder" role="status">
-                  please import a music sheet to start working
+                  <strong>Start a score</strong>
+                  <span>Create a blank piano score or import an existing file.</span>
+                  <div className="empty-score-actions">
+                    <button type="button" onClick={() => setNewScoreModalOpen(true)}>New Score</button>
+                    <button type="button" onClick={() => document.querySelector<HTMLInputElement>('.file-rail input[type="file"]')?.click()}>Import Score</button>
+                  </div>
                 </div>
               )}
               {activeDocument && <>
+              {scorePreview && (
+                <div className="score-preview-banner" role="status">
+                  <span>Previewing {scorePreview.proposal.span.startMeasure === scorePreview.proposal.span.endMeasure
+                    ? `measure ${scorePreview.proposal.span.startMeasure}`
+                    : `measures ${scorePreview.proposal.span.startMeasure}–${scorePreview.proposal.span.endMeasure}`}</span>
+                  <button type="button" onClick={() => setScorePreview(null)}>Back to current</button>
+                </div>
+              )}
+
+              {activeAnchor && canRenderScore && !scorePreview && (
+                <MeasureDraftingToolbar
+                  key={`${activeFileId}:${activeAnchor.startMeasure}:${activeAnchor.endMeasure}`}
+                  span={activeAnchor}
+                  selectedAbc={selectedMeasureAbc}
+                  onMutate={handleMeasureMutation}
+                />
+              )}
               <div className="score-canvas">
                 <div className="score-sheet">
                   {buildStatus === 'invalid' && (
@@ -380,9 +455,10 @@ export const App: React.FC = () => {
                           tempoText={scoreTempoText}
                           tempoBpm={scoreTempoBpm}
                           onUpdateMetadata={handleMetadataChange}
+                          disabled={Boolean(scorePreview)}
                         />
                       )}
-                      abcCode={canRenderScore ? abcCode : ''}
+                      abcCode={canRenderScore ? displayAbc : ''}
                       annotations={activeDocument?.annotations || []}
                       activeAnchor={activeAnchor}
                       navigationAnchor={scoreNavigationAnchor}
@@ -450,7 +526,10 @@ export const App: React.FC = () => {
             )}
             <AgentChatPanel
               open={chatOpen}
-              onClose={() => setChatOpen(false)}
+              onClose={() => {
+                setChatOpen(false);
+                setScorePreview(null);
+              }}
               fileId={activeFileId}
               abcCode={abcCode}
               activeFileName={scoreTitle}
@@ -464,6 +543,9 @@ export const App: React.FC = () => {
               onOpenSettings={openSettings}
               onNavigateMeasure={handleNavigateMeasure}
               onApplyAnnotations={handleAddAnnotations}
+              onPreviewScoreProposal={handlePreviewScoreProposal}
+              onApplyScoreProposal={handleApplyScoreProposal}
+              onDiscardScoreProposal={handleDiscardScoreProposal}
             />
           </div>
           <RightRail
@@ -490,6 +572,11 @@ export const App: React.FC = () => {
         onUndo={handleUndo}
         onRedo={handleRedo}
         onRevertTo={handleRevertTo}
+      />
+      <NewScoreModal
+        open={newScoreModalOpen}
+        onClose={() => setNewScoreModalOpen(false)}
+        onCreate={handleCreateDocument}
       />
       {exportStatus.status === 'success' && (
         <div className="export-status-toast" role="status">

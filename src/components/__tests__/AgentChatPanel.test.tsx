@@ -4,7 +4,7 @@ import { AgentChatPanel } from '../AgentChatPanel';
 import { CONVERSATION_STORAGE_KEY } from '../../agent/conversationStore';
 import type { AIProviderState } from '../../agent/useAIProviders';
 import type { SheetAgentRequest } from '../../agent/aiTypes';
-import type { Annotation, AnnotationProposal } from '../../types/document';
+import type { Annotation, AnnotationProposal, ScoreChangeProposal } from '../../types/document';
 
 const agentSendMock = vi.hoisted(() => vi.fn());
 
@@ -110,11 +110,95 @@ const seedProposalThread = (
   }));
 };
 
+const seedScoreProposalThread = (fileId: string, scoreProposal: ScoreChangeProposal) => {
+  localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
+    version: 3,
+    files: {
+      [fileId]: {
+        activeThreadId: 'thread-score-review',
+        threads: [{
+          id: 'thread-score-review',
+          title: 'Review composition',
+          updatedAt: '2026-08-05T00:00:00.000Z',
+          messages: [{
+            id: 'assistant-score-review',
+            role: 'assistant',
+            content: 'I composed a replacement.',
+            createdAt: '2026-08-05T00:00:00.000Z',
+            status: 'complete',
+            scoreProposals: [scoreProposal],
+          }],
+        }],
+      },
+    },
+  }));
+};
+
 describe('AgentChatPanel', () => {
   beforeEach(() => {
     localStorage.clear();
     agentSendMock.mockReset();
     agentSendMock.mockImplementation(completeMockResponse);
+  });
+
+  it('previews, applies, and persists score proposal states', async () => {
+    const scoreProposal: ScoreChangeProposal = {
+      id: 'score-proposal-test',
+      runId: 'run-score-test',
+      documentId: 'doc-score-proposals',
+      sourceRevision: 4,
+      state: 'proposed',
+      span: { startMeasure: 1, endMeasure: 2 },
+      summary: 'A two-measure contrary-motion phrase.',
+      replacementAbc: 'C E G c | c G E C |',
+      validation: { status: 'valid', errors: [] },
+    };
+    seedScoreProposalThread('doc-score-proposals', scoreProposal);
+    const onPreview = vi.fn(() => 'ready' as const);
+    const onApply = vi.fn(() => 'accepted' as const);
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-score-proposals"
+        abcCode={'X:1\nM:4/4\nL:1/4\nK:C\nZ | Z |]'}
+        activeFileName="Draft"
+        revision={4}
+        ai={ai}
+        onOpenSettings={() => undefined}
+        onPreviewScoreProposal={onPreview}
+        onApplyScoreProposal={onApply}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Preview/ }));
+    expect(onPreview).toHaveBeenCalledWith(scoreProposal);
+    fireEvent.click(screen.getByRole('button', { name: /Apply/ }));
+    expect(onApply).toHaveBeenCalledWith(scoreProposal);
+    expect(screen.getByText('Applied')).toBeDefined();
+    await waitFor(() => expect(localStorage.getItem(CONVERSATION_STORAGE_KEY)).toContain('"state":"accepted"'));
+  });
+
+  it('marks a persisted score proposal outdated when the document revision changes', () => {
+    seedScoreProposalThread('doc-score-outdated', {
+      id: 'score-proposal-old', runId: 'run-old', documentId: 'doc-score-outdated', sourceRevision: 2,
+      state: 'proposed', span: { startMeasure: 1, endMeasure: 1 }, summary: 'Old music',
+      replacementAbc: 'C4 |', validation: { status: 'valid', errors: [] },
+    });
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-score-outdated"
+        abcCode={'X:1\nK:C\nC4 |]'}
+        activeFileName="Draft"
+        revision={3}
+        ai={ai}
+        onOpenSettings={() => undefined}
+      />,
+    );
+    expect(screen.getByText('Outdated')).toBeDefined();
+    expect((screen.queryByRole('button', { name: /Preview/ }) as HTMLButtonElement | null)).toBeNull();
   });
 
   it('sends the current ABC revision and persists the conversation', async () => {

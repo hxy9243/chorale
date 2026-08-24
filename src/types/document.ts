@@ -81,6 +81,18 @@ export type AnnotationProposal = {
   annotation: Annotation;
 };
 
+export type ScoreChangeProposal = {
+  id: string;
+  runId: string;
+  documentId: FileId;
+  sourceRevision: RevisionNumber;
+  state: ProposalState;
+  span: MeasureSpan;
+  summary: string;
+  replacementAbc: string;
+  validation: { status: 'valid' | 'invalid'; errors: string[] };
+};
+
 export type ScoreVersion = {
   revision: RevisionNumber;
   abcSource: string;

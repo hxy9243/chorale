@@ -60,7 +60,7 @@ Define ownership, persistence, and process boundaries for the passage-aware Musi
 ### Renderer UI
 
 - Files rail, score/editor workspace, playback dock, chat panel, and editing history timeline modal (`EditingHistoryModal`).
-- React-owned range state, proposal review state, annotation overlays, and visual metadata header (`ScoreMetadataHeader`).
+- React-owned range state, proposal review and preview state, annotation overlays, and visual metadata header (`ScoreMetadataHeader`).
 - No score parsing, provider credentials, or Pi tool execution.
 
 ### Document store
@@ -98,7 +98,7 @@ These modules are independent of React and Electron UI code.
 - Validates `MusicContextSnapshot` at the IPC boundary.
 - Constructs one immutable `ScoreSnapshot` per request.
 - Runs one visible Music Tutor with internal profile modules.
-- Exposes routing plus four score tools.
+- Exposes routing plus five score tools, including validated score-replacement proposals.
 - Projects Pi tool lifecycle into correlated renderer-safe events.
 - Writes diagnostic logs to the local agent trace store.
 - Never mutates `FileDocument` directly.
@@ -170,7 +170,7 @@ The same canonical `Annotation` type crosses document, context, IPC validation, 
 - Playback and chat-link navigation use `startMeasure` for a range.
 - Prompt snapshots never change after send.
 - One request creates one parsed `ScoreSnapshot`; tools do not reparse the score.
-- Tools and tool events cannot mutate document state.
+- Tools and tool events cannot mutate document state directly; the renderer may apply a validated proposal through the document store after an explicit user action.
 - Apply All validates all eligible proposals and commits all or none in one renderer transaction.
 - Pending proposals are actionable only when document ID and revision still match; otherwise they display Outdated.
 - Annotation edits do not create ABC revisions.
@@ -196,4 +196,4 @@ The same canonical `Annotation` type crosses document, context, IPC validation, 
 
 ## 7. Deferred architecture
 
-The current data model deliberately omits analysis fingerprints, stale annotation state, dependency tracking, regeneration metadata, agent-initiated deletion, and agent-authored ABC mutations. Those require a separate next-sprint design rather than dormant fields in the MVP schema.
+The current data model deliberately omits analysis fingerprints, stale annotation state, dependency tracking, regeneration metadata, agent-initiated insertion/deletion, and metadata mutation. Those require a separate next-sprint design rather than dormant fields in the MVP schema.

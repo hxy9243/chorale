@@ -1,5 +1,5 @@
 import type { ChatMessage, MusicContextSnapshot } from './types';
-import type { AgentProfileId, AnnotationProposal } from '../types/document';
+import type { AgentProfileId, AnnotationProposal, ScoreChangeProposal } from '../types/document';
 
 export const AI_PROVIDER_KINDS = [
   'openai-codex',
@@ -115,6 +115,7 @@ export type AIEvent =
       summary: string;
     }
   | { type: 'proposal-created'; requestId: string; proposal: AnnotationProposal }
+  | { type: 'score-proposal-created'; requestId: string; proposal: ScoreChangeProposal }
   | { type: 'chat-done'; requestId: string }
   | { type: 'chat-error'; requestId: string; code: AIErrorCode; message: string }
   | {

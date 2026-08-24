@@ -29,6 +29,7 @@ export function parseAbcMetadata(abc: string): Partial<ScoreInfo> {
   const meta = parseAbcHeaderMetadata(abc);
   return {
     title: meta.title,
+    subtitle: meta.subtitle,
     composer: meta.composer,
     key: meta.key,
     meter: meta.meter,
@@ -61,6 +62,7 @@ export function createDocumentFromAbc(
     revision: 1,
     scoreInfo: {
       title: title || parsedMeta.title || name.replace(/\.(xml|musicxml|mxl|abc)$/i, ''),
+      subtitle: parsedMeta.subtitle,
       composer: parsedMeta.composer,
       key: parsedMeta.key,
       meter: parsedMeta.meter,

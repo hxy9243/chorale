@@ -7,6 +7,7 @@ import type {
   FileDocument,
   MeasureSpan,
   ScoreInfo,
+  ScoreChangeProposal,
   ScoreVersion,
 } from '../types/document';
 import { isRationalDuration } from './rational';
@@ -191,6 +192,39 @@ export const validateAnnotationProposal = (value: unknown): AnnotationProposal |
     sourceRevision: value.sourceRevision as number,
     state: value.state as AnnotationProposal['state'],
     annotation,
+  };
+};
+
+export const validateScoreChangeProposal = (value: unknown): ScoreChangeProposal | null => {
+  if (!isRecord(value)) return null;
+  const id = nonEmptyString(value.id);
+  const runId = nonEmptyString(value.runId);
+  const documentId = nonEmptyString(value.documentId);
+  const span = normalizeMeasureSpan(value.span);
+  const summary = nonEmptyString(value.summary);
+  const replacementAbc = typeof value.replacementAbc === 'string' ? value.replacementAbc : null;
+  const validation = isRecord(value.validation) ? value.validation : null;
+  const validationErrors = validation && Array.isArray(validation.errors)
+    ? validation.errors.filter((error): error is string => typeof error === 'string')
+    : null;
+  if (
+    !id || !runId || !documentId || !span || !summary || replacementAbc === null
+    || new TextEncoder().encode(replacementAbc).byteLength >= 64 * 1024
+    || !Number.isSafeInteger(value.sourceRevision) || (value.sourceRevision as number) <= 0
+    || !['proposed', 'accepted', 'rejected', 'outdated', 'unavailable'].includes(value.state as string)
+    || !validation || !['valid', 'invalid'].includes(validation.status as string)
+    || validationErrors === null
+  ) return null;
+  return {
+    id,
+    runId,
+    documentId,
+    sourceRevision: value.sourceRevision as number,
+    state: value.state as ScoreChangeProposal['state'],
+    span,
+    summary,
+    replacementAbc,
+    validation: { status: validation.status as 'valid' | 'invalid', errors: validationErrors },
   };
 };
 

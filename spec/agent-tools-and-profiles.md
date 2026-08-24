@@ -106,7 +106,7 @@ type MusicalPosition = {
 
 ## 5. Tool contracts
 
-The runtime exposes four score tools in addition to `select_analysis_profile`.
+The runtime exposes five score tools in addition to `select_analysis_profile`.
 
 ### 5.1 `get_score_summary`
 
@@ -204,11 +204,19 @@ type ProposeAnnotationsResult = {
 
 The main process validates at most 32 inputs and creates server-controlled IDs, timestamps, source, profiles, document ID, and source revision. A chord input requires a position within its span and a chord symbol. The tool emits typed `proposal-created` events and never mutates `FileDocument`.
 
+### 5.5 `propose_measure_replacement`
+
+The tool accepts an inclusive target span, a short summary, and replacement ABC. It requires an
+active selection of at most 32 measures and a prior `read_measure_range` call for that exact span.
+Only one score proposal may be emitted per run. The replacement must preserve the selected measure
+count and voice set, remain below 64 KiB, and pass both the shared fail-closed mutation engine and
+full-score validation. The tool emits `score-proposal-created` and never mutates `FileDocument`.
+
 ## 6. Tool and IPC invariants
 
 - Invalid tool input returns a compact structured error.
 - Tools receive no credentials and no filesystem or network access.
-- There is no `remove_annotations`, direct ABC mutation, metadata mutation, or navigation tool.
+- There is no `remove_annotations`, direct ABC mutation, metadata mutation, agent-driven insertion/deletion, or navigation tool.
 - Tool execution uses Pi's built-in loop; Chorale forwards normalized lifecycle events rather than implementing a second loop.
 - Late events are ignored after cancellation or supersession.
 
@@ -238,6 +246,11 @@ type AIEvent =
       type: 'proposal-created';
       requestId: string;
       proposal: AnnotationProposal;
+    }
+  | {
+      type: 'score-proposal-created';
+      requestId: string;
+      proposal: ScoreChangeProposal;
     };
 ```
 

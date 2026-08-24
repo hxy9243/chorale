@@ -14,11 +14,12 @@ import {
   saveConversation,
 } from '../agent/conversationStore';
 import type { ChatMessage, ChatThread, MusicContextSnapshot, PersistedFileConversation } from '../agent/types';
-import type { Annotation, ScoreAnchor } from '../types/document';
+import type { Annotation, ScoreAnchor, ScoreChangeProposal } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
 import { MarkdownMessage } from './MarkdownMessage';
 import { AnnotationProposalCard } from './AnnotationProposalCard';
 import { AnnotationEditor } from './AnnotationEditor';
+import { ScoreChangeProposalCard } from './ScoreChangeProposalCard';
 import {
   editAnnotationProposal,
   markOutdatedProposals,
@@ -42,6 +43,9 @@ interface AgentChatPanelProps {
   onOpenSettings(): void;
   onNavigateMeasure?: (anchor: ScoreAnchor) => void;
   onApplyAnnotations?: (annotations: readonly Annotation[]) => void;
+  onPreviewScoreProposal?: (proposal: ScoreChangeProposal) => 'ready' | 'outdated' | 'invalid';
+  onApplyScoreProposal?: (proposal: ScoreChangeProposal) => 'accepted' | 'outdated' | 'invalid';
+  onDiscardScoreProposal?: (proposal: ScoreChangeProposal) => void;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -112,7 +116,23 @@ const markProposalsUnavailable = (message: ChatMessage): ChatMessage => ({
       ? { ...proposal, state: 'unavailable' as const }
       : proposal
   )),
+  scoreProposals: (message.scoreProposals || []).map((proposal) => (
+    proposal.state === 'proposed'
+      ? { ...proposal, state: 'unavailable' as const }
+      : proposal
+  )),
 });
+
+const markOutdatedScoreProposals = (
+  proposals: readonly ScoreChangeProposal[],
+  fileId: string,
+  revision: number,
+) => proposals.map((proposal) => (
+  proposal.state === 'proposed'
+  && (proposal.documentId !== fileId || proposal.sourceRevision !== revision)
+    ? { ...proposal, state: 'outdated' as const }
+    : proposal
+));
 
 const markRunUnavailable = (
   conversation: PersistedFileConversation,
@@ -147,6 +167,9 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   onOpenSettings,
   onNavigateMeasure = () => undefined,
   onApplyAnnotations,
+  onPreviewScoreProposal,
+  onApplyScoreProposal,
+  onDiscardScoreProposal,
 }) => {
   const [conversation, setConversation] = useState<PersistedFileConversation>(() => (
     fileId ? loadConversation(fileId) : makeEmptyConversation()
@@ -265,10 +288,11 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       threads: current.threads.map((thread) => ({
         ...thread,
         messages: thread.messages.map((message) => (
-          message.proposals?.length
+          message.proposals?.length || message.scoreProposals?.length
             ? {
                 ...message,
-                proposals: markOutdatedProposals(message.proposals, fileId, revision),
+                proposals: markOutdatedProposals(message.proposals || [], fileId, revision),
+                scoreProposals: markOutdatedScoreProposals(message.scoreProposals || [], fileId, revision),
               }
             : message
         )),
@@ -498,6 +522,39 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     }
   };
 
+  const updateScoreProposalState = (
+    messageId: string,
+    proposalId: string,
+    state: ScoreChangeProposal['state'],
+  ) => updateMessages(activeThread.id, (current) => current.map((message) => (
+    message.id === messageId
+      ? {
+          ...message,
+          scoreProposals: (message.scoreProposals || []).map((proposal) => (
+            proposal.id === proposalId ? { ...proposal, state } : proposal
+          )),
+        }
+      : message
+  )));
+
+  const handlePreviewScoreProposal = (messageId: string, proposal: ScoreChangeProposal) => {
+    const result = onPreviewScoreProposal?.(proposal) || 'invalid';
+    if (result === 'outdated') updateScoreProposalState(messageId, proposal.id, 'outdated');
+    if (result === 'invalid') setError('This score proposal can no longer be previewed safely.');
+  };
+
+  const handleApplyScoreProposal = (messageId: string, proposal: ScoreChangeProposal) => {
+    const result = onApplyScoreProposal?.(proposal) || 'invalid';
+    if (result === 'accepted') updateScoreProposalState(messageId, proposal.id, 'accepted');
+    if (result === 'outdated') updateScoreProposalState(messageId, proposal.id, 'outdated');
+    if (result === 'invalid') setError('This score proposal could not be applied safely.');
+  };
+
+  const handleDiscardScoreProposal = (messageId: string, proposal: ScoreChangeProposal) => {
+    onDiscardScoreProposal?.(proposal);
+    updateScoreProposalState(messageId, proposal.id, 'rejected');
+  };
+
   const sendMessage = async (event: React.FormEvent) => {
     event.preventDefault();
     const question = draft.trim();
@@ -522,6 +579,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       profileRoutes: [],
       toolDisplays: [],
       proposals: [],
+      scoreProposals: [],
     };
     const history = activeThread.messages;
     const threadId = activeThread.id;
@@ -610,6 +668,20 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
                   ...message,
                   proposals: [
                     ...(message.proposals || []).filter(({ id }) => id !== proposal.id),
+                    proposal,
+                  ],
+                }
+              : message
+          )));
+        },
+        onScoreProposalCreated: (proposal) => {
+          if (!isCurrentRun()) return;
+          updateMessages(threadId, (current) => current.map((message) => (
+            message.id === assistantId
+              ? {
+                  ...message,
+                  scoreProposals: [
+                    ...(message.scoreProposals || []).filter(({ id }) => id !== proposal.id),
                     proposal,
                   ],
                 }
@@ -854,6 +926,20 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
                 >
                   Apply All
                 </button>
+              </div>
+            )}
+            {message.scoreProposals && message.scoreProposals.length > 0 && (
+              <div className="score-change-proposal-list" aria-label="Score change proposals">
+                {message.scoreProposals.map((proposal) => (
+                  <ScoreChangeProposalCard
+                    key={proposal.id}
+                    proposal={proposal}
+                    readOnly={message.status === 'streaming'}
+                    onPreview={() => handlePreviewScoreProposal(message.id, proposal)}
+                    onApply={() => handleApplyScoreProposal(message.id, proposal)}
+                    onDiscard={() => handleDiscardScoreProposal(message.id, proposal)}
+                  />
+                ))}
               </div>
             )}
             {message.profileRoutes && message.profileRoutes.length > 0 && (

@@ -4,6 +4,7 @@ import type {
   Annotation,
   AnnotationProposal,
   ScoreAnchor,
+  ScoreChangeProposal,
 } from '../types/document';
 
 export type ChatToolDisplay = {
@@ -34,6 +35,7 @@ export type ChatMessage = {
   profileRoutes?: AgentProfileId[];
   toolDisplays?: ChatToolDisplay[];
   proposals?: AnnotationProposal[];
+  scoreProposals?: ScoreChangeProposal[];
   provider?: {
     connectionId: string;
     providerKind: AIProviderKind;
