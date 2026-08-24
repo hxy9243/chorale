@@ -64,17 +64,65 @@ describe('exportToMusicXml', () => {
 
   it('emits ties and chords from the source notation', () => {
     const xml = exportToMusicXml({
-      abcSource: 'X:1\nM:4/4\nL:1/4\nK:Dm\n"C7"C2EG [CEG]|D-E F G A|]',
+      abcSource: 'X:1\nM:4/4\nL:1/4\nK:Dm\n"C7"C2EG [CEG]|D-D F G A|]',
     });
     const doc = parseXml(xml);
 
-    expect(doc.getElementsByTagName('tied').length).toBeGreaterThan(0);
+    expect(doc.querySelectorAll('tie[type="start"]')).toHaveLength(1);
+    expect(doc.querySelectorAll('tie[type="stop"]')).toHaveLength(1);
+    expect(doc.querySelectorAll('tied[type="start"]')).toHaveLength(1);
+    expect(doc.querySelectorAll('tied[type="stop"]')).toHaveLength(1);
     expect(doc.getElementsByTagName('chord').length).toBeGreaterThan(0);
     expect(doc.getElementsByTagName('harmony').length).toBeGreaterThan(0);
   });
 
+  it('preserves exact triplet timing and nominal note types', () => {
+    const xml = exportToMusicXml({
+      abcSource: 'X:1\nM:4/4\nL:1/8\nK:C\n(3CDE F2 G2 A2|]',
+    });
+    const doc = parseXml(xml);
+    const divisions = Number(doc.getElementsByTagName('divisions')[0]?.textContent);
+    const tripletNotes = Array.from(doc.getElementsByTagName('note')).slice(0, 3);
+
+    expect(divisions % 3).toBe(0);
+    for (const note of tripletNotes) {
+      expect(note.getElementsByTagName('duration')[0]?.textContent).toBe(String(divisions / 3));
+      expect(note.getElementsByTagName('type')[0]?.textContent).toBe('eighth');
+      expect(note.getElementsByTagName('actual-notes')[0]?.textContent).toBe('3');
+      expect(note.getElementsByTagName('normal-notes')[0]?.textContent).toBe('2');
+    }
+  });
+
+  it('keeps accidental state independent across grand-staff staves', () => {
+    const xml = exportToMusicXml({
+      abcSource: `X:1
+M:4/4
+L:1/4
+%%score { 1 | 2 }
+V:1 clef=treble
+V:2 clef=bass
+K:C
+[V:1] ^C C |
+[V:2] C C |`,
+    });
+    const doc = parseXml(xml);
+    const notes = Array.from(doc.getElementsByTagName('note'));
+    const lowerStaffNotes = notes.filter(
+      (note) => note.getElementsByTagName('staff')[0]?.textContent === '2',
+    );
+
+    expect(lowerStaffNotes).toHaveLength(2);
+    expect(lowerStaffNotes.every((note) => note.getElementsByTagName('alter').length === 0)).toBe(true);
+  });
+
   it('throws ScoreExportError for empty input', () => {
     expect(() => exportToMusicXml({ abcSource: '   ' })).toThrow(ScoreExportError);
+  });
+
+  it('throws ScoreExportError when the score has headers but no musical content', () => {
+    expect(() => exportToMusicXml({ abcSource: 'X:1\nT:Empty\nK:C\n' })).toThrow(
+      'No musical content was found — nothing to export.',
+    );
   });
 });
 

@@ -52,6 +52,8 @@ export const exportToMusicXml = ({ abcSource, fallbackTitle }: ScoreExportInput)
   if (!xml.trim()) {
     throw new ScoreExportError('MusicXML conversion produced no output.');
   }
+  if (!/<note(?:\s|>)/.test(xml)) {
+    throw new ScoreExportError('No musical content was found — nothing to export.');
+  }
   return xml;
 };
-
