@@ -688,6 +688,7 @@ textarea:disabled,
   display: flex;
   flex-direction: column;
   width: 100%;
+  height: 100%;
   min-height: 100%;
   flex: 1 0 auto;
   margin: 0;
@@ -3059,11 +3060,13 @@ textarea:disabled,
   }
 
   .score-canvas {
-    padding: var(--space-lg) var(--space-lg) 7rem;
+    padding: 0;
   }
 
   .score-sheet {
-    padding: var(--space-xl);
+    width: 100%;
+    min-height: 100%;
+    padding: 0;
   }
 
   .playback-dock-container .player-controls-bar {
@@ -4129,11 +4132,14 @@ body {
   }
 
   .score-canvas {
-    padding: var(--space-lg) var(--space-xl) 8.5rem var(--space-lg);
+    padding: 0;
   }
 
   .score-sheet {
-    margin-inline-end: var(--space-sm);
+    width: 100%;
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
   }
 }
 
@@ -4410,11 +4416,13 @@ body {
 
 @media (min-width: 90rem) {
   .score-canvas {
-    padding: var(--space-xl) var(--space-2xl) 9rem var(--space-xl);
+    padding: 0;
   }
 
   .score-sheet {
-    padding: var(--space-2xl);
+    width: 100%;
+    min-height: 100%;
+    padding: 0;
   }
 }
 
@@ -6332,6 +6340,8 @@ body,
   display: flex;
   width: max-content;
   min-width: 100%;
+  min-height: 100%;
+  flex: 1 0 auto;
   align-items: flex-start;
   justify-content: safe center;
 }
