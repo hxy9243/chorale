@@ -3,13 +3,16 @@ title: "Agent Tools and Profiles Implementation Spec"
 description: "Specification for internal analysis profiles, immutable ScoreSnapshot runtime, Pi score tools, and IPC event contracts"
 category: "agent-tools"
 date: 2026-08-05
-updated: 2026-08-15
+updated: 2026-08-29
 status: "implemented"
 source_files:
   - electron/ai/agentProfiles.ts
   - electron/ai/sheetTools.ts
   - electron/ai/sheetAgentRuntime.ts
+  - electron/ai/systemPrompt.ts
   - electron/ai/toolEvents.ts
+  - src/agent/abcPrompt.ts
+  - src/agent/promptUtils.ts
   - src/music/scoreSnapshot.ts
   - src/music/rational.ts
   - src/agent/musicContext.ts
@@ -21,6 +24,9 @@ test_files:
   - src/agent/__tests__/sheetToolFlow.test.ts
   - src/agent/__tests__/toolEvents.test.ts
   - src/agent/__tests__/musicContext.test.ts
+  - src/agent/__tests__/musicBenchmark.test.ts
+  - src/agent/__tests__/promptUtils.test.ts
+  - src/agent/__tests__/systemPrompt.test.ts
   - src/music/__tests__/scoreSnapshot.test.ts
 related_specs:
   - spec/design.md
@@ -32,8 +38,8 @@ related_specs:
 
 # Agent Tools and Profiles Implementation Spec
 
-Date: 2026-08-05  
-Updated: 2026-08-15  
+Date: 2026-08-05
+Updated: 2026-08-29
 Status: Implemented in `electron/ai/`, `src/agent/`, and shared music libraries
 
 ## 1. Purpose
@@ -57,7 +63,7 @@ type MusicContextSnapshot = {
 };
 ```
 
-Electron validates the snapshot and constructs one immutable `ScoreSnapshot` for the run. The runtime snapshot holds normalized score metadata, written measures, voices, rationally positioned events, ABC source ranges, and annotation indexes. Every tool reads that same object.
+Electron validates the snapshot and constructs one immutable `ScoreSnapshot` for the run. The runtime snapshot holds normalized score metadata, written measures, voices, rationally positioned events, ABC source ranges, active key and meter state, and annotation indexes. Every tool reads that same object. Historical user turns are reconstructed from each turn's own captured `MusicContextSnapshot`; the current run's parsed score must not be reused for an older revision.
 
 Pure score parsing and validation belong in shared non-React library modules. React components do not parse or normalize agent tool data.
 
@@ -111,6 +117,7 @@ type ScoreSummaryResult = {
   title?: string;
   composer?: string;
   key?: string;
+  keySignature: string;
   meter?: string;
   tempoText?: string;
   totalMeasures: number;
@@ -129,9 +136,13 @@ type ReadMeasureRangeInput = {
 type ReadMeasureRangeResult = {
   startMeasure: number;
   endMeasure: number;
+  activeKeyAtStart?: string;
+  activeMeterAtStart?: string;
   measures: Array<{
     measureNumber: number;
     abcSlice: string;
+    activeKey: string;
+    activeMeter: string;
     keyChange?: string;
     meterChange?: string;
   }>;
@@ -247,6 +258,7 @@ Lifecycle events supplement the existing `chat-start`, `chat-delta`, `chat-done`
 ## 8. Verification
 
 - Snapshot construction occurs exactly once per run.
+- Each historical prompt is derived from its own captured score revision.
 - Every passage claim follows profile selection and a score read.
 - Concurrent calls with the same tool name remain distinct by `toolCallId`.
 - Range limits and rational values reject malformed inputs.

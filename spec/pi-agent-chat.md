@@ -3,7 +3,7 @@ title: "Chat With Music Sheet and Agent Tooling"
 description: "Specification for the passage-aware Music Tutor chat panel, profile routing, score tools, Markdown formatting with score references, thinking traces, and proposal review"
 category: "agent-chat"
 date: 2026-08-05
-updated: 2026-08-21
+updated: 2026-08-29
 status: "implemented"
 source_files:
   - src/components/AgentChatPanel.tsx
@@ -38,8 +38,8 @@ related_specs:
 
 # Chat With Music Sheet and Agent Tooling
 
-Date: 2026-08-05  
-Updated: 2026-08-15  
+Date: 2026-08-05
+Updated: 2026-08-29
 Status: Implemented in desktop app
 
 ## 1. Goal
@@ -86,6 +86,8 @@ Chat is a passage-aware Music Tutor attached to the active score file. Students 
 The renderer sends `MusicContextSnapshot`, a validated transport DTO. `annotations` is a required copied `Annotation[]`; no separate `MusicAnnotation` model exists.
 
 Electron constructs one immutable normalized `ScoreSnapshot` per request. Every profile and score tool in that request uses the same snapshot. The main process, not React, owns parsing and tool execution.
+
+The current prompt may reuse that request's parsed snapshot. Historical user prompts must instead be formatted from the `MusicContextSnapshot` captured with each turn so score edits do not combine old revision metadata or annotations with current score contents.
 
 ## 5. Profiles and tools
 

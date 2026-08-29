@@ -32,11 +32,68 @@ export type MeasuredScoreEvent = Readonly<{
   abcRange?: AbcSourceRange;
 }>;
 
+export type KeySignatureDetails = Readonly<{
+  key: string;
+  sharps: readonly string[];
+  flats: readonly string[];
+  description: string;
+}>;
+
+export const describeKeySignature = (keyName?: string): KeySignatureDetails => {
+  if (!keyName) {
+    return Object.freeze({
+      key: 'C',
+      sharps: Object.freeze([]),
+      flats: Object.freeze([]),
+      description: 'C major / A minor (0 sharps/flats)',
+    });
+  }
+  const clean = keyName.trim();
+  const map: Record<string, { sharps?: string[]; flats?: string[]; desc: string }> = {
+    'C': { desc: 'C major (0 sharps/flats)' },
+    'Cmaj': { desc: 'C major (0 sharps/flats)' },
+    'Am': { desc: 'A minor (0 sharps/flats, leading tone G#)' },
+    'G': { sharps: ['F#'], desc: 'G major (1 sharp: F#)' },
+    'Em': { sharps: ['F#'], desc: 'E minor (1 sharp: F#, leading tone D#)' },
+    'D': { sharps: ['F#', 'C#'], desc: 'D major (2 sharps: F#, C#)' },
+    'Bm': { sharps: ['F#', 'C#'], desc: 'B minor (2 sharps: F#, C#, leading tone A#)' },
+    'A': { sharps: ['F#', 'C#', 'G#'], desc: 'A major (3 sharps: F#, C#, G#)' },
+    'F#m': { sharps: ['F#', 'C#', 'G#'], desc: 'F# minor (3 sharps: F#, C#, G#, leading tone E#)' },
+    'E': { sharps: ['F#', 'C#', 'G#', 'D#'], desc: 'E major (4 sharps: F#, C#, G#, D#)' },
+    'C#m': { sharps: ['F#', 'C#', 'G#', 'D#'], desc: 'C# minor (4 sharps: F#, C#, G#, D#, leading tone B#)' },
+    'B': { sharps: ['F#', 'C#', 'G#', 'D#', 'A#'], desc: 'B major (5 sharps: F#, C#, G#, D#, A#)' },
+    'G#m': { sharps: ['F#', 'C#', 'G#', 'D#', 'A#'], desc: 'G# minor (5 sharps: F#, C#, G#, D#, A#, leading tone F##)' },
+    'F#': { sharps: ['F#', 'C#', 'G#', 'D#', 'A#', 'E#'], desc: 'F# major (6 sharps: F#, C#, G#, D#, A#, E#)' },
+    'D#m': { sharps: ['F#', 'C#', 'G#', 'D#', 'A#', 'E#'], desc: 'D# minor (6 sharps: F#, C#, G#, D#, A#, E#, leading tone C##)' },
+    'F': { flats: ['Bb'], desc: 'F major (1 flat: Bb)' },
+    'Dm': { flats: ['Bb'], desc: 'D minor (1 flat: Bb, leading tone C#)' },
+    'Bb': { flats: ['Bb', 'Eb'], desc: 'Bb major (2 flats: Bb, Eb)' },
+    'Gm': { flats: ['Bb', 'Eb'], desc: 'G minor (2 flats: Bb, Eb, leading tone F#)' },
+    'Eb': { flats: ['Bb', 'Eb', 'Ab'], desc: 'Eb major (3 flats: Bb, Eb, Ab)' },
+    'Cm': { flats: ['Bb', 'Eb', 'Ab'], desc: 'C minor (3 flats: Bb, Eb, Ab, leading tone B)' },
+    'Ab': { flats: ['Bb', 'Eb', 'Ab', 'Db'], desc: 'Ab major (4 flats: Bb, Eb, Ab, Db)' },
+    'Fm': { flats: ['Bb', 'Eb', 'Ab', 'Db'], desc: 'F minor (4 flats: Bb, Eb, Ab, Db, leading tone E)' },
+    'Db': { flats: ['Bb', 'Eb', 'Ab', 'Db', 'Gb'], desc: 'Db major (5 flats: Bb, Eb, Ab, Db, Gb)' },
+    'Bbm': { flats: ['Bb', 'Eb', 'Ab', 'Db', 'Gb'], desc: 'Bb minor (5 flats: Bb, Eb, Ab, Db, Gb, leading tone A)' },
+    'Gb': { flats: ['Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb'], desc: 'Gb major (6 flats: Bb, Eb, Ab, Db, Gb, Cb)' },
+    'Ebm': { flats: ['Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb'], desc: 'Eb minor (6 flats: Bb, Eb, Ab, Db, Gb, Cb, leading tone D)' },
+  };
+  const entry = map[clean] || { desc: clean };
+  return Object.freeze({
+    key: clean,
+    sharps: Object.freeze(entry.sharps || []),
+    flats: Object.freeze(entry.flats || []),
+    description: entry.desc,
+  });
+};
+
 export type WrittenMeasure = Readonly<{
   measureNumber: number;
   abcSlice: string;
   abcRange: AbcSourceRange;
   events: readonly MeasuredScoreEvent[];
+  activeKey: string;
+  activeMeter: string;
   keyChange?: string;
   meterChange?: string;
 }>;
@@ -107,6 +164,8 @@ type ParsedElement = {
 
 type ParsedStaff = {
   voices?: ParsedElement[][];
+  key?: { root?: string; acc?: string; mode?: string };
+  meter?: ParsedElement;
 };
 
 type ParsedTune = {
@@ -344,9 +403,39 @@ export const extractScore = (abc: string): ExtractedScore => {
     return measure;
   };
 
+  const initialKey = formatKey(tune.getKeySignature?.()) || 'C';
+  const initialMeter = formatMeter(tune.getMeter?.()) || '4/4';
+  let runningStaffKey = initialKey;
+  let runningStaffMeter = initialMeter;
+
   for (const line of tune.lines || []) {
     voiceSlot = 0;
     for (const staff of line.staff || []) {
+      const staffKey = formatKey(staff.key);
+      const staffMeter = formatMeter(staff.meter);
+      const firstVoiceIdOnStaff = declaredVoiceIds[voiceSlot] || `voice-${voiceSlot + 1}`;
+      const stateBeforeStaff = voiceStates.get(firstVoiceIdOnStaff) || {
+        measureNumber: 1,
+        offset: ZERO_DURATION,
+        tupletMultiplier: 1,
+        hasEvents: false,
+      };
+
+      if (staffKey && staffKey !== 'none' && staffKey !== runningStaffKey) {
+        runningStaffKey = staffKey;
+        const measure = getMeasure(stateBeforeStaff.measureNumber);
+        if (!measure.keyChange) {
+          measure.keyChange = staffKey;
+        }
+      }
+      if (staffMeter && staffMeter !== runningStaffMeter) {
+        runningStaffMeter = staffMeter;
+        const measure = getMeasure(stateBeforeStaff.measureNumber);
+        if (!measure.meterChange) {
+          measure.meterChange = staffMeter;
+        }
+      }
+
       for (const voice of staff.voices || []) {
         const voiceId = declaredVoiceIds[voiceSlot] || `voice-${voiceSlot + 1}`;
         if (!encounteredVoiceIds.includes(voiceId)) encounteredVoiceIds.push(voiceId);
@@ -369,12 +458,20 @@ export const extractScore = (abc: string): ExtractedScore => {
             continue;
           }
           if (element.el_type === 'key') {
-            measure.keyChange = formatKey(element);
+            const formatted = formatKey(element);
+            if (formatted) {
+              measure.keyChange = formatted;
+              runningStaffKey = formatted;
+            }
             addElementRange(measure, voiceId, element);
             continue;
           }
           if (element.el_type === 'meter') {
-            measure.meterChange = formatMeter(element);
+            const formatted = formatMeter(element);
+            if (formatted) {
+              measure.meterChange = formatted;
+              runningStaffMeter = formatted;
+            }
             addElementRange(measure, voiceId, element);
             continue;
           }
@@ -413,11 +510,20 @@ export const extractScore = (abc: string): ExtractedScore => {
     }
   }
 
+  let runningKey = initialKey;
+  let runningMeter = initialMeter;
+
   const isMultiVoice = encounteredVoiceIds.length > 1;
   const writtenMeasures = [...measures.values()]
     .filter((measure) => measure.events.length > 0 || measure.starts.length > 0)
     .sort((left, right) => left.measureNumber - right.measureNumber)
     .map<WrittenMeasure>((measure) => {
+      if (measure.keyChange) {
+        runningKey = measure.keyChange;
+      }
+      if (measure.meterChange) {
+        runningMeter = measure.meterChange;
+      }
       const start = Math.min(...measure.starts);
       const end = Math.max(...measure.ends);
       const events = [...measure.events].sort((left, right) => (
@@ -430,6 +536,8 @@ export const extractScore = (abc: string): ExtractedScore => {
         abcSlice: buildMeasureAbcSlice(abc, measure, isMultiVoice),
         abcRange: { start, end },
         events,
+        activeKey: runningKey,
+        activeMeter: runningMeter,
         ...(measure.keyChange ? { keyChange: measure.keyChange } : {}),
         ...(measure.meterChange ? { meterChange: measure.meterChange } : {}),
       };

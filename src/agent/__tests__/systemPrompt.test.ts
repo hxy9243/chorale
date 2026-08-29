@@ -12,5 +12,10 @@ describe('Music Tutor system prompt', () => {
     expect(SHEET_AGENT_SYSTEM_PROMPT).toContain('[mm. N–M](#measure-N-M)');
     expect(SHEET_AGENT_SYSTEM_PROMPT).toContain('Do not emit raw HTML');
     expect(SHEET_AGENT_SYSTEM_PROMPT).toContain('Never claim to have changed the score');
+    expect(SHEET_AGENT_SYSTEM_PROMPT).toContain('ABC NOTATION GUIDE FOR MUSIC ANALYSIS');
+    expect(SHEET_AGENT_SYSTEM_PROMPT).toContain('Key Signature Inheritance (CRITICAL)');
+    expect(SHEET_AGENT_SYSTEM_PROMPT).toContain('MUSIC THEORY & ANALYSIS RULES');
+    expect(SHEET_AGENT_SYSTEM_PROMPT).toContain('Bass Note & Inversions');
+    expect(SHEET_AGENT_SYSTEM_PROMPT).toContain('Tonicization vs Modulation');
   });
 });

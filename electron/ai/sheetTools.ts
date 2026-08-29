@@ -6,7 +6,10 @@ import type {
   AnnotationKind,
   AnnotationProposal,
 } from '../../src/types/document';
-import type { ScoreSnapshot } from '../../src/music/scoreSnapshot';
+import {
+  describeKeySignature,
+  type ScoreSnapshot,
+} from '../../src/music/scoreSnapshot';
 import { validateAnnotation } from '../../src/music/documentSchema';
 import { selectAnalysisProfiles } from './agentProfiles';
 
@@ -107,15 +110,17 @@ export const createSheetTools = (
   const getScoreSummaryTool: AgentTool<typeof EmptyParameters> = {
     name: 'get_score_summary',
     label: 'Read score summary',
-    description: 'Read score metadata, written-measure count, and declared voices.',
+    description: 'Read score metadata, key signature accidentals, written-measure count, and declared voices.',
     parameters: EmptyParameters,
     execute: async (_toolCallId, _params, signal) => {
       throwIfAborted(signal);
       requireProfile();
+      const keyInfo = describeKeySignature(snapshot.key);
       return jsonResult({
         title: snapshot.title,
         composer: snapshot.composer,
         key: snapshot.key,
+        keySignature: keyInfo.description,
         meter: snapshot.meter,
         tempoText: snapshot.tempoText,
         totalMeasures: snapshot.measureIndex.size,
@@ -127,7 +132,7 @@ export const createSheetTools = (
   const readMeasureRangeTool: AgentTool<typeof ReadMeasureRangeParameters> = {
     name: 'read_measure_range',
     label: 'Read measure range',
-    description: 'Read up to 32 continuous written measures as ABC slices.',
+    description: 'Read up to 32 continuous written measures as ABC slices with active key and meter context.',
     parameters: ReadMeasureRangeParameters,
     execute: async (_toolCallId, params, signal) => {
       throwIfAborted(signal);
@@ -147,6 +152,7 @@ export const createSheetTools = (
         });
       }
 
+      const startMeasureData = snapshot.measureIndex.get(startMeasure);
       const measures = [];
       for (let measureNumber = startMeasure; measureNumber <= endMeasure; measureNumber += 1) {
         const measure = snapshot.measureIndex.get(measureNumber);
@@ -159,11 +165,19 @@ export const createSheetTools = (
         measures.push({
           measureNumber: measure.measureNumber,
           abcSlice: measure.abcSlice,
+          activeKey: measure.activeKey,
+          activeMeter: measure.activeMeter,
           ...(measure.keyChange ? { keyChange: measure.keyChange } : {}),
           ...(measure.meterChange ? { meterChange: measure.meterChange } : {}),
         });
       }
-      return jsonResult({ startMeasure, endMeasure, measures });
+      return jsonResult({
+        startMeasure,
+        endMeasure,
+        activeKeyAtStart: startMeasureData?.activeKey,
+        activeMeterAtStart: startMeasureData?.activeMeter,
+        measures,
+      });
     },
   };
 

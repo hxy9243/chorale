@@ -1,7 +1,11 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { createScoreSnapshot, extractScore } from '../scoreSnapshot';
+import {
+  createScoreSnapshot,
+  describeKeySignature,
+  extractScore,
+} from '../scoreSnapshot';
 import { isRationalDuration } from '../rational';
 
 const fixtureDirectory = resolve(process.cwd(), 'src/test/fixtures/score-snapshot');
@@ -311,5 +315,86 @@ describe('score snapshot extraction', () => {
     expect(Object.isFrozen(snapshot.annotations[0].span)).toBe(true);
     expect('set' in snapshot.measureIndex).toBe(false);
     expect(() => (snapshot.measures as unknown[]).push({})).toThrow();
+  });
+
+  it('provides key signature details and inherits activeKey and activeMeter across measures', () => {
+    const keyInfo = describeKeySignature('G');
+    expect(keyInfo).toEqual({
+      key: 'G',
+      sharps: ['F#'],
+      flats: [],
+      description: 'G major (1 sharp: F#)',
+    });
+    expect(describeKeySignature('Eb')).toEqual({
+      key: 'Eb',
+      sharps: [],
+      flats: ['Bb', 'Eb', 'Ab'],
+      description: 'Eb major (3 flats: Bb, Eb, Ab)',
+    });
+    expect(describeKeySignature('Am')).toEqual({
+      key: 'Am',
+      sharps: [],
+      flats: [],
+      description: 'A minor (0 sharps/flats, leading tone G#)',
+    });
+
+    const score = extractScore([
+      'X:1',
+      'T:Modulation Test',
+      'M:4/4',
+      'L:1/4',
+      'K:G',
+      'G A B c | d e f g |',
+      '[K:D] [M:3/4] d e f | g a b |',
+    ].join('\n'));
+
+    expect(score.measures[0].activeKey).toBe('G');
+    expect(score.measures[0].activeMeter).toBe('4/4');
+    expect(score.measures[1].activeKey).toBe('G');
+    expect(score.measures[1].activeMeter).toBe('4/4');
+
+    expect(score.measures[2].keyChange).toBe('D');
+    expect(score.measures[2].meterChange).toBe('3/4');
+    expect(score.measures[2].activeKey).toBe('D');
+    expect(score.measures[2].activeMeter).toBe('3/4');
+
+    expect(score.measures[3].activeKey).toBe('D');
+    expect(score.measures[3].activeMeter).toBe('3/4');
+  });
+
+  it('correctly extracts all voices and builds complete multi-voice abcSlices for SATB staves', () => {
+    const satbAbc = [
+      'X:1',
+      'T:SATB Chorale',
+      'M:4/4',
+      'L:1/4',
+      'K:G',
+      '%%staves [(S A) (T B)]',
+      'V:S clef=treble',
+      'V:A clef=treble',
+      'V:T clef=bass',
+      'V:B clef=bass',
+      '[V:S] G A B c | d c B A | G4 |]',
+      '[V:A] D D D E | F F G F | D4 |]',
+      '[V:T] B, C B, G, | A, A, D C | B,4 |]',
+      '[V:B] G,, F,, G,, C, | F,, D,, G,, D,, | G,,4 |]',
+    ].join('\n');
+
+    const score = extractScore(satbAbc);
+    expect(score.voices).toEqual(['S', 'A', 'T', 'B']);
+    expect(score.measures).toHaveLength(3);
+
+    // Measure 1 should contain all 4 voices
+    expect(score.measures[0].abcSlice).toBe(
+      '[V:S] G A B c |\n[V:A] D D D E |\n[V:T] B, C B, G, |\n[V:B] G,, F,, G,, C, |',
+    );
+    // Measure 2 should contain all 4 voices
+    expect(score.measures[1].abcSlice).toBe(
+      '[V:S] d c B A |\n[V:A] F F G F |\n[V:T] A, A, D C |\n[V:B] F,, D,, G,, D,, |',
+    );
+    // Measure 3 should contain all 4 voices
+    expect(score.measures[2].abcSlice).toBe(
+      '[V:S] G4 |]\n[V:A] D4 |]\n[V:T] B,4 |]\n[V:B] G,,4 |]',
+    );
   });
 });
