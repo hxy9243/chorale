@@ -451,9 +451,13 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     const layoutEl = sheetSceneRef.current.querySelector<HTMLElement>('.sheet-annotation-layout');
     if (!layoutEl) return;
 
-    const measureRect = measureElement.getBoundingClientRect();
     const layoutRect = layoutEl.getBoundingClientRect();
-    const scale = effectiveZoom > 0 ? effectiveZoom : 1;
+    const layoutWidth = layoutEl.offsetWidth;
+    const scale = layoutWidth > 0 && layoutRect.width > 0
+      ? layoutRect.width / layoutWidth
+      : (effectiveZoom > 0 ? effectiveZoom : 1);
+
+    const measureRect = measureElement.getBoundingClientRect();
     const topInLayout = (measureRect.top - layoutRect.top) / scale;
     const safeTop = Number.isFinite(topInLayout) ? Math.max(0, Math.round(topInLayout)) : 0;
     setDraftingToolbarTop((current) => (current === safeTop ? current : safeTop));
@@ -584,6 +588,9 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     viewport.scrollLeft = unscaledCenter * effectiveZoom - viewportWidth / 2;
   }, [effectiveZoom, sceneSize]);
 
+  const updateDraftingToolbarPositionRef = useRef(updateDraftingToolbarPosition);
+  updateDraftingToolbarPositionRef.current = updateDraftingToolbarPosition;
+
   useEffect(() => {
     const viewport = sheetViewportRef.current;
     if (!viewport) return;
@@ -596,6 +603,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       frame = window.requestAnimationFrame(() => {
         frame = null;
         centerNotation();
+        updateDraftingToolbarPositionRef.current?.();
       });
     };
     const observer = new ResizeObserver((entries) => {
@@ -605,8 +613,10 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       schedule();
     });
     observer.observe(viewport);
+    window.addEventListener('resize', schedule);
     return () => {
       observer.disconnect();
+      window.removeEventListener('resize', schedule);
       if (frame !== null) window.cancelAnimationFrame(frame);
     };
   }, [centerNotation]);
