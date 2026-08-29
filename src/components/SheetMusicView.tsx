@@ -431,6 +431,33 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     anchorYByAnnotationId: {},
     scoreHeight: 0,
   });
+  const [draftingToolbarTop, setDraftingToolbarTop] = useState<number | null>(null);
+
+  const updateDraftingToolbarPosition = React.useCallback(() => {
+    if (!activeAnchor || !containerRef.current || !sheetSceneRef.current) {
+      setDraftingToolbarTop(null);
+      return;
+    }
+    const hitArea = containerRef.current.querySelector<SVGGraphicsElement>(
+      `.abcjs-measure-hit-area[data-measure="${activeAnchor.startMeasure}"]`,
+    );
+    const measureElement = hitArea || containerRef.current.querySelector<SVGGraphicsElement>(
+      `.abcjs-mm${Math.max(0, activeAnchor.startMeasure - 1)}`,
+    );
+    if (!measureElement) {
+      setDraftingToolbarTop(0);
+      return;
+    }
+    const layoutEl = sheetSceneRef.current.querySelector<HTMLElement>('.sheet-annotation-layout');
+    if (!layoutEl) return;
+
+    const measureRect = measureElement.getBoundingClientRect();
+    const layoutRect = layoutEl.getBoundingClientRect();
+    const scale = effectiveZoom > 0 ? effectiveZoom : 1;
+    const topInLayout = (measureRect.top - layoutRect.top) / scale;
+    const safeTop = Number.isFinite(topInLayout) ? Math.max(0, Math.round(topInLayout)) : 0;
+    setDraftingToolbarTop((current) => (current === safeTop ? current : safeTop));
+  }, [activeAnchor, effectiveZoom]);
 
   const [rootFontSize] = useState(() => (
     typeof document !== 'undefined'
@@ -529,6 +556,10 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   React.useLayoutEffect(() => {
     centerNotation();
   }, [centerNotation, renderGeneration, sceneSize]);
+
+  React.useLayoutEffect(() => {
+    updateDraftingToolbarPosition();
+  }, [updateDraftingToolbarPosition, renderGeneration, sceneSize]);
 
   React.useLayoutEffect(() => {
     const viewport = sheetViewportRef.current;
@@ -1141,7 +1172,14 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                 style={sceneTrackStyle}
               >
                 <div className="sheet-layout-balance" aria-hidden={!draftingToolbar}>
-                  {draftingToolbar}
+                  {draftingToolbar && (
+                    <div
+                      className="measure-drafting-toolbar-anchor"
+                      style={draftingToolbarTop !== null ? { top: `${draftingToolbarTop}px` } : undefined}
+                    >
+                      {draftingToolbar}
+                    </div>
+                  )}
                 </div>
                 <div className="sheet-notation-column">
                   {header}

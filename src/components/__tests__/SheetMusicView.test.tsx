@@ -1461,12 +1461,14 @@ describe('SheetMusicView Component', () => {
     const { container } = render(
       <SheetMusicView
         abcCode={sampleAbc}
+        activeAnchor={{ startMeasure: 1, endMeasure: 1 }}
         draftingToolbar={<div data-testid="test-drafting-toolbar">Measure Toolbar</div>}
       />,
     );
 
     const toolbar = container.querySelector('[data-testid="test-drafting-toolbar"]');
     expect(toolbar).not.toBeNull();
+    expect(toolbar?.closest('.measure-drafting-toolbar-anchor')).not.toBeNull();
     expect(toolbar?.closest('.sheet-layout-balance')).not.toBeNull();
     expect(toolbar?.closest('.sheet-zoom-wrapper')).not.toBeNull();
   });
