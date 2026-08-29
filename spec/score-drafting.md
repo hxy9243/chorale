@@ -9,6 +9,7 @@ source_files:
   - src/music/scoreDrafting.ts
   - src/components/NewScoreModal.tsx
   - src/components/MeasureDraftingToolbar.tsx
+  - src/components/SheetMusicView.tsx
   - src/hooks/useDocumentStore.ts
   - src/components/AgentChatPanel.tsx
   - electron/ai/sheetTools.ts
@@ -83,10 +84,12 @@ Apply against the proposal's immutable source revision.
 
 ## 4. Selection controls
 
-An active written-measure selection exposes a React-owned contextual bar outside the abcjs SVG with
-**Add before**, **Add after**, **Edit ABC**, and **Delete**. It wraps above the canvas at narrow widths
-and never overlays notation. Dialogs have visible labels, initial focus, focus trapping, safe Escape,
-screen-reader status, and focus-visible styles.
+An active written-measure selection exposes a React-owned contextual toolbar in the left lane of the
+score layout (the symmetric balance lane opposite the annotation rail), with items arranged vertically:
+a measure span label followed by **Add before**, **Add after**, **Edit ABC**, and **Delete**.
+Positioning the toolbar in the left balance lane preserves the vertical viewport and scroll position
+of the entire page when selecting or deselecting measures. Dialogs have visible labels, initial focus,
+focus trapping, safe Escape, screen-reader status, and focus-visible styles.
 
 Selection and draft UI are file scoped. Switching documents or editing raw source clears ephemeral
 selection, editor, and preview state.

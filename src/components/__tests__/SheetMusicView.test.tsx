@@ -1456,4 +1456,18 @@ describe('SheetMusicView Component', () => {
     expect(header?.closest('.sheet-notation-column')).not.toBeNull();
     expect(header?.closest('.sheet-zoom-wrapper')).not.toBeNull();
   });
+
+  it('renders optional drafting toolbar inside the left balance lane', () => {
+    const { container } = render(
+      <SheetMusicView
+        abcCode={sampleAbc}
+        draftingToolbar={<div data-testid="test-drafting-toolbar">Measure Toolbar</div>}
+      />,
+    );
+
+    const toolbar = container.querySelector('[data-testid="test-drafting-toolbar"]');
+    expect(toolbar).not.toBeNull();
+    expect(toolbar?.closest('.sheet-layout-balance')).not.toBeNull();
+    expect(toolbar?.closest('.sheet-zoom-wrapper')).not.toBeNull();
+  });
 });

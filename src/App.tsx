@@ -447,14 +447,6 @@ export const App: React.FC = () => {
                 </div>
               )}
 
-              {activeAnchor && canRenderScore && !scorePreview && (
-                <MeasureDraftingToolbar
-                  key={`${activeFileId}:${activeAnchor.startMeasure}:${activeAnchor.endMeasure}`}
-                  span={activeAnchor}
-                  selectedAbc={selectedMeasureAbc}
-                  onMutate={handleMeasureMutation}
-                />
-              )}
               <div className="score-canvas">
                 <div className="score-sheet">
                   {buildStatus === 'invalid' && (
@@ -482,6 +474,16 @@ export const App: React.FC = () => {
                           disabled={Boolean(scorePreview)}
                         />
                       )}
+                      draftingToolbar={
+                        activeAnchor && canRenderScore && !scorePreview ? (
+                          <MeasureDraftingToolbar
+                            key={`${activeFileId}:${activeAnchor.startMeasure}:${activeAnchor.endMeasure}`}
+                            span={activeAnchor}
+                            selectedAbc={selectedMeasureAbc}
+                            onMutate={handleMeasureMutation}
+                          />
+                        ) : undefined
+                      }
                       abcCode={canRenderScore ? displayAbc : ''}
                       annotations={activeDocument?.annotations || []}
                       activeAnchor={activeAnchor}

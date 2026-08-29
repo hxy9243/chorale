@@ -373,6 +373,7 @@ const updateMeasureHitAreaSelection = (
 
 interface SheetMusicViewProps {
   header?: React.ReactNode;
+  draftingToolbar?: React.ReactNode;
   abcCode: string;
   annotations?: readonly Annotation[];
   activeAnchor?: ScoreAnchor | null;
@@ -391,6 +392,7 @@ interface SheetMusicViewProps {
 
 export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   header,
+  draftingToolbar,
   abcCode,
   annotations = [],
   activeAnchor = null,
@@ -1138,7 +1140,9 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                 className="sheet-annotation-layout"
                 style={sceneTrackStyle}
               >
-                <div className="sheet-layout-balance" aria-hidden="true" />
+                <div className="sheet-layout-balance" aria-hidden={!draftingToolbar}>
+                  {draftingToolbar}
+                </div>
                 <div className="sheet-notation-column">
                   {header}
                   <div ref={containerRef} id="paper" className="abcjs-paper-container" />
