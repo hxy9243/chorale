@@ -52,7 +52,7 @@ describe('createBlankPianoScore', () => {
     [{ title: 'Draft', key: 'H', meter: '4/4', tempo: 120, measures: 8 }, 'Invalid key'],
     [{ title: 'Draft', key: 'C', meter: '5/3', tempo: 120, measures: 8 }, 'Meter note value'],
     [{ title: 'Draft', key: 'C', meter: '4/4', tempo: 19, measures: 8 }, 'Tempo must be'],
-    [{ title: 'Draft', key: 'C', meter: '4/4', tempo: 120, measures: 33 }, 'Measures must be'],
+    [{ title: 'Draft', key: 'C', meter: '4/4', tempo: 120, measures: 257 }, 'Measures must be'],
   ])('rejects invalid input %#', (input, expectedError) => {
     const result = createBlankPianoScore(input);
     expect(result.status).toBe('invalid');
@@ -307,17 +307,39 @@ describe('applyMeasureMutation', () => {
     expect(oversized.status).toBe('invalid');
   });
 
-  it('routes inline tempo changes through whole-score replacement', () => {
+  it('supports inline key and tempo changes within focused replacement', () => {
     const result = applyMeasureMutation(singleVoice, {
       kind: 'replace',
       span: { startMeasure: 2, endMeasure: 2 },
-      replacementAbc: '[Q:1/4=180] A4 |',
+      replacementAbc: '[Q:1/4=180] [K:G] G A B c |',
     });
 
-    expect(result).toEqual({
-      status: 'invalid',
-      errors: ['Focused replacement ABC cannot change tempo. Use a whole-score edit instead.'],
+    expect(result.status).toBe('valid');
+    if (result.status === 'valid') {
+      expect(result.abcSource).toContain('[Q:1/4=180] [K:G] G A B c');
+      const score = extractScore(result.abcSource);
+      expect(score.measures[1].keyChange).toBe('G');
+    }
+  });
+
+  it('replaces measures that contain existing inline key changes', () => {
+    const scoreWithKeyChange = [
+      'X:1', 'T:Key Change', 'M:4/4', 'L:1/4', 'K:C',
+      'C D E F | [K:G] G A B c | c B A G | F E D C |]', '',
+    ].join('\n');
+
+    const result = applyMeasureMutation(scoreWithKeyChange, {
+      kind: 'replace',
+      span: { startMeasure: 2, endMeasure: 2 },
+      replacementAbc: '[K:D] d e f g |',
     });
+
+    expect(result.status).toBe('valid');
+    if (result.status === 'valid') {
+      expect(result.abcSource).toContain('[K:D] d e f g');
+      const score = extractScore(result.abcSource);
+      expect(score.measures[1].keyChange).toBe('D');
+    }
   });
 });
 

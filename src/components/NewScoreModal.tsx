@@ -166,7 +166,7 @@ export const NewScoreModal: React.FC<NewScoreModalProps> = ({ open, onClose, onC
                 value={measures}
                 onChange={(event) => setMeasures(event.target.value)}
               />
-              <small>1–32 measures</small>
+              <small>1–256 measures</small>
             </label>
             <div className="new-score-instrument new-score-form-wide">
               <span>Instrument</span>

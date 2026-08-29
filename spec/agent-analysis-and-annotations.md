@@ -238,8 +238,7 @@ Tool invariants:
 
 - Tools operate only on the run's immutable `ScoreSnapshot`.
 - Written-measure numbers are one-based and inclusive. A pickup is the first written measure.
-- One `read_measure_range` call is limited to 32 continuous measures; larger selections may be read in multiple calls.
-- One run may propose at most 32 annotations.
+- `read_measure_range` may return any continuous written-measure range within the score.
 - All tool inputs and outputs use normalized rational durations.
 - Invalid payloads return structured errors and never mutate renderer state.
 - Tools receive no credentials and no filesystem or network access.
@@ -427,7 +426,6 @@ Main process summaries are compact and renderer-safe. Full tool arguments and sc
 ### Performance constraints
 
 - Parse and normalize ABC once when constructing the run's `ScoreSnapshot`.
-- Enforce the 32-measure read and 32-proposal limits before creating large tool results or events.
 - Reuse measure/event and source-offset indexes across all tools in a run.
 - Coalesce overlay geometry work to one animation frame after render/resize changes.
 - Do not recompute all annotation geometry on playback cursor ticks or ordinary chat streaming.

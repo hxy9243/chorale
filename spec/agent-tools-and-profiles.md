@@ -153,8 +153,7 @@ Rules:
 
 - Measures are one-based, written, and inclusive; a pickup is measure 1.
 - `endMeasure >= startMeasure`.
-- One call may return at most 32 continuous measures.
-- Larger selections are read through multiple calls against the same snapshot.
+- One call may return any continuous written-measure range within the score.
 
 ### 5.3 `get_annotations`
 
@@ -202,20 +201,20 @@ type ProposeAnnotationsResult = {
 };
 ```
 
-The main process validates at most 32 inputs and creates server-controlled IDs, timestamps, source, profiles, document ID, and source revision. A chord input requires a position within its span and a chord symbol. The tool emits typed `proposal-created` events and never mutates `FileDocument`.
+The main process validates inputs and creates server-controlled IDs, timestamps, source, profiles, document ID, and source revision. A chord input requires a position within its span and a chord symbol. The tool emits typed `proposal-created` events and never mutates `FileDocument`.
 
 ### 5.5 `propose_measure_replacement`
 
-The tool accepts an inclusive target span, a short summary, and replacement ABC. It requires an
-exact prior `read_measure_range` call for the proposed span, which may contain at most 32 measures.
+The tool accepts an inclusive target span, a short summary, and replacement ABC. It requires that
+the proposed span has been read prior to proposing replacement music.
 The active selection is an optional intent and navigation hint; it is not required and does not
 constrain the proposed span.
 Only one score proposal may be emitted per run. The replacement must preserve the proposed measure
 count and every existing voice, remain below 64 KiB, and pass both the shared fail-closed mutation
 engine and full-score validation. Explicitly named new voices are allowed; the mutation engine adds
 them as complete score-length parts with rests outside the proposed span. Proposed ranges may cross
-repeat and volta boundaries; the mutation engine preserves the target barline and ending bytes while
-replacing musical content. The tool emits
+repeat and volta boundaries and may include or modify inline key, meter, or tempo changes; the
+mutation engine preserves the target barline and ending bytes while replacing musical content. The tool emits
 `score-proposal-created` and never mutates `FileDocument`.
 
 ### 5.6 `propose_score_edit`

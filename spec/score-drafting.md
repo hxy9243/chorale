@@ -33,7 +33,7 @@ user has explicitly entered proposal preview.
 
 - **New Score** and **Import Score** are equal-weight actions in the Files rail and empty workspace.
 - The New Score dialog collects a required title, optional subtitle and composer, ABC key and meter,
-  integer tempo from 20 through 300 BPM, and 1 through 32 measures. It identifies the fixed instrument
+  integer tempo from 20 through 300 BPM, and 1 through 256 measures. It identifies the fixed instrument
   as `Piano · two staves`.
 - Defaults are `Untitled score`, `C`, `4/4`, 120 BPM, and eight measures.
 - The builder emits one canonical tune with upper and lower piano voices and one `Z` full-measure rest
@@ -56,7 +56,7 @@ type MeasureMutation =
   | { kind: 'delete'; span: MeasureSpan };
 ```
 
-- Insert adds 1 through 32 full-measure rests to every active voice.
+- Insert adds 1 through 256 full-measure rests to every active voice.
 - Replace requires the same written-measure count and must retain every existing voice. Multi-voice
   replacement uses explicit `[V:<id>]` sections. A replacement may add voices; each added voice is
   declared as a separate staff and padded with full-measure rests outside the selected range.
@@ -65,9 +65,10 @@ type MeasureMutation =
   narrow exception: it also inserts the required declaration, score-layout entry, original-voice
   marker when needed, and full-length voice body. Missing, overlapping, or ambiguous segments;
   and any structure that cannot be losslessly isolated return `unsupported` and create no revision.
-  Content replacement may cross repeats and volta endings because it edits only the music between
+  Content replacement may cross repeats and volta endings and may include or modify inline key,
+  meter, and tempo changes within the target measures because it edits the music between
   leading and rightmost barlines and preserves the target's repeat/ending bytes. Insert and delete
-  remain unsupported at repeat or ending boundaries because they change measure structure.
+  remain unsupported at repeat, ending, or inline key/meter boundaries because they change measure structure.
 - Successful mutations use existing revision, history, autosave, undo, and redo paths. Replacement
   preserves annotation anchors. Insert/delete rebase anchors, and delete removes annotations wholly
   contained by the deleted span.
@@ -95,8 +96,8 @@ selection, editor, and preview state.
 The desktop agent exposes focused `propose_measure_replacement` and structural `propose_score_edit`
 tools. They share a limit of one score proposal per run. The active selection is an optional intent
 and navigation hint, not an authorization boundary: measure replacement may target any existing
-span after reading that exact proposed span, including when there is no active selection. A focused
-replacement is limited to 32 measures.
+span after reading that proposed span, including when there is no active selection. A focused
+replacement may target any continuous measure span up to the full measure count of the score.
 The replacement must be below 64 KiB, target the same span, retain every existing voice and measure
 count, pass the shared mutation engine, and produce a valid complete score. It may add explicitly
 named voices, which become complete score-length parts with rests outside the proposed span.

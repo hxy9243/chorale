@@ -4,7 +4,7 @@ import { extractScore } from './scoreSnapshot';
 import type { ExtractedScore, VoiceMeasureSource, WrittenMeasure } from './scoreSnapshot';
 
 export const MIN_DRAFT_MEASURES = 1;
-export const MAX_DRAFT_MEASURES = 32;
+export const MAX_DRAFT_MEASURES = 256;
 export const MIN_DRAFT_TEMPO = 20;
 export const MAX_DRAFT_TEMPO = 300;
 export const MAX_SCORE_EDIT_BYTES = 2_000_000;
@@ -176,7 +176,7 @@ const validateWritableSource = (
 ): string[] => {
   const errors: string[] = [];
   for (const measure of measures) {
-    if (measure.keyChange || measure.meterChange) {
+    if (mode === 'structure' && (measure.keyChange || measure.meterChange)) {
       errors.push(`Measure ${measure.measureNumber} contains an inline key or meter change.`);
       continue;
     }
@@ -191,7 +191,7 @@ const validateWritableSource = (
         errors.push(`Measure ${measure.measureNumber}, voice ${voiceId}, does not have one isolated source segment.`);
         continue;
       }
-      if (source.segments.some((segment) => /\[Q:[^\]]+\]/i.test(segment.abcSlice))) {
+      if (mode === 'structure' && source.segments.some((segment) => /\[Q:[^\]]+\]/i.test(segment.abcSlice))) {
         errors.push(`Measure ${measure.measureNumber}, voice ${voiceId}, contains an inline tempo change.`);
       }
       if (mode === 'structure' && source.barTypes.some((barType) => !plainBarTypes.has(barType))) {
@@ -240,9 +240,10 @@ const replacementSnapshot = (
     throw new Error('Multi-voice replacement ABC must use [V:<id>] sections.');
   }
   const replacementVoices = [...new Set([...score.voices, ...explicitVoices])];
-  const body = score.voices.length === 1 && explicitVoices.length === 0
+  const rawBody = score.voices.length === 1 && explicitVoices.length === 0
     ? `[V:${score.voices[0]}] ${replacementAbc}`
     : replacementAbc;
+  const body = rawBody.replace(/((?:^|\n)\s*(?:\[V:[^\]]+\]|V:\s*\S+)\s*)(?!\|)/g, '$1| ');
   const voiceDeclarations = replacementVoices.map((voiceId) => `V:${voiceId}`).join('\n');
   return extractScore([
     'X:1',
@@ -340,7 +341,7 @@ const addNewVoiceEdits = (
       if (measureIndex >= selectedStartIndex && measureIndex <= selectedEndIndex) {
         const replacementMeasure = replacement.measures[measureIndex - selectedStartIndex];
         const replacementSource = sourceForVoice(replacementMeasure, voiceId);
-        if (!replacementSource || replacementSource.segments.length !== 1 || replacementSource.barRanges.length !== 1) {
+        if (!replacementSource || replacementSource.segments.length !== 1 || replacementSource.barRanges.length < 1) {
           return null;
         }
         const contentRange = measureContent(replacementSource);
@@ -440,9 +441,6 @@ export const applyMeasureMutation = (
   if (mutation.kind === 'replace') {
     if (new TextEncoder().encode(mutation.replacementAbc).byteLength >= 64 * 1024) {
       return { status: 'invalid', errors: ['Replacement ABC must be smaller than 64 KiB.'] };
-    }
-    if (/\[Q:[^\]]+\]/i.test(mutation.replacementAbc)) {
-      return { status: 'invalid', errors: ['Focused replacement ABC cannot change tempo. Use a whole-score edit instead.'] };
     }
     let replacement: ExtractedScore;
     try {

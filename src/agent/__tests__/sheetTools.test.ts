@@ -98,8 +98,6 @@ describe('sheet tools', () => {
 
     await expect(read.execute('reverse', { startMeasure: 2, endMeasure: 1 }))
       .rejects.toMatchObject({ code: 'invalid_range' });
-    await expect(read.execute('too-large', { startMeasure: 1, endMeasure: 33 }))
-      .rejects.toMatchObject({ code: 'range_too_large' });
     await expect(read.execute('outside', { startMeasure: 2, endMeasure: 3 }))
       .rejects.toMatchObject({ code: 'measure_not_found' });
     try {
@@ -175,7 +173,7 @@ describe('sheet tools', () => {
     expect(snapshot.annotations).toHaveLength(1);
   });
 
-  it('rejects invalid or over-limit proposal batches before emitting any proposal', async () => {
+  it('rejects invalid proposals before emitting any proposal and accepts large proposal batches', async () => {
     const created = vi.fn();
     const registry = createSheetTools(createSnapshot(), { onProposalCreated: created });
     await registry.tools[0].execute('route', { profiles: ['harmony'] });
@@ -199,13 +197,10 @@ describe('sheet tools', () => {
     })).rejects.toMatchObject({ code: 'invalid_proposals' });
     expect(created).not.toHaveBeenCalled();
 
-    await propose.execute('first-batch', {
-      annotations: Array.from({ length: 31 }, (_, index) => explanation(index)),
+    await propose.execute('large-batch', {
+      annotations: Array.from({ length: 35 }, (_, index) => explanation(index)),
     });
-    await expect(propose.execute('over-limit', {
-      annotations: [explanation(31), explanation(32)],
-    })).rejects.toMatchObject({ code: 'proposal_limit' });
-    expect(created).toHaveBeenCalledTimes(31);
+    expect(created).toHaveBeenCalledTimes(35);
   });
 
   it('exposes read-only score, routing, and non-mutating proposal capabilities', () => {
@@ -379,5 +374,111 @@ describe('sheet tools', () => {
     await expect(invalidPropose.execute('wrong-count', {
       span: { startMeasure: 1, endMeasure: 1 }, summary: 'Music', replacementAbc: 'C4 | C4 |',
     })).rejects.toMatchObject({ code: 'invalid_replacement' });
+  });
+
+  it('reads and proposes measure replacement for ranges larger than 32 measures (e.g. mm. 1–38)', async () => {
+    const measureAbc = Array.from({ length: 38 }, () => 'C D E F').join(' | ');
+    const largeScore = createScoreSnapshot({
+      snapshotId: 'snapshot-38-measures',
+      documentId: 'document-38',
+      revision: 1,
+      abc: `X:1\nT:38 Measures\nM:4/4\nL:1/4\nK:C\n${measureAbc} |]`,
+      annotations: [],
+    });
+    const created = vi.fn();
+    const registry = createSheetTools(largeScore, {
+      createId: () => 'score-proposal-38',
+      onScoreProposalCreated: created,
+    });
+    await registry.tools[0].execute('route', { profiles: ['general'] });
+
+    const readResult = await registry.tools[2].execute('read-38', { startMeasure: 1, endMeasure: 38 });
+    expect((readResult.details as any).measures).toHaveLength(38);
+
+    const propose = registry.tools.find(({ name }) => name === 'propose_measure_replacement')!;
+    const replacementAbc = `${Array.from({ length: 38 }, () => 'G A B c').join(' | ')} |`;
+    const result = await propose.execute('replace-38', {
+      span: { startMeasure: 1, endMeasure: 38 },
+      summary: 'Recompose mm. 1–38',
+      replacementAbc,
+    });
+    expect(result.details).toEqual({
+      proposalId: 'score-proposal-38',
+      validation: { status: 'valid', errors: [] },
+    });
+    expect(created).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'score-proposal-38',
+      span: { startMeasure: 1, endMeasure: 38 },
+    }));
+  });
+
+  it('allows propose_measure_replacement when the span was read across multiple read calls', async () => {
+    const measureAbc = Array.from({ length: 38 }, () => 'C D E F').join(' | ');
+    const largeScore = createScoreSnapshot({
+      snapshotId: 'snapshot-multi-read',
+      documentId: 'document-multi',
+      revision: 1,
+      abc: `X:1\nT:Multi-read\nM:4/4\nL:1/4\nK:C\n${measureAbc} |]`,
+      annotations: [],
+    });
+    const created = vi.fn();
+    const registry = createSheetTools(largeScore, {
+      createId: () => 'score-proposal-multi-read',
+      onScoreProposalCreated: created,
+    });
+    await registry.tools[0].execute('route', { profiles: ['general'] });
+
+    await registry.tools[2].execute('read-chunk-1', { startMeasure: 1, endMeasure: 20 });
+    await registry.tools[2].execute('read-chunk-2', { startMeasure: 21, endMeasure: 38 });
+
+    const propose = registry.tools.find(({ name }) => name === 'propose_measure_replacement')!;
+    const replacementAbc = `${Array.from({ length: 38 }, () => 'G A B c').join(' | ')} |`;
+    const result = await propose.execute('replace-all-38', {
+      span: { startMeasure: 1, endMeasure: 38 },
+      summary: 'Replace all 38 measures read in chunks',
+      replacementAbc,
+    });
+    expect(result.details).toEqual({
+      proposalId: 'score-proposal-multi-read',
+      validation: { status: 'valid', errors: [] },
+    });
+    expect(created).toHaveBeenCalledOnce();
+  });
+
+  it('stages focused replacement for passages containing an inline key change (e.g. m. 13)', async () => {
+    const measures = Array.from({ length: 20 }, (_, i) => {
+      const mNum = i + 1;
+      return mNum === 13 ? '[K:G] G A B c' : 'C D E F';
+    }).join(' | ');
+    const snapshotWithKeyChange = createScoreSnapshot({
+      snapshotId: 'snapshot-key-change-m13',
+      documentId: 'document-key-13',
+      revision: 1,
+      abc: `X:1\nT:Key Change at 13\nM:4/4\nL:1/4\nK:C\n${measures} |]`,
+      annotations: [],
+    });
+    const created = vi.fn();
+    const registry = createSheetTools(snapshotWithKeyChange, {
+      createId: () => 'score-proposal-key-13',
+      onScoreProposalCreated: created,
+    });
+    await registry.tools[0].execute('route', { profiles: ['general'] });
+    await registry.tools[2].execute('read-12-14', { startMeasure: 12, endMeasure: 14 });
+
+    const propose = registry.tools.find(({ name }) => name === 'propose_measure_replacement')!;
+    const result = await propose.execute('replace-around-key-change', {
+      span: { startMeasure: 12, endMeasure: 14 },
+      summary: 'Rephrase mm. 12–14 around the key change',
+      replacementAbc: 'C D E F | [K:G] d e f g | g f e d |',
+    });
+
+    expect(result.details).toEqual({
+      proposalId: 'score-proposal-key-13',
+      validation: { status: 'valid', errors: [] },
+    });
+    expect(created).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'score-proposal-key-13',
+      span: { startMeasure: 12, endMeasure: 14 },
+    }));
   });
 });
