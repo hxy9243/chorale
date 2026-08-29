@@ -167,7 +167,7 @@ export class SheetAgentRun {
   async start() {
     const { models, model } = createProviderRuntime(this.connection, this.modelOption, this.store);
     const thinkingLevel = model.reasoning ? this.request.thinkingLevel : 'off';
-    const initialHistory = toAgentHistory(this.request.history, model, this.scoreSnapshot);
+    const initialHistory = toAgentHistory(this.request.history, model);
     const currentPrompt = formatPrompt(this.request.question, this.request.context, this.scoreSnapshot);
     let trace: AgentTraceRun | undefined;
     try {

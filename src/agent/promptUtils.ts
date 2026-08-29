@@ -123,7 +123,6 @@ const assistantHistoryMessage = (
 export const toAgentHistory = (
   messages: ChatMessage[],
   model: Model<Api>,
-  extracted?: ExtractedScore,
 ): AgentMessage[] => (
   messages.flatMap<AgentMessage>((message) => {
     if (!message.content.trim() || message.status === 'error' || message.status === 'streaming') {
@@ -131,7 +130,7 @@ export const toAgentHistory = (
     }
     if (message.role === 'user') {
       const content = message.context
-        ? formatPrompt(message.content, message.context, extracted)
+        ? formatPrompt(message.content, message.context)
         : message.content;
       return [{ role: 'user', content, timestamp: Date.parse(message.createdAt) } as Message];
     }

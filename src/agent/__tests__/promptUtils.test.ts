@@ -107,4 +107,68 @@ describe('promptUtils', () => {
     expect(history[0].role).toBe('user');
     expect(history[1].role).toBe('assistant');
   });
+
+  it('formats each historical message from its own captured score context', () => {
+    const mockModel: Model<'openai-responses'> = {
+      id: 'gpt-4o',
+      name: 'GPT-4o',
+      api: 'openai-responses',
+      provider: 'openai',
+      baseUrl: 'https://api.openai.com/v1',
+      reasoning: false,
+      input: ['text'],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: 128000,
+      maxTokens: 4096,
+    };
+    const historicalContext: MusicContextSnapshot = {
+      id: 'snap-history',
+      documentId: 'doc-1',
+      fileName: 'changing-score.abc',
+      revision: 1,
+      capturedAt: '2026-08-03T00:00:00.000Z',
+      abc: 'X:1\nT:Original\nK:C\nC E G c |',
+      selection: { startMeasure: 1, endMeasure: 1 },
+      annotations: [],
+    };
+    const editedContext: MusicContextSnapshot = {
+      ...historicalContext,
+      id: 'snap-edited',
+      revision: 2,
+      capturedAt: '2026-08-03T00:01:00.000Z',
+      abc: 'X:1\nT:Edited\nK:G\nG B d g |',
+    };
+    const messages: ChatMessage[] = [
+      {
+        id: 'msg-history',
+        role: 'user',
+        content: 'What key is this?',
+        createdAt: historicalContext.capturedAt,
+        context: historicalContext,
+        status: 'complete',
+      },
+      {
+        id: 'msg-edited',
+        role: 'user',
+        content: 'What key is it now?',
+        createdAt: editedContext.capturedAt,
+        context: editedContext,
+        status: 'complete',
+      },
+    ];
+
+    const history = toAgentHistory(messages, mockModel);
+    const historicalPrompt = (history[0] as { content: string }).content;
+    const editedPrompt = (history[1] as { content: string }).content;
+    expect(historicalPrompt).toContain('revision=1');
+    expect(historicalPrompt).toContain('globalKey="C"');
+    expect(historicalPrompt).toContain('C E G c |');
+    expect(historicalPrompt).not.toContain('globalKey="G"');
+    expect(historicalPrompt).not.toContain('G B d g |');
+    expect(editedPrompt).toContain('revision=2');
+    expect(editedPrompt).toContain('globalKey="G"');
+    expect(editedPrompt).toContain('G B d g |');
+    expect(editedPrompt).not.toContain('globalKey="C"');
+    expect(editedPrompt).not.toContain('C E G c |');
+  });
 });
