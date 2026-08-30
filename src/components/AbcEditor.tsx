@@ -3,6 +3,7 @@ import { AlertTriangle, Check, Copy, FileCode2, LoaderCircle, X } from 'lucide-r
 
 import type { ScoreAnchor } from '../types/document';
 import {
+  analyzeRawAbcLines,
   buildAbcPresentation,
   resolvePlaybackMeasure,
   validateAbcMeasureEdit,
@@ -86,9 +87,6 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   const committingRef = useRef(false);
   const editorBodyRef = useRef<HTMLDivElement>(null);
 
-  const lineNumbers = useMemo(() => (
-    Array.from({ length: Math.max(abcCode.split('\n').length, 1) }, (_, index) => index + 1)
-  ), [abcCode]);
   const presentationResult = useMemo(() => {
     try {
       return { presentation: buildAbcPresentation(abcCode), error: null };
@@ -105,6 +103,9 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   const playingMeasure = presentation && playbackSourceRanges
     ? resolvePlaybackMeasure(presentation, playbackSourceRanges.starts, playbackSourceRanges.ends)
     : null;
+  const rawLinesAnalysis = useMemo(() => (
+    analyzeRawAbcLines(abcCode, presentation, activeAnchor, playingMeasure)
+  ), [abcCode, presentation, activeAnchor, playingMeasure]);
   const draftCellId = draft?.cellId;
   const draftValue = draft?.value;
 
@@ -414,9 +415,46 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
           {view === 'raw' ? (
             <div className="abc-raw-editor">
               <div className="editor-line-numbers" aria-hidden="true">
-                {lineNumbers.map((lineNumber) => <span key={lineNumber}>{lineNumber}</span>)}
+                {rawLinesAnalysis.map((line) => <span key={line.lineNumber}>{line.lineNumber}</span>)}
               </div>
-              <textarea className="abc-textarea" value={abcCode} onChange={(event) => onAbcChange(event.target.value)} placeholder="Parsed ABC code will appear here. Edit code directly to rebuild score output." rows={Math.max(lineNumbers.length, 16)} spellCheck={false} />
+              <div className="abc-raw-content">
+                <div className="abc-raw-backdrop" aria-hidden="true">
+                  {rawLinesAnalysis.map((line) => (
+                    <div
+                      key={line.lineNumber}
+                      className={`abc-raw-line-row${line.voice ? ' has-voice' : ''}${line.isSelected ? ' is-selected' : ''}${line.isPlaying ? ' is-playing' : ''}`}
+                      data-voice={line.voice?.id}
+                      data-color={line.voice ? line.voice.colorIndex % 6 : undefined}
+                      data-measure={line.measureNumbers.join(',')}
+                    >
+                      <span className="abc-raw-ghost-text">
+                        {line.segments.map((seg, sIdx) => (
+                          <span
+                            key={sIdx}
+                            className={`abc-raw-segment${seg.measureNumber ? ' abc-raw-measure-seg' : ''}${seg.isSelected ? ' is-selected' : ''}${seg.isPlaying ? ' is-playing' : ''}`}
+                            data-measure={seg.measureNumber}
+                          >
+                            {seg.text}
+                          </span>
+                        ))}
+                      </span>
+                      {line.explanation && (
+                        <span className="abc-raw-explanation" title={line.explanation}>
+                          {line.explanation}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <textarea
+                  className="abc-textarea"
+                  value={abcCode}
+                  onChange={(event) => onAbcChange(event.target.value)}
+                  placeholder="Parsed ABC code will appear here. Edit code directly to rebuild score output."
+                  rows={Math.max(rawLinesAnalysis.length, 16)}
+                  spellCheck={false}
+                />
+              </div>
             </div>
           ) : !presentation ? (
             <div className="abc-formatting-status" role="status">{presentationResult.error}</div>

@@ -420,3 +420,200 @@ export const resolvePlaybackMeasure = (
   }
   return measures.size === 1 ? [...measures][0] : null;
 };
+
+export type RawLineSegment = Readonly<{
+  text: string;
+  measureNumber?: number;
+  isSelected?: boolean;
+  isPlaying?: boolean;
+}>;
+
+export type RawLineAnalysis = Readonly<{
+  lineNumber: number;
+  text: string;
+  start: number;
+  end: number;
+  explanation?: string;
+  voice?: { id: string; colorIndex: number };
+  isSelected: boolean;
+  isPlaying: boolean;
+  measureNumbers: readonly number[];
+  segments: readonly RawLineSegment[];
+}>;
+
+export const HEADER_EXPLANATIONS: Readonly<Record<string, string>> = Object.freeze({
+  X: 'Reference',
+  T: 'Title',
+  C: 'Composer',
+  A: 'Author / lyricist',
+  M: 'Meter',
+  L: 'Default note length',
+  Q: 'Tempo',
+  O: 'Origin',
+  R: 'Rhythm',
+  K: 'Key',
+  V: 'Voice',
+  P: 'Parts',
+  W: 'Words',
+  w: 'Words / lyrics',
+  N: 'Notes',
+  Z: 'Transcription notes',
+  B: 'Book',
+  S: 'Source',
+  D: 'Discography',
+  F: 'File URL',
+});
+
+export const analyzeRawAbcLines = (
+  abcCode: string,
+  presentation: AbcPresentation | null,
+  activeAnchor: { startMeasure: number; endMeasure: number } | null | undefined,
+  playingMeasure: number | null | undefined,
+): readonly RawLineAnalysis[] => {
+  const lines = abcCode.split('\n');
+  const declaredVoices: string[] = [];
+  const voiceColorMap = new Map<string, number>();
+
+  if (presentation) {
+    presentation.voices.forEach((v) => {
+      declaredVoices.push(v.id);
+      voiceColorMap.set(v.id, v.colorIndex);
+    });
+  } else {
+    for (const match of abcCode.matchAll(/^V:\s*([^\s]+)/gm)) {
+      if (!declaredVoices.includes(match[1])) {
+        declaredVoices.push(match[1]);
+        voiceColorMap.set(match[1], declaredVoices.length - 1);
+      }
+    }
+    for (const match of abcCode.matchAll(/\[V:\s*([^\]\s]+)/g)) {
+      if (!declaredVoices.includes(match[1])) {
+        declaredVoices.push(match[1]);
+        voiceColorMap.set(match[1], declaredVoices.length - 1);
+      }
+    }
+  }
+
+  let titleCount = 0;
+  let currentVoiceId: string | null = null;
+  let offset = 0;
+  const result: RawLineAnalysis[] = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const text = lines[i];
+    const start = offset;
+    const end = offset + text.length;
+    offset = end + 1;
+
+    const headerMatch = text.match(/^([A-Za-z]):\s*(.*)$/);
+    let explanation: string | undefined;
+    if (headerMatch) {
+      const tag = headerMatch[1];
+      const val = headerMatch[2].trim();
+      let label: string | undefined;
+      if (tag === 'T') {
+        titleCount += 1;
+        label = titleCount === 1 ? 'Title' : 'Subtitle';
+      } else {
+        label = HEADER_EXPLANATIONS[tag];
+      }
+      if (label && val) {
+        explanation = `${label}: ${val}`;
+      } else if (label) {
+        explanation = label;
+      }
+      if (tag === 'V') {
+        const vId = val.split(/\s+/)[0];
+        if (vId) currentVoiceId = vId;
+      }
+    }
+
+    const inlineVoiceMatch = text.match(/\[V:\s*([^\]\s]+)/);
+    if (inlineVoiceMatch) {
+      currentVoiceId = inlineVoiceMatch[1];
+    }
+
+    let lineVoice: { id: string; colorIndex: number } | undefined;
+    const lineCells: AbcMeasureCell[] = [];
+    if (presentation) {
+      for (const voice of presentation.voices) {
+        for (const cell of voice.cells) {
+          if (cell.range.start < end && cell.range.end > start) {
+            lineCells.push(cell);
+            if (!lineVoice) {
+              lineVoice = { id: voice.id, colorIndex: voice.colorIndex };
+            }
+          }
+        }
+      }
+    }
+
+    if (!lineVoice && currentVoiceId && voiceColorMap.has(currentVoiceId) && !headerMatch) {
+      lineVoice = { id: currentVoiceId, colorIndex: voiceColorMap.get(currentVoiceId)! };
+    } else if (!lineVoice && headerMatch && headerMatch[1] === 'V') {
+      const vId = headerMatch[2].trim().split(/\s+/)[0];
+      if (vId && voiceColorMap.has(vId)) {
+        lineVoice = { id: vId, colorIndex: voiceColorMap.get(vId)! };
+      }
+    }
+
+    const measureNumbers = Object.freeze(
+      Array.from(new Set(lineCells.map((c) => c.measureNumber))).sort((a, b) => a - b),
+    );
+    const isSelected = measureNumbers.some((m) => Boolean(
+      activeAnchor && m >= activeAnchor.startMeasure && m <= activeAnchor.endMeasure,
+    ));
+    const isPlaying = measureNumbers.some((m) => Boolean(
+      playingMeasure && m === playingMeasure,
+    ));
+
+    const segments: RawLineSegment[] = [];
+    if (lineCells.length > 0) {
+      const sortedCells = [...lineCells].sort((a, b) => a.range.start - b.range.start);
+      let lineCursor = start;
+      for (const cell of sortedCells) {
+        const cellStart = Math.max(start, cell.range.start);
+        const cellEnd = Math.min(end, cell.range.end);
+        if (cellStart > lineCursor) {
+          segments.push(Object.freeze({
+            text: abcCode.slice(lineCursor, cellStart),
+          }));
+        }
+        if (cellEnd > cellStart) {
+          const m = cell.measureNumber;
+          const cellSelected = Boolean(activeAnchor && m >= activeAnchor.startMeasure && m <= activeAnchor.endMeasure);
+          const cellPlaying = Boolean(playingMeasure && m === playingMeasure);
+          segments.push(Object.freeze({
+            text: abcCode.slice(cellStart, cellEnd),
+            measureNumber: m,
+            isSelected: cellSelected,
+            isPlaying: cellPlaying,
+          }));
+        }
+        lineCursor = Math.max(lineCursor, cellEnd);
+      }
+      if (lineCursor < end) {
+        segments.push(Object.freeze({
+          text: abcCode.slice(lineCursor, end),
+        }));
+      }
+    } else {
+      segments.push(Object.freeze({ text }));
+    }
+
+    result.push(Object.freeze({
+      lineNumber: i + 1,
+      text,
+      start,
+      end,
+      ...(explanation ? { explanation } : {}),
+      ...(lineVoice ? { voice: lineVoice } : {}),
+      isSelected,
+      isPlaying,
+      measureNumbers,
+      segments: Object.freeze(segments),
+    }));
+  }
+
+  return Object.freeze(result);
+};

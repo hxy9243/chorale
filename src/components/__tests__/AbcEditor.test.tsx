@@ -26,6 +26,51 @@ K:C
     expect(onAbcChange).toHaveBeenCalledWith('X:1\nT:Modified\nK:C\nC4|');
   });
 
+  it('enriches raw source with header explanations, voice colors, and selection/playback highlights', () => {
+    const upperSecondStart = formattedAbc.indexOf('G A B c |');
+    const lowerSecondStart = formattedAbc.indexOf('G,4 |');
+
+    const { container } = render(
+      <AbcEditor
+        abcCode={formattedAbc}
+        onAbcChange={() => undefined}
+        activeAnchor={{ startMeasure: 1, endMeasure: 1 }}
+        playbackSourceRanges={{
+          starts: [upperSecondStart, lowerSecondStart],
+          ends: [upperSecondStart + 1, lowerSecondStart + 1],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+
+    // Header explanations
+    expect(screen.getByText('Reference: 1')).toBeDefined();
+    expect(screen.getByText('Title: Test Score')).toBeDefined();
+    expect(screen.getByText('Composer: Bach')).toBeDefined();
+    expect(screen.getByText('Meter: 4/4')).toBeDefined();
+
+    // Voice colors on music rows
+    const upperRow = container.querySelector('.abc-raw-line-row[data-measure="1,2"][data-voice="upper"]');
+    const lowerRow = container.querySelector('.abc-raw-line-row[data-measure="1,2"][data-voice="lower"]');
+    expect(upperRow?.getAttribute('data-color')).toBe('0');
+    expect(lowerRow?.getAttribute('data-color')).toBe('1');
+
+    // Selection highlight (measure 1 is in activeAnchor)
+    expect(upperRow?.classList.contains('is-selected')).toBe(true);
+    expect(lowerRow?.classList.contains('is-selected')).toBe(true);
+
+    // Playback highlight (measure 2 is playing)
+    expect(upperRow?.classList.contains('is-playing')).toBe(true);
+    expect(lowerRow?.classList.contains('is-playing')).toBe(true);
+
+    // Segment highlights within the line
+    const upperMeasure1 = upperRow?.querySelector('.abc-raw-measure-seg[data-measure="1"]');
+    const upperMeasure2 = upperRow?.querySelector('.abc-raw-measure-seg[data-measure="2"]');
+    expect(upperMeasure1?.classList.contains('is-selected')).toBe(true);
+    expect(upperMeasure2?.classList.contains('is-playing')).toBe(true);
+  });
+
   it('keeps editor chrome separate from the scrolling source body', () => {
     const { container } = render(<AbcEditor abcCode={formattedAbc} onAbcChange={() => undefined} />);
     expect(container.querySelector('.abc-editor-chrome')?.nextElementSibling).toBe(container.querySelector('.editor-body'));

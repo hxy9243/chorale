@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  analyzeRawAbcLines,
   buildAbcPresentation,
   resolvePlaybackMeasure,
   validateAbcMeasureEdit,
@@ -93,5 +94,50 @@ describe('ABC presentation feasibility contract', () => {
     expect(presentation.measureCount).toBe(128);
     expect(presentation.voices).toHaveLength(8);
     expect(elapsed).toBeLessThan(250);
+  });
+
+  it('analyzes raw lines with header explanations, voice backgrounds, and selection/playback highlights', () => {
+    const rawAbc = `X:1
+T:rainy day
+M:3/4
+K:C
+[V:upper] C D E | F G A |
+[V:lower] C,3 | F,3 |
+`;
+    const presentation = buildAbcPresentation(rawAbc);
+    const activeAnchor = { startMeasure: 1, endMeasure: 1 };
+    const playingMeasure = 2;
+
+    const analysis = analyzeRawAbcLines(rawAbc, presentation, activeAnchor, playingMeasure);
+
+    expect(analysis[0].text).toBe('X:1');
+    expect(analysis[0].explanation).toBe('Reference: 1');
+
+    expect(analysis[1].text).toBe('T:rainy day');
+    expect(analysis[1].explanation).toBe('Title: rainy day');
+
+    expect(analysis[2].text).toBe('M:3/4');
+    expect(analysis[2].explanation).toBe('Meter: 3/4');
+
+    expect(analysis[3].text).toBe('K:C');
+    expect(analysis[3].explanation).toBe('Key: C');
+
+    // Voice 1: upper (colorIndex 0)
+    const upperLine = analysis[4];
+    expect(upperLine.text).toBe('[V:upper] C D E | F G A |');
+    expect(upperLine.voice).toEqual({ id: 'upper', colorIndex: 0 });
+    expect(upperLine.isSelected).toBe(true); // Measure 1 is selected
+    expect(upperLine.isPlaying).toBe(true); // Measure 2 is playing
+    expect(upperLine.segments.find((s) => s.measureNumber === 1)?.isSelected).toBe(true);
+    expect(upperLine.segments.find((s) => s.measureNumber === 2)?.isPlaying).toBe(true);
+
+    // Voice 2: lower (colorIndex 1)
+    const lowerLine = analysis[5];
+    expect(lowerLine.text).toBe('[V:lower] C,3 | F,3 |');
+    expect(lowerLine.voice).toEqual({ id: 'lower', colorIndex: 1 });
+    expect(lowerLine.isSelected).toBe(true); // Measure 1 is selected
+    expect(lowerLine.isPlaying).toBe(true); // Measure 2 is playing
+    expect(lowerLine.segments.find((s) => s.measureNumber === 1)?.isSelected).toBe(true);
+    expect(lowerLine.segments.find((s) => s.measureNumber === 2)?.isPlaying).toBe(true);
   });
 });
