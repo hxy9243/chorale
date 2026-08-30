@@ -106,7 +106,6 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   const horizontalScrollControllerRef = useRef<SmoothScrollController | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
-  const lineNumbersRef = useRef<HTMLDivElement>(null);
 
   const handleTextareaScroll = () => {
     const textarea = textareaRef.current;
@@ -114,9 +113,6 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
     if (backdropRef.current) {
       backdropRef.current.scrollTop = textarea.scrollTop;
       backdropRef.current.scrollLeft = textarea.scrollLeft;
-    }
-    if (lineNumbersRef.current) {
-      lineNumbersRef.current.scrollTop = textarea.scrollTop;
     }
   };
 
@@ -253,13 +249,23 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
     if (view !== 'raw') return;
     const textarea = textareaRef.current;
     if (!textarea) return;
-    if (backdropRef.current) {
-      backdropRef.current.scrollTop = textarea.scrollTop;
-      backdropRef.current.scrollLeft = textarea.scrollLeft;
+    const syncScroll = () => {
+      if (backdropRef.current && textarea) {
+        backdropRef.current.scrollTop = textarea.scrollTop;
+        backdropRef.current.scrollLeft = textarea.scrollLeft;
+      }
+    };
+    syncScroll();
+    window.addEventListener('resize', syncScroll);
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(syncScroll);
+      observer.observe(textarea);
     }
-    if (lineNumbersRef.current) {
-      lineNumbersRef.current.scrollTop = textarea.scrollTop;
-    }
+    return () => {
+      window.removeEventListener('resize', syncScroll);
+      observer?.disconnect();
+    };
   }, [abcCode, view]);
 
   const handleCopy = async () => {
@@ -534,53 +540,49 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
         <div className={`editor-body${view === 'raw' ? ' is-raw-view' : ''}`} ref={editorBodyRef}>
           {view === 'raw' ? (
             <div className="abc-raw-editor">
-              <div className="editor-line-numbers" ref={lineNumbersRef} aria-hidden="true">
-                {rawLinesAnalysis.map((line) => <span key={line.lineNumber}>{line.lineNumber}</span>)}
-              </div>
-              <div className="abc-raw-content">
-                <div className="abc-raw-backdrop" ref={backdropRef} aria-hidden="true">
-                  {rawLinesAnalysis.map((line) => (
-                    <div
-                      key={line.lineNumber}
-                      className={`abc-raw-line-row${line.voice ? ' has-voice' : ''}${line.isSelected ? ' is-selected' : ''}${line.isPlaying ? ' is-playing' : ''}`}
-                      data-voice={line.voice?.id}
-                      data-color={line.voice ? line.voice.colorIndex % 6 : undefined}
-                      data-measure={line.measureNumbers.join(',')}
-                    >
-                      <span className="abc-raw-ghost-text">
-                        {line.segments.length > 0 ? (
-                          line.segments.map((seg, sIdx) => (
-                            <span
-                              key={sIdx}
-                              className={`abc-raw-segment${seg.measureNumber ? ' abc-raw-measure-seg' : ''}${seg.isSelected ? ' is-selected' : ''}${seg.isPlaying ? ' is-playing' : ''}`}
-                              data-measure={seg.measureNumber}
-                            >
-                              {seg.text}
-                            </span>
-                          ))
-                        ) : (
-                          '\u00A0'
-                        )}
-                      </span>
-                      {line.explanation && (
-                        <span className="abc-raw-explanation" title={line.explanation}>
-                          {line.explanation}
-                        </span>
+              <div className="abc-raw-backdrop" ref={backdropRef} aria-hidden="true">
+                {rawLinesAnalysis.map((line) => (
+                  <div
+                    key={line.lineNumber}
+                    className={`abc-raw-line-row${line.voice ? ' has-voice' : ''}${line.isSelected ? ' is-selected' : ''}${line.isPlaying ? ' is-playing' : ''}`}
+                    data-voice={line.voice?.id}
+                    data-color={line.voice ? line.voice.colorIndex % 6 : undefined}
+                    data-measure={line.measureNumbers.join(',')}
+                  >
+                    <span className="abc-raw-line-number">{line.lineNumber}</span>
+                    <span className="abc-raw-ghost-text">
+                      {line.segments.length > 0 && line.segments.some((seg) => seg.text.length > 0) ? (
+                        line.segments.map((seg, sIdx) => (
+                          <span
+                            key={sIdx}
+                            className={`abc-raw-segment${seg.measureNumber ? ' abc-raw-measure-seg' : ''}${seg.isSelected ? ' is-selected' : ''}${seg.isPlaying ? ' is-playing' : ''}`}
+                            data-measure={seg.measureNumber}
+                          >
+                            {seg.text}
+                          </span>
+                        ))
+                      ) : (
+                        '\u00A0'
                       )}
-                    </div>
-                  ))}
-                </div>
-                <textarea
-                  ref={textareaRef}
-                  className="abc-textarea"
-                  value={abcCode}
-                  onChange={(event) => onAbcChange(event.target.value)}
-                  onScroll={handleTextareaScroll}
-                  placeholder="Parsed ABC code will appear here. Edit code directly to rebuild score output."
-                  rows={Math.max(rawLinesAnalysis.length, 16)}
-                  spellCheck={false}
-                />
+                    </span>
+                    {line.explanation && (
+                      <span className="abc-raw-explanation" title={line.explanation}>
+                        {line.explanation}
+                      </span>
+                    )}
+                  </div>
+                ))}
               </div>
+              <textarea
+                ref={textareaRef}
+                className="abc-textarea"
+                value={abcCode}
+                onChange={(event) => onAbcChange(event.target.value)}
+                onScroll={handleTextareaScroll}
+                placeholder="Parsed ABC code will appear here. Edit code directly to rebuild score output."
+                rows={Math.max(rawLinesAnalysis.length, 16)}
+                spellCheck={false}
+              />
             </div>
           ) : !presentation ? (
             <div className="abc-formatting-status" role="status">{presentationResult.error}</div>

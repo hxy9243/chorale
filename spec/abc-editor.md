@@ -92,8 +92,9 @@ The pane provides three views over one canonical ABC string:
 - **Raw Source** retains the complete editable textarea and current every-keystroke
   revision, autosave, validation, score, and playback behavior as normal source code with original
   source returns and natural line wrapping. Layered on top of normal source presentation, it provides
+  per-line-row source code line numbering aligned with actual line entries without counting wrapped visual lines,
   background coloring for voice lines matching the palette of the measure score, range selection and
-  playback highlights, and darkened, comfortably-spaced sheet header explanations.
+  playback highlights, and darkened, comfortably-spaced sheet header explanations decoupled from line text flow.
 
 Formatted view is available only for a valid single tune whose source ownership can be
 proved. Each voice has a deterministic accessible color used by its selector and source
