@@ -233,8 +233,50 @@ const collectDeclaredVoiceIds = (abc: string): string[] => {
     if (id && !ids.includes(id)) ids.push(id);
   };
   for (const match of abc.matchAll(/^V:\s*([^\s]+)/gm)) add(match[1]);
-  for (const match of abc.matchAll(/\[V:\s*([^\]\s]+)/g)) add(match[1]);
+  for (const match of abc.matchAll(/\[V:\s*([^\]\s]+)/g)) {
+    if (match.index !== undefined && isNotationOffset(abc, match.index)) add(match[1]);
+  }
   return ids;
+};
+
+type BodyVoiceMarker = Readonly<{ offset: number; voiceId: string }>;
+
+const isNotationOffset = (abc: string, offset: number): boolean => {
+  const lineStart = abc.lastIndexOf('\n', Math.max(0, offset - 1)) + 1;
+  let inQuotedAnnotation = false;
+  for (let index = lineStart; index < offset; index += 1) {
+    const character = abc[index];
+    if (character === '"') {
+      let precedingBackslashes = 0;
+      for (let cursor = index - 1; cursor >= lineStart && abc[cursor] === '\\'; cursor -= 1) {
+        precedingBackslashes += 1;
+      }
+      if (precedingBackslashes % 2 === 0) inQuotedAnnotation = !inQuotedAnnotation;
+    } else if (character === '%' && !inQuotedAnnotation) {
+      return false;
+    }
+  }
+  return !inQuotedAnnotation;
+};
+
+const collectBodyVoiceMarkers = (abc: string): BodyVoiceMarker[] => {
+  const markers: BodyVoiceMarker[] = [];
+  const headerKey = /^K:\s*[^\n]*(?:\n|$)/m.exec(abc);
+  const bodyStart = headerKey?.index !== undefined
+    ? headerKey.index + headerKey[0].length
+    : 0;
+
+  for (const match of abc.matchAll(/\[V:\s*([^\]\s]+)/g)) {
+    if (match.index !== undefined && isNotationOffset(abc, match.index)) {
+      markers.push({ offset: match.index, voiceId: match[1] });
+    }
+  }
+  for (const match of abc.matchAll(/^V:\s*([^\s]+)/gm)) {
+    if (match.index !== undefined && match.index >= bodyStart) {
+      markers.push({ offset: match.index, voiceId: match[1] });
+    }
+  }
+  return markers.sort((left, right) => left.offset - right.offset);
 };
 
 const sourceRange = (element: ParsedElement): AbcSourceRange | undefined => (
@@ -245,6 +287,36 @@ const sourceRange = (element: ParsedElement): AbcSourceRange | undefined => (
     ? { start: element.startChar!, end: element.endChar! }
     : undefined
 );
+
+const resolveParsedVoiceId = (
+  voice: readonly ParsedElement[],
+  markers: readonly BodyVoiceMarker[],
+  fallback: string,
+): string => {
+  let firstSourceOffset: number | undefined;
+  for (const element of voice) {
+    const range = sourceRange(element);
+    if (range) {
+      firstSourceOffset = range.start;
+      break;
+    }
+  }
+  if (firstSourceOffset === undefined) return fallback;
+
+  let low = 0;
+  let high = markers.length - 1;
+  let resolvedIndex = -1;
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    if (markers[middle].offset <= firstSourceOffset) {
+      resolvedIndex = middle;
+      low = middle + 1;
+    } else {
+      high = middle - 1;
+    }
+  }
+  return resolvedIndex >= 0 ? markers[resolvedIndex].voiceId : fallback;
+};
 
 const pitchFromParsed = (pitch: ParsedPitch): ScorePitch | null => {
   if (!Number.isInteger(pitch.pitch)) return null;
@@ -436,6 +508,7 @@ export const extractScore = (abc: string): ExtractedScore => {
   }
 
   const declaredVoiceIds = collectDeclaredVoiceIds(abc);
+  const bodyVoiceMarkers = collectBodyVoiceMarkers(abc);
   const encounteredVoiceIds: string[] = [];
   const voiceStates = new Map<string, VoiceState>();
   const measures = new Map<number, MutableMeasure>();
@@ -460,7 +533,17 @@ export const extractScore = (abc: string): ExtractedScore => {
     for (const staff of line.staff || []) {
       const staffKey = formatKey(staff.key);
       const staffMeter = formatMeter(staff.meter);
-      const firstVoiceIdOnStaff = declaredVoiceIds[voiceSlot] || `voice-${voiceSlot + 1}`;
+      const resolvedVoices = (staff.voices || []).map((voice, index) => ({
+        voice,
+        voiceId: resolveParsedVoiceId(
+          voice,
+          bodyVoiceMarkers,
+          declaredVoiceIds[voiceSlot + index] || `voice-${voiceSlot + index + 1}`,
+        ),
+      }));
+      const firstVoiceIdOnStaff = resolvedVoices[0]?.voiceId
+        || declaredVoiceIds[voiceSlot]
+        || `voice-${voiceSlot + 1}`;
       const stateBeforeStaff = voiceStates.get(firstVoiceIdOnStaff) || {
         measureNumber: 1,
         offset: ZERO_DURATION,
@@ -483,8 +566,7 @@ export const extractScore = (abc: string): ExtractedScore => {
         }
       }
 
-      for (const voice of staff.voices || []) {
-        const voiceId = declaredVoiceIds[voiceSlot] || `voice-${voiceSlot + 1}`;
+      for (const { voice, voiceId } of resolvedVoices) {
         if (!encounteredVoiceIds.includes(voiceId)) encounteredVoiceIds.push(voiceId);
         const state = voiceStates.get(voiceId) || {
           measureNumber: 1,
@@ -596,13 +678,17 @@ export const extractScore = (abc: string): ExtractedScore => {
   }
 
   const tempoText = abc.match(/^Q:\s*(.+)$/m)?.[1]?.trim();
+  const orderedVoiceIds = [
+    ...declaredVoiceIds.filter((voiceId) => encounteredVoiceIds.includes(voiceId)),
+    ...encounteredVoiceIds.filter((voiceId) => !declaredVoiceIds.includes(voiceId)),
+  ];
   return {
     ...(tune.metaText?.title ? { title: tune.metaText.title } : {}),
     ...(tune.metaText?.composer ? { composer: tune.metaText.composer } : {}),
     ...(formatKey(tune.getKeySignature?.()) ? { key: formatKey(tune.getKeySignature?.()) } : {}),
     ...(formatMeter(tune.getMeter?.()) ? { meter: formatMeter(tune.getMeter?.()) } : {}),
     ...(tempoText ? { tempoText } : {}),
-    voices: encounteredVoiceIds.length ? encounteredVoiceIds : ['voice-1'],
+    voices: orderedVoiceIds.length ? orderedVoiceIds : ['voice-1'],
     measures: writtenMeasures,
   };
 };

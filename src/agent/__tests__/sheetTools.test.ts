@@ -114,6 +114,23 @@ describe('sheet tools', () => {
     }
   });
 
+  it('does not authorize any measures when a range read fails partway through', async () => {
+    const registry = createSheetTools(createSnapshot());
+    await registry.tools[0].execute('route', { profiles: ['general'] });
+    const read = registry.tools.find(({ name }) => name === 'read_measure_range')!;
+    const propose = registry.tools.find(({ name }) => name === 'propose_measure_replacement')!;
+
+    await expect(read.execute('outside', { startMeasure: 1, endMeasure: 3 }))
+      .rejects.toMatchObject({ code: 'measure_not_found' });
+    expect([...registry.state.readMeasures]).toEqual([]);
+    expect([...registry.state.readRanges]).toEqual([]);
+    await expect(propose.execute('proposal-after-failed-read', {
+      span: { startMeasure: 1, endMeasure: 2 },
+      summary: 'Rewrite the opening',
+      replacementAbc: 'C4 | D4 |',
+    })).rejects.toMatchObject({ code: 'range_not_read' });
+  });
+
   it('creates canonical proposals with server-controlled metadata without mutating the snapshot', async () => {
     const created = vi.fn();
     const ids = ['annotation-1', 'proposal-1', 'annotation-2', 'proposal-2'];
@@ -335,6 +352,36 @@ describe('sheet tools', () => {
       summary: 'Try again',
       abcSource: abcSource.replace('Q:1/4=88', 'Q:1/4=90'),
     })).rejects.toMatchObject({ code: 'proposal_limit' });
+  });
+
+  it('rejects whitespace-only summaries before emitting either score proposal', async () => {
+    const measureCreated = vi.fn();
+    const measureRegistry = createSheetTools(createSnapshot(), {
+      onScoreProposalCreated: measureCreated,
+    });
+    await measureRegistry.tools[0].execute('route-measure', { profiles: ['general'] });
+    await measureRegistry.tools[2].execute('read', { startMeasure: 1, endMeasure: 1 });
+    const measurePropose = measureRegistry.tools.find(({ name }) => name === 'propose_measure_replacement')!;
+    await expect(measurePropose.execute('blank-measure-summary', {
+      span: { startMeasure: 1, endMeasure: 1 },
+      summary: ' \t ',
+      replacementAbc: 'C4 |',
+    })).rejects.toMatchObject({ code: 'invalid_proposals' });
+    expect(measureRegistry.state.scoreProposalCount).toBe(0);
+    expect(measureCreated).not.toHaveBeenCalled();
+
+    const scoreCreated = vi.fn();
+    const scoreRegistry = createSheetTools(createSnapshot(), {
+      onScoreProposalCreated: scoreCreated,
+    });
+    await scoreRegistry.tools[0].execute('route-score', { profiles: ['general'] });
+    const scorePropose = scoreRegistry.tools.find(({ name }) => name === 'propose_score_edit')!;
+    await expect(scorePropose.execute('blank-score-summary', {
+      summary: '\n ',
+      abcSource: 'X:1\nM:4/4\nL:1/4\nK:C\nD4 | E4 |]',
+    })).rejects.toMatchObject({ code: 'invalid_proposals' });
+    expect(scoreRegistry.state.scoreProposalCount).toBe(0);
+    expect(scoreCreated).not.toHaveBeenCalled();
   });
 
   it('allows no selection or a different selected range while still validating the proposal', async () => {

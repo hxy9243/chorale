@@ -210,7 +210,8 @@ const validateWritableSource = (
 const applySourceEdits = (abcSource: string, edits: readonly SourceEdit[]): string | null => {
   const sorted = [...edits].sort((left, right) => right.start - left.start || right.end - left.end);
   let previousStart = abcSource.length + 1;
-  let result = abcSource;
+  let unchangedEnd = abcSource.length;
+  const reversedParts: string[] = [];
   for (const edit of sorted) {
     if (
       !Number.isInteger(edit.start)
@@ -220,10 +221,12 @@ const applySourceEdits = (abcSource: string, edits: readonly SourceEdit[]): stri
       || edit.end > abcSource.length
       || edit.end > previousStart
     ) return null;
-    result = `${result.slice(0, edit.start)}${edit.replacement}${result.slice(edit.end)}`;
+    reversedParts.push(abcSource.slice(edit.end, unchangedEnd), edit.replacement);
+    unchangedEnd = edit.start;
     previousStart = edit.start;
   }
-  return result;
+  reversedParts.push(abcSource.slice(0, unchangedEnd));
+  return reversedParts.reverse().join('');
 };
 
 const replacementSnapshot = (
@@ -584,6 +587,36 @@ export const rebaseAnnotationsForMutation = (
     }
     return [{ ...annotation, span: nextSpan }];
   });
+};
+
+export const retainAnnotationsForWholeScoreReplacement = (
+  annotations: readonly Annotation[],
+  previousAbc: string,
+  replacementAbc: string,
+): Annotation[] => {
+  try {
+    const previousScore = extractScore(previousAbc);
+    const replacementScore = extractScore(replacementAbc);
+    const unchangedMeasures = new Set<number>();
+    for (const previousMeasure of previousScore.measures) {
+      const replacementMeasure = replacementScore.measures[previousMeasure.measureNumber - 1];
+      if (replacementMeasure?.abcSlice.trim() === previousMeasure.abcSlice.trim()) {
+        unchangedMeasures.add(previousMeasure.measureNumber);
+      }
+    }
+    return annotations.filter((annotation) => {
+      for (
+        let measureNumber = annotation.span.startMeasure;
+        measureNumber <= annotation.span.endMeasure;
+        measureNumber += 1
+      ) {
+        if (!unchangedMeasures.has(measureNumber)) return false;
+      }
+      return true;
+    });
+  } catch {
+    return [];
+  }
 };
 
 export const readMeasureReplacementAbc = (

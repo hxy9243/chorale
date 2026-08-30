@@ -4,6 +4,7 @@ import { useDocumentStore } from '../useDocumentStore';
 import { storageAdapter } from '../../utils/storageAdapter';
 import { createDocumentFromAbc, updateDocumentAbc } from '../../utils/fileSession';
 import type { FileDocument } from '../../types/document';
+import { extractScore } from '../../music/scoreSnapshot';
 import * as xmlParser from '../../utils/xmlParser';
 
 describe('useDocumentStore', () => {
@@ -182,6 +183,106 @@ describe('useDocumentStore', () => {
     });
     expect(result.current.activeDocument?.history?.at(-1)?.scoreInfo.subtitle).toBe('A new subtitle');
     expect(result.current.activeAnchor).toEqual({ startMeasure: 1, endMeasure: 2 });
+  });
+
+  it('drops annotations from shifted music on whole-score replacement and restores them on undo', async () => {
+    const sourceAbc = ['X:1', 'T:Annotated', 'M:4/4', 'L:1/4', 'K:C', 'C4 | G4 |]'].join('\n');
+    const annotatedDocument: FileDocument = {
+      ...sampleDoc,
+      abcSource: sourceAbc,
+      scoreInfo: { title: 'Annotated', measures: 2 },
+      annotations: [{
+        id: 'shifted-annotation',
+        kind: 'explanation',
+        span: { startMeasure: 2, endMeasure: 2 },
+        label: 'Second measure',
+        body: 'Describes the G measure.',
+        source: 'user',
+        createdAt: '2026-08-05T00:00:00.000Z',
+        updatedAt: '2026-08-05T00:00:00.000Z',
+      }],
+    };
+    localStorage.setItem('chorale.workspace.activeFileId', annotatedDocument.id);
+    vi.spyOn(storageAdapter, 'getDocuments').mockResolvedValue([annotatedDocument]);
+    const { result } = renderHook(() => useDocumentStore());
+    await waitFor(() => expect(result.current.hydrationStatus).toBe('ready'));
+
+    act(() => {
+      result.current.handleWholeScoreReplacement(
+        ['X:1', 'T:Annotated', 'M:4/4', 'L:1/4', 'K:C', 'z4 | C4 | G4 |]'].join('\n'),
+      );
+    });
+
+    expect(result.current.activeDocument?.annotations).toEqual([]);
+    act(() => result.current.handleUndo());
+    expect(result.current.abcCode).toBe(sourceAbc);
+    expect(result.current.activeDocument?.annotations[0].span).toEqual({
+      startMeasure: 2,
+      endMeasure: 2,
+    });
+  });
+
+  it('applies measure mutations through history, supports undo, and leaves invalid edits untouched', async () => {
+    const sourceAbc = [
+      'X:1', 'T:Measure draft', 'M:4/4', 'L:1/4', 'K:C',
+      'C D E F | G A B c | c B A G |]',
+    ].join('\n');
+    const measureDocument: FileDocument = {
+      ...sampleDoc,
+      abcSource: sourceAbc,
+      scoreInfo: { title: 'Measure draft', measures: 3 },
+      annotations: [{
+        id: 'later-annotation',
+        kind: 'explanation',
+        span: { startMeasure: 2, endMeasure: 2 },
+        label: 'Later phrase',
+        body: 'Moves with the original second measure.',
+        source: 'user',
+        createdAt: '2026-08-05T00:00:00.000Z',
+        updatedAt: '2026-08-05T00:00:00.000Z',
+      }],
+    };
+    localStorage.setItem('chorale.workspace.activeFileId', measureDocument.id);
+    vi.spyOn(storageAdapter, 'getDocuments').mockResolvedValue([measureDocument]);
+    const { result } = renderHook(() => useDocumentStore());
+    await waitFor(() => expect(result.current.hydrationStatus).toBe('ready'));
+
+    let mutationResult: ReturnType<typeof result.current.handleMeasureMutation> | undefined;
+    act(() => {
+      mutationResult = result.current.handleMeasureMutation({
+        kind: 'insert',
+        span: { startMeasure: 1, endMeasure: 1 },
+        position: 'after',
+        count: 1,
+      });
+    });
+
+    expect(mutationResult?.status).toBe('valid');
+    expect(extractScore(result.current.abcCode).measures).toHaveLength(4);
+    expect(result.current.abcRevision).toBe(2);
+    expect(result.current.activeDocument?.versions.at(-1)?.reason).toBe('manual-edit');
+    expect(result.current.editingHistory).toHaveLength(2);
+    expect(result.current.activeDocument?.annotations[0].span).toEqual({ startMeasure: 3, endMeasure: 3 });
+    expect(result.current.activeAnchor).toEqual({ startMeasure: 2, endMeasure: 2 });
+    expect(result.current.canUndo).toBe(true);
+
+    act(() => result.current.handleUndo());
+    expect(result.current.abcCode).toBe(sourceAbc);
+    expect(result.current.abcRevision).toBe(1);
+    expect(result.current.activeDocument?.annotations[0].span).toEqual({ startMeasure: 2, endMeasure: 2 });
+
+    const documentBeforeInvalidEdit = result.current.activeDocument;
+    let invalidResult: ReturnType<typeof result.current.handleMeasureMutation> | undefined;
+    act(() => {
+      invalidResult = result.current.handleMeasureMutation({
+        kind: 'delete',
+        span: { startMeasure: 1, endMeasure: 3 },
+      });
+    });
+    expect(invalidResult?.status).toBe('invalid');
+    expect(result.current.activeDocument).toBe(documentBeforeInvalidEdit);
+    expect(result.current.abcCode).toBe(sourceAbc);
+    expect(result.current.abcRevision).toBe(1);
   });
 
   it('keeps subtitle metadata synchronized when raw ABC or metadata edits remove it', async () => {

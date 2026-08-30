@@ -46,7 +46,10 @@ user has explicitly entered proposal preview.
 ## 3. Measure source and mutations
 
 `ScoreSnapshot` retains an internal source slice and absolute source range for every written measure
-and active voice. The public `read_measure_range` result remains concise and unchanged.
+and active voice. Voice identity follows the active body `V:` or `[V:]` marker at the parsed source
+position, so declaration order and `%%score`/`%%staves` layout order may differ without relabeling
+parts. Declaration order is only the fallback for implicit source without body voice markers. The
+public `read_measure_range` result remains concise and unchanged.
 
 Focused manual and agent-authored measure edits pass through one pure mutation function:
 
@@ -90,7 +93,8 @@ height as the selected measure with items arranged vertically: a measure span la
 **Add before**, **Add after**, **Edit ABC**, and **Delete**. Positioning the floating toolbar in the
 left balance lane preserves the vertical viewport and scroll position of the entire page when selecting
 or deselecting measures. Dialogs have visible labels, initial focus, focus trapping, safe Escape,
-screen-reader status, and focus-visible styles.
+screen-reader status, and focus-visible styles. While the toolbar is present, scene sizing reserves its
+minimum width and left-aligns horizontal overflow so the controls cannot collapse behind the file rail.
 
 Selection and draft UI are file scoped. Switching documents or editing raw source clears ephemeral
 selection, editor, and preview state.
@@ -102,6 +106,8 @@ tools. They share a limit of one score proposal per run. The active selection is
 and navigation hint, not an authorization boundary: measure replacement may target any existing
 span after reading that proposed span, including when there is no active selection. A focused
 replacement may target any continuous measure span up to the full measure count of the score.
+Failed reads authorize no measures; read authorization is committed only after the entire requested
+range has been validated. Proposal summaries must contain non-whitespace text after trimming.
 The replacement must be below 64 KiB, target the same span, retain every existing voice and measure
 count, pass the shared mutation engine, and produce a valid complete score. It may add explicitly
 named voices, which become complete score-length parts with rests outside the proposed span.
@@ -115,7 +121,9 @@ selecting destination measures.
 Score proposals are persisted separately from annotation proposals and include their source document
 and revision. The complete conversation, including large whole-score replacement payloads, is backed
 by IndexedDB; local storage remains a synchronous mirror and may omit score payloads when its quota is
-exhausted. A proposal card provides **Preview**, **Apply**, and **Discard**.
+exhausted. Durable hydration merges file entries from both stores, preferring IndexedDB when both
+stores contain the same file while recovering local-only files. A proposal card provides **Preview**,
+**Apply**, and **Discard**.
 
 - Preview reconstructs the candidate score and temporarily routes the main score surface and playback
   dock to it without mutating the document.

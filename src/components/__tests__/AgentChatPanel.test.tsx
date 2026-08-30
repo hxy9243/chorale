@@ -1,10 +1,14 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentChatPanel } from '../AgentChatPanel';
-import { CONVERSATION_STORAGE_KEY } from '../../agent/conversationStore';
+import {
+  CONVERSATION_STORAGE_KEY,
+  DURABLE_CONVERSATION_MARKER_PREFIX,
+} from '../../agent/conversationStore';
 import type { AIProviderState } from '../../agent/useAIProviders';
 import type { SheetAgentRequest } from '../../agent/aiTypes';
 import type { Annotation, AnnotationProposal, ScoreChangeProposal } from '../../types/document';
+import { storageAdapter } from '../../utils/storageAdapter';
 
 const agentSendMock = vi.hoisted(() => vi.fn());
 
@@ -616,6 +620,54 @@ describe('AgentChatPanel', () => {
     expect(screen.queryByText('Outdated')).toBeNull();
   });
 
+  it('does not overwrite compact recovery data when durable hydration fails', async () => {
+    const recoveryFileId = 'doc-hydration-failure';
+    localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
+      version: 3,
+      files: {
+        [recoveryFileId]: {
+          activeThreadId: 'thread-recovery',
+          threads: [{
+            id: 'thread-recovery',
+            title: 'Recovered conversation',
+            updatedAt: '2026-08-05T00:00:00.000Z',
+            messages: [{
+              id: 'assistant-recovery',
+              role: 'assistant',
+              content: 'Compact recovery copy.',
+              createdAt: '2026-08-05T00:00:00.000Z',
+              status: 'complete',
+              scoreProposals: [],
+            }],
+          }],
+        },
+      },
+    }));
+    const markerKey = `${DURABLE_CONVERSATION_MARKER_PREFIX}${recoveryFileId}`;
+    localStorage.setItem(markerKey, '1');
+    const getItem = vi.spyOn(storageAdapter, 'getItem').mockRejectedValueOnce(new Error('IndexedDB unavailable'));
+    const setItem = vi.spyOn(storageAdapter, 'setItem');
+
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId={recoveryFileId}
+        abcCode={'X:1\nT:Recovery\nM:4/4\nK:C\nCDEF|'}
+        activeFileName="Recovery.abc"
+        revision={1}
+        ai={ai}
+        onOpenSettings={() => undefined}
+      />,
+    );
+
+    expect(await screen.findByText(/Saved score proposals could not be restored/)).toBeDefined();
+    expect(localStorage.getItem(markerKey)).toBe('1');
+    expect(setItem).not.toHaveBeenCalled();
+    getItem.mockRestore();
+    setItem.mockRestore();
+  });
+
   it('applies none and identifies invalid cards when any proposed annotation collides', () => {
     const collidingAnnotation = proposal.annotation;
     seedProposalThread('doc-proposals', [proposal]);
@@ -1164,5 +1216,7 @@ describe('AgentChatPanel', () => {
     expect(previousAssistant.proposals).toEqual([
       expect.objectContaining({ id: 'proposal-test', state: 'unavailable' }),
     ]);
+    expect(JSON.stringify(previousStore.files['doc-after'] ?? {})).not.toContain('proposal-test');
+    expect(JSON.stringify(previousStore.files['doc-after'] ?? {})).not.toContain('Keep streaming');
   });
 });

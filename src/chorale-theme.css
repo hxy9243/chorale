@@ -8032,6 +8032,7 @@ body,
   border-radius: var(--radius-small);
   background: transparent;
   color: var(--color-muted);
+  cursor: pointer;
 }
 
 .new-score-form-grid {
@@ -8051,7 +8052,7 @@ body,
   display: grid;
   gap: var(--space-xs);
   color: var(--color-ink);
-  font-size: 0.79rem;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
@@ -8064,7 +8065,7 @@ body,
 
 .new-score-form-grid small {
   color: var(--color-muted);
-  font-size: 0.7rem;
+  font-size: var(--text-sm);
   font-weight: 400;
 }
 
@@ -8077,7 +8078,7 @@ body,
   border-radius: var(--radius-control);
   background: var(--color-paper-2);
   color: var(--color-ink);
-  font: inherit;
+  font: var(--text-base)/1.5 var(--font-body);
 }
 
 .new-score-instrument {
@@ -8091,7 +8092,7 @@ body,
   min-height: 1.25rem;
   padding: 0 var(--space-lg);
   color: var(--color-error);
-  font-size: 0.76rem;
+  font-size: var(--text-sm);
 }
 
 .new-score-errors p {
@@ -8114,6 +8115,19 @@ body,
   border: var(--rule-thin) solid var(--color-rule-2);
   border-radius: var(--radius-control);
   font-weight: 600;
+  cursor: pointer;
+}
+
+.score-drafting-icon-button:hover:not(:disabled),
+.score-drafting-secondary-button:hover:not(:disabled),
+.empty-score-actions button:last-child:hover:not(:disabled) {
+  background: var(--color-paper-3);
+  color: var(--color-ink);
+}
+
+.score-drafting-primary-button:hover:not(:disabled),
+.empty-score-actions button:first-child:hover:not(:disabled) {
+  filter: brightness(1.08);
 }
 
 .score-drafting-secondary-button,
@@ -8305,6 +8319,11 @@ body,
   background: transparent;
   color: inherit;
   font: inherit;
+  cursor: pointer;
+}
+
+.score-preview-banner button:hover:not(:disabled) {
+  color: var(--color-ink);
 }
 
 .score-change-proposal-list {
@@ -8375,10 +8394,24 @@ body,
   color: var(--color-ink-2);
   font-size: var(--text-xs);
   font-weight: 650;
+  cursor: pointer;
+}
+
+.score-change-proposal-actions button:hover:not(:disabled) {
+  border-color: var(--color-rule-2);
+  background: var(--color-paper-3);
+  color: var(--color-ink);
 }
 
 .score-change-proposal-actions button.primary {
   border-color: var(--color-accent-strong);
   background: var(--color-accent-strong);
   color: var(--color-accent-ink);
+}
+
+.score-change-proposal-actions button.primary:hover:not(:disabled) {
+  border-color: var(--color-accent-strong);
+  background: var(--color-accent-strong);
+  color: var(--color-accent-ink);
+  filter: brightness(1.08);
 }

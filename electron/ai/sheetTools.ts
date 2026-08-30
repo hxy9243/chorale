@@ -109,6 +109,17 @@ export const createSheetTools = (
     }
   };
 
+  const requireSummary = (summary: string): string => {
+    const normalized = summary.trim();
+    if (!normalized) {
+      throw new SheetToolValidationError(
+        'invalid_proposals',
+        'Proposal summary must contain non-whitespace text.',
+      );
+    }
+    return normalized;
+  };
+
   const selectProfileTool: AgentTool<typeof SelectProfileParameters> = {
     name: 'select_analysis_profile',
     label: 'Select analysis profile',
@@ -182,8 +193,8 @@ export const createSheetTools = (
           ...(measure.keyChange ? { keyChange: measure.keyChange } : {}),
           ...(measure.meterChange ? { meterChange: measure.meterChange } : {}),
         });
-        state.readMeasures.add(measureNumber);
       }
+      for (const measure of measures) state.readMeasures.add(measure.measureNumber);
       state.readRanges.add(`${startMeasure}:${endMeasure}`);
       return jsonResult({
         startMeasure,
@@ -294,6 +305,7 @@ export const createSheetTools = (
     execute: async (_toolCallId, params, signal) => {
       throwIfAborted(signal);
       requireProfile();
+      const summary = requireSummary(params.summary);
       const { startMeasure, endMeasure } = params.span;
       if (endMeasure < startMeasure) {
         throw new SheetToolValidationError('invalid_range', 'endMeasure must be at least startMeasure.', {
@@ -334,7 +346,7 @@ export const createSheetTools = (
         sourceRevision: snapshot.revision,
         state: 'proposed',
         span: { ...params.span },
-        summary: params.summary.trim(),
+        summary,
         replacementAbc: params.replacementAbc,
         validation: { status: 'valid', errors: [] },
       };
@@ -353,6 +365,7 @@ export const createSheetTools = (
     execute: async (_toolCallId, params, signal) => {
       throwIfAborted(signal);
       requireProfile();
+      const summary = requireSummary(params.summary);
       if (state.scoreProposalCount >= 1) {
         throw new SheetToolValidationError('proposal_limit', 'Propose at most one score change per run.');
       }
@@ -372,7 +385,7 @@ export const createSheetTools = (
         state: 'proposed',
         kind: 'replace-score',
         span: result.affectedSpan,
-        summary: params.summary.trim(),
+        summary,
         replacementAbc: params.abcSource,
         validation: { status: 'valid', errors: [] },
       };

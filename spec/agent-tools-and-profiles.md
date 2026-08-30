@@ -154,6 +154,8 @@ Rules:
 - Measures are one-based, written, and inclusive; a pickup is measure 1.
 - `endMeasure >= startMeasure`.
 - One call may return any continuous written-measure range within the score.
+- A failed call records no read authorization; authorization is committed only after every requested
+  measure has been validated.
 
 ### 5.3 `get_annotations`
 
@@ -205,7 +207,7 @@ The main process validates inputs and creates server-controlled IDs, timestamps,
 
 ### 5.5 `propose_measure_replacement`
 
-The tool accepts an inclusive target span, a short summary, and replacement ABC. It requires that
+The tool accepts an inclusive target span, a non-whitespace summary, and replacement ABC. It requires that
 the proposed span has been read prior to proposing replacement music.
 The active selection is an optional intent and navigation hint; it is not required and does not
 constrain the proposed span.
@@ -219,7 +221,7 @@ mutation engine preserves the target barline and ending bytes while replacing mu
 
 ### 5.6 `propose_score_edit`
 
-The tool accepts a short summary and a complete candidate ABC source. It does not require a measure
+The tool accepts a non-whitespace summary and a complete candidate ABC source. It does not require a measure
 selection because the immutable prompt context already contains the full source. The candidate may
 change key and tempo headers, add inline key or tempo changes, add or reconfigure voices and staves,
 and make other valid ABC mutations. It must differ from the source, remain below 2 MB, parse as valid

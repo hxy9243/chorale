@@ -177,9 +177,11 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   const [conversation, setConversation] = useState<PersistedFileConversation>(() => (
     fileId ? loadConversation(fileId) : makeEmptyConversation()
   ));
+  const [conversationFileId, setConversationFileId] = useState(fileId);
   const [durableHydrationPending, setDurableHydrationPending] = useState(() => (
     Boolean(fileId) && conversationNeedsDurableHydration(fileId)
   ));
+  const [durableHydrationFailed, setDurableHydrationFailed] = useState(false);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -268,19 +270,30 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     }
     if (!fileId) {
       setConversation(makeEmptyConversation());
+      setConversationFileId('');
       setDurableHydrationPending(false);
+      setDurableHydrationFailed(false);
       return;
     }
     setConversation(loadConversation(fileId));
+    setConversationFileId(fileId);
     let cancelled = false;
     const needsDurableHydration = conversationNeedsDurableHydration(fileId);
     setDurableHydrationPending(needsDurableHydration);
+    setDurableHydrationFailed(false);
     if (needsDurableHydration) {
       void loadConversationAsync(fileId).then((loaded) => {
         if (!cancelled) {
           setConversation(loaded);
-          setDurableHydrationPending(false);
+          setDurableHydrationFailed(false);
         }
+      }).catch(() => {
+        if (!cancelled) {
+          setDurableHydrationFailed(true);
+          setError('Saved score proposals could not be restored. Reload to retry without overwriting them.');
+        }
+      }).finally(() => {
+        if (!cancelled) setDurableHydrationPending(false);
       });
     }
     setDraft('');
@@ -293,10 +306,23 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   }, [fileId]);
 
   useEffect(() => {
-    if (!fileId || isStreaming || durableHydrationPending) return;
+    if (
+      !fileId
+      || conversationFileId !== fileId
+      || isStreaming
+      || durableHydrationPending
+      || durableHydrationFailed
+    ) return;
     saveConversation(fileId, conversation);
     void saveConversationAsync(fileId, conversation);
-  }, [conversation, durableHydrationPending, fileId, isStreaming]);
+  }, [
+    conversation,
+    conversationFileId,
+    durableHydrationFailed,
+    durableHydrationPending,
+    fileId,
+    isStreaming,
+  ]);
 
   useEffect(() => {
     try {

@@ -1,6 +1,7 @@
 export const PREFERRED_SCORE_NOTATION_WIDTH_REM = 48;
 export const PREFERRED_SCORE_ANNOTATION_WIDTH_REM = 24;
 export const MIN_SCORE_ANNOTATION_WIDTH_REM = 16;
+export const MIN_SCORE_DRAFTING_TOOLBAR_WIDTH_REM = 10;
 export const SCORE_SCENE_GAP_REM = 0.5;
 
 export interface ScoreSceneTracksInput {
@@ -8,6 +9,7 @@ export interface ScoreSceneTracksInput {
   notationWidth: number;
   annotationWidth: number;
   minAnnotationWidth: number;
+  minBalanceWidth?: number;
   gap: number;
 }
 
@@ -33,6 +35,7 @@ export const fitScoreSceneTracks = ({
   notationWidth,
   annotationWidth,
   minAnnotationWidth,
+  minBalanceWidth = 0,
   gap,
 }: ScoreSceneTracksInput): ScoreSceneTracks => {
   const safeAvailable = Math.max(0, availableWidth);
@@ -42,24 +45,31 @@ export const fitScoreSceneTracks = ({
     Math.max(0, minAnnotationWidth),
     preferredAnnotation,
   );
+  const safeMinBalance = Math.min(
+    Math.max(0, minBalanceWidth),
+    preferredAnnotation,
+  );
   const sceneGap = Math.max(0, gap);
 
   if (safeAvailable >= sceneWidth(safeNotation, preferredAnnotation, sceneGap)) {
     return { balanceWidth: preferredAnnotation, annotationWidth: preferredAnnotation };
   }
 
-  const railFloorAvailable = safeNotation + safeMinAnnotation + 2 * sceneGap;
+  const railFloorAvailable = safeNotation + safeMinBalance + safeMinAnnotation + 2 * sceneGap;
   if (safeAvailable < railFloorAvailable) {
-    return { balanceWidth: 0, annotationWidth: safeMinAnnotation };
+    return { balanceWidth: safeMinBalance, annotationWidth: safeMinAnnotation };
   }
 
-  const noBalanceRailWidth = safeAvailable - safeNotation - 2 * sceneGap;
-  if (noBalanceRailWidth <= preferredAnnotation) {
-    return { balanceWidth: 0, annotationWidth: noBalanceRailWidth };
+  const flexibleTrackWidth = safeAvailable - safeNotation - safeMinBalance - 2 * sceneGap;
+  if (flexibleTrackWidth <= preferredAnnotation) {
+    return { balanceWidth: safeMinBalance, annotationWidth: flexibleTrackWidth };
   }
 
   return {
-    balanceWidth: Math.min(preferredAnnotation, noBalanceRailWidth - preferredAnnotation),
+    balanceWidth: Math.min(
+      preferredAnnotation,
+      safeMinBalance + flexibleTrackWidth - preferredAnnotation,
+    ),
     annotationWidth: preferredAnnotation,
   };
 };

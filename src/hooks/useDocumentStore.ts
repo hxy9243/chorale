@@ -40,6 +40,7 @@ import {
   applyMeasureMutation,
   applyWholeScoreReplacement,
   rebaseAnnotationsForMutation,
+  retainAnnotationsForWholeScoreReplacement,
   type MeasureMutation,
   type MeasureMutationResult,
 } from '../music/scoreDrafting';
@@ -311,7 +312,13 @@ export const useDocumentStore = () => {
     const result = applyMeasureMutation(activeDocument.abcSource, mutation);
     if (result.status !== 'valid') return result;
     const annotations = rebaseAnnotationsForMutation(activeDocument.annotations, mutation);
-    const documentWithRebasedAnnotations = { ...activeDocument, annotations };
+    const documentWithRebasedAnnotations = {
+      ...activeDocument,
+      annotations,
+      // Seed history from the pre-mutation document before the new body entry
+      // captures rebased annotations, so Undo restores both score and overlays.
+      history: synthesizeInitialHistory(activeDocument),
+    };
     const updatedDocument = updateDocumentAbc(
       documentWithRebasedAnnotations,
       result.abcSource,
@@ -335,8 +342,18 @@ export const useDocumentStore = () => {
     if (!activeDocument) return { status: 'invalid', errors: ['Open a score before editing it.'] };
     const result = applyWholeScoreReplacement(activeDocument.abcSource, replacementAbc);
     if (result.status !== 'valid') return result;
+    const retainedAnnotations = retainAnnotationsForWholeScoreReplacement(
+      activeDocument.annotations,
+      activeDocument.abcSource,
+      result.abcSource,
+    );
+    const documentWithRetainedAnnotations = {
+      ...activeDocument,
+      annotations: retainedAnnotations,
+      history: synthesizeInitialHistory(activeDocument),
+    };
     const updatedDocument = updateDocumentAbc(
-      activeDocument,
+      documentWithRetainedAnnotations,
       result.abcSource,
       reason,
       { measures: result.affectedSpan.endMeasure },

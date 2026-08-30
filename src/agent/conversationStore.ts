@@ -156,13 +156,21 @@ const loadStore = (storage: Storage): PersistedConversationStore => {
 const loadDurableStore = async (): Promise<PersistedConversationStore> => {
   const indexedValue = await storageAdapter.getItem<unknown>(CONVERSATION_STORAGE_KEY, null);
   const indexedStore = migrateConversationStore(indexedValue);
-  if (Object.keys(indexedStore.files).length > 0) return indexedStore;
-
   const localStore = loadStore(window.localStorage);
-  if (Object.keys(localStore.files).length > 0) {
-    await storageAdapter.setItem(CONVERSATION_STORAGE_KEY, localStore);
+  const mergedStore: PersistedConversationStore = {
+    version: 3,
+    files: {
+      ...localStore.files,
+      ...indexedStore.files,
+    },
+  };
+  const hasLocalOnlyFiles = Object.keys(localStore.files).some((fileId) => (
+    !Object.prototype.hasOwnProperty.call(indexedStore.files, fileId)
+  ));
+  if (hasLocalOnlyFiles) {
+    await storageAdapter.setItem(CONVERSATION_STORAGE_KEY, mergedStore);
   }
-  return localStore;
+  return mergedStore;
 };
 
 const saveStore = (
@@ -275,15 +283,15 @@ export const conversationNeedsDurableHydration = (
   storage: Storage = window.localStorage,
 ): boolean => storage.getItem(durableConversationMarkerKey(fileId)) === '1';
 
-let durableSaveQueue: Promise<void> = Promise.resolve();
+let durableSaveQueue: Promise<boolean> = Promise.resolve(true);
 
 export const saveConversationAsync = (
   fileId: string,
   conversation: PersistedFileConversation,
-): Promise<void> => {
+): Promise<boolean> => {
   durableSaveQueue = durableSaveQueue.then(async () => {
     const store = await loadDurableStore();
-    await storageAdapter.setItem(CONVERSATION_STORAGE_KEY, {
+    const saved = await storageAdapter.setItem(CONVERSATION_STORAGE_KEY, {
       version: 3,
       files: {
         ...store.files,
@@ -296,10 +304,13 @@ export const saveConversationAsync = (
         },
       },
     } satisfies PersistedConversationStore);
+    if (!saved) return false;
     await storageAdapter.removeItem(VERSION_2_CONVERSATION_STORAGE_KEY);
     await storageAdapter.removeItem(LEGACY_CONVERSATION_STORAGE_KEY);
+    return true;
   }).catch(() => {
     // Conversation persistence remains best-effort when durable browser storage is unavailable.
+    return false;
   });
   return durableSaveQueue;
 };

@@ -79,6 +79,33 @@ describe('createBlankPianoScore', () => {
   });
 });
 
+describe('source-aware voice replacement', () => {
+  it('keeps replacement music attached to voice IDs when score layout order is reversed', () => {
+    const abc = [
+      'X:1',
+      'M:4/4',
+      'L:1/4',
+      '%%score { lower | upper }',
+      'V:upper clef=treble',
+      'V:lower clef=bass',
+      'K:C',
+      '[V:upper] C4 |]',
+      '[V:lower] G,4 |]',
+    ].join('\n');
+    const result = applyMeasureMutation(abc, {
+      kind: 'replace',
+      span: { startMeasure: 1, endMeasure: 1 },
+      replacementAbc: '[V:upper] E4 |\n[V:lower] F,4 |',
+    });
+
+    expect(result.status).toBe('valid');
+    if (result.status === 'valid') {
+      expect(result.abcSource).toContain('[V:upper] E4|]');
+      expect(result.abcSource).toContain('[V:lower] F,4|]');
+    }
+  });
+});
+
 describe('rebaseAnnotationsForMutation', () => {
   const annotations: Annotation[] = [{
     id: 'before', kind: 'explanation', span: { startMeasure: 1, endMeasure: 2 }, label: 'Before', body: 'Before', source: 'user', createdAt: 'now', updatedAt: 'now',
@@ -155,6 +182,16 @@ describe('applyMeasureMutation', () => {
     if (afterFinal.status === 'valid') {
       expect(extractScore(afterFinal.abcSource).measures).toHaveLength(5);
       expect(afterFinal.abcSource).toContain('F E D C | Z |]');
+    }
+
+    const afterInterior = applyMeasureMutation(singleVoice, {
+      kind: 'insert', span: { startMeasure: 2, endMeasure: 2 }, position: 'after', count: 2,
+    });
+    expect(afterInterior.status).toBe('valid');
+    if (afterInterior.status === 'valid') {
+      expect(extractScore(afterInterior.abcSource).measures).toHaveLength(6);
+      expect(afterInterior.affectedSpan).toEqual({ startMeasure: 3, endMeasure: 4 });
+      expect(afterInterior.abcSource).toMatch(/G A B c \|\s+Z \| Z \|\s+c B A G \|/);
     }
   });
 
