@@ -5981,15 +5981,26 @@ body,
   font-size: var(--text-sm);
 }
 
+.abc-editor-card .editor-body.is-raw-view {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 .abc-raw-editor {
   display: flex;
   min-height: 100%;
+  width: 100%;
+  max-width: 100%;
   align-items: stretch;
+  overflow: hidden;
 }
 
 .abc-raw-editor .editor-line-numbers {
   flex: none;
   padding-block: var(--space-sm);
+  padding-inline-start: var(--space-sm);
+  padding-inline-end: var(--space-xs);
+  user-select: none;
 }
 
 .abc-raw-content {
@@ -5997,7 +6008,10 @@ body,
   flex: 1;
   min-height: 100%;
   min-width: 0;
+  width: 100%;
+  max-width: 100%;
   display: flex;
+  overflow: hidden;
 }
 
 .abc-raw-backdrop {
@@ -6006,20 +6020,25 @@ body,
   pointer-events: none;
   overflow: hidden;
   padding-block: var(--space-sm);
+  padding-inline-end: var(--space-sm);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   line-height: 1.65;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .abc-raw-line-row {
   display: flex;
-  min-width: 100%;
-  width: max-content;
+  width: 100%;
+  max-width: 100%;
   align-items: baseline;
   min-height: calc(1.65 * var(--text-sm));
   white-space: pre;
   padding-inline-end: var(--space-md);
   border-radius: 2px;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .abc-raw-line-row.has-voice {
@@ -6038,6 +6057,7 @@ body,
   color: transparent;
   user-select: none;
   white-space: pre;
+  flex-shrink: 0;
 }
 
 .abc-raw-segment.abc-raw-measure-seg.is-selected {
@@ -6053,24 +6073,36 @@ body,
 }
 
 .abc-raw-explanation {
-  margin-inline-start: var(--space-md);
-  color: var(--color-on-graphite-muted);
+  margin-inline-start: var(--space-xl);
+  color: color-mix(in srgb, var(--color-ink) 65%, transparent);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  opacity: 0.75;
+  font-weight: 500;
+  letter-spacing: 0.03em;
   white-space: nowrap;
   user-select: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
 }
 
 .abc-raw-editor .abc-textarea {
   position: relative;
   min-height: 100%;
   width: 100%;
+  max-width: 100%;
   flex: 1;
   resize: none;
   padding-block: var(--space-sm);
+  padding-inline-end: var(--space-sm);
   background: transparent;
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.65;
   white-space: pre;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .abc-formatted-source {

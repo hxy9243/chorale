@@ -423,7 +423,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
       </div>
 
       {visible && (
-        <div className="editor-body" ref={editorBodyRef}>
+        <div className={`editor-body${view === 'raw' ? ' is-raw-view' : ''}`} ref={editorBodyRef}>
           {view === 'raw' ? (
             <div className="abc-raw-editor">
               <div className="editor-line-numbers" aria-hidden="true">

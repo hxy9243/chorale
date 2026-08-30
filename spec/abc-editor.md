@@ -89,11 +89,11 @@ The pane provides three views over one canonical ABC string:
   the same system groups as the rendered sheet. One shared horizontal canvas scrolls all
   systems together rather than giving every system an independent scrollbar.
 - **Raw Source** retains the complete editable textarea and current every-keystroke
-  revision, autosave, validation, score, and playback behavior. It enriches raw ABC text
-  with inline commented sheet explanations for header lines (`X:1   Reference: 1`,
-  `T:rainy day  Title: rainy day`, `M:3/4   Meter: 3/4`), distinct background colors for
-  different voice lines matching the palette of the measure score, and highlights for both
-  range selection and active playback across voices.
+  revision, autosave, validation, score, and playback behavior in a full-width vertical layout
+  without horizontal page scrolling. It enriches raw ABC text with darkened, comfortably-spaced
+  commented sheet explanations for header lines (`X:1   Reference: 1`, `T:rainy day  Title: rainy day`,
+  `M:3/4   Meter: 3/4`), distinct background colors for different voice lines matching the
+  palette of the measure score, and highlights for both range selection and active playback across voices.
 
 Formatted view is available only for a valid single tune whose source ownership can be
 proved. Each voice has a deterministic accessible color used by its selector and source
