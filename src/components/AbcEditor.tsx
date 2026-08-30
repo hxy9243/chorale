@@ -496,15 +496,19 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
                       data-measure={line.measureNumbers.join(',')}
                     >
                       <span className="abc-raw-ghost-text">
-                        {line.segments.map((seg, sIdx) => (
-                          <span
-                            key={sIdx}
-                            className={`abc-raw-segment${seg.measureNumber ? ' abc-raw-measure-seg' : ''}${seg.isSelected ? ' is-selected' : ''}${seg.isPlaying ? ' is-playing' : ''}`}
-                            data-measure={seg.measureNumber}
-                          >
-                            {seg.text}
-                          </span>
-                        ))}
+                        {line.segments.length > 0 ? (
+                          line.segments.map((seg, sIdx) => (
+                            <span
+                              key={sIdx}
+                              className={`abc-raw-segment${seg.measureNumber ? ' abc-raw-measure-seg' : ''}${seg.isSelected ? ' is-selected' : ''}${seg.isPlaying ? ' is-playing' : ''}`}
+                              data-measure={seg.measureNumber}
+                            >
+                              {seg.text}
+                            </span>
+                          ))
+                        ) : (
+                          '\u00A0'
+                        )}
                       </span>
                       {line.explanation && (
                         <span className="abc-raw-explanation" title={line.explanation}>

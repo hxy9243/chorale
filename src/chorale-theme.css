@@ -5987,12 +5987,12 @@ body,
 }
 
 .abc-raw-editor {
+  position: relative;
   display: flex;
   min-height: 100%;
   width: 100%;
   max-width: 100%;
   align-items: stretch;
-  overflow: hidden;
 }
 
 .abc-raw-editor .editor-line-numbers {
@@ -6011,7 +6011,6 @@ body,
   width: 100%;
   max-width: 100%;
   display: flex;
-  overflow: hidden;
 }
 
 .abc-raw-backdrop {
@@ -6020,24 +6019,30 @@ body,
   pointer-events: none;
   overflow: hidden;
   padding-block: var(--space-sm);
+  padding-inline-start: 0;
   padding-inline-end: var(--space-sm);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
   width: 100%;
   box-sizing: border-box;
 }
 
 .abc-raw-line-row {
   display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   width: 100%;
   max-width: 100%;
-  align-items: baseline;
   min-height: calc(1.65 * var(--text-sm));
-  white-space: pre;
-  padding-inline-end: var(--space-md);
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
   border-radius: 2px;
-  overflow: hidden;
   box-sizing: border-box;
 }
 
@@ -6056,8 +6061,10 @@ body,
 .abc-raw-ghost-text {
   color: transparent;
   user-select: none;
-  white-space: pre;
-  flex-shrink: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  flex: 1 1 auto;
 }
 
 .abc-raw-segment.abc-raw-measure-seg.is-selected {
@@ -6074,16 +6081,14 @@ body,
 
 .abc-raw-explanation {
   margin-inline-start: var(--space-xl);
-  color: color-mix(in srgb, var(--color-ink) 65%, transparent);
+  color: color-mix(in srgb, var(--color-ink) 55%, transparent);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: 500;
   letter-spacing: 0.03em;
   white-space: nowrap;
   user-select: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex-shrink: 1;
+  flex: 0 0 auto;
 }
 
 .abc-raw-editor .abc-textarea {
@@ -6093,14 +6098,19 @@ body,
   max-width: 100%;
   flex: 1;
   resize: none;
+  border: 0;
+  outline: 0;
   padding-block: var(--space-sm);
+  padding-inline-start: 0;
   padding-inline-end: var(--space-sm);
   background: transparent;
   color: var(--color-ink);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   line-height: 1.65;
-  white-space: pre;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
   overflow-x: hidden;
   box-sizing: border-box;
 }
