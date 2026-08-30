@@ -13,12 +13,14 @@ Chorale is a Proof of Concept (PoC) web application that imports MusicXML files 
 - **Interactive Sheet Music**: High-legibility SVG score rendered using `abcjs` with dynamic zoom (60% to 180%) and semitone key transposition (+1 / -1 / reset).
 - **WebAudio Piano Synthesizer**: Audio player with Play/Pause/Stop, tempo percentage slider (50% to 180%), volume control, and active note cursor highlighting (`#e11d48`) on the SVG score during audio playback.
 - **ABC Code Editor**: View & edit ABC notation in real-time with instant score re-rendering and copy to clipboard button.
+- **Score Drafting**: Create a blank two-staff piano score, select measures, and make revision-tracked insert, replace, or delete edits.
+- **Desktop Music Tutor**: Ask grounded questions, review annotations, and preview agent-proposed measure or whole-score changes before applying them.
 
 ---
 
 ## 🛠 Tech Stack
 
-- **Framework**: React 18 + Vite + TypeScript
+- **Framework**: React 19 + Vite + TypeScript
 - **Notation & Audio**: `abcjs` + `@educandu/abc-tools`
 - **Archive Unzipping**: `jszip`
 - **UI & Icons**: Custom CSS Glassmorphism + `lucide-react`
@@ -68,7 +70,7 @@ jq 'select(.event == "provider-request") | .data.payload' <trace>.jsonl
 jq 'select(.event == "run-end") | .data.messages' <trace>.jsonl
 ```
 
-Trace files contain score and conversation content verbatim and are not encrypted. Stored provider credentials and sensitive response headers are redacted. Renderer conversation persistence remains a separate, display-oriented localStorage record and is not a full model trace.
+Trace files contain score and conversation content verbatim and are not encrypted. Stored provider credentials and sensitive response headers are redacted. Renderer conversation persistence remains separate from traces: IndexedDB stores the full conversation, while local storage provides a compact synchronous mirror. Neither store is a full model trace.
 
 ### Run Unit Test Suite
 ```bash
@@ -87,6 +89,11 @@ npm run start:electron
 ```
 
 Installers, signing, publishing, and auto-update are not part of this development shell.
+
+## Project Documentation
+
+- [Design and specification index](./spec/design.md)
+- [Engineering conventions](./AGENTS.md)
 
 ---
 

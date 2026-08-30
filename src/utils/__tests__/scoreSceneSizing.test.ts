@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   fitScoreSceneTracks,
   MIN_SCORE_ANNOTATION_WIDTH_REM,
+  MIN_SCORE_DRAFTING_TOOLBAR_WIDTH_REM,
   PREFERRED_SCORE_ANNOTATION_WIDTH_REM,
   PREFERRED_SCORE_NOTATION_WIDTH_REM,
   SCORE_SCENE_GAP_REM,
@@ -61,6 +62,20 @@ describe('fitScoreSceneTracks', () => {
     expect(fit(rem(30))).toEqual({
       balanceWidth: 0,
       annotationWidth: rem(16),
+    });
+  });
+
+  it('reserves a drafting toolbar lane and overflows instead of hiding it', () => {
+    expect(fitScoreSceneTracks({
+      availableWidth: rem(42),
+      notationWidth: rem(PREFERRED_SCORE_NOTATION_WIDTH_REM),
+      annotationWidth: rem(PREFERRED_SCORE_ANNOTATION_WIDTH_REM),
+      minAnnotationWidth: rem(MIN_SCORE_ANNOTATION_WIDTH_REM),
+      minBalanceWidth: rem(MIN_SCORE_DRAFTING_TOOLBAR_WIDTH_REM),
+      gap: rem(SCORE_SCENE_GAP_REM),
+    })).toEqual({
+      balanceWidth: rem(MIN_SCORE_DRAFTING_TOOLBAR_WIDTH_REM),
+      annotationWidth: rem(MIN_SCORE_ANNOTATION_WIDTH_REM),
     });
   });
 

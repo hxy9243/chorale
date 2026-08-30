@@ -152,7 +152,7 @@ export const storageAdapter = {
     }
 
     let savedInLocalStorage = false;
-    if (typeof window !== 'undefined' && window.localStorage) {
+    if (typeof window !== 'undefined' && window.localStorage && !savedInIDB) {
       try {
         window.localStorage.setItem(key, JSON.stringify(value));
         savedInLocalStorage = true;

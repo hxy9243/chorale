@@ -17,6 +17,7 @@ import {
   limitScoreVersions,
   parseAbcMetadata,
   sampleToDocument,
+  updateDocumentAbc,
 } from '../utils/fileSession';
 import {
   createAnnotationHistoryEntry,
@@ -35,6 +36,15 @@ import {
   deleteDocumentAnnotation,
   updateDocumentAnnotation,
 } from '../music/annotationMutations';
+import {
+  applyMeasureMutation,
+  applyWholeScoreReplacement,
+  rebaseAnnotationsForMutation,
+  retainAnnotationsForWholeScoreReplacement,
+  type MeasureMutation,
+  type MeasureMutationResult,
+} from '../music/scoreDrafting';
+import { extractScore } from '../music/scoreSnapshot';
 
 const ACTIVE_FILE_KEY = 'chorale.workspace.activeFileId';
 const AUTOSAVE_DELAY_MS = 400;
@@ -148,6 +158,7 @@ export const useDocumentStore = () => {
 
   const handleAbcChange = useCallback((newAbc: string, scoreInfoOverrides?: Partial<ScoreInfo>) => {
     if (!activeFileId) return;
+    setActiveAnchor(null);
     const hasScoreInfoOverrides = scoreInfoOverrides !== undefined && Object.keys(scoreInfoOverrides).length > 0;
     setDocuments((docs) =>
       docs.map((doc) => {
@@ -187,6 +198,7 @@ export const useDocumentStore = () => {
           scoreInfo: {
             ...doc.scoreInfo,
             title: parsedMeta.title || doc.scoreInfo.title,
+            subtitle: parsedMeta.subtitle,
             composer: parsedMeta.composer || doc.scoreInfo.composer,
             key: parsedMeta.key || doc.scoreInfo.key,
             meter: parsedMeta.meter || doc.scoreInfo.meter,
@@ -236,7 +248,7 @@ export const useDocumentStore = () => {
           scoreInfo: {
             ...doc.scoreInfo,
             title: parsedMeta.title || doc.scoreInfo.title,
-            subtitle: parsedMeta.subtitle !== undefined ? parsedMeta.subtitle : doc.scoreInfo.subtitle,
+            subtitle: parsedMeta.subtitle,
             composer: parsedMeta.composer || doc.scoreInfo.composer,
             key: parsedMeta.key || doc.scoreInfo.key,
             meter: parsedMeta.meter || doc.scoreInfo.meter,
@@ -282,6 +294,77 @@ export const useDocumentStore = () => {
       }
     }
   }, []);
+
+  const handleCreateDocument = useCallback((abcSource: string, title: string) => {
+    const safeFileName = `${title.trim() || 'Untitled score'}.abc`;
+    const newDocument = createDocumentFromAbc(safeFileName, 'abc', abcSource, title);
+    setDocuments((current) => [...current, newDocument]);
+    setActiveFileId(newDocument.id);
+    setActiveAnchor(null);
+    setError(null);
+  }, []);
+
+  const handleMeasureMutation = useCallback((
+    mutation: MeasureMutation,
+    reason: ScoreVersion['reason'] = 'manual-edit',
+  ): MeasureMutationResult => {
+    if (!activeDocument) return { status: 'invalid', errors: ['Open a score before editing measures.'] };
+    const result = applyMeasureMutation(activeDocument.abcSource, mutation);
+    if (result.status !== 'valid') return result;
+    const annotations = rebaseAnnotationsForMutation(activeDocument.annotations, mutation);
+    const documentWithRebasedAnnotations = {
+      ...activeDocument,
+      annotations,
+      // Seed history from the pre-mutation document before the new body entry
+      // captures rebased annotations, so Undo restores both score and overlays.
+      history: synthesizeInitialHistory(activeDocument),
+    };
+    const updatedDocument = updateDocumentAbc(
+      documentWithRebasedAnnotations,
+      result.abcSource,
+      reason,
+      { measures: (() => {
+        try { return extractScore(result.abcSource).measures.length; } catch { return activeDocument.scoreInfo.measures; }
+      })() },
+    );
+    setDocuments((current) => current.map((document) => (
+      document.id === activeDocument.id ? updatedDocument : document
+    )));
+    setActiveAnchor(result.affectedSpan);
+    setError(null);
+    return result;
+  }, [activeDocument]);
+
+  const handleWholeScoreReplacement = useCallback((
+    replacementAbc: string,
+    reason: ScoreVersion['reason'] = 'tool-apply',
+  ): MeasureMutationResult => {
+    if (!activeDocument) return { status: 'invalid', errors: ['Open a score before editing it.'] };
+    const result = applyWholeScoreReplacement(activeDocument.abcSource, replacementAbc);
+    if (result.status !== 'valid') return result;
+    const retainedAnnotations = retainAnnotationsForWholeScoreReplacement(
+      activeDocument.annotations,
+      activeDocument.abcSource,
+      result.abcSource,
+    );
+    const documentWithRetainedAnnotations = {
+      ...activeDocument,
+      annotations: retainedAnnotations,
+      history: synthesizeInitialHistory(activeDocument),
+    };
+    const updatedDocument = updateDocumentAbc(
+      documentWithRetainedAnnotations,
+      result.abcSource,
+      reason,
+      { measures: result.affectedSpan.endMeasure },
+    );
+    setDocuments((current) => current.map((document) => (
+      document.id === activeDocument.id ? updatedDocument : document
+    )));
+    setActiveAnchor(result.affectedSpan);
+    setError(null);
+    return result;
+  }, [activeDocument]);
 
   const loadSample = useCallback(async (sample: MusicSample) => {
     const sampleName = `${sample.title} (${sample.type.toUpperCase()})`;
@@ -542,6 +625,9 @@ export const useDocumentStore = () => {
     handleSelectFile,
     handleAbcChange,
     handleUpdateMetadata,
+    handleCreateDocument,
+    handleMeasureMutation,
+    handleWholeScoreReplacement,
     handleProcessMusicXml,
     handleDeleteDocument,
     handleDuplicateDocument,

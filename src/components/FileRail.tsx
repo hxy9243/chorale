@@ -75,6 +75,7 @@ interface FileRailProps {
   activeFileId: string;
   onSelectDocument: (fileId: string) => void;
   onFileLoaded: (fileData: ArrayBuffer | string, fileName: string) => void;
+  onNewScore?: () => void;
   onDeleteDocument?: (fileId: string) => void;
   onDuplicateDocument?: (fileId: string) => void;
   onExportDocument?: (fileId: string, format: 'musicxml') => void;
@@ -382,6 +383,7 @@ export const FileRail: React.FC<FileRailProps> = ({
   activeFileId,
   onSelectDocument,
   onFileLoaded,
+  onNewScore,
   onDeleteDocument,
   onDuplicateDocument,
   onExportDocument,
@@ -635,16 +637,28 @@ export const FileRail: React.FC<FileRailProps> = ({
           <div className="rail-section-header">
             <h2 className="rail-section-title" id="files-tab-title">Files</h2>
           </div>
-          <button
-            type="button"
-            className="import-btn"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={loading}
-            title="Import an ABC, MusicXML, or MXL score"
-          >
-            <Plus size={15} aria-hidden="true" />
-            <span>Import score</span>
-          </button>
+          <div className="file-create-actions">
+            <button
+              type="button"
+              className="import-btn"
+              onClick={onNewScore}
+              disabled={loading}
+              title="Create a blank piano score"
+            >
+              <Plus size={15} aria-hidden="true" />
+              <span>New Score</span>
+            </button>
+            <button
+              type="button"
+              className="import-btn"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={loading}
+              title="Import an ABC, MusicXML, or MXL score"
+            >
+              <FileMusic size={15} aria-hidden="true" />
+              <span>Import score</span>
+            </button>
+          </div>
           <input
             type="file"
             ref={fileInputRef}

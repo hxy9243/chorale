@@ -143,6 +143,7 @@ export class SheetAgentRun {
     });
     this.sheetTools = createSheetTools(this.scoreSnapshot, {
       runId: this.requestId,
+      selection: this.request.context.selection,
       onProfileRoute: (profiles) => {
         if (!this.cancelled) {
           this.emit({
@@ -156,6 +157,15 @@ export class SheetAgentRun {
         if (!this.cancelled) {
           this.emit({
             type: 'proposal-created',
+            requestId: this.requestId,
+            proposal,
+          });
+        }
+      },
+      onScoreProposalCreated: (proposal) => {
+        if (!this.cancelled) {
+          this.emit({
+            type: 'score-proposal-created',
             requestId: this.requestId,
             proposal,
           });

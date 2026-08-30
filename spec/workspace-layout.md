@@ -3,7 +3,7 @@ title: "Workspace Layout Spec"
 description: "Specification for the top-level desktop workspace structure, header, file rail, central score workspace, and chat panel"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-08-22
+updated: 2026-08-30
 status: "implemented"
 source_files:
   - src/App.tsx
@@ -40,7 +40,7 @@ related_specs:
 # Workspace Layout Spec
 
 Date: 2026-07-28  
-Updated: 2026-08-22
+Updated: 2026-08-30
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 ## 1. Goal
@@ -81,7 +81,10 @@ A bottom-anchored **Settings** icon is a direct action that opens the settings d
 
 Required content:
 
-- **Files**: a compact, centered import score action (`.xml`, `.musicxml`, `.mxl`, `.abc`) directly under the panel title, plus the active and available file list with format badge (MXL, ABC, MusicXML) and state indicator (`original`, `edited`)
+- **Files**: equal-weight **New Score** and **Import Score** actions directly under the panel title;
+  import accepts `.xml`, `.musicxml`, `.mxl`, and `.abc`, while New Score opens the fixed two-staff
+  piano-score builder. The panel also contains the active and available file list with format badge
+  (MXL, ABC, MusicXML) and state indicator (`original`, `edited`)
 - **Tools**: an `ABC display` toggle and an `Editing history` button to open the score history timeline modal; future score tools join this panel rather than the score header
 - **Settings**: its action icon anchors to the bottom of the selection bar and opens application settings directly
 - icon-only panel selections expose hover titles and accessible names
@@ -107,6 +110,7 @@ It contains:
 - a compact rounded display-options panel (`ScoreCardHeader`) floating at the score's upper center; it is highly translucent at rest, becomes less translucent during score scrolling, and becomes clearest on hover or keyboard focus
 - score zoom controls inside that floating panel (−, %, +, Fit), without `Score` or `ABC code` view tabs
 - continuous full-page paper score surface (`.sheet-viewport` spanning 100% width and height with pure-CSS paper texture, centered notation track, auto-centering playback line, line-start measure numbers, and zoom layout space reservation)
+- active-range drafting toolbar in the left balance lane, aligned with the selected measure and kept reachable when the scene overflows horizontally
 - optional split ABC editor pane (horizontal drag-to-resize, width bounded between 320px and 720px, default 420px, persisted as `chorale.workspace.editorWidth`)
 - playback dock anchored to the visible bottom of the central workspace, independent of content height and interface zoom (max-width bounded to 800px for centered desktop presentation)
 

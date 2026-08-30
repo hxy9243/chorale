@@ -3,7 +3,7 @@ title: "Chat With Music Sheet and Agent Tooling"
 description: "Specification for the passage-aware Music Tutor chat panel, profile routing, score tools, Markdown formatting with score references, thinking traces, and proposal review"
 category: "agent-chat"
 date: 2026-08-05
-updated: 2026-08-29
+updated: 2026-08-30
 status: "implemented"
 source_files:
   - src/components/AgentChatPanel.tsx
@@ -39,7 +39,7 @@ related_specs:
 # Chat With Music Sheet and Agent Tooling
 
 Date: 2026-08-05
-Updated: 2026-08-29
+Updated: 2026-08-30
 Status: Implemented in desktop app
 
 ## 1. Goal
@@ -52,7 +52,7 @@ Chat is a passage-aware Music Tutor attached to the active score file. Students 
 - Prompt send captures an immutable `MusicContextSnapshot` containing ABC, document identity and revision, active range, and canonical annotations.
 - One visible Music Tutor internally selects predefined analysis profiles.
 - Passage-specific claims require registered score tools.
-- Tool calls never mutate a document.
+- Tool calls never mutate a document directly. Score replacements remain proposals until the user applies one in the renderer.
 - Accepted annotations outlive the thread that created them.
 - Existing provider settings, streaming, cancellation, error mapping, panel resize, and desktop-only production behavior remain unchanged.
 
@@ -99,8 +99,10 @@ The score tool suite is:
 - `read_measure_range`
 - `get_annotations`
 - `propose_annotations`
+- `propose_measure_replacement`
+- `propose_score_edit`
 
-`read_measure_range` returns ABC source slices and is capped at 32 measures per call. `propose_annotations` is capped at 32 proposals per run. There is no agent removal, ABC mutation, metadata mutation, or navigation tool.
+`read_measure_range` returns ABC source slices for any continuous measure range in the score. `propose_measure_replacement` treats the active selection as an optional hint, requires that its proposed range has been read, and emits at most one validated replacement proposal per run. There is no direct document mutation or navigation tool.
 
 ## 6. Proposal review
 
@@ -171,4 +173,8 @@ Renderer events are matched by `requestId`; tool rows are additionally matched b
 
 ## 9. Conversation storage
 
-The per-file conversation schema advances from version 2 to version 3 to persist proposal state, profile routes, and compact tool metadata. Version-2 data migrates with empty/default values. Accepted annotations remain in IndexedDB-backed `FileDocument`, not in the chat store.
+The per-file conversation schema remains version 3 and persists proposal state, profile routes, and
+compact tool metadata. Version-2 data migrates with empty/default values. IndexedDB stores the
+full-fidelity conversation, including large score proposals; local storage is a compact synchronous
+mirror and fallback. Hydration combines both stores, prefers IndexedDB for the same file, and recovers
+local-only files. Accepted annotations remain in IndexedDB-backed `FileDocument`, not in the chat store.

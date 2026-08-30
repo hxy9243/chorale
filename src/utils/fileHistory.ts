@@ -78,6 +78,7 @@ export function createMetadataHistoryEntry(
     scoreInfo: {
       ...doc.scoreInfo,
       title: newMeta.title || doc.scoreInfo.title,
+      subtitle: newMeta.subtitle,
       composer: newMeta.composer || doc.scoreInfo.composer,
       key: newMeta.key || doc.scoreInfo.key,
       meter: newMeta.meter || doc.scoreInfo.meter,
@@ -109,6 +110,7 @@ export function createBodyHistoryEntry(
     scoreInfo: {
       ...doc.scoreInfo,
       title: newMeta.title || doc.scoreInfo.title,
+      subtitle: newMeta.subtitle,
       composer: newMeta.composer || doc.scoreInfo.composer,
       key: newMeta.key || doc.scoreInfo.key,
       meter: newMeta.meter || doc.scoreInfo.meter,

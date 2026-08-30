@@ -3,7 +3,7 @@ title: "Chorale Design Spec Index"
 description: "Index and high-level architectural overview of Chorale specifications and implemented features"
 category: "overview"
 date: 2026-08-05
-updated: 2026-08-21
+updated: 2026-08-30
 status: "implemented"
 source_files:
   - src/App.tsx
@@ -46,12 +46,13 @@ related_specs:
   - spec/agent-analysis-and-annotations.md
   - spec/agent-tools-and-profiles.md
   - spec/annotations-and-proposals.md
+  - spec/score-drafting.md
 ---
 
 # Chorale Design Spec Index
 
 Date: 2026-08-05  
-Updated: 2026-08-21  
+Updated: 2026-08-30
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 This directory splits the design into category-specific specs instead of keeping the entire workspace design in one file.
@@ -66,6 +67,8 @@ This directory splits the design into category-specific specs instead of keeping
 - [pi-agent-chat.md](./pi-agent-chat.md): resizable chat panel, per-file thread model, immutable context envelope, agent tool status, Markdown links, and proposal review
 - [settings-and-auth.md](./settings-and-auth.md): settings modal, custom API endpoint configuration (OpenAI/Anthropic/Google Gemini/OpenRouter/Custom), ChatGPT OAuth authentication, safe credential storage, and agent trace export
 - [file-workspace-architecture.md](./file-workspace-architecture.md): runtime architecture, debounced persistence boundaries, editing history timeline, shared music & ABC metadata libraries, contracts, and invariants
+- [score-drafting.md](./score-drafting.md): blank piano-score creation, fail-closed measure mutations, and reviewable score-change proposals
+- [score-export.md](./score-export.md): MusicXML export conversion, desktop save flow, browser fallback, and file-rail context menu
 
 ## Supporting specs
 
@@ -89,7 +92,7 @@ The design direction is a file-owned music workspace where score viewing, ABC ed
 - persistent 3-column top header with consolidated score title, header undo/redo actions, and save/SVG/audio status indicators
 - floating score display options (`ScoreCardHeader`) with scroll-reactive translucency and synchronized zoom controls
 - a React-owned chord overlay plus a score-aligned rail for modulation, voice leading, and explanations
-- one visible Music Tutor with internal profiles, immutable read-only score tools, and reviewable annotation proposals
+- one visible Music Tutor with internal profiles, immutable score reads, and reviewable annotation and score-change proposals
 - user-configurable AI authentication (custom API endpoints, API keys, ChatGPT subscription OAuth) and local JSONL trace logging
 
 ## Implemented workspace features
@@ -110,7 +113,8 @@ The design direction is a file-owned music workspace where score viewing, ABC ed
 - [x] Score zoom layout space reservation preventing SVG container clipping
 - [x] Line-start measure numbers and collision-free chord overlay with shared-zoom, measure-aligned range annotation rail
 - [x] Debounced document autosave (400ms) with bounded version history (max 10 revisions)
-- [x] Internal analysis profiles (`general`, `harmony`, `voice-leading`, `form-phrase`) plus read-only score tools (`get_score_summary`, `read_measure_range`, `get_annotations`, `propose_annotations`)
+- [x] Internal analysis profiles (`general`, `harmony`, `voice-leading`, `form-phrase`) plus score tools (`get_score_summary`, `read_measure_range`, `get_annotations`, `propose_annotations`, `propose_measure_replacement`, `propose_score_edit`)
+- [x] Blank two-staff piano score creation, fail-closed range editing, and previewable score-change proposals
 - [x] Sanitized Markdown responses with interactive measure links, collapsible thinking traces, and non-navigating highlighted external links
 - [x] Proposal review with individual Edit/Reject and one atomic turn-level Apply All
 - [x] Settings modal for API key & ChatGPT OAuth provider credentials (`AISettingsModal.tsx`, `useAIProviders.ts`, `electron/ai/*`)

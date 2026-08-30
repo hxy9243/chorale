@@ -69,6 +69,7 @@ describe('App Integration', () => {
 
     expect(screen.getByRole('banner').textContent).not.toContain('Chorale');
     expect(screen.getByText('Import score')).toBeDefined();
+    expect(screen.getAllByRole('button', { name: 'New Score' }).length).toBeGreaterThan(0);
     expect(screen.getByRole('tabpanel', { name: 'Files' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Tools' })).toBeDefined();
     expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
@@ -269,7 +270,9 @@ describe('App Integration', () => {
     });
     await deleteViaContextMenu('Second');
 
-    expect(await screen.findByText('please import a music sheet to start working')).toBeDefined();
+    expect(await screen.findByText('Start a score')).toBeDefined();
+    expect(screen.getAllByRole('button', { name: 'New Score' })).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Import Score' })).toBeDefined();
     expect(screen.queryByTestId('sheet-svg')).toBeNull();
     expect(localStorage.getItem('chorale.workspace.activeFileId')).toBeNull();
   });

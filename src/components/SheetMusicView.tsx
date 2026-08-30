@@ -30,6 +30,7 @@ import { chordStaffSpacing } from '../music/annotationLayout';
 import {
   fitScoreSceneTracks,
   MIN_SCORE_ANNOTATION_WIDTH_REM,
+  MIN_SCORE_DRAFTING_TOOLBAR_WIDTH_REM,
   PREFERRED_SCORE_ANNOTATION_WIDTH_REM,
   PREFERRED_SCORE_NOTATION_WIDTH_REM,
   SCORE_SCENE_GAP_REM,
@@ -373,6 +374,7 @@ const updateMeasureHitAreaSelection = (
 
 interface SheetMusicViewProps {
   header?: React.ReactNode;
+  draftingToolbar?: React.ReactNode;
   abcCode: string;
   annotations?: readonly Annotation[];
   activeAnchor?: ScoreAnchor | null;
@@ -391,6 +393,7 @@ interface SheetMusicViewProps {
 
 export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   header,
+  draftingToolbar,
   abcCode,
   annotations = [],
   activeAnchor = null,
@@ -429,6 +432,37 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     anchorYByAnnotationId: {},
     scoreHeight: 0,
   });
+  const [draftingToolbarTop, setDraftingToolbarTop] = useState<number | null>(null);
+
+  const updateDraftingToolbarPosition = React.useCallback(() => {
+    if (!activeAnchor || !containerRef.current || !sheetSceneRef.current) {
+      setDraftingToolbarTop(null);
+      return;
+    }
+    const hitArea = containerRef.current.querySelector<SVGGraphicsElement>(
+      `.abcjs-measure-hit-area[data-measure="${activeAnchor.startMeasure}"]`,
+    );
+    const measureElement = hitArea || containerRef.current.querySelector<SVGGraphicsElement>(
+      `.abcjs-mm${Math.max(0, activeAnchor.startMeasure - 1)}`,
+    );
+    if (!measureElement) {
+      setDraftingToolbarTop(0);
+      return;
+    }
+    const layoutEl = sheetSceneRef.current.querySelector<HTMLElement>('.sheet-annotation-layout');
+    if (!layoutEl) return;
+
+    const layoutRect = layoutEl.getBoundingClientRect();
+    const layoutWidth = layoutEl.offsetWidth;
+    const scale = layoutWidth > 0 && layoutRect.width > 0
+      ? layoutRect.width / layoutWidth
+      : (effectiveZoom > 0 ? effectiveZoom : 1);
+
+    const measureRect = measureElement.getBoundingClientRect();
+    const topInLayout = (measureRect.top - layoutRect.top) / scale;
+    const safeTop = Number.isFinite(topInLayout) ? Math.max(0, Math.round(topInLayout)) : 0;
+    setDraftingToolbarTop((current) => (current === safeTop ? current : safeTop));
+  }, [activeAnchor, effectiveZoom]);
 
   const [rootFontSize] = useState(() => (
     typeof document !== 'undefined'
@@ -441,6 +475,9 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       notationWidth: rootFontSize * PREFERRED_SCORE_NOTATION_WIDTH_REM,
       annotationWidth: rootFontSize * PREFERRED_SCORE_ANNOTATION_WIDTH_REM,
       minAnnotationWidth: rootFontSize * MIN_SCORE_ANNOTATION_WIDTH_REM,
+      minBalanceWidth: draftingToolbar
+        ? rootFontSize * MIN_SCORE_DRAFTING_TOOLBAR_WIDTH_REM
+        : 0,
       gap: rootFontSize * SCORE_SCENE_GAP_REM,
     })
     : null;
@@ -517,16 +554,24 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     const viewport = sheetViewportRef.current;
     const notation = sheetSceneRef.current?.querySelector<HTMLElement>('.sheet-notation-column');
     if (!viewport || !notation) return;
+    if (draftingToolbar) {
+      viewport.scrollLeft = 0;
+      return;
+    }
     const viewportRect = viewport.getBoundingClientRect();
     const notationRect = notation.getBoundingClientRect();
     const delta = notationRect.left + notationRect.width / 2
       - (viewportRect.left + viewportRect.width / 2);
     if (Math.abs(delta) > 0.5) viewport.scrollLeft += delta;
-  }, []);
+  }, [draftingToolbar]);
 
   React.useLayoutEffect(() => {
     centerNotation();
   }, [centerNotation, renderGeneration, sceneSize]);
+
+  React.useLayoutEffect(() => {
+    updateDraftingToolbarPosition();
+  }, [updateDraftingToolbarPosition, renderGeneration, sceneSize]);
 
   React.useLayoutEffect(() => {
     const viewport = sheetViewportRef.current;
@@ -543,13 +588,16 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     }
     const viewportWidth = measuredViewportWidth || viewportWidthRef.current;
     if (viewportWidth <= 0) return;
-    if (sceneSize && sceneSize.width * effectiveZoom <= viewportWidth) {
+    if (draftingToolbar || (sceneSize && sceneSize.width * effectiveZoom <= viewportWidth)) {
       viewport.scrollLeft = 0;
       return;
     }
     const unscaledCenter = (viewport.scrollLeft + viewportWidth / 2) / previousZoom;
     viewport.scrollLeft = unscaledCenter * effectiveZoom - viewportWidth / 2;
-  }, [effectiveZoom, sceneSize]);
+  }, [draftingToolbar, effectiveZoom, sceneSize]);
+
+  const updateDraftingToolbarPositionRef = useRef(updateDraftingToolbarPosition);
+  updateDraftingToolbarPositionRef.current = updateDraftingToolbarPosition;
 
   useEffect(() => {
     const viewport = sheetViewportRef.current;
@@ -563,6 +611,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       frame = window.requestAnimationFrame(() => {
         frame = null;
         centerNotation();
+        updateDraftingToolbarPositionRef.current?.();
       });
     };
     const observer = new ResizeObserver((entries) => {
@@ -572,8 +621,10 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       schedule();
     });
     observer.observe(viewport);
+    window.addEventListener('resize', schedule);
     return () => {
       observer.disconnect();
+      window.removeEventListener('resize', schedule);
       if (frame !== null) window.cancelAnimationFrame(frame);
     };
   }, [centerNotation]);
@@ -1138,7 +1189,16 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                 className="sheet-annotation-layout"
                 style={sceneTrackStyle}
               >
-                <div className="sheet-layout-balance" aria-hidden="true" />
+                <div className="sheet-layout-balance" aria-hidden={!draftingToolbar}>
+                  {draftingToolbar && (
+                    <div
+                      className="measure-drafting-toolbar-anchor"
+                      style={draftingToolbarTop !== null ? { top: `${draftingToolbarTop}px` } : undefined}
+                    >
+                      {draftingToolbar}
+                    </div>
+                  )}
+                </div>
                 <div className="sheet-notation-column">
                   {header}
                   <div ref={containerRef} id="paper" className="abcjs-paper-container" />

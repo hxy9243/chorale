@@ -3,7 +3,7 @@ title: "Passage-Aware Music Tutor, Agent Tools, and Annotations"
 description: "Authoritative product specification for passage analysis, analysis profiles, score tools, proposal review, and canonical annotation overlay rendering"
 category: "core-product"
 date: 2026-08-05
-updated: 2026-08-21
+updated: 2026-08-30
 status: "implemented"
 source_files:
   - src/components/SheetMusicView.tsx
@@ -49,7 +49,7 @@ related_specs:
 # Passage-Aware Music Tutor, Agent Tools, and Annotations
 
 Date: 2026-08-05  
-Updated: 2026-08-15  
+Updated: 2026-08-30
 Status: Implemented specification (Milestones 1 & 2 delivered)
 
 ## 1. Product goal
@@ -87,7 +87,8 @@ Implementation is split into two vertical milestones (both delivered):
 - Turn-level atomic Apply All with individual Edit and Reject.
 - Score-side annotation presentation, accepted-annotation editing, deletion, and persistence.
 
-Staleness, regeneration, agent-initiated removal, and agent-authored score editing are deferred to a later sprint.
+Staleness, regeneration, and agent-initiated removal remain deferred. Reviewable agent-authored score
+editing is specified separately in [score-drafting.md](./score-drafting.md).
 
 ```text
 shared range/music contracts ─┬─> continuous selection ────────┐
@@ -106,7 +107,7 @@ Milestone 2 builds on the same canonical annotation and musical-position contrac
 
 ## 3. Current-state constraints
 
-Verified 2026-08-05:
+Verified 2026-08-30:
 
 | Capability | Current state | Evidence |
 |---|---|---|
@@ -116,7 +117,7 @@ Verified 2026-08-05:
 | Chat grounding | Full ABC and one optional selection are captured | `src/components/AgentChatPanel.tsx`, `src/agent/types.ts` |
 | Markdown | Assistant messages render as plain text | `src/components/AgentChatPanel.tsx` |
 | Annotations | A legacy persisted shape exists without store mutations or overlays | `src/types/document.ts`, `src/hooks/useDocumentStore.ts` |
-| Persistence | Documents use IndexedDB; conversations use versioned local storage | `src/utils/storageAdapter.ts`, `src/agent/conversationStore.ts` |
+| Persistence | Documents and full conversations use IndexedDB; conversations also keep a compact local-storage mirror | `src/utils/storageAdapter.ts`, `src/agent/conversationStore.ts` |
 
 Existing provider configuration, cancellation, playback, repeat handling, ABC editing, and workspace persistence must continue to work.
 
@@ -224,7 +225,7 @@ All profiles must:
 
 ## 7. Tool registry
 
-The runtime exposes one routing tool and four score tools:
+The runtime exposes one routing tool and six score tools:
 
 | Tool | Contract |
 |---|---|
@@ -233,18 +234,20 @@ The runtime exposes one routing tool and four score tools:
 | `read_measure_range` | Returns ABC source slices and local key or meter changes for a continuous written-measure range |
 | `get_annotations` | Returns canonical annotations intersecting a requested range |
 | `propose_annotations` | Validates and stages annotation proposals without mutating `FileDocument` |
+| `propose_measure_replacement` | Validates and stages a source-aware replacement for a previously read measure range |
+| `propose_score_edit` | Validates and stages a complete non-destructive score replacement |
 
 Tool invariants:
 
 - Tools operate only on the run's immutable `ScoreSnapshot`.
 - Written-measure numbers are one-based and inclusive. A pickup is the first written measure.
-- One `read_measure_range` call is limited to 32 continuous measures; larger selections may be read in multiple calls.
-- One run may propose at most 32 annotations.
+- `read_measure_range` may return any continuous written-measure range within the score.
 - All tool inputs and outputs use normalized rational durations.
 - Invalid payloads return structured errors and never mutate renderer state.
 - Tools receive no credentials and no filesystem or network access.
 
-There is no `remove_annotations` tool and no ABC, metadata, or navigation mutation tool in this phase.
+There is no `remove_annotations`, direct document mutation, agent-driven measure removal, or
+navigation tool. Score changes remain proposals until the renderer validates and applies them.
 
 ## 8. Annotation model
 
@@ -386,8 +389,10 @@ span and opens its detail or editing UI.
 
 - Accepted annotations remain inline in `FileDocument` and use IndexedDB autosave.
 - Annotation changes do not increment the ABC revision or create `ScoreVersion` records.
-- Conversation storage advances from version 2 to version 3 for proposals, profile routes, and tool-display metadata.
+- Conversation storage remains schema version 3 for proposals, profile routes, and tool-display metadata.
 - Version-2 conversations migrate with empty proposal and tool metadata.
+- IndexedDB stores full conversations; local storage is a compact synchronous mirror and fallback.
+- Hydration merges both stores by file ID and prefers IndexedDB when the same file exists in both.
 - No IndexedDB object-store migration is required.
 - `MusicContextSnapshot.annotations` is a required copied `Annotation[]`.
 
@@ -427,7 +432,6 @@ Main process summaries are compact and renderer-safe. Full tool arguments and sc
 ### Performance constraints
 
 - Parse and normalize ABC once when constructing the run's `ScoreSnapshot`.
-- Enforce the 32-measure read and 32-proposal limits before creating large tool results or events.
 - Reuse measure/event and source-offset indexes across all tools in a run.
 - Coalesce overlay geometry work to one animation frame after render/resize changes.
 - Do not recompute all annotation geometry on playback cursor ticks or ordinary chat streaming.
@@ -497,7 +501,7 @@ Model accuracy evaluation remains a next-phase project and is not a release gate
 
 - Annotation fingerprinting, dependency-level staleness, stale styling, and regeneration.
 - Agent-initiated annotation removal.
-- Agent-authored note, rhythm, metadata, or ABC edits.
+- Agent-driven score contraction and measure removal.
 - External link navigation.
 - Graphical note-to-note voice-leading arrows.
 - Chord inversion and figured bass.

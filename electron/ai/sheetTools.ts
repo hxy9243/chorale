@@ -5,6 +5,8 @@ import type {
   AgentProfileId,
   AnnotationKind,
   AnnotationProposal,
+  ScoreAnchor,
+  ScoreChangeProposal,
 } from '../../src/types/document';
 import {
   describeKeySignature,
@@ -12,6 +14,10 @@ import {
 } from '../../src/music/scoreSnapshot';
 import { validateAnnotation } from '../../src/music/documentSchema';
 import { selectAnalysisProfiles } from './agentProfiles';
+import {
+  applyMeasureMutation,
+  applyWholeScoreReplacement,
+} from '../../src/music/scoreDrafting';
 
 export type SheetToolErrorCode =
   | 'profile_required'
@@ -19,7 +25,9 @@ export type SheetToolErrorCode =
   | 'range_too_large'
   | 'measure_not_found'
   | 'invalid_proposals'
-  | 'proposal_limit';
+  | 'proposal_limit'
+  | 'range_not_read'
+  | 'invalid_replacement';
 
 export class SheetToolValidationError extends Error {
   readonly code: SheetToolErrorCode;
@@ -40,11 +48,16 @@ export class SheetToolValidationError extends Error {
 export type SheetToolRunState = {
   selectedProfiles: readonly AgentProfileId[];
   proposedCount: number;
+  scoreProposalCount: number;
+  readRanges: Set<string>;
+  readMeasures: Set<number>;
 };
 
 export type CreateSheetToolsOptions = Readonly<{
   onProfileRoute?: (profiles: readonly AgentProfileId[]) => void;
   onProposalCreated?: (proposal: AnnotationProposal) => void;
+  onScoreProposalCreated?: (proposal: ScoreChangeProposal) => void;
+  selection?: Readonly<ScoreAnchor>;
   runId?: string;
   createId?: () => string;
   now?: () => string;
@@ -77,7 +90,13 @@ export const createSheetTools = (
   snapshot: ScoreSnapshot,
   options: CreateSheetToolsOptions = {},
 ): Readonly<{ tools: readonly AgentTool[]; state: SheetToolRunState }> => {
-  const state: SheetToolRunState = { selectedProfiles: Object.freeze([]), proposedCount: 0 };
+  const state: SheetToolRunState = {
+    selectedProfiles: Object.freeze([]),
+    proposedCount: 0,
+    scoreProposalCount: 0,
+    readRanges: new Set<string>(),
+    readMeasures: new Set<number>(),
+  };
   const createId = options.createId ?? randomUUID;
   const now = options.now ?? (() => new Date().toISOString());
 
@@ -88,6 +107,17 @@ export const createSheetTools = (
         'Call select_analysis_profile before reading passage-specific score data.',
       );
     }
+  };
+
+  const requireSummary = (summary: string): string => {
+    const normalized = summary.trim();
+    if (!normalized) {
+      throw new SheetToolValidationError(
+        'invalid_proposals',
+        'Proposal summary must contain non-whitespace text.',
+      );
+    }
+    return normalized;
   };
 
   const selectProfileTool: AgentTool<typeof SelectProfileParameters> = {
@@ -132,7 +162,7 @@ export const createSheetTools = (
   const readMeasureRangeTool: AgentTool<typeof ReadMeasureRangeParameters> = {
     name: 'read_measure_range',
     label: 'Read measure range',
-    description: 'Read up to 32 continuous written measures as ABC slices with active key and meter context.',
+    description: 'Read continuous written measures as ABC slices with active key and meter context.',
     parameters: ReadMeasureRangeParameters,
     execute: async (_toolCallId, params, signal) => {
       throwIfAborted(signal);
@@ -142,13 +172,6 @@ export const createSheetTools = (
         throw new SheetToolValidationError('invalid_range', 'endMeasure must be at least startMeasure.', {
           startMeasure,
           endMeasure,
-        });
-      }
-      if (endMeasure - startMeasure + 1 > 32) {
-        throw new SheetToolValidationError('range_too_large', 'Read at most 32 continuous measures.', {
-          startMeasure,
-          endMeasure,
-          maximumMeasures: 32,
         });
       }
 
@@ -171,6 +194,8 @@ export const createSheetTools = (
           ...(measure.meterChange ? { meterChange: measure.meterChange } : {}),
         });
       }
+      for (const measure of measures) state.readMeasures.add(measure.measureNumber);
+      state.readRanges.add(`${startMeasure}:${endMeasure}`);
       return jsonResult({
         startMeasure,
         endMeasure,
@@ -218,7 +243,7 @@ export const createSheetTools = (
   const proposeAnnotationsTool: AgentTool<typeof ProposeAnnotationsParameters> = {
     name: 'propose_annotations',
     label: 'Propose annotations',
-    description: 'Stage up to 32 validated score annotations for user review without changing the score.',
+    description: 'Stage validated score annotations for user review without changing the score.',
     parameters: ProposeAnnotationsParameters,
     executionMode: 'sequential',
     execute: async (_toolCallId, params, signal) => {
@@ -228,17 +253,6 @@ export const createSheetTools = (
         throw new SheetToolValidationError(
           'invalid_proposals',
           'Propose at least one annotation.',
-        );
-      }
-      if (state.proposedCount + params.annotations.length > 32) {
-        throw new SheetToolValidationError(
-          'proposal_limit',
-          'Propose at most 32 annotations per run.',
-          {
-            proposedCount: state.proposedCount,
-            requestedCount: params.annotations.length,
-            maximumProposals: 32,
-          },
         );
       }
 
@@ -282,6 +296,105 @@ export const createSheetTools = (
     },
   };
 
+  const proposeMeasureReplacementTool: AgentTool<typeof ProposeMeasureReplacementParameters> = {
+    name: 'propose_measure_replacement',
+    label: 'Propose measure replacement',
+    description: 'Stage one validated replacement for any previously read measure range, including ranges across repeat or volta boundaries. The active selection is an optional hint, not a limit. Retain every existing voice; explicit new [V:<id>] voices are allowed.',
+    parameters: ProposeMeasureReplacementParameters,
+    executionMode: 'sequential',
+    execute: async (_toolCallId, params, signal) => {
+      throwIfAborted(signal);
+      requireProfile();
+      const summary = requireSummary(params.summary);
+      const { startMeasure, endMeasure } = params.span;
+      if (endMeasure < startMeasure) {
+        throw new SheetToolValidationError('invalid_range', 'endMeasure must be at least startMeasure.', {
+          startMeasure,
+          endMeasure,
+        });
+      }
+      const rangeKey = `${startMeasure}:${endMeasure}`;
+      let allMeasuresRead = true;
+      for (let measureNumber = startMeasure; measureNumber <= endMeasure; measureNumber += 1) {
+        if (!state.readMeasures.has(measureNumber)) {
+          allMeasuresRead = false;
+          break;
+        }
+      }
+      if (!state.readRanges.has(rangeKey) && !allMeasuresRead) {
+        throw new SheetToolValidationError('range_not_read', 'Read the exact proposed range before proposing replacement music.');
+      }
+      if (state.scoreProposalCount >= 1) {
+        throw new SheetToolValidationError('proposal_limit', 'Propose at most one score change per run.');
+      }
+      const result = applyMeasureMutation(snapshot.abc, {
+        kind: 'replace',
+        span: params.span,
+        replacementAbc: params.replacementAbc,
+      });
+      if (result.status !== 'valid') {
+        throw new SheetToolValidationError(
+          'invalid_replacement',
+          result.errors.join(' '),
+          { startMeasure: params.span.startMeasure, endMeasure: params.span.endMeasure },
+        );
+      }
+      const proposal: ScoreChangeProposal = {
+        id: createId(),
+        runId: options.runId ?? snapshot.snapshotId,
+        documentId: snapshot.documentId,
+        sourceRevision: snapshot.revision,
+        state: 'proposed',
+        span: { ...params.span },
+        summary,
+        replacementAbc: params.replacementAbc,
+        validation: { status: 'valid', errors: [] },
+      };
+      state.scoreProposalCount += 1;
+      options.onScoreProposalCreated?.(proposal);
+      return jsonResult({ proposalId: proposal.id, validation: proposal.validation });
+    },
+  };
+
+  const proposeScoreEditTool: AgentTool<typeof ProposeScoreEditParameters> = {
+    name: 'propose_score_edit',
+    label: 'Propose score edit',
+    description: 'Stage one validated whole-score ABC edit. The candidate may change key, tempo, voices, staves, headers, notation, and add written measures without a pre-existing selection.',
+    parameters: ProposeScoreEditParameters,
+    executionMode: 'sequential',
+    execute: async (_toolCallId, params, signal) => {
+      throwIfAborted(signal);
+      requireProfile();
+      const summary = requireSummary(params.summary);
+      if (state.scoreProposalCount >= 1) {
+        throw new SheetToolValidationError('proposal_limit', 'Propose at most one score change per run.');
+      }
+      const result = applyWholeScoreReplacement(snapshot.abc, params.abcSource);
+      if (result.status !== 'valid') {
+        throw new SheetToolValidationError(
+          'invalid_replacement',
+          result.errors.join(' '),
+          { totalMeasures: snapshot.measureIndex.size },
+        );
+      }
+      const proposal: ScoreChangeProposal = {
+        id: createId(),
+        runId: options.runId ?? snapshot.snapshotId,
+        documentId: snapshot.documentId,
+        sourceRevision: snapshot.revision,
+        state: 'proposed',
+        kind: 'replace-score',
+        span: result.affectedSpan,
+        summary,
+        replacementAbc: params.abcSource,
+        validation: { status: 'valid', errors: [] },
+      };
+      state.scoreProposalCount += 1;
+      options.onScoreProposalCreated?.(proposal);
+      return jsonResult({ proposalId: proposal.id, validation: proposal.validation });
+    },
+  };
+
   return Object.freeze({
     state,
     tools: Object.freeze([
@@ -290,6 +403,8 @@ export const createSheetTools = (
       readMeasureRangeTool,
       getAnnotationsTool,
       proposeAnnotationsTool,
+      proposeMeasureReplacementTool,
+      proposeScoreEditTool,
     ]),
   });
 };
@@ -349,5 +464,16 @@ const AnnotationProposalInputSchema = Type.Union([
 ]);
 
 const ProposeAnnotationsParameters = Type.Object({
-  annotations: Type.Array(AnnotationProposalInputSchema, { minItems: 1, maxItems: 32 }),
+  annotations: Type.Array(AnnotationProposalInputSchema, { minItems: 1 }),
+}, { additionalProperties: false });
+
+const ProposeMeasureReplacementParameters = Type.Object({
+  span: MeasureSpanSchema,
+  summary: Type.String({ minLength: 1, maxLength: 240 }),
+  replacementAbc: Type.String({ minLength: 1, maxLength: 65_535 }),
+}, { additionalProperties: false });
+
+const ProposeScoreEditParameters = Type.Object({
+  summary: Type.String({ minLength: 1, maxLength: 240 }),
+  abcSource: Type.String({ minLength: 1, maxLength: 1_999_999 }),
 }, { additionalProperties: false });

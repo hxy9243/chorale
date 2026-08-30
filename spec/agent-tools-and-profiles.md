@@ -106,7 +106,7 @@ type MusicalPosition = {
 
 ## 5. Tool contracts
 
-The runtime exposes four score tools in addition to `select_analysis_profile`.
+The runtime exposes six score tools in addition to `select_analysis_profile`.
 
 ### 5.1 `get_score_summary`
 
@@ -153,8 +153,9 @@ Rules:
 
 - Measures are one-based, written, and inclusive; a pickup is measure 1.
 - `endMeasure >= startMeasure`.
-- One call may return at most 32 continuous measures.
-- Larger selections are read through multiple calls against the same snapshot.
+- One call may return any continuous written-measure range within the score.
+- A failed call records no read authorization; authorization is committed only after every requested
+  measure has been validated.
 
 ### 5.3 `get_annotations`
 
@@ -202,13 +203,39 @@ type ProposeAnnotationsResult = {
 };
 ```
 
-The main process validates at most 32 inputs and creates server-controlled IDs, timestamps, source, profiles, document ID, and source revision. A chord input requires a position within its span and a chord symbol. The tool emits typed `proposal-created` events and never mutates `FileDocument`.
+The main process validates inputs and creates server-controlled IDs, timestamps, source, profiles, document ID, and source revision. A chord input requires a position within its span and a chord symbol. The tool emits typed `proposal-created` events and never mutates `FileDocument`.
+
+### 5.5 `propose_measure_replacement`
+
+The tool accepts an inclusive target span, a non-whitespace summary, and replacement ABC. It requires that
+the proposed span has been read prior to proposing replacement music.
+The active selection is an optional intent and navigation hint; it is not required and does not
+constrain the proposed span.
+Only one score proposal may be emitted per run. The replacement must preserve the proposed measure
+count and every existing voice, remain below 64 KiB, and pass both the shared fail-closed mutation
+engine and full-score validation. Explicitly named new voices are allowed; the mutation engine adds
+them as complete score-length parts with rests outside the proposed span. Proposed ranges may cross
+repeat and volta boundaries and may include or modify inline key, meter, or tempo changes; the
+mutation engine preserves the target barline and ending bytes while replacing musical content. The tool emits
+`score-proposal-created` and never mutates `FileDocument`.
+
+### 5.6 `propose_score_edit`
+
+The tool accepts a non-whitespace summary and a complete candidate ABC source. It does not require a measure
+selection because the immutable prompt context already contains the full source. The candidate may
+change key and tempo headers, add inline key or tempo changes, add or reconfigure voices and staves,
+and make other valid ABC mutations. It must differ from the source, remain below 2 MB, parse as valid
+ABC, and may retain or increase the written-measure count. Added measures require no pre-existing
+selection and begin without annotations; removing existing measures remains unsupported so persisted
+anchors cannot be orphaned. It shares the
+one-score-proposal-per-run limit with `propose_measure_replacement`, emits
+`score-proposal-created`, and never mutates `FileDocument`.
 
 ## 6. Tool and IPC invariants
 
 - Invalid tool input returns a compact structured error.
 - Tools receive no credentials and no filesystem or network access.
-- There is no `remove_annotations`, direct ABC mutation, metadata mutation, or navigation tool.
+- There is no `remove_annotations`, direct document mutation, agent-driven measure removal, or navigation tool.
 - Tool execution uses Pi's built-in loop; Chorale forwards normalized lifecycle events rather than implementing a second loop.
 - Late events are ignored after cancellation or supersession.
 
@@ -238,6 +265,11 @@ type AIEvent =
       type: 'proposal-created';
       requestId: string;
       proposal: AnnotationProposal;
+    }
+  | {
+      type: 'score-proposal-created';
+      requestId: string;
+      proposal: ScoreChangeProposal;
     };
 ```
 

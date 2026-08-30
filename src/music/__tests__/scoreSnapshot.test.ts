@@ -396,5 +396,57 @@ describe('score snapshot extraction', () => {
     expect(score.measures[2].abcSlice).toBe(
       '[V:S] G4 |]\n[V:A] D4 |]\n[V:T] B,4 |]\n[V:B] G,,4 |]',
     );
+    expect(score.measures[0].voiceSources.map(({ voiceId }) => voiceId))
+      .toEqual(['S', 'A', 'T', 'B']);
+  });
+
+  it('preserves voice identity when score layout order differs from declaration order', () => {
+    const abc = [
+      'X:1',
+      'M:4/4',
+      'L:1/4',
+      '%%score { lower | upper }',
+      'V:upper clef=treble',
+      'V:lower clef=bass',
+      'K:C',
+      '[V:upper] C4 |]',
+      '[V:lower] G,4 |]',
+    ].join('\n');
+
+    const score = extractScore(abc);
+    expect(score.voices).toEqual(['upper', 'lower']);
+    expect(score.measures[0].voiceSources.find(({ voiceId }) => voiceId === 'upper')?.segments[0].abcSlice)
+      .toContain('C4');
+    expect(score.measures[0].voiceSources.find(({ voiceId }) => voiceId === 'lower')?.segments[0].abcSlice)
+      .toContain('G,4');
+    expect(score.measures[0].events.find(({ voiceId }) => voiceId === 'upper')?.pitches?.[0]?.step)
+      .toBe('C');
+    expect(score.measures[0].events.find(({ voiceId }) => voiceId === 'lower')?.pitches?.[0]?.step)
+      .toBe('G');
+  });
+
+  it('ignores voice-like text in comments and quoted annotations', () => {
+    const abc = [
+      'X:1',
+      'M:4/4',
+      'L:1/8',
+      '%%score { lower | upper }',
+      'V:upper clef=treble',
+      'V:lower clef=bass',
+      'K:C',
+      '[V:upper] C8 |',
+      '[V:upper] % [V:lower] is only a comment',
+      '"analysis [V:lower]"D8 |]',
+      '[V:lower] C,8 | D,8 |]',
+    ].join('\n');
+    const score = extractScore(abc);
+    const secondUpperNote = score.measures
+      .flatMap(({ events }) => events)
+      .find(({ abcRange }) => (
+        abcRange && abc.slice(abcRange.start, abcRange.end).includes('analysis [V:lower]')
+      ));
+
+    expect(secondUpperNote?.voiceId).toBe('upper');
+    expect(score.voices).toEqual(['upper', 'lower']);
   });
 });

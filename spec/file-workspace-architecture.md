@@ -3,7 +3,7 @@ title: "File Workspace Architecture"
 description: "Architecture specification covering runtime layers, document store, shared music libraries, data contracts, and invariants"
 category: "architecture"
 date: 2026-08-05
-updated: 2026-08-21
+updated: 2026-08-30
 status: "implemented"
 source_files:
   - src/types/document.ts
@@ -47,8 +47,8 @@ related_specs:
 
 # File Workspace Architecture
 
-Date: 2026-08-05  
-Updated: 2026-08-21  
+Date: 2026-08-05
+Updated: 2026-08-30
 Source: Existing workspace architecture plus `spec/agent-analysis-and-annotations.md`
 
 ## 1. Goal
@@ -60,7 +60,7 @@ Define ownership, persistence, and process boundaries for the passage-aware Musi
 ### Renderer UI
 
 - Files rail, score/editor workspace, playback dock, chat panel, and editing history timeline modal (`EditingHistoryModal`).
-- React-owned range state, proposal review state, annotation overlays, and visual metadata header (`ScoreMetadataHeader`).
+- React-owned range state, proposal review and preview state, annotation overlays, and visual metadata header (`ScoreMetadataHeader`).
 - No score parsing, provider credentials, or Pi tool execution.
 
 ### Document store
@@ -98,7 +98,7 @@ These modules are independent of React and Electron UI code.
 - Validates `MusicContextSnapshot` at the IPC boundary.
 - Constructs one immutable `ScoreSnapshot` per request.
 - Runs one visible Music Tutor with internal profile modules.
-- Exposes routing plus four score tools.
+- Exposes routing plus six score tools, including validated measure and whole-score replacement proposals.
 - Projects Pi tool lifecycle into correlated renderer-safe events.
 - Writes diagnostic logs to the local agent trace store.
 - Never mutates `FileDocument` directly.
@@ -107,7 +107,9 @@ These modules are independent of React and Electron UI code.
 
 - `FileDocument` values, including accepted annotations, remain in IndexedDB.
 - Active-file and workspace preferences remain in their existing stores.
-- File-scoped conversation history remains in versioned local storage and advances from version 2 to version 3.
+- File-scoped conversation history remains schema version 3. IndexedDB is the full-fidelity store;
+  local storage is a compact synchronous mirror and fallback. Hydration merges both file maps,
+  preferring IndexedDB for duplicate file IDs and backfilling local-only files when possible.
 
 ## 3. Core data contracts
 
@@ -170,7 +172,7 @@ The same canonical `Annotation` type crosses document, context, IPC validation, 
 - Playback and chat-link navigation use `startMeasure` for a range.
 - Prompt snapshots never change after send.
 - One request creates one parsed `ScoreSnapshot`; tools do not reparse the score.
-- Tools and tool events cannot mutate document state.
+- Tools and tool events cannot mutate document state directly; the renderer may apply a validated proposal through the document store after an explicit user action.
 - Apply All validates all eligible proposals and commits all or none in one renderer transaction.
 - Pending proposals are actionable only when document ID and revision still match; otherwise they display Outdated.
 - Annotation edits do not create ABC revisions.
@@ -183,6 +185,7 @@ The same canonical `Annotation` type crosses document, context, IPC validation, 
 - `useDocumentStore` owns UI state and mutations, not schema migration.
 - Legacy annotation kinds normalize to the canonical four-kind model.
 - Conversation v2 migrates to v3 with empty/default proposal, profile-route, and tool-display metadata.
+- Durable hydration merges version-3 IndexedDB and local-storage records without changing the schema.
 - No IndexedDB object-store migration is needed because annotations remain inline.
 
 ## 6. Failure boundaries
@@ -196,4 +199,4 @@ The same canonical `Annotation` type crosses document, context, IPC validation, 
 
 ## 7. Deferred architecture
 
-The current data model deliberately omits analysis fingerprints, stale annotation state, dependency tracking, regeneration metadata, agent-initiated deletion, and agent-authored ABC mutations. Those require a separate next-sprint design rather than dormant fields in the MVP schema.
+The current data model deliberately omits analysis fingerprints, stale annotation state, dependency tracking, regeneration metadata, agent-initiated insertion/deletion, and metadata mutation. Those require a separate next-sprint design rather than dormant fields in the MVP schema.

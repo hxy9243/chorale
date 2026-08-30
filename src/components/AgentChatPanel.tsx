@@ -9,16 +9,20 @@ import {
   isAIThinkingLevel,
 } from '../agent/aiTypes';
 import {
+  conversationNeedsDurableHydration,
   loadConversation,
+  loadConversationAsync,
   makeEmptyConversation,
   saveConversation,
+  saveConversationAsync,
 } from '../agent/conversationStore';
 import type { ChatMessage, ChatThread, MusicContextSnapshot, PersistedFileConversation } from '../agent/types';
-import type { Annotation, ScoreAnchor } from '../types/document';
+import type { Annotation, ScoreAnchor, ScoreChangeProposal } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
 import { MarkdownMessage } from './MarkdownMessage';
 import { AnnotationProposalCard } from './AnnotationProposalCard';
 import { AnnotationEditor } from './AnnotationEditor';
+import { ScoreChangeProposalCard } from './ScoreChangeProposalCard';
 import {
   editAnnotationProposal,
   markOutdatedProposals,
@@ -42,6 +46,9 @@ interface AgentChatPanelProps {
   onOpenSettings(): void;
   onNavigateMeasure?: (anchor: ScoreAnchor) => void;
   onApplyAnnotations?: (annotations: readonly Annotation[]) => void;
+  onPreviewScoreProposal?: (proposal: ScoreChangeProposal) => 'ready' | 'outdated' | 'invalid';
+  onApplyScoreProposal?: (proposal: ScoreChangeProposal) => 'accepted' | 'outdated' | 'invalid';
+  onDiscardScoreProposal?: (proposal: ScoreChangeProposal) => void;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -112,7 +119,23 @@ const markProposalsUnavailable = (message: ChatMessage): ChatMessage => ({
       ? { ...proposal, state: 'unavailable' as const }
       : proposal
   )),
+  scoreProposals: (message.scoreProposals || []).map((proposal) => (
+    proposal.state === 'proposed'
+      ? { ...proposal, state: 'unavailable' as const }
+      : proposal
+  )),
 });
+
+const markOutdatedScoreProposals = (
+  proposals: readonly ScoreChangeProposal[],
+  fileId: string,
+  revision: number,
+) => proposals.map((proposal) => (
+  proposal.state === 'proposed'
+  && (proposal.documentId !== fileId || proposal.sourceRevision !== revision)
+    ? { ...proposal, state: 'outdated' as const }
+    : proposal
+));
 
 const markRunUnavailable = (
   conversation: PersistedFileConversation,
@@ -147,10 +170,18 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   onOpenSettings,
   onNavigateMeasure = () => undefined,
   onApplyAnnotations,
+  onPreviewScoreProposal,
+  onApplyScoreProposal,
+  onDiscardScoreProposal,
 }) => {
   const [conversation, setConversation] = useState<PersistedFileConversation>(() => (
     fileId ? loadConversation(fileId) : makeEmptyConversation()
   ));
+  const [conversationFileId, setConversationFileId] = useState(fileId);
+  const [durableHydrationPending, setDurableHydrationPending] = useState(() => (
+    Boolean(fileId) && conversationNeedsDurableHydration(fileId)
+  ));
+  const [durableHydrationFailed, setDurableHydrationFailed] = useState(false);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -165,6 +196,8 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   const [invalidProposalIds, setInvalidProposalIds] = useState<Record<string, string[]>>({});
   const conversationRef = useRef(conversation);
   conversationRef.current = conversation;
+  const documentRevisionRef = useRef({ fileId, revision });
+  documentRevisionRef.current = { fileId, revision };
   const agentRef = useRef<DesktopSheetAgent | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeRunRef = useRef<{
@@ -230,25 +263,66 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         );
         conversationRef.current = unavailable;
         saveConversation(activeRun.fileId, unavailable);
+        void saveConversationAsync(activeRun.fileId, unavailable);
       }
       stop();
       setIsStreaming(false);
     }
     if (!fileId) {
       setConversation(makeEmptyConversation());
+      setConversationFileId('');
+      setDurableHydrationPending(false);
+      setDurableHydrationFailed(false);
       return;
     }
     setConversation(loadConversation(fileId));
+    setConversationFileId(fileId);
+    let cancelled = false;
+    const needsDurableHydration = conversationNeedsDurableHydration(fileId);
+    setDurableHydrationPending(needsDurableHydration);
+    setDurableHydrationFailed(false);
+    if (needsDurableHydration) {
+      void loadConversationAsync(fileId).then((loaded) => {
+        if (!cancelled) {
+          setConversation(loaded);
+          setDurableHydrationFailed(false);
+        }
+      }).catch(() => {
+        if (!cancelled) {
+          setDurableHydrationFailed(true);
+          setError('Saved score proposals could not be restored. Reload to retry without overwriting them.');
+        }
+      }).finally(() => {
+        if (!cancelled) setDurableHydrationPending(false);
+      });
+    }
     setDraft('');
     setError(null);
     setEditingProposal(null);
     setInvalidProposalIds({});
+    return () => {
+      cancelled = true;
+    };
   }, [fileId]);
 
   useEffect(() => {
-    if (!fileId) return;
+    if (
+      !fileId
+      || conversationFileId !== fileId
+      || isStreaming
+      || durableHydrationPending
+      || durableHydrationFailed
+    ) return;
     saveConversation(fileId, conversation);
-  }, [conversation, fileId]);
+    void saveConversationAsync(fileId, conversation);
+  }, [
+    conversation,
+    conversationFileId,
+    durableHydrationFailed,
+    durableHydrationPending,
+    fileId,
+    isStreaming,
+  ]);
 
   useEffect(() => {
     try {
@@ -265,10 +339,11 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       threads: current.threads.map((thread) => ({
         ...thread,
         messages: thread.messages.map((message) => (
-          message.proposals?.length
+          message.proposals?.length || message.scoreProposals?.length
             ? {
                 ...message,
-                proposals: markOutdatedProposals(message.proposals, fileId, revision),
+                proposals: markOutdatedProposals(message.proposals || [], fileId, revision),
+                scoreProposals: markOutdatedScoreProposals(message.scoreProposals || [], fileId, revision),
               }
             : message
         )),
@@ -317,14 +392,13 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   useEffect(() => () => {
     const activeRun = activeRunRef.current;
     if (activeRun) {
-      saveConversation(
-        activeRun.fileId,
-        markRunUnavailable(
-          conversationRef.current,
-          activeRun.threadId,
-          activeRun.assistantId,
-        ),
+      const unavailable = markRunUnavailable(
+        conversationRef.current,
+        activeRun.threadId,
+        activeRun.assistantId,
       );
+      saveConversation(activeRun.fileId, unavailable);
+      void saveConversationAsync(activeRun.fileId, unavailable);
     }
     abortControllerRef.current?.abort();
   }, []);
@@ -498,10 +572,46 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     }
   };
 
+  const updateScoreProposalState = (
+    messageId: string,
+    proposalId: string,
+    state: ScoreChangeProposal['state'],
+  ) => updateMessages(activeThread.id, (current) => current.map((message) => (
+    message.id === messageId
+      ? {
+          ...message,
+          scoreProposals: (message.scoreProposals || []).map((proposal) => (
+            proposal.id === proposalId ? { ...proposal, state } : proposal
+          )),
+        }
+      : message
+  )));
+
+  const handlePreviewScoreProposal = (messageId: string, proposal: ScoreChangeProposal) => {
+    const result = onPreviewScoreProposal?.(proposal) || 'invalid';
+    if (result === 'outdated') updateScoreProposalState(messageId, proposal.id, 'outdated');
+    if (result === 'invalid') setError('This score proposal can no longer be previewed safely.');
+  };
+
+  const handleApplyScoreProposal = (messageId: string, proposal: ScoreChangeProposal) => {
+    const result = onApplyScoreProposal?.(proposal) || 'invalid';
+    if (result === 'accepted') updateScoreProposalState(messageId, proposal.id, 'accepted');
+    if (result === 'outdated') updateScoreProposalState(messageId, proposal.id, 'outdated');
+    if (result === 'invalid') setError('This score proposal could not be applied safely.');
+  };
+
+  const handleDiscardScoreProposal = (messageId: string, proposal: ScoreChangeProposal) => {
+    onDiscardScoreProposal?.(proposal);
+    updateScoreProposalState(messageId, proposal.id, 'rejected');
+  };
+
   const sendMessage = async (event: React.FormEvent) => {
     event.preventDefault();
     const question = draft.trim();
-    if (!question || !abcCode.trim() || isStreaming || !activeThread || !providerReady) return;
+    if (
+      !question || !abcCode.trim() || isStreaming || durableHydrationPending
+      || !activeThread || !providerReady
+    ) return;
 
     const context = captureContext();
     const userMessage: ChatMessage = {
@@ -522,6 +632,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       profileRoutes: [],
       toolDisplays: [],
       proposals: [],
+      scoreProposals: [],
     };
     const history = activeThread.messages;
     const threadId = activeThread.id;
@@ -616,6 +727,25 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
               : message
           )));
         },
+        onScoreProposalCreated: (proposal) => {
+          if (!isCurrentRun()) return;
+          const currentDocument = documentRevisionRef.current;
+          const currentProposal = (
+            proposal.documentId === currentDocument.fileId
+            && proposal.sourceRevision === currentDocument.revision
+          ) ? proposal : { ...proposal, state: 'outdated' as const };
+          updateMessages(threadId, (current) => current.map((message) => (
+            message.id === assistantId
+              ? {
+                  ...message,
+                  scoreProposals: [
+                    ...(message.scoreProposals || []).filter(({ id }) => id !== proposal.id),
+                    currentProposal,
+                  ],
+                }
+              : message
+          )));
+        },
       }, controller.signal);
       if (isCurrentRun()) {
         updateMessages(threadId, (current) => current.map((message) => (
@@ -684,7 +814,13 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   if (!open) return null;
 
   return (
-    <aside className="agent-panel" aria-label="Current sheet assistant" ref={panelRef}>
+    <aside
+      className="agent-panel"
+      aria-label="Current sheet assistant"
+      aria-busy={durableHydrationPending}
+      inert={durableHydrationPending}
+      ref={panelRef}
+    >
       <div className="agent-panel-header">
         <div className="agent-title-row">
           <div>
@@ -854,6 +990,20 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
                 >
                   Apply All
                 </button>
+              </div>
+            )}
+            {message.scoreProposals && message.scoreProposals.length > 0 && (
+              <div className="score-change-proposal-list" aria-label="Score change proposals">
+                {message.scoreProposals.map((proposal) => (
+                  <ScoreChangeProposalCard
+                    key={proposal.id}
+                    proposal={proposal}
+                    readOnly={message.status === 'streaming'}
+                    onPreview={() => handlePreviewScoreProposal(message.id, proposal)}
+                    onApply={() => handleApplyScoreProposal(message.id, proposal)}
+                    onDiscard={() => handleDiscardScoreProposal(message.id, proposal)}
+                  />
+                ))}
               </div>
             )}
             {message.profileRoutes && message.profileRoutes.length > 0 && (

@@ -5,11 +5,17 @@ import type {
   PersistedFileConversation,
 } from './types';
 import type { AgentProfileId } from '../types/document';
-import { validateAnnotationProposal } from '../music/documentSchema';
+import { validateAnnotationProposal, validateScoreChangeProposal } from '../music/documentSchema';
+import { storageAdapter } from '../utils/storageAdapter';
 
 export const LEGACY_CONVERSATION_STORAGE_KEY = 'chorale.pi-agent-conversation.v1';
 export const VERSION_2_CONVERSATION_STORAGE_KEY = 'chorale.pi-agent-conversation.v2';
 export const CONVERSATION_STORAGE_KEY = 'chorale.pi-agent-conversation.v3';
+export const DURABLE_CONVERSATION_MARKER_PREFIX = 'chorale.pi-agent-conversation.durable.';
+
+const durableConversationMarkerKey = (fileId: string): string => (
+  `${DURABLE_CONVERSATION_MARKER_PREFIX}${fileId}`
+);
 
 const PROFILE_IDS: AgentProfileId[] = [
   'general',
@@ -53,6 +59,14 @@ const normalizeMessages = (messages: ChatMessage[]): ChatMessage[] => (
           return validated ? [validated] : [];
         })
       : [],
+    ...(Array.isArray(message.scoreProposals)
+      ? {
+          scoreProposals: message.scoreProposals.flatMap((proposal) => {
+            const validated = validateScoreChangeProposal(proposal);
+            return validated ? [validated] : [];
+          }),
+        }
+      : {}),
   }))
 );
 
@@ -139,6 +153,26 @@ const loadStore = (storage: Storage): PersistedConversationStore => {
   return current;
 };
 
+const loadDurableStore = async (): Promise<PersistedConversationStore> => {
+  const indexedValue = await storageAdapter.getItem<unknown>(CONVERSATION_STORAGE_KEY, null);
+  const indexedStore = migrateConversationStore(indexedValue);
+  const localStore = loadStore(window.localStorage);
+  const mergedStore: PersistedConversationStore = {
+    version: 3,
+    files: {
+      ...localStore.files,
+      ...indexedStore.files,
+    },
+  };
+  const hasLocalOnlyFiles = Object.keys(localStore.files).some((fileId) => (
+    !Object.prototype.hasOwnProperty.call(indexedStore.files, fileId)
+  ));
+  if (hasLocalOnlyFiles) {
+    await storageAdapter.setItem(CONVERSATION_STORAGE_KEY, mergedStore);
+  }
+  return mergedStore;
+};
+
 const saveStore = (
   store: PersistedConversationStore,
   storage: Storage,
@@ -183,14 +217,81 @@ export const loadConversation = (
   return createDefaultFileConversation();
 };
 
+export const loadConversationAsync = async (
+  fileId: string,
+): Promise<PersistedFileConversation> => {
+  const store = await loadDurableStore();
+  return store.files[fileId] || createDefaultFileConversation();
+};
+
 export const saveConversation = (
   fileId: string,
   conversation: PersistedFileConversation,
   storage: Storage = window.localStorage,
 ) => {
+  let nextStore: PersistedConversationStore | null = null;
   try {
-    const store = loadStore(storage);
-    saveStore({
+    nextStore = {
+      version: 3,
+      files: {
+        ...loadStore(storage).files,
+        [fileId]: {
+          activeThreadId: conversation.activeThreadId,
+          threads: conversation.threads.map((thread) => ({
+            ...thread,
+            messages: normalizeMessages(thread.messages),
+          })),
+        },
+      },
+    };
+    saveStore(nextStore, storage);
+    storage.removeItem(durableConversationMarkerKey(fileId));
+    storage.removeItem(VERSION_2_CONVERSATION_STORAGE_KEY);
+    storage.removeItem(LEGACY_CONVERSATION_STORAGE_KEY);
+  } catch {
+    if (!nextStore) return;
+    try {
+      const compactStore: PersistedConversationStore = {
+        version: 3,
+        files: Object.fromEntries(Object.entries(nextStore.files).map(([storedFileId, storedConversation]) => [
+          storedFileId,
+          {
+            ...storedConversation,
+            threads: storedConversation.threads.map((thread) => ({
+              ...thread,
+              messages: thread.messages.map((message) => ({ ...message, scoreProposals: [] })),
+            })),
+          },
+        ])),
+      };
+      saveStore(compactStore, storage);
+      for (const [storedFileId, storedConversation] of Object.entries(nextStore.files)) {
+        if (storedConversation.threads.some((thread) => (
+          thread.messages.some((message) => (message.scoreProposals?.length || 0) > 0)
+        ))) {
+          storage.setItem(durableConversationMarkerKey(storedFileId), '1');
+        }
+      }
+    } catch {
+      // Conversation persistence is best-effort in private or quota-limited browsers.
+    }
+  }
+};
+
+export const conversationNeedsDurableHydration = (
+  fileId: string,
+  storage: Storage = window.localStorage,
+): boolean => storage.getItem(durableConversationMarkerKey(fileId)) === '1';
+
+let durableSaveQueue: Promise<boolean> = Promise.resolve(true);
+
+export const saveConversationAsync = (
+  fileId: string,
+  conversation: PersistedFileConversation,
+): Promise<boolean> => {
+  durableSaveQueue = durableSaveQueue.then(async () => {
+    const store = await loadDurableStore();
+    const saved = await storageAdapter.setItem(CONVERSATION_STORAGE_KEY, {
       version: 3,
       files: {
         ...store.files,
@@ -202,12 +303,16 @@ export const saveConversation = (
           })),
         },
       },
-    }, storage);
-    storage.removeItem(VERSION_2_CONVERSATION_STORAGE_KEY);
-    storage.removeItem(LEGACY_CONVERSATION_STORAGE_KEY);
-  } catch {
-    // Conversation persistence is best-effort in private or quota-limited browsers.
-  }
+    } satisfies PersistedConversationStore);
+    if (!saved) return false;
+    await storageAdapter.removeItem(VERSION_2_CONVERSATION_STORAGE_KEY);
+    await storageAdapter.removeItem(LEGACY_CONVERSATION_STORAGE_KEY);
+    return true;
+  }).catch(() => {
+    // Conversation persistence remains best-effort when durable browser storage is unavailable.
+    return false;
+  });
+  return durableSaveQueue;
 };
 
 export const clearConversation = (

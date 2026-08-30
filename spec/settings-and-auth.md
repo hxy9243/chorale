@@ -3,7 +3,7 @@ title: "Settings & AI Provider Authentication Spec"
 description: "Specification for AI provider credential management, custom API endpoints, ChatGPT OAuth, safeStorage encryption, and settings modal presentation"
 category: "ai-configuration"
 date: 2026-07-29
-updated: 2026-08-15
+updated: 2026-08-30
 status: "implemented"
 source_files:
   - src/components/AISettingsModal.tsx
@@ -96,7 +96,10 @@ app.getPath('userData')/chorale-data/agent-traces/
 - Chorale never falls back to renderer `localStorage` for a secret.
 - Existing encrypted metadata may remain on disk while its credential is unavailable; the connection reports `status: 'unavailable'`.
 
-Score documents, conversations, editor state, and workspace layout remain non-secret renderer `localStorage` data. Electron’s persistent default session stores that profile data, and the main process flushes DOM storage during clean shutdown. Browser profile data is not imported automatically.
+Score documents and full-fidelity conversations remain non-secret IndexedDB data. Conversations also
+maintain a compact renderer `localStorage` mirror; editor and workspace layout preferences remain in
+`localStorage`. Electron's persistent default session stores that profile data, and the main process
+flushes DOM storage during clean shutdown. Browser profile data is not imported automatically.
 
 ## 5. OpenAI Codex OAuth
 
