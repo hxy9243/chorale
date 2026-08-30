@@ -712,10 +712,6 @@ export const generateScorePdfHtml = ({
       page-break-inside: avoid;
       padding-top: 14px;
       padding-bottom: 16px;
-      border-bottom: 1px dashed #e2e8f0;
-    }
-    .print-system-row:last-child {
-      border-bottom: none;
     }
     .print-system-row.notation-only .print-notation-col {
       flex: 1 1 100%;
