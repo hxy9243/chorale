@@ -307,7 +307,6 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
     cell: AbcMeasureCell,
     colorIndex: number,
     voiceLabel: string,
-    beatWidths: readonly number[],
   ) => {
     const editing = draft?.cellId === cell.id;
     const beatValues = splitCellSourceByBeat(cell, beatCount);
@@ -365,10 +364,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
               }}
             />
           ) : (
-            <div
-              className="abc-source-beats"
-              style={{ gridTemplateColumns: beatWidths.map((width) => `${width}ch`).join(' ') }}
-            >
+            <div className="abc-source-beats">
               {beatValues.map((value, beatIndex) => (
                 <span
                   key={beatIndex}
@@ -491,13 +487,10 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
                     const cell = findCell(voice.cells, `${voice.id}:${measure}`);
                     return cell ? [{ cell, voice }] : [];
                   });
-                  const sourceBeats = measureCells.map(({ cell }) => (
-                    splitCellSourceByBeat(cell, beatCount)
-                  ));
-                  const beatWidths = Array.from({ length: beatCount }, (_, beatIndex) => Math.max(
-                    5,
-                    ...sourceBeats.map((beats) => (beats[beatIndex]?.length || 0) + 1),
-                  ));
+                  const maxMeasureChars = Math.max(
+                    ...measureCells.map(({ cell }) => (draft?.cellId === cell.id ? draft.value.length : cell.text.length)),
+                    14,
+                  );
                   const selected = Boolean(activeAnchor
                     && measure >= activeAnchor.startMeasure
                     && measure <= activeAnchor.endMeasure);
@@ -505,6 +498,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
                     <section
                       className={`abc-timeline-measure${selected ? ' is-selected' : ''}${playingMeasure === measure ? ' is-playing' : ''}`}
                       data-timeline-measure={measure}
+                      style={{ minWidth: `max(18rem, calc(${maxMeasureChars + 8}ch + 5.5rem))` }}
                       key={measure}
                     >
                       <button
@@ -518,7 +512,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
                       </button>
                       <div className="abc-timeline-voice-stack">
                         {measureCells.map(({ cell, voice }) => (
-                          renderTimelineCell(cell, voice.colorIndex, voice.label, beatWidths)
+                          renderTimelineCell(cell, voice.colorIndex, voice.label)
                         ))}
                       </div>
                     </section>

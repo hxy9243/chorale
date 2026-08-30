@@ -140,7 +140,6 @@ C D E F G A |
     const beatGroup = container.querySelector('.abc-source-beats')!;
     expect(beatGroup.querySelectorAll('.abc-source-beat-display')).toHaveLength(6);
     expect(beatGroup.querySelector('.abc-beat-separator')).toBeNull();
-    expect((beatGroup as HTMLElement).style.gridTemplateColumns.split(' ')).toHaveLength(6);
   });
 
   it('uses vertical wheel movement to traverse long measure source', () => {
