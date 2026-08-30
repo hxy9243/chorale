@@ -6,8 +6,11 @@ import {
   analyzeRawAbcLines,
   buildAbcPresentation,
   resolvePlaybackMeasure,
+  validateAbcHeaderEdit,
   validateAbcMeasureEdit,
+  type AbcHeaderLine,
   type AbcMeasureCell,
+  type AbcTextRange,
   type PlaybackSourceRanges,
 } from '../music/abcPresentation';
 
@@ -28,6 +31,15 @@ interface AbcEditorProps {
 
 type Draft = {
   cellId: string;
+  value: string;
+  baseDocumentId?: string;
+  baseRevision: number;
+  error: string | null;
+};
+
+type HeaderDraft = {
+  range: AbcTextRange;
+  tag: string;
   value: string;
   baseDocumentId?: string;
   baseRevision: number;
@@ -81,6 +93,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   const [view, setView] = useState<'measures' | 'raw'>('measures');
   const [scrollProgress, setScrollProgress] = useState(0);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [headerDraft, setHeaderDraft] = useState<HeaderDraft | null>(null);
   const selectionOriginRef = useRef<number | null>(null);
   const composingRef = useRef(false);
   const committingRef = useRef(false);
@@ -232,6 +245,44 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
       baseRevision: revision,
       error: null,
     });
+  };
+
+  const beginHeaderEdit = (header: AbcHeaderLine) => {
+    setHeaderDraft({
+      range: header.range,
+      tag: header.tag,
+      value: header.text,
+      baseDocumentId: documentId,
+      baseRevision: revision,
+      error: null,
+    });
+  };
+
+  const commitHeaderDraft = (): boolean => {
+    if (committingRef.current) return true;
+    if (!headerDraft || !presentation) return false;
+    const currentText = presentation.abc.slice(headerDraft.range.start, headerDraft.range.end);
+    if (headerDraft.value.trim() === currentText.trim() && !headerDraft.error) {
+      setHeaderDraft(null);
+      return true;
+    }
+    if (headerDraft.baseDocumentId !== documentId || headerDraft.baseRevision !== revision) {
+      setHeaderDraft({ ...headerDraft, error: 'The source changed. Reopen this header before editing.' });
+      return false;
+    }
+    const result = validateAbcHeaderEdit(presentation, headerDraft.range, headerDraft.value, headerDraft.tag);
+    if (!result.ok) {
+      setHeaderDraft({ ...headerDraft, error: result.error });
+      return false;
+    }
+    committingRef.current = true;
+    try {
+      setHeaderDraft(null);
+      onAbcChange(result.abc);
+    } finally {
+      committingRef.current = false;
+    }
+    return true;
   };
 
   const updateDraft = (cell: AbcMeasureCell, value: string) => {
@@ -420,6 +471,11 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
             <button type="button" onClick={() => focusCell(draft.cellId)}>Return to measure</button>
           </div>
         )}
+        {headerDraft?.error && (
+          <div className="editor-banner error abc-draft-error" role="alert">
+            <span>{headerDraft.error}</span>
+          </div>
+        )}
       </div>
 
       {visible && (
@@ -473,12 +529,52 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
           ) : (
             <div className="abc-measure-view">
               <div className="abc-header-source" aria-label="ABC header fields">
-                {presentation.headers.map((header) => (
-                  <div className="abc-header-line" key={header.range.start}>
-                    <code>{header.text}</code>
-                    {header.label && <span>{header.label}: {header.value}</span>}
-                  </div>
-                ))}
+                {presentation.headers.map((header) => {
+                  const isEditingHeader = headerDraft?.range.start === header.range.start;
+                  return (
+                    <div
+                      className={`abc-header-line${isEditingHeader ? ' is-editing' : ''}`}
+                      key={header.range.start}
+                    >
+                      {isEditingHeader ? (
+                        <input
+                          type="text"
+                          className="abc-header-edit-input"
+                          aria-label={`Edit header ${header.tag}`}
+                          value={headerDraft.value}
+                          autoFocus
+                          onChange={(event) => setHeaderDraft({ ...headerDraft, value: event.target.value, error: null })}
+                          onCompositionStart={() => { composingRef.current = true; }}
+                          onCompositionEnd={() => { composingRef.current = false; }}
+                          onBlur={(event) => {
+                            if (!event.currentTarget.contains(event.relatedTarget)) {
+                              commitHeaderDraft();
+                            }
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Escape') {
+                              event.preventDefault();
+                              setHeaderDraft(null);
+                            } else if (event.key === 'Enter' && !composingRef.current) {
+                              event.preventDefault();
+                              commitHeaderDraft();
+                            }
+                          }}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          className="abc-header-line-button"
+                          aria-label={`Edit ${header.label || header.tag}: ${header.text}`}
+                          onClick={() => beginHeaderEdit(header)}
+                        >
+                          <code>{header.text}</code>
+                          {header.label && <span>{header.label}: {header.value}</span>}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               {presentation.warnings.map((warning) => <div className="abc-raw-warning" key={warning}>{warning}</div>)}
               <div className="abc-measure-timeline" aria-label="ABC measures by voice">

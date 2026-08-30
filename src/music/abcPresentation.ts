@@ -401,6 +401,31 @@ export const validateAbcMeasureEdit = (
   }
 };
 
+export const validateAbcHeaderEdit = (
+  presentation: AbcPresentation,
+  headerRange: AbcTextRange,
+  replacementText: string,
+  tag?: string,
+): AbcCellEditResult => {
+  if (/\r|\n/.test(replacementText)) {
+    return { ok: false, error: 'Header edits must stay on one line.' };
+  }
+  let cleanReplacement = replacementText.trim();
+  if (!cleanReplacement) {
+    return { ok: false, error: 'Header line cannot be empty.' };
+  }
+  if (tag && !cleanReplacement.startsWith(`${tag}:`) && !cleanReplacement.startsWith(`${tag.toLowerCase()}:`)) {
+    cleanReplacement = `${tag}:${cleanReplacement}`;
+  }
+  const candidate = `${presentation.abc.slice(0, headerRange.start)}${cleanReplacement}${presentation.abc.slice(headerRange.end)}`;
+  try {
+    const next = buildAbcPresentation(candidate);
+    return { ok: true, abc: candidate, presentation: next };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'ABC header validation failed.' };
+  }
+};
+
 export const resolvePlaybackMeasure = (
   presentation: AbcPresentation,
   startCharArray: readonly number[] | undefined,

@@ -4,6 +4,7 @@ import {
   analyzeRawAbcLines,
   buildAbcPresentation,
   resolvePlaybackMeasure,
+  validateAbcHeaderEdit,
   validateAbcMeasureEdit,
 } from '../abcPresentation';
 
@@ -139,5 +140,30 @@ K:C
     expect(lowerLine.isPlaying).toBe(true); // Measure 2 is playing
     expect(lowerLine.segments.find((s) => s.measureNumber === 1)?.isSelected).toBe(true);
     expect(lowerLine.segments.find((s) => s.measureNumber === 2)?.isPlaying).toBe(true);
+  });
+
+  it('validates and applies safe header edits', () => {
+    const presentation = buildAbcPresentation(multiVoiceAbc);
+    const titleHeader = presentation.headers.find((h) => h.tag === 'T');
+    expect(titleHeader).toBeDefined();
+
+    // Valid edit with tag
+    const result1 = validateAbcHeaderEdit(presentation, titleHeader!.range, 'T:Three voices', 'T');
+    expect(result1.ok).toBe(true);
+    if (result1.ok) {
+      expect(result1.abc).toContain('T:Three voices');
+      expect(result1.presentation.headers[1].value).toBe('Three voices');
+    }
+
+    // Valid edit without tag (auto-prepends tag)
+    const result2 = validateAbcHeaderEdit(presentation, titleHeader!.range, 'Four voices', 'T');
+    expect(result2.ok).toBe(true);
+    if (result2.ok) {
+      expect(result2.abc).toContain('T:Four voices');
+    }
+
+    // Invalid edit with newlines
+    const invalidResult = validateAbcHeaderEdit(presentation, titleHeader!.range, 'T:Title\nK:G', 'T');
+    expect(invalidResult.ok).toBe(false);
   });
 });

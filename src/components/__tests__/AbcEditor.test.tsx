@@ -298,6 +298,28 @@ C D E F G A |
     expect(onAbcChange).toHaveBeenCalledWith(expect.stringContaining('[V:upper] C D E F | A A B c |'));
   });
 
+  it('allows inline editing of sheet info headers in measure view', () => {
+    const onAbcChange = vi.fn();
+    render(
+      <AbcEditor
+        abcCode={formattedAbc}
+        onAbcChange={onAbcChange}
+      />,
+    );
+
+    const titleButton = screen.getByRole('button', { name: /Edit Title: T:Test Score/i });
+    expect(titleButton).toBeDefined();
+
+    fireEvent.click(titleButton);
+    const headerInput = screen.getByRole('textbox', { name: 'Edit header T' }) as HTMLInputElement;
+    expect(headerInput.value).toBe('T:Test Score');
+
+    fireEvent.change(headerInput, { target: { value: 'T:New Score Title' } });
+    fireEvent.keyDown(headerInput, { key: 'Enter' });
+
+    expect(onAbcChange).toHaveBeenCalledWith(expect.stringContaining('T:New Score Title'));
+  });
+
   it('provides a close button inside the editor window', () => {
     const onToggleVisibility = vi.fn();
     render(
