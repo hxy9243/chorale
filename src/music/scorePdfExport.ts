@@ -52,11 +52,11 @@ type SystemInfo = {
 };
 
 const extractBBoxFromElement = (
-  el: SVGGraphicsElement,
+  el: Element,
 ): { x: number; y: number; width: number; height: number } | null => {
   try {
-    if (typeof el.getBBox === 'function') {
-      const bbox = el.getBBox();
+    if (typeof (el as SVGGraphicsElement).getBBox === 'function') {
+      const bbox = (el as SVGGraphicsElement).getBBox();
       if (
         Number.isFinite(bbox.x)
         && Number.isFinite(bbox.y)
@@ -71,8 +71,31 @@ const extractBBoxFromElement = (
     // ignore
   }
 
-  // Fallback: parse path coordinates directly from 'd' attribute
-  if (el.tagName.toLowerCase() === 'path') {
+  const tagName = el.tagName.toLowerCase();
+
+  // Container elements (<g>, <svg>): compute union bounding box of children
+  if (tagName === 'g' || tagName === 'svg') {
+    const childBoxes: Array<{ x: number; y: number; width: number; height: number }> = [];
+    for (const child of Array.from(el.children)) {
+      const box = extractBBoxFromElement(child);
+      if (box) childBoxes.push(box);
+    }
+    if (childBoxes.length > 0) {
+      const minX = Math.min(...childBoxes.map((b) => b.x));
+      const minY = Math.min(...childBoxes.map((b) => b.y));
+      const maxX = Math.max(...childBoxes.map((b) => b.x + b.width));
+      const maxY = Math.max(...childBoxes.map((b) => b.y + b.height));
+      return {
+        x: minX,
+        y: minY,
+        width: Math.max(1, maxX - minX),
+        height: Math.max(1, maxY - minY),
+      };
+    }
+  }
+
+  // Parse path coordinates directly from 'd' attribute
+  if (tagName === 'path') {
     const d = el.getAttribute('d');
     if (d) {
       const coords = Array.from(d.matchAll(/([MLCSTQAZ])\s*([0-9.-]+)[,\s]+([0-9.-]+)/gi));
@@ -100,6 +123,55 @@ const extractBBoxFromElement = (
           };
         }
       }
+    }
+  }
+
+  // Parse rect, image, use
+  if (tagName === 'rect' || tagName === 'image' || tagName === 'use') {
+    const x = Number(el.getAttribute('x') || 0);
+    const y = Number(el.getAttribute('y') || 0);
+    const width = Number(el.getAttribute('width') || 0);
+    const height = Number(el.getAttribute('height') || 0);
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      return {
+        x,
+        y,
+        width: Math.max(1, Number.isFinite(width) ? width : 1),
+        height: Math.max(1, Number.isFinite(height) ? height : 1),
+      };
+    }
+  }
+
+  // Parse line
+  if (tagName === 'line') {
+    const x1 = Number(el.getAttribute('x1') || 0);
+    const y1 = Number(el.getAttribute('y1') || 0);
+    const x2 = Number(el.getAttribute('x2') || 0);
+    const y2 = Number(el.getAttribute('y2') || 0);
+    if ([x1, y1, x2, y2].every(Number.isFinite)) {
+      const minX = Math.min(x1, x2);
+      const minY = Math.min(y1, y2);
+      return {
+        x: minX,
+        y: minY,
+        width: Math.max(1, Math.abs(x2 - x1)),
+        height: Math.max(1, Math.abs(y2 - y1)),
+      };
+    }
+  }
+
+  // Parse text
+  if (tagName === 'text') {
+    const x = Number(el.getAttribute('x') || 0);
+    const y = Number(el.getAttribute('y') || 0);
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      const textLen = (el.textContent || '').length;
+      return {
+        x,
+        y: y - 10,
+        width: Math.max(1, textLen * 7),
+        height: 12,
+      };
     }
   }
 
@@ -229,16 +301,19 @@ export const generateScorePdfHtml = ({
 
         // Approximate or measure bounding box
         const staffEls = svg.querySelectorAll<SVGGraphicsElement>(`.abcjs-staff.${lineClass}`);
-        let top = Infinity;
-        let bottom = -Infinity;
+        let staffTop = Infinity;
+        let staffBottom = -Infinity;
 
         staffEls.forEach((el) => {
           const box = extractBBoxFromElement(el);
           if (box) {
-            top = Math.min(top, box.y - (hasChords ? 46 : 28));
-            bottom = Math.max(bottom, box.y + box.height + 28);
+            staffTop = Math.min(staffTop, box.y);
+            staffBottom = Math.max(staffBottom, box.y + box.height);
           }
         });
+
+        let elementMinY = Infinity;
+        let elementMaxY = -Infinity;
 
         lineElements.forEach((el) => {
           if (
@@ -249,29 +324,27 @@ export const generateScorePdfHtml = ({
           ) {
             const box = extractBBoxFromElement(el);
             if (box) {
-              top = Math.min(top, box.y - (hasChords ? 36 : 20));
-              bottom = Math.max(bottom, box.y + box.height + 20);
+              elementMinY = Math.min(elementMinY, box.y);
+              elementMaxY = Math.max(elementMaxY, box.y + box.height);
             }
           }
         });
 
-        // Ensure system top encompasses all chord badges belonging to this line
         const systemChords = chordAnnotations.filter((c) => {
           const m = c.position.measure;
           return m >= minMeasure && m <= maxMeasure;
         });
 
+        const topStaffY = Number.isFinite(staffTop) ? staffTop : (Number.isFinite(elementMinY) ? elementMinY : 60);
+        let top = Number.isFinite(elementMinY) ? Math.min(staffTop - 28, elementMinY - 20) : staffTop - 28;
+        let bottom = Number.isFinite(elementMaxY) ? Math.max(staffBottom + 28, elementMaxY + 20) : staffBottom + 28;
+
         if (systemChords.length > 0) {
-          systemChords.forEach((chord) => {
-            const measureIdx = chord.position.measure - 1;
-            const measureEls = svg.querySelectorAll<SVGGraphicsElement>(`.abcjs-mm${measureIdx}`);
-            measureEls.forEach((el) => {
-              const box = extractBBoxFromElement(el);
-              if (box && box.width > 0) {
-                top = Math.min(top, box.y - 44);
-              }
-            });
-          });
+          // Ensure system top comfortably encompasses the chord badges above the staff
+          const maxBadgeHeight = systemChords.some((c) => c.romanNumeral) ? 28 : 20;
+          const minObstacleY = Math.min(topStaffY, elementMinY);
+          const chordBaselineY = Math.min(topStaffY - 22, minObstacleY - 10);
+          top = Math.min(top, chordBaselineY - maxBadgeHeight - 12);
         }
 
         if (!Number.isFinite(top) || !Number.isFinite(bottom)) {
@@ -317,115 +390,185 @@ export const generateScorePdfHtml = ({
     chordLayer.setAttribute('id', 'chorale-chord-layer');
     chordLayer.setAttribute('class', 'chorale-chord-layer');
 
+    // Render chord badges grouped per system so each line has its own independent horizontal de-confliction
+    systems.forEach((system) => {
+      const lineClass = system.lineClass;
+      const systemChords = chordAnnotations.filter((c) => (
+        c.position.measure >= system.minMeasure && c.position.measure <= system.maxMeasure
+      ));
+      if (systemChords.length === 0) return;
 
-    // Sort chords in reading order (measure then offset)
-    const sortedChords = [...chordAnnotations].sort((a, b) => {
-      if (a.position.measure !== b.position.measure) {
-        return a.position.measure - b.position.measure;
-      }
-      const aFrac = a.position.offset.denominator > 0 ? a.position.offset.numerator / a.position.offset.denominator : 0;
-      const bFrac = b.position.offset.denominator > 0 ? b.position.offset.numerator / b.position.offset.denominator : 0;
-      return aFrac - bFrac;
-    });
+      // Sort chords on this line in reading order (measure then offset)
+      const sortedChords = [...systemChords].sort((a, b) => {
+        if (a.position.measure !== b.position.measure) {
+          return a.position.measure - b.position.measure;
+        }
+        const aFrac = a.position.offset.denominator > 0 ? a.position.offset.numerator / a.position.offset.denominator : 0;
+        const bFrac = b.position.offset.denominator > 0 ? b.position.offset.numerator / b.position.offset.denominator : 0;
+        return aFrac - bFrac;
+      });
 
-    let previousPlacedMeasure = -1;
-    let previousPlacedRight = -Infinity;
-
-    sortedChords.forEach((chord) => {
-      if (chord.kind !== 'chord') return;
-      const measureIdx = chord.position.measure - 1;
-      const measureEls = svg.querySelectorAll<SVGGraphicsElement>(`.abcjs-mm${measureIdx}`);
-      let measureX = 100;
-      let measureY = 60;
-      let measureW = 120;
-      let foundBox = false;
-
-      measureEls.forEach((el) => {
+      // Find top staff Y for this line to establish a consistent vertical baseline for all chords on this system
+      const staffEls = lineClass
+        ? svg.querySelectorAll<SVGGraphicsElement>(`.abcjs-staff.${lineClass}`)
+        : svg.querySelectorAll<SVGGraphicsElement>('.abcjs-staff');
+      let topStaffY = Infinity;
+      staffEls.forEach((el) => {
         const box = extractBBoxFromElement(el);
-        if (box && box.width > 0) {
-          if (!foundBox) {
-            measureX = box.x;
-            measureY = box.y;
-            measureW = box.width;
-            foundBox = true;
-          } else {
-            const right = Math.max(measureX + measureW, box.x + box.width);
-            measureX = Math.min(measureX, box.x);
-            measureY = Math.min(measureY, box.y);
-            measureW = Math.max(1, right - measureX);
-          }
+        if (box && box.y > 0) topStaffY = Math.min(topStaffY, box.y);
+      });
+      if (!Number.isFinite(topStaffY)) topStaffY = system.top + 60;
+
+      // Check obstacles (high notes, tempo, dynamics) above the top staff on this line
+      let minObstacleY = topStaffY;
+      const lineObstacles = lineClass
+        ? svg.querySelectorAll<SVGGraphicsElement>(`.abcjs-note.${lineClass}, .abcjs-tempo.${lineClass}, .abcjs-dynamics.${lineClass}`)
+        : svg.querySelectorAll<SVGGraphicsElement>('.abcjs-note, .abcjs-tempo, .abcjs-dynamics');
+      lineObstacles.forEach((el) => {
+        const box = extractBBoxFromElement(el);
+        // Only consider valid obstacle boxes that are above the staff but within reasonable reach
+        if (box && box.y > 10 && box.y < topStaffY && box.y >= topStaffY - 100) {
+          minObstacleY = Math.min(minObstacleY, box.y);
         }
       });
 
-      const offsetFraction = chord.position.offset.denominator > 0
-        ? chord.position.offset.numerator / chord.position.offset.denominator
-        : 0;
+      const maxBadgeHeightOnLine = sortedChords.some((c) => c.romanNumeral) ? 28 : 20;
+      const systemChordCenterY = Math.max(
+        system.top + maxBadgeHeightOnLine / 2 + 4,
+        Math.min(topStaffY - 22, minObstacleY - 10) - maxBadgeHeightOnLine / 2,
+      );
 
-      const symbolLen = chord.chordSymbol.length;
-      const romanLen = chord.romanNumeral?.length ?? 0;
-      const maxCharCount = Math.max(symbolLen, romanLen);
-      const badgeWidth = Math.max(38, maxCharCount * 8.5 + 14);
-      const halfWidth = badgeWidth / 2;
-      const badgeHeight = chord.romanNumeral ? 28 : 20;
-      const halfHeight = badgeHeight / 2;
+      // Debug log
+      // console.log(`SYSTEM ${system.index} (${lineClass}): staffEls=${staffEls.length}, topStaffY=${topStaffY}, minObstacleY=${minObstacleY}, systemChordCenterY=${systemChordCenterY}, system.top=${system.top}`);
 
-      let idealX = measureX + Math.max(halfWidth + 2, Math.min(measureW * offsetFraction, measureW - halfWidth - 2));
+      let previousPlacedRight = -Infinity;
 
-      // De-conflict horizontally if placed near previous chord in nearby measures
-      if (Math.abs(chord.position.measure - previousPlacedMeasure) <= 1 && idealX - halfWidth < previousPlacedRight + 6) {
-        idealX = previousPlacedRight + 6 + halfWidth;
-      }
+      sortedChords.forEach((chord) => {
+        if (chord.kind !== 'chord') return;
+        const measureIdx = chord.position.measure - 1;
 
-      // Strictly clamp within horizontal SVG line margins to avoid right/left edge clipping
-      const minClampX = halfWidth + 10;
-      const maxClampX = svgWidth - halfWidth - 14;
-      idealX = Math.max(minClampX, Math.min(idealX, maxClampX));
+        // Query elements specifically on this line
+        const measureSelector = lineClass ? `.abcjs-mm${measureIdx}.${lineClass}` : `.abcjs-mm${measureIdx}`;
+        const measureEls = svg.querySelectorAll<SVGGraphicsElement>(measureSelector);
 
-      previousPlacedMeasure = chord.position.measure;
-      previousPlacedRight = idealX + halfWidth;
+        let measureX = 100;
+        let measureW = 140;
+        let foundMeasureBox = false;
 
-      const badgeY = Math.max(24, measureY - 28);
+        const measureBoxes: Array<{ x: number; y: number; width: number; height: number }> = [];
+        measureEls.forEach((el) => {
+          const box = extractBBoxFromElement(el);
+          if (box && box.width > 0) {
+            measureBoxes.push(box);
+          }
+        });
 
-      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      g.setAttribute('class', 'score-chord-badge');
-      g.setAttribute('transform', `translate(${idealX}, ${badgeY})`);
+        if (measureBoxes.length > 0) {
+          const minX = Math.min(...measureBoxes.map((b) => b.x));
+          const maxX = Math.max(...measureBoxes.map((b) => b.x + b.width));
+          measureX = minX;
+          measureW = Math.max(30, maxX - minX);
+          foundMeasureBox = true;
+        }
 
-      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      rect.setAttribute('x', String(-halfWidth));
-      rect.setAttribute('y', String(-halfHeight));
-      rect.setAttribute('width', String(badgeWidth));
-      rect.setAttribute('height', String(badgeHeight));
-      rect.setAttribute('rx', '4.5');
-      rect.setAttribute('fill', '#f0f9ff');
-      rect.setAttribute('stroke', '#0284c7');
-      rect.setAttribute('stroke-width', '1.2');
-      g.appendChild(rect);
+        // Locate note elements inside this measure on this line to anchor to noteheads
+        const noteSelector = lineClass ? `.abcjs-mm${measureIdx}.abcjs-note.${lineClass}` : `.abcjs-mm${measureIdx}.abcjs-note`;
+        const noteEls = svg.querySelectorAll<SVGGraphicsElement>(noteSelector);
+        const noteCenters: number[] = [];
+        noteEls.forEach((el) => {
+          const box = extractBBoxFromElement(el);
+          if (box && box.width > 0) {
+            noteCenters.push(box.x + box.width / 2);
+          }
+        });
+        noteCenters.sort((a, b) => a - b);
 
-      const textSymbol = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      textSymbol.setAttribute('x', '0');
-      textSymbol.setAttribute('y', chord.romanNumeral ? '-2' : '3.5');
-      textSymbol.setAttribute('text-anchor', 'middle');
-      textSymbol.setAttribute('font-family', 'sans-serif');
-      textSymbol.setAttribute('font-size', '11');
-      textSymbol.setAttribute('font-weight', 'bold');
-      textSymbol.setAttribute('fill', '#0369a1');
-      textSymbol.textContent = chord.chordSymbol;
-      g.appendChild(textSymbol);
+        const offsetFraction = chord.position.offset.denominator > 0
+          ? chord.position.offset.numerator / chord.position.offset.denominator
+          : 0;
 
-      if (chord.romanNumeral) {
-        const textRoman = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        textRoman.setAttribute('x', '0');
-        textRoman.setAttribute('y', '9.5');
-        textRoman.setAttribute('text-anchor', 'middle');
-        textRoman.setAttribute('font-family', 'sans-serif');
-        textRoman.setAttribute('font-size', '9');
-        textRoman.setAttribute('font-weight', '600');
-        textRoman.setAttribute('fill', '#0284c7');
-        textRoman.textContent = chord.romanNumeral;
-        g.appendChild(textRoman);
-      }
+        let targetX: number;
+        if (noteCenters.length > 0) {
+          if (offsetFraction === 0) {
+            targetX = noteCenters[0];
+          } else {
+            const noteIndex = Math.min(noteCenters.length - 1, Math.round(offsetFraction * (noteCenters.length - 1)));
+            targetX = noteCenters[noteIndex];
+          }
+        } else if (foundMeasureBox) {
+          targetX = offsetFraction === 0 ? measureX + 16 : measureX + measureW * offsetFraction;
+        } else {
+          // Fallback proportional estimate across system measures
+          const measureRatio = (chord.position.measure - system.minMeasure) / Math.max(1, system.maxMeasure - system.minMeasure + 1);
+          const estimatedMeasureWidth = (svgWidth - 100) / Math.max(1, system.maxMeasure - system.minMeasure + 1);
+          targetX = 60 + measureRatio * (svgWidth - 100) + estimatedMeasureWidth * offsetFraction;
+        }
 
-      chordLayer.appendChild(g);
+        const symbolLen = chord.chordSymbol.length;
+        const romanLen = chord.romanNumeral?.length ?? 0;
+        const maxCharCount = Math.max(symbolLen, romanLen);
+        const badgeWidth = Math.max(38, maxCharCount * 8.5 + 14);
+        const halfWidth = badgeWidth / 2;
+        const badgeHeight = chord.romanNumeral ? 28 : 20;
+        const halfHeight = badgeHeight / 2;
+
+        let idealX = targetX;
+
+        // De-conflict horizontally if placed near previous chord in this system
+        if (idealX - halfWidth < previousPlacedRight + 6) {
+          idealX = previousPlacedRight + 6 + halfWidth;
+        }
+
+        // Strictly clamp within horizontal SVG line margins to avoid right/left edge clipping
+        const minClampX = halfWidth + 10;
+        const maxClampX = svgWidth - halfWidth - 14;
+        idealX = Math.max(minClampX, Math.min(idealX, maxClampX));
+
+        previousPlacedRight = idealX + halfWidth;
+
+        const badgeY = Math.max(20, systemChordCenterY);
+
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('class', 'score-chord-badge');
+        g.setAttribute('transform', `translate(${idealX}, ${badgeY})`);
+
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', String(-halfWidth));
+        rect.setAttribute('y', String(-halfHeight));
+        rect.setAttribute('width', String(badgeWidth));
+        rect.setAttribute('height', String(badgeHeight));
+        rect.setAttribute('rx', '4.5');
+        rect.setAttribute('fill', '#f0f9ff');
+        rect.setAttribute('stroke', '#0284c7');
+        rect.setAttribute('stroke-width', '1.2');
+        g.appendChild(rect);
+
+        const textSymbol = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        textSymbol.setAttribute('x', '0');
+        textSymbol.setAttribute('y', chord.romanNumeral ? '-2' : '3.5');
+        textSymbol.setAttribute('text-anchor', 'middle');
+        textSymbol.setAttribute('font-family', 'sans-serif');
+        textSymbol.setAttribute('font-size', '11');
+        textSymbol.setAttribute('font-weight', 'bold');
+        textSymbol.setAttribute('fill', '#0369a1');
+        textSymbol.textContent = chord.chordSymbol;
+        g.appendChild(textSymbol);
+
+        if (chord.romanNumeral) {
+          const textRoman = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          textRoman.setAttribute('x', '0');
+          textRoman.setAttribute('y', '9.5');
+          textRoman.setAttribute('text-anchor', 'middle');
+          textRoman.setAttribute('font-family', 'sans-serif');
+          textRoman.setAttribute('font-size', '9');
+          textRoman.setAttribute('font-weight', '600');
+          textRoman.setAttribute('fill', '#0284c7');
+          textRoman.textContent = chord.romanNumeral;
+          g.appendChild(textRoman);
+        }
+
+        chordLayer.appendChild(g);
+      });
     });
 
     if (chordAnnotations.length > 0) {

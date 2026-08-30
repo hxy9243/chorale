@@ -161,6 +161,209 @@ describe('scorePdfExport', () => {
     expect(html).toContain('print-system-row');
     expect(html).toContain('viewBox=');
   });
+
+  it('correctly positions chord annotations on multi-line scores across lines', () => {
+    const annotations: Annotation[] = [
+      {
+        id: 'chord-m1',
+        kind: 'chord',
+        span: { startMeasure: 1, endMeasure: 1 },
+        position: { measure: 1, offset: { numerator: 0, denominator: 1 } },
+        chordSymbol: 'G',
+        romanNumeral: 'I',
+        label: 'Tonic line 1 start',
+        body: '',
+        source: 'user',
+        createdAt: '2026-08-29T00:00:00.000Z',
+        updatedAt: '2026-08-29T00:00:00.000Z',
+      },
+      {
+        id: 'chord-m4',
+        kind: 'chord',
+        span: { startMeasure: 4, endMeasure: 4 },
+        position: { measure: 4, offset: { numerator: 0, denominator: 1 } },
+        chordSymbol: 'D7',
+        romanNumeral: 'V7',
+        label: 'Dominant line 1 end',
+        body: '',
+        source: 'user',
+        createdAt: '2026-08-29T00:00:00.000Z',
+        updatedAt: '2026-08-29T00:00:00.000Z',
+      },
+      {
+        id: 'chord-m5',
+        kind: 'chord',
+        span: { startMeasure: 5, endMeasure: 5 },
+        position: { measure: 5, offset: { numerator: 0, denominator: 1 } },
+        chordSymbol: 'G',
+        romanNumeral: 'I',
+        label: 'Tonic line 2 start',
+        body: '',
+        source: 'user',
+        createdAt: '2026-08-29T00:00:00.000Z',
+        updatedAt: '2026-08-29T00:00:00.000Z',
+      },
+      {
+        id: 'chord-m8',
+        kind: 'chord',
+        span: { startMeasure: 8, endMeasure: 8 },
+        position: { measure: 8, offset: { numerator: 0, denominator: 1 } },
+        chordSymbol: 'G',
+        romanNumeral: 'I',
+        label: 'Tonic line 2 end',
+        body: '',
+        source: 'user',
+        createdAt: '2026-08-29T00:00:00.000Z',
+        updatedAt: '2026-08-29T00:00:00.000Z',
+      },
+    ];
+
+    const html = generateScorePdfHtml({
+      abcSource: MULTI_SYSTEM_ABC,
+      fallbackTitle: 'Multi-system Chord Score',
+      annotations,
+    });
+
+    const matches = Array.from(
+      html.matchAll(/class="score-chord-badge"\s+transform="translate\(([^,]+),\s*([^)]+)\)"/g),
+    );
+    expect(matches.length).toBe(4);
+    const [c1, c4, c5, c8] = matches.map((m) => ({
+      x: parseFloat(m[1]),
+      y: parseFloat(m[2]),
+    }));
+
+    // Chord in m.1 is at start of line 1 (left side)
+    expect(c1.x).toBeLessThan(150);
+    // Chord in m.4 is at end of line 1 (right side of line 1)
+    expect(c4.x).toBeGreaterThan(c1.x + 150);
+
+    // Chord in m.5 is at start of line 2 (left side of line 2, NOT pushed to the right margin)
+    expect(c5.x).toBeLessThan(150);
+    // Chord in m.8 is at end of line 2 (right side of line 2)
+    expect(c8.x).toBeGreaterThan(c5.x + 150);
+
+    // Line 1 chords share a consistent baseline Y
+    expect(c1.y).toBeCloseTo(c4.y, 1);
+    // Line 2 chords share a consistent baseline Y
+    expect(c5.y).toBeCloseTo(c8.y, 1);
+    // Line 2 chords are below Line 1 chords on the master canvas
+    expect(c5.y).toBeGreaterThan(c1.y + 40);
+  });
+
+  it('correctly renders chord annotations on multi-staff (grand staff) scores', () => {
+    const grandStaffAbc = `X:1
+T:Piano Score
+%%staves {(1) (2)}
+V:1 clef=treble
+V:2 clef=bass
+[V:1] C D E F | G A B c | c B A G | F E D C |
+[V:2] C, D, E, F, | G, A, B, C | C B, A, G, | F, E, D, C, |
+[V:1] C D E F | G A B c | c B A G | F E D C |
+[V:2] C, D, E, F, | G, A, B, C | C B, A, G, | F, E, D, C, |
+`;
+
+    const annotations: Annotation[] = [
+      {
+        id: 'chord-p1',
+        kind: 'chord',
+        span: { startMeasure: 1, endMeasure: 1 },
+        position: { measure: 1, offset: { numerator: 0, denominator: 1 } },
+        chordSymbol: 'C',
+        romanNumeral: 'I',
+        label: 'Tonic',
+        body: '',
+        source: 'user',
+        createdAt: '2026-08-29T00:00:00.000Z',
+        updatedAt: '2026-08-29T00:00:00.000Z',
+      },
+      {
+        id: 'chord-p5',
+        kind: 'chord',
+        span: { startMeasure: 5, endMeasure: 5 },
+        position: { measure: 5, offset: { numerator: 0, denominator: 1 } },
+        chordSymbol: 'C',
+        romanNumeral: 'I',
+        label: 'Tonic System 2',
+        body: '',
+        source: 'user',
+        createdAt: '2026-08-29T00:00:00.000Z',
+        updatedAt: '2026-08-29T00:00:00.000Z',
+      },
+    ];
+
+    const html = generateScorePdfHtml({
+      abcSource: grandStaffAbc,
+      fallbackTitle: 'Piano Test',
+      annotations,
+    });
+
+    const matches = Array.from(
+      html.matchAll(/class="score-chord-badge"\s+transform="translate\(([^,]+),\s*([^)]+)\)"/g),
+    );
+    expect(matches.length).toBe(2);
+    const [p1, p5] = matches.map((m) => ({
+      x: parseFloat(m[1]),
+      y: parseFloat(m[2]),
+    }));
+
+    // Both chords start at the beginning of their respective systems
+    expect(p1.x).toBeLessThan(200);
+    expect(p5.x).toBeLessThan(200);
+
+    // Chords on grand staff stay safely above the treble staff of each system
+    expect(p1.y).toBeLessThan(200);
+    expect(p5.y).toBeGreaterThan(p1.y + 150); // System 2 is lower on the master canvas
+  });
+
+  it('de-conflicts multiple chords within the same measure horizontally', () => {
+    const annotations: Annotation[] = [
+      {
+        id: 'chord-1a',
+        kind: 'chord',
+        span: { startMeasure: 1, endMeasure: 1 },
+        position: { measure: 1, offset: { numerator: 0, denominator: 1 } },
+        chordSymbol: 'Cmaj7',
+        romanNumeral: 'I7',
+        label: 'Beat 1',
+        body: '',
+        source: 'user',
+        createdAt: '2026-08-29T00:00:00.000Z',
+        updatedAt: '2026-08-29T00:00:00.000Z',
+      },
+      {
+        id: 'chord-1b',
+        kind: 'chord',
+        span: { startMeasure: 1, endMeasure: 1 },
+        position: { measure: 1, offset: { numerator: 1, denominator: 4 } },
+        chordSymbol: 'Dm7',
+        romanNumeral: 'ii7',
+        label: 'Beat 2',
+        body: '',
+        source: 'user',
+        createdAt: '2026-08-29T00:00:00.000Z',
+        updatedAt: '2026-08-29T00:00:00.000Z',
+      },
+    ];
+
+    const html = generateScorePdfHtml({
+      abcSource: SAMPLE_ABC,
+      fallbackTitle: 'Measure Chord Density Test',
+      annotations,
+    });
+
+    const matches = Array.from(
+      html.matchAll(/class="score-chord-badge"\s+transform="translate\(([^,]+),\s*([^)]+)\)"/g),
+    );
+    expect(matches.length).toBe(2);
+    const [first, second] = matches.map((m) => ({
+      x: parseFloat(m[1]),
+      y: parseFloat(m[2]),
+    }));
+
+    expect(second.x).toBeGreaterThan(first.x + 35); // Clear gap between badges
+    expect(first.y).toBeCloseTo(second.y, 1); // Same baseline
+  });
 });
 
 
