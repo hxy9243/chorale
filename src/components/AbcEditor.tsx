@@ -32,7 +32,6 @@ type Draft = {
   baseDocumentId?: string;
   baseRevision: number;
   error: string | null;
-  beatValues?: string[];
 };
 
 const findCell = (cells: readonly AbcMeasureCell[], cellId: string) => (
@@ -223,31 +222,25 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
     else onSelectAnchor?.(anchor);
   };
 
-  const beginEdit = (cell: AbcMeasureCell, beatValues = splitCellSourceByBeat(cell, beatCount)) => {
+  const beginEdit = (cell: AbcMeasureCell) => {
     if (!cell.editable) return;
     if (draft?.cellId === cell.id) return;
     setDraft({
       cellId: cell.id,
-      value: beatValues.join(''),
+      value: cell.text,
       baseDocumentId: documentId,
       baseRevision: revision,
       error: null,
-      beatValues,
     });
   };
 
-  const updateBeat = (cell: AbcMeasureCell, beatIndex: number, value: string) => {
-    const currentValues = draft?.cellId === cell.id && draft.beatValues
-      ? draft.beatValues
-      : splitCellSourceByBeat(cell, beatCount);
-    const beatValues = currentValues.map((beat, index) => index === beatIndex ? value : beat);
+  const updateDraft = (cell: AbcMeasureCell, value: string) => {
     setDraft({
       cellId: cell.id,
-      value: beatValues.join(''),
+      value,
       baseDocumentId: documentId,
       baseRevision: revision,
       error: null,
-      beatValues,
     });
   };
 
@@ -317,12 +310,10 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
     beatWidths: readonly number[],
   ) => {
     const editing = draft?.cellId === cell.id;
-    const beatValues = editing && draft.beatValues
-      ? draft.beatValues
-      : splitCellSourceByBeat(cell, beatCount);
+    const beatValues = splitCellSourceByBeat(cell, beatCount);
     return (
       <div
-        className={`abc-timeline-voice${playingMeasure === cell.measureNumber ? ' is-playing' : ''}${editing && draft.error ? ' is-invalid' : ''}`}
+        className={`abc-timeline-voice${playingMeasure === cell.measureNumber ? ' is-playing' : ''}${editing && draft.error ? ' is-invalid' : ''}${editing ? ' is-editing' : ''}`}
         data-voice={cell.voiceId}
         data-measure={cell.measureNumber}
         data-color={colorIndex % 6}
@@ -330,28 +321,38 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
       >
         <span className="abc-timeline-voice-label">{voiceLabel}</span>
         <div
-          className="abc-source-beats"
+          className={`abc-source-container${editing ? ' is-editing' : ''}`}
           data-cell-text={cell.id}
-          style={{ gridTemplateColumns: beatWidths.map((width) => `${width}ch`).join(' ') }}
-          onClick={(event) => selectMeasure(cell.measureNumber, event.shiftKey)}
-          onFocus={() => beginEdit(cell, beatValues)}
-          onBlur={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget)) {
-              commitDraft(0, false);
+          onClick={(event) => {
+            selectMeasure(cell.measureNumber, event.shiftKey);
+            if (!editing && cell.editable) beginEdit(cell);
+          }}
+          tabIndex={!editing && cell.editable ? 0 : undefined}
+          role={!editing && cell.editable ? 'button' : undefined}
+          aria-label={!editing && cell.editable ? `Edit ${cell.voiceId}, measure ${cell.measureNumber}` : undefined}
+          onKeyDown={(event) => {
+            if (!editing && cell.editable && (event.key === 'Enter' || event.key === ' ')) {
+              event.preventDefault();
+              beginEdit(cell);
             }
           }}
         >
-          {beatValues.map((value, beatIndex) => (
+          {editing ? (
             <input
               type="text"
-              className="abc-source-beat"
-              aria-label={`Edit ${cell.voiceId}, measure ${cell.measureNumber}, beat ${beatIndex + 1}`}
-              key={beatIndex}
-              value={value}
+              className="abc-measure-edit-input"
+              aria-label={`Edit ${cell.voiceId}, measure ${cell.measureNumber}`}
+              value={draft.value}
+              autoFocus
               readOnly={!cell.editable}
-              onChange={(event) => updateBeat(cell, beatIndex, event.target.value)}
+              onChange={(event) => updateDraft(cell, event.target.value)}
               onCompositionStart={() => { composingRef.current = true; }}
               onCompositionEnd={() => { composingRef.current = false; }}
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) {
+                  commitDraft(0, false);
+                }
+              }}
               onKeyDown={(event) => {
                 if (event.key === 'Escape') {
                   event.preventDefault();
@@ -363,7 +364,22 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
                 }
               }}
             />
-          ))}
+          ) : (
+            <div
+              className="abc-source-beats"
+              style={{ gridTemplateColumns: beatWidths.map((width) => `${width}ch`).join(' ') }}
+            >
+              {beatValues.map((value, beatIndex) => (
+                <span
+                  key={beatIndex}
+                  className="abc-source-beat-display"
+                  data-beat={beatIndex + 1}
+                >
+                  {value}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -476,9 +492,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
                     return cell ? [{ cell, voice }] : [];
                   });
                   const sourceBeats = measureCells.map(({ cell }) => (
-                    draft?.cellId === cell.id && draft.beatValues
-                      ? draft.beatValues
-                      : splitCellSourceByBeat(cell, beatCount)
+                    splitCellSourceByBeat(cell, beatCount)
                   ));
                   const beatWidths = Array.from({ length: beatCount }, (_, beatIndex) => Math.max(
                     5,

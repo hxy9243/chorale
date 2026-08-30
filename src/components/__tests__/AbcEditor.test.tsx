@@ -76,7 +76,7 @@ K:C
     expect(container.querySelector('.abc-editor-chrome')?.nextElementSibling).toBe(container.querySelector('.editor-body'));
   });
 
-  it('shows one always-editable source split into beat slots and follows sheet selection', () => {
+  it('shows source rendered separately by beats and edits unified measures with underscore indicator', () => {
     const onSelectAnchor = vi.fn();
     const onNavigateMeasure = vi.fn();
     const scrollIntoView = vi.fn();
@@ -100,17 +100,20 @@ K:C
     expect(screen.getByRole('tab', { name: 'Measure Source' }).getAttribute('aria-selected')).toBe('true');
     expect(view.container.querySelectorAll('.abc-timeline-measure')).toHaveLength(2);
     expect(view.container.querySelectorAll('[data-timeline-measure="1"] .abc-timeline-voice')).toHaveLength(2);
-    expect(screen.getAllByRole('textbox', { name: /Edit upper, measure 1, beat/ })).toHaveLength(4);
-    expect(screen.getAllByRole('textbox', { name: /Edit lower, measure 1, beat/ })).toHaveLength(4);
+    expect(view.container.querySelectorAll('[data-timeline-measure="1"] .abc-source-beat-display')).toHaveLength(8);
     expect(view.container.querySelector('.abc-beat-lane')).toBeNull();
     expect(view.container.querySelector('.abc-timeline-source')).toBeNull();
     expect(screen.getByRole('slider', { name: 'Navigate measures' })).toBeDefined();
 
-    const upperBeat = screen.getByRole('textbox', { name: 'Edit upper, measure 2, beat 1' });
-    expect((upperBeat as HTMLInputElement).readOnly).toBe(false);
-    fireEvent.click(upperBeat);
+    const upperMeasure2Button = screen.getByRole('button', { name: 'Edit upper, measure 2' });
+    fireEvent.click(upperMeasure2Button);
     expect(onNavigateMeasure).toHaveBeenLastCalledWith(expect.objectContaining({ startMeasure: 2, endMeasure: 2 }));
     expect(onSelectAnchor).not.toHaveBeenCalled();
+
+    const upperInput = screen.getByRole('textbox', { name: 'Edit upper, measure 2' });
+    expect(upperInput).toBeDefined();
+    expect((upperInput as HTMLInputElement).value).toBe(' G A B c |');
+    expect(upperInput.classList.contains('abc-measure-edit-input')).toBe(true);
 
     view.rerender(
       <AbcEditor
@@ -135,8 +138,7 @@ C D E F G A |
 `;
     const { container } = render(<AbcEditor abcCode={sixEightAbc} onAbcChange={() => undefined} />);
     const beatGroup = container.querySelector('.abc-source-beats')!;
-    expect(screen.getAllByRole('textbox', { name: /measure 1, beat/ })).toHaveLength(6);
-    expect(beatGroup.children).toHaveLength(6);
+    expect(beatGroup.querySelectorAll('.abc-source-beat-display')).toHaveLength(6);
     expect(beatGroup.querySelector('.abc-beat-separator')).toBeNull();
     expect((beatGroup as HTMLElement).style.gridTemplateColumns.split(' ')).toHaveLength(6);
   });
@@ -229,7 +231,7 @@ C D E F G A |
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: originalScrollIntoView });
   });
 
-  it('commits valid beat edits and keeps structural changes out of canonical ABC', async () => {
+  it('commits valid measure edits and keeps structural changes out of canonical ABC', async () => {
     const onAbcChange = vi.fn();
     render(
       <AbcEditor
@@ -241,18 +243,18 @@ C D E F G A |
       />,
     );
 
-    const firstBeat = screen.getByRole('textbox', { name: 'Edit upper, measure 1, beat 1' });
-    expect((firstBeat as HTMLInputElement).value).toContain('C');
-    fireEvent.focus(firstBeat);
-    fireEvent.change(firstBeat, { target: { value: ' E ' } });
-    fireEvent.keyDown(firstBeat, { key: 'Enter' });
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    const firstInput = screen.getByRole('textbox', { name: 'Edit upper, measure 1' });
+    expect((firstInput as HTMLInputElement).value).toBe(' C D E F |');
+    fireEvent.change(firstInput, { target: { value: 'E D E F |' } });
+    fireEvent.keyDown(firstInput, { key: 'Enter' });
     expect(onAbcChange).toHaveBeenCalledWith(expect.stringContaining('[V:upper] E D E F |'));
 
     onAbcChange.mockClear();
-    const lastBeat = screen.getByRole('textbox', { name: 'Edit upper, measure 2, beat 4' });
-    fireEvent.focus(lastBeat);
-    fireEvent.change(lastBeat, { target: { value: 'c ||' } });
-    fireEvent.keyDown(lastBeat, { key: 'Enter' });
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 2' }));
+    const lastInput = screen.getByRole('textbox', { name: 'Edit upper, measure 2' });
+    fireEvent.change(lastInput, { target: { value: 'G A B c ||' } });
+    fireEvent.keyDown(lastInput, { key: 'Enter' });
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Raw Source'));
     expect(onAbcChange).not.toHaveBeenCalled();
   });
@@ -269,30 +271,31 @@ C D E F G A |
       />,
     );
 
-    const upperMeasure1Beat1 = screen.getByRole('textbox', { name: 'Edit upper, measure 1, beat 1' });
-    const lowerMeasure1Beat1 = screen.getByRole('textbox', { name: 'Edit lower, measure 1, beat 1' });
-    const upperMeasure2Beat1 = screen.getByRole('textbox', { name: 'Edit upper, measure 2, beat 1' });
+    // Click and edit upper voice in measure 1
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    const upperInput = screen.getByRole('textbox', { name: 'Edit upper, measure 1' });
+    fireEvent.change(upperInput, { target: { value: 'E D E F |' } });
 
-    // Focus and edit upper voice in measure 1
-    fireEvent.focus(upperMeasure1Beat1);
-    fireEvent.change(upperMeasure1Beat1, { target: { value: ' E ' } });
-
-    // Switch focus directly to lower voice in measure 1
-    fireEvent.blur(upperMeasure1Beat1.parentElement!, { relatedTarget: lowerMeasure1Beat1 });
+    // Switch directly to editing lower voice in measure 1
+    const lowerButton = screen.getByRole('button', { name: 'Edit lower, measure 1' });
+    fireEvent.blur(upperInput, { relatedTarget: lowerButton });
     expect(onAbcChange).toHaveBeenCalledWith(expect.stringContaining('[V:upper] E D E F |'));
     onAbcChange.mockClear();
 
-    fireEvent.focus(lowerMeasure1Beat1);
-    fireEvent.change(lowerMeasure1Beat1, { target: { value: ' D,4 |' } });
+    fireEvent.click(lowerButton);
+    const lowerInput = screen.getByRole('textbox', { name: 'Edit lower, measure 1' });
+    fireEvent.change(lowerInput, { target: { value: 'D,4 |' } });
 
-    // Switch focus to upper voice in measure 2
-    fireEvent.blur(lowerMeasure1Beat1.parentElement!, { relatedTarget: upperMeasure2Beat1 });
+    // Switch to upper voice in measure 2
+    const upper2Button = screen.getByRole('button', { name: 'Edit upper, measure 2' });
+    fireEvent.blur(lowerInput, { relatedTarget: upper2Button });
     expect(onAbcChange).toHaveBeenCalledWith(expect.stringContaining('[V:lower] D,4 |'));
     onAbcChange.mockClear();
 
-    fireEvent.focus(upperMeasure2Beat1);
-    fireEvent.change(upperMeasure2Beat1, { target: { value: ' A ' } });
-    fireEvent.keyDown(upperMeasure2Beat1, { key: 'Enter' });
+    fireEvent.click(upper2Button);
+    const upper2Input = screen.getByRole('textbox', { name: 'Edit upper, measure 2' });
+    fireEvent.change(upper2Input, { target: { value: 'A A B c |' } });
+    fireEvent.keyDown(upper2Input, { key: 'Enter' });
     expect(onAbcChange).toHaveBeenCalledWith(expect.stringContaining('[V:upper] C D E F | A A B c |'));
   });
 

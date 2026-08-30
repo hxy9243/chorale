@@ -75,13 +75,14 @@ The pane provides three views over one canonical ABC string:
 
 - **Measure View** is the default experimental workspace. It lays every written measure on
   one horizontally scrollable timeline, stacks all voices inside each measure, and positions
-  note events by cumulative duration so simultaneous beats align vertically. Every voice row
-  also preserves its complete literal measure source without truncation and uses that source
-  as the editable surface; unusually long measures widen the timeline. Measure headers or
-  source rows navigate, scroll, and focus the corresponding sheet range; sheet selection
-  scrolls the matching source measure into view. Playback automatically scrolls the active
-  playing measure into view along the horizontal timeline. Vertical wheel movement traverses
-  the horizontal source, and a persistent bottom navigator scrubs the same timeline.
+  note events by cumulative duration so simultaneous beats align vertically. In display mode,
+  measure events render separated by beat columns to maintain cross-voice alignment. When editing,
+  each measure is edited as a unified measure source string with an underscore editing indicator
+  instead of a system default edit box. Measure headers or source rows navigate, scroll, and
+  focus the corresponding sheet range; sheet selection scrolls the matching source measure into view.
+  Playback automatically scrolls the active playing measure into view along the horizontal timeline.
+  Vertical wheel movement traverses the horizontal source, and a persistent bottom navigator scrubs
+  the same timeline.
 
 - **Formatted** is a text-focused, voice-colored projection. It preserves literal header
   fields, adds dim human-readable field labels, and lays each voice's measures out using
