@@ -8,6 +8,19 @@ export type SaveTextFileResult = Readonly<{
   path?: string;
 }>;
 
+export type SavePdfFileRequest = Readonly<{
+  suggestedName: string;
+  html: string;
+  landscape?: boolean;
+}>;
+
+export type SavePdfFileResult = Readonly<{
+  saved: boolean;
+  path?: string;
+}>;
+
 export type ChoraleFilesBridge = {
   saveTextFile: (request: SaveTextFileRequest) => Promise<SaveTextFileResult>;
+  savePdfFile: (request: SavePdfFileRequest) => Promise<SavePdfFileResult>;
 };
+

@@ -208,7 +208,7 @@ describe('FileRail Component', () => {
     expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeDefined();
   });
 
-  it('opens the Export submenu with MusicXML active and PDF disabled', () => {
+  it('opens the Export submenu with MusicXML and PDF active', () => {
     render(<FileRail {...defaultProps} />);
 
     fireEvent.contextMenu(getFirstFileButton());
@@ -223,7 +223,7 @@ describe('FileRail Component', () => {
 
     const pdfItem = screen.getByRole('menuitem', { name: /PDF/ });
     expect(pdfItem).toBeDefined();
-    expect((pdfItem as HTMLButtonElement).disabled).toBe(true);
+    expect((pdfItem as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('triggers MusicXML export and closes the menu', () => {
@@ -237,6 +237,19 @@ describe('FileRail Component', () => {
     expect(onExportDocument).toHaveBeenCalledWith(doc1.id, 'musicxml');
     expect(screen.queryByRole('menu')).toBeNull();
   });
+
+  it('triggers PDF export and closes the menu', () => {
+    const onExportDocument = vi.fn();
+    render(<FileRail {...defaultProps} onExportDocument={onExportDocument} />);
+
+    fireEvent.contextMenu(getFirstFileButton());
+    fireEvent.click(screen.getByRole('menuitem', { name: /Export/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /PDF/ }));
+
+    expect(onExportDocument).toHaveBeenCalledWith(doc1.id, 'pdf');
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
 
   it('confirms deletion through a centered dialog before deleting', () => {
     const onDeleteDocument = vi.fn();

@@ -1,12 +1,13 @@
 ---
 title: "Score Export Spec"
-description: "Specification for exporting scores to external formats via the file sidebar context menu — MusicXML first, PDF later"
+description: "Specification for exporting scores to external formats via the file sidebar context menu — MusicXML and PDF with annotations"
 category: "core-workspace"
 date: 2026-08-22
-updated: 2026-08-23
+updated: 2026-08-29
 status: "implemented"
 source_files:
   - src/music/musicXmlExport.ts
+  - src/music/scorePdfExport.ts
   - src/components/FileRail.tsx
   - src/hooks/useScoreExport.ts
   - src/utils/fileSave.ts
@@ -14,94 +15,106 @@ source_files:
   - electron/fileIpc.ts
   - electron/preload.ts
   - src/types/electron.d.ts
+  - src/types/fileBridge.ts
 test_files:
   - src/music/__tests__/musicXmlExport.test.ts
+  - src/music/__tests__/scorePdfExport.test.ts
   - src/components/__tests__/FileRail.test.tsx
   - src/hooks/__tests__/useScoreExport.test.ts
 related_specs:
   - spec/score-surface.md
   - spec/file-workspace-architecture.md
   - spec/workspace-layout.md
+  - spec/annotations-and-proposals.md
 ---
 
 # Score Export Spec
 
 Date: 2026-08-22  
-Updated: 2026-08-23  
+Updated: 2026-08-29  
 Source: `spec/score-export.md`
 
 ## 1. Goal
 
-Let a musician export a score to an interchange format from a right-click context menu in the file sidebar. Phase 1 ships **MusicXML** export. PDF export is planned and reserved as a disabled menu entry.
+Let a musician export a score to interchange and presentation formats from a right-click context menu in the file sidebar.
+- **MusicXML (.musicxml):** Interchange format converting ABC notation to standard MusicXML 4.0.
+- **PDF (.pdf):** Presentation format exporting the full score with chord annotations on the staff and uncollapsed range annotations in a side rail using **Option E: Row-Based System Slicing with Dynamic System Spacing**.
 
 ## 2. Non-goals
 
 - No `.mxl` (compressed) export in phase 1; uncompressed `.musicxml` only.
 - No round-tripping of the originally imported MusicXML file. Import converts XML → ABC immediately and discards the original (`src/utils/fileSession.ts`, `src/hooks/useDocumentStore.ts`), so **export must always be ABC → MusicXML conversion of the canonical `FileDocument.abcSource`**.
-- No batch/multi-document export, no export of annotations or chat history.
+- No batch/multi-document export, no export of chat history.
 
-## 3. Conversion pipeline (ABC → MusicXML)
+## 3. Conversion pipelines
 
-### 3.1 Library choice: `abc-utils`
+### 3.1 MusicXML Pipeline (ABC → MusicXML)
 
-- The conversion uses the **`abc-utils`** library (`github:hxy9243/abc-utils`, MIT, zero runtime dependencies, pure TypeScript): `abc2xml(abc, { fallbackTitle })` → `{ xml: string, warnings: string[] }` → MusicXML 4.0 string.
-- Rationale (evaluated against alternatives):
-  - Pure TypeScript with zero runtime dependencies; 100% browser and Node.js compatible.
-  - Replaces `musicxml-io` with robust ABC v2.1 feature coverage: multi-voice and grand-staff synchronization, clef attributes on `V:` headers, exact rational duration LCM divisions, ties (`<tied>`), chord notation, tuplets, lyrics, and guitar harmonies.
-  - Direct, clean API without intermediate DOM or Python subprocess dependencies.
+- Library: **`abc-utils`** (`abc2xml(abc, { fallbackTitle })`).
+- Pure module: `src/music/musicXmlExport.ts`. Zero React/Electron dependencies.
+- Output: a MusicXML `<score-partwise>` document string.
 
-### 3.2 Module placement
+### 3.2 PDF Pipeline (Score & Annotation Rendering via Option E)
 
-- Thin adapter `src/music/musicXmlExport.ts` wraps the library so it stays swappable. Zero React/Electron dependencies (pure-library invariant).
-- Input: `abcSource: string` plus a fallback title from `FileDocument.name`.
-- Output: a MusicXML `<score-partwise>` document string. Conversion failures throw a typed `ScoreExportError`.
+- Pure generator: `src/music/scorePdfExport.ts` converts a `FileDocument` (ABC source, score metadata, and annotations) into a standalone, self-contained printable HTML document.
+- **Option E Architecture (Row-Based System Slicing):**
+  - Scores are rendered into system slices (`.abcjs-l0`, `.abcjs-l1`, ...).
+  - Each system slice forms a horizontal row with its associated range annotations:
+    - **Score column:** System SVG with above-staff chord badges.
+    - **Annotations column:** Fully expanded range annotation cards (`modulation`, `voice-leading`, `explanation`) matching that system's measure range.
+  - CSS Flexbox expands the row height to `max(systemHeight, totalAnnotationsHeight)` so subsequent music lines automatically start below the previous annotations, eliminating vertical drift.
+  - CSS `break-inside: avoid;` ensures system rows cleanly paginate across pages without clipping annotation cards.
+  - Styled with high-contrast light print tokens and `@page { size: A4; margin: 10mm 12mm; }`.
 
 ## 4. Save flow (sandbox-aware)
 
-The renderer is sandboxed (`contextIsolation: true, sandbox: true`) and there is currently no file-save IPC, so:
+The renderer is sandboxed (`contextIsolation: true, sandbox: true`):
 
 ### 4.1 Electron path
 
-- New channel map `FILE_IPC` in `electron/ipcChannels.ts` following the `'chorale-ai:<verb>'` naming convention:
-  - `'chorale-file:save-text'` — payload `{ suggestedName: string, contents: string }`; main process opens `dialog.showSaveDialog` with MusicXML filters (`.musicxml`, `.xml`), then writes via `fs/promises.writeFile`. Returns `{ saved: boolean, path?: string }`.
-- Handler registered by a new `registerFileIPC()` in `electron/fileIpc.ts`, called alongside `registerAIIPC()` from `electron/main.ts`, reusing the existing sender-validation pattern (`assertSender`, argument checks). Input validation enforces string types and a sane size cap. The main process only ever writes to a user-chosen dialog path; cancel writes nothing and returns `{ saved: false }`.
-- Preload bridge exposes `window.choraleFiles.saveTextFile(...)` (new `contextBridge` key next to `choraleAI` in `electron/preload.ts`); typed in `src/types/electron.d.ts`.
+- IPC channel map `FILE_IPC` in `electron/ipcChannels.ts`:
+  - `'chorale-file:save-text'` — payload `{ suggestedName: string, contents: string }`; opens save dialog with MusicXML filters, writes text.
+  - `'chorale-file:save-pdf'` — payload `{ suggestedName: string, html: string }`; main process loads HTML in a hidden offscreen `BrowserWindow` via temporary file, calls `webContents.printToPDF({ landscape: false, printBackground: true, pageSize: 'A4' })`, prompts save dialog with `.pdf` filter, and writes binary buffer via `fs/promises.writeFile`.
+
+- Handlers registered in `electron/fileIpc.ts` with sender validation (`assertSender`).
+- Preload bridge exposes `window.choraleFiles.saveTextFile(...)` and `window.choraleFiles.savePdfFile(...)` in `electron/preload.ts`.
 
 ### 4.2 Web fallback
 
-- When `window.choraleFiles` is absent (web build), fall back to a `Blob` + object-URL anchor download using the same suggested filename. No credentials or secrets ever pass through either path.
+- **MusicXML:** `Blob` + object-URL anchor download.
+- **PDF:** Invisible hidden `<iframe>` loaded with the print HTML, triggering `iframe.contentWindow.print()`.
 
 ## 5. Context menu UI
 
 ### 5.1 Trigger & Placement
 
-- `FileRail` hosts the right-click context menu on file items (`FileItemContextMenu`), anchored to the pointer and clamped to the viewport.
-- The music sheet body (`SheetMusicView`) has no right-click action or score context menu.
+- `FileRail` hosts the right-click context menu on file items (`FileItemContextMenu`).
 
 ### 5.2 Menu component & actions
 
-- `FileItemContextMenu` (`src/components/FileRail.tsx`):
-  - `role="menu"` container with `role="menuitem"` buttons, viewport clamping, outside-mousedown / Escape / scroll-to-close.
 - Actions:
-  - **Open**: switches active score file (disabled when already active).
+  - **Open**: switches active score file.
   - **Duplicate**: duplicates the score file.
-  - **Export ▸**: opens a submenu (hover/focus expandable, keyboard accessible):
-    - *MusicXML (.musicxml)* — triggers export flow for the target file.
-    - *PDF (coming soon)* — rendered disabled with a "coming soon" affordance; reserved for the later print-to-PDF feature (Electron `webContents.printToPDF`).
+  - **Export ▸**: opens submenu:
+    - *MusicXML (.musicxml)* — triggers MusicXML export.
+    - *PDF (.pdf)* — triggers PDF print export with annotations.
   - **Delete**: confirms and deletes the file.
 
 ### 5.3 Export orchestration
 
-- Hook `src/hooks/useScoreExport.ts`: builds the MusicXML string via the pure converter, then saves through the platform save path, and reports success/failure feedback consistent with existing status-pill/toast patterns.
-- Default filename derives from `FileDocument.name` sanitized + `.musicxml`.
+- Hook `src/hooks/useScoreExport.ts`: supports `'musicxml'` and `'pdf'` formats.
+- Default filenames:
+  - MusicXML: sanitized `FileDocument.name` + `.musicxml`.
+  - PDF: sanitized `FileDocument.name` + `.pdf`.
 
 ## 6. Testing
 
-- **Converter unit tests** (`src/music/__tests__/musicXmlExport.test.ts`): single-voice melody, rests, ties, chords, multi-voice parts, key/meter changes, metadata fallbacks; structural assertions on emitted XML (parts, notes, ties) plus output validity.
-- **File rail context menu tests** (`src/components/__tests__/FileRail.test.tsx`): RTL roles (`menu`/`menuitem`), open, duplicate, export submenu (MusicXML active, disabled PDF item), delete confirmation, Escape close.
-- **Hook test** (`src/hooks/__tests__/useScoreExport.test.ts`): mock bridge/web-download paths; verify no write occurs on cancel.
+- **Converter unit tests** (`src/music/__tests__/musicXmlExport.test.ts`): MusicXML XML structure and attributes.
+- **PDF generator unit tests** (`src/music/__tests__/scorePdfExport.test.ts`): HTML output, system row slicing, chord badges, expanded annotations, print styles.
+- **File rail context menu tests** (`src/components/__tests__/FileRail.test.tsx`): export submenu items (both MusicXML and PDF enabled).
+- **Hook tests** (`src/hooks/__tests__/useScoreExport.test.ts`): MusicXML and PDF export calls, dialog cancellation handling.
 
 ## 7. Future extensions
 
-- **PDF export:** reuse the same context-menu Export submenu; Electron path uses `webContents.printToPDF()` on a hidden render of the current sheet; web path uses browser print. Menu item flips from disabled to enabled.
-- **Compressed `.mxl`** via the already-present `jszip` dependency.
+- **Compressed `.mxl`** via `jszip`.
+- **Customizable PDF page orientation / print theme presets** (Portrait vs Landscape, Urtext Commentary appendix mode).

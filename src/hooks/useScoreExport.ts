@@ -1,7 +1,10 @@
 import { useCallback, useState } from 'react';
 import { exportToMusicXml, suggestExportFileName } from '../music/musicXmlExport';
-import { saveTextFile } from '../utils/fileSave';
+import { generateScorePdfHtml } from '../music/scorePdfExport';
+import { savePdfFile, saveTextFile } from '../utils/fileSave';
 import type { FileDocument } from '../types/document';
+
+export type ScoreExportFormat = 'musicxml' | 'pdf';
 
 export type ScoreExportStatus = 'idle' | 'exporting' | 'success' | 'error';
 
@@ -17,16 +20,33 @@ export const useScoreExport = () => {
 
   const exportDocument = useCallback(async (
     document: FileDocument,
-    format: 'musicxml' = 'musicxml',
+    format: ScoreExportFormat = 'musicxml',
   ) => {
     setState({ status: 'exporting', message: null });
     try {
-      const contents = exportToMusicXml({
-        abcSource: document.abcSource,
-        fallbackTitle: document.scoreInfo.title || document.name,
-      });
       const suggestedName = suggestExportFileName(document.name, format);
-      const result = await saveTextFile({ suggestedName, contents });
+      let result: { saved: boolean; path?: string };
+
+      if (format === 'pdf') {
+        const html = generateScorePdfHtml({
+          abcSource: document.abcSource,
+          fallbackTitle: document.scoreInfo?.title || document.name,
+          composer: document.scoreInfo?.composer,
+          scoreInfo: document.scoreInfo,
+          annotations: document.annotations ?? [],
+        });
+
+        result = await savePdfFile({ suggestedName, html, landscape: false });
+
+      } else {
+        const contents = exportToMusicXml({
+          abcSource: document.abcSource,
+          fallbackTitle: document.scoreInfo?.title || document.name,
+        });
+        result = await saveTextFile({ suggestedName, contents });
+      }
+
+
       if (result.saved) {
         setState({ status: 'success', message: result.path ?? suggestedName });
       } else {
@@ -46,3 +66,4 @@ export const useScoreExport = () => {
 
   return { exportState: state, exportDocument, dismissStatus };
 };
+
