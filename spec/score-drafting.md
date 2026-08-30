@@ -3,7 +3,7 @@ title: "Score Drafting MVP"
 description: "Authoritative MVP contract for blank score creation, measure-range editing, and agent score-change proposals"
 category: "core-workspace"
 date: 2026-08-23
-updated: 2026-08-23
+updated: 2026-08-30
 status: "implemented"
 source_files:
   - src/music/scoreDrafting.ts
@@ -13,6 +13,16 @@ source_files:
   - src/hooks/useDocumentStore.ts
   - src/components/AgentChatPanel.tsx
   - electron/ai/sheetTools.ts
+test_files:
+  - src/music/__tests__/scoreDrafting.test.ts
+  - src/music/__tests__/scoreSnapshot.test.ts
+  - src/hooks/__tests__/useDocumentStore.test.ts
+  - src/components/__tests__/MeasureDraftingToolbar.test.tsx
+  - src/components/__tests__/NewScoreModal.test.tsx
+  - src/components/__tests__/SheetMusicView.test.tsx
+  - src/components/__tests__/AgentChatPanel.test.tsx
+  - src/agent/__tests__/sheetTools.test.ts
+  - src/agent/__tests__/conversationStore.test.ts
 related_specs:
   - spec/design.md
   - spec/file-workspace-architecture.md

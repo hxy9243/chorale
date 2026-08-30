@@ -3,7 +3,7 @@ title: "Chat With Music Sheet and Agent Tooling"
 description: "Specification for the passage-aware Music Tutor chat panel, profile routing, score tools, Markdown formatting with score references, thinking traces, and proposal review"
 category: "agent-chat"
 date: 2026-08-05
-updated: 2026-08-29
+updated: 2026-08-30
 status: "implemented"
 source_files:
   - src/components/AgentChatPanel.tsx
@@ -39,7 +39,7 @@ related_specs:
 # Chat With Music Sheet and Agent Tooling
 
 Date: 2026-08-05
-Updated: 2026-08-29
+Updated: 2026-08-30
 Status: Implemented in desktop app
 
 ## 1. Goal
@@ -173,4 +173,8 @@ Renderer events are matched by `requestId`; tool rows are additionally matched b
 
 ## 9. Conversation storage
 
-The per-file conversation schema advances from version 2 to version 3 to persist proposal state, profile routes, and compact tool metadata. Version-2 data migrates with empty/default values. Accepted annotations remain in IndexedDB-backed `FileDocument`, not in the chat store.
+The per-file conversation schema remains version 3 and persists proposal state, profile routes, and
+compact tool metadata. Version-2 data migrates with empty/default values. IndexedDB stores the
+full-fidelity conversation, including large score proposals; local storage is a compact synchronous
+mirror and fallback. Hydration combines both stores, prefers IndexedDB for the same file, and recovers
+local-only files. Accepted annotations remain in IndexedDB-backed `FileDocument`, not in the chat store.

@@ -3,7 +3,7 @@ title: "Annotations and Proposals Implementation Spec"
 description: "Specification for canonical annotation data model, storage normalization, proposal lifecycle, atomic Apply All, and overlay/rail rendering"
 category: "annotations"
 date: 2026-08-05
-updated: 2026-08-21
+updated: 2026-08-30
 status: "implemented"
 source_files:
   - src/types/document.ts
@@ -36,7 +36,7 @@ related_specs:
 # Annotations and Proposals Implementation Spec
 
 Date: 2026-08-05  
-Updated: 2026-08-15  
+Updated: 2026-08-30
 Status: Implemented in shared music libraries and renderer UI
 
 ## 1. Purpose
@@ -251,7 +251,10 @@ link reference to the measure, navigating to and selecting the referenced passag
 
 ## 7. Conversation persistence
 
-Conversation storage advances from version 2 to version 3 and stores proposal states, profile routes, and compact tool-display metadata. Version-2 threads migrate with empty arrays/default metadata.
+Conversation storage remains schema version 3 and stores proposal states, profile routes, compact
+tool-display metadata, and optional score proposals. Version-2 threads migrate with empty
+arrays/default metadata. IndexedDB is the full-fidelity store; local storage is a compact synchronous
+mirror and fallback, and hydration merges their file maps without changing the schema.
 
 Accepted annotations are durable document data. Proposal records are chat data. A failed document save retains the in-memory annotation and surfaces the existing save-error status.
 

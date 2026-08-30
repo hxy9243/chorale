@@ -3,7 +3,7 @@ title: "File Workspace Architecture"
 description: "Architecture specification covering runtime layers, document store, shared music libraries, data contracts, and invariants"
 category: "architecture"
 date: 2026-08-05
-updated: 2026-08-21
+updated: 2026-08-30
 status: "implemented"
 source_files:
   - src/types/document.ts
@@ -47,8 +47,8 @@ related_specs:
 
 # File Workspace Architecture
 
-Date: 2026-08-05  
-Updated: 2026-08-21  
+Date: 2026-08-05
+Updated: 2026-08-30
 Source: Existing workspace architecture plus `spec/agent-analysis-and-annotations.md`
 
 ## 1. Goal
@@ -98,7 +98,7 @@ These modules are independent of React and Electron UI code.
 - Validates `MusicContextSnapshot` at the IPC boundary.
 - Constructs one immutable `ScoreSnapshot` per request.
 - Runs one visible Music Tutor with internal profile modules.
-- Exposes routing plus five score tools, including validated score-replacement proposals.
+- Exposes routing plus six score tools, including validated measure and whole-score replacement proposals.
 - Projects Pi tool lifecycle into correlated renderer-safe events.
 - Writes diagnostic logs to the local agent trace store.
 - Never mutates `FileDocument` directly.
@@ -107,7 +107,9 @@ These modules are independent of React and Electron UI code.
 
 - `FileDocument` values, including accepted annotations, remain in IndexedDB.
 - Active-file and workspace preferences remain in their existing stores.
-- File-scoped conversation history remains in versioned local storage and advances from version 2 to version 3.
+- File-scoped conversation history remains schema version 3. IndexedDB is the full-fidelity store;
+  local storage is a compact synchronous mirror and fallback. Hydration merges both file maps,
+  preferring IndexedDB for duplicate file IDs and backfilling local-only files when possible.
 
 ## 3. Core data contracts
 
@@ -183,6 +185,7 @@ The same canonical `Annotation` type crosses document, context, IPC validation, 
 - `useDocumentStore` owns UI state and mutations, not schema migration.
 - Legacy annotation kinds normalize to the canonical four-kind model.
 - Conversation v2 migrates to v3 with empty/default proposal, profile-route, and tool-display metadata.
+- Durable hydration merges version-3 IndexedDB and local-storage records without changing the schema.
 - No IndexedDB object-store migration is needed because annotations remain inline.
 
 ## 6. Failure boundaries

@@ -3,7 +3,7 @@ title: "Pi Agent Feasibility Result"
 description: "Prototype feasibility evaluation, architectural decisions, and package observations for the Pi agent runtime integration"
 category: "architecture"
 date: 2026-07-29
-updated: 2026-08-15
+updated: 2026-08-30
 status: "completed"
 source_files:
   - electron/ai/sheetAgentRuntime.ts
@@ -29,7 +29,7 @@ related_specs:
 # Pi Agent Feasibility Result
 
 Date: 2026-07-29  
-Updated: 2026-08-15  
+Updated: 2026-08-30
 Status: Feasibility confirmed; integrated into production codebase
 
 ## Decision
@@ -57,11 +57,11 @@ The Electron implementation moves Pi, credentials, model discovery, OAuth, and p
 | Streaming | Provider SSE deltas become typed renderer IPC events | Pass |
 | Cancellation | Renderer cancellation aborts Pi and closes the upstream request | Pass |
 | Credential isolation | Integration response and events contain no credential | Pass |
-| Conversation persistence | Per-file messages and snapshots remain in renderer local storage | Pass |
+| Conversation persistence | Per-file messages and snapshots use full-fidelity IndexedDB plus a compact local-storage mirror | Pass |
 | Provider provenance | Assistant messages store connection, provider kind, and model ID | Pass |
 | Browser fallback | Provider setup and sending disabled with desktop-required copy | Pass |
 | Codex device OAuth adapter | Device URL/code/progress/cancel/persist/refresh path implemented | Automated live-login coverage pending |
-| Passage analysis & annotation tools | Read-only score tools and proposal creation loop | Pass (Milestones 1 & 2 delivered) |
+| Passage analysis, annotation, and drafting tools | Immutable score reads plus reviewable annotation and score-change proposals | Pass |
 | Credentialed external provider | Requires a user-supplied API key | Not run in repository tests |
 | Live Codex subscription response | Requires an available ChatGPT subscription login | Not run in repository tests |
 
