@@ -39,8 +39,8 @@ import { AnnotationRail } from './AnnotationRail';
 import type { MeasureSystemsSnapshot } from '../music/abcPresentation';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
-const AUTO_SCROLL_DURATION_MS = 280;
-const AUTO_SCROLL_RESUME_DURATION_MS = 320;
+const AUTO_SCROLL_DURATION_MS = 200;
+const AUTO_SCROLL_RESUME_DURATION_MS = 200;
 
 const anchorScrollBehavior = (): ScrollBehavior => (
   typeof window.matchMedia === 'function'

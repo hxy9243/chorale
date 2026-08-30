@@ -13,6 +13,11 @@ import {
   type AbcTextRange,
   type PlaybackSourceRanges,
 } from '../music/abcPresentation';
+import {
+  animateHorizontalScrollTo,
+  calculateCenterScrollLeft,
+  type SmoothScrollController,
+} from '../utils/autoScroll';
 
 interface AbcEditorProps {
   abcCode: string;
@@ -98,6 +103,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   const composingRef = useRef(false);
   const committingRef = useRef(false);
   const editorBodyRef = useRef<HTMLDivElement>(null);
+  const horizontalScrollControllerRef = useRef<SmoothScrollController | null>(null);
 
   const presentationResult = useMemo(() => {
     try {
@@ -164,24 +170,44 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
 
   useEffect(() => {
     if (view !== 'measures' || !activeAnchor?.startMeasure) return;
+    const body = editorBodyRef.current;
+    if (!body) return;
     const frame = window.requestAnimationFrame(() => {
-      const target = editorBodyRef.current?.querySelector<HTMLElement>(
+      const target = body.querySelector<HTMLElement>(
         `[data-timeline-measure="${activeAnchor.startMeasure}"]`,
       );
-      target?.scrollIntoView?.({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+      if (target) {
+        const targetScrollLeft = calculateCenterScrollLeft(body, target);
+        horizontalScrollControllerRef.current?.cancel();
+        horizontalScrollControllerRef.current = animateHorizontalScrollTo(body, targetScrollLeft, 200);
+        target.scrollIntoView?.({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+      }
     });
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      horizontalScrollControllerRef.current?.cancel();
+    };
   }, [activeAnchor?.startMeasure, view]);
 
   useEffect(() => {
     if (view !== 'measures' || !playingMeasure) return;
+    const body = editorBodyRef.current;
+    if (!body) return;
     const frame = window.requestAnimationFrame(() => {
-      const target = editorBodyRef.current?.querySelector<HTMLElement>(
+      const target = body.querySelector<HTMLElement>(
         `[data-timeline-measure="${playingMeasure}"]`,
       );
-      target?.scrollIntoView?.({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+      if (target) {
+        const targetScrollLeft = calculateCenterScrollLeft(body, target);
+        horizontalScrollControllerRef.current?.cancel();
+        horizontalScrollControllerRef.current = animateHorizontalScrollTo(body, targetScrollLeft, 200);
+        target.scrollIntoView?.({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+      }
     });
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      horizontalScrollControllerRef.current?.cancel();
+    };
   }, [playingMeasure, view]);
 
   useEffect(() => {
