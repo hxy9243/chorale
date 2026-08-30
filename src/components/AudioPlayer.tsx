@@ -5,6 +5,7 @@ import { Play, Pause, Square, Volume2, VolumeX, Music2 } from 'lucide-react';
 import type { ScoreAnchor } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
 import type { PlaybackPosition } from '../utils/repeatPlayback';
+import type { PlaybackSourceRanges } from '../music/abcPresentation';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const PLAYBACK_CURSOR_SELECTOR = '.abcjs-playback-cursor';
@@ -58,12 +59,14 @@ interface AudioPlayerProps {
   tunes: abcjs.TuneObject[] | null;
   activeAnchor?: ScoreAnchor | null;
   onPlaybackPositionChange?: (position: PlaybackPosition) => void;
+  onPlaybackSourceRangesChange?: (ranges: PlaybackSourceRanges | null) => void;
 }
 
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   tunes,
   activeAnchor,
   onPlaybackPositionChange,
+  onPlaybackSourceRangesChange,
 }) => {
 
   const soundFontBaseVolume = 0.4;
@@ -105,7 +108,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('chorale-playback-state', { detail: { isPlaying: playing } }));
     }
-  }, [onPlaybackPositionChange]);
+    if (!playing) onPlaybackSourceRangesChange?.(null);
+  }, [onPlaybackPositionChange, onPlaybackSourceRangesChange]);
 
   // Master volume control using WebAudio GainNode
   useEffect(() => {
@@ -143,6 +147,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   useEffect(() => {
     const currentTune = tunes?.[0] || null;
     removePlaybackCursor();
+    onPlaybackSourceRangesChange?.(null);
     if (!currentTune) {
       setIsReady(false);
       updatePlaybackPosition({ progress: 0, durationMs: 0, playing: false });
@@ -181,7 +186,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             audioContainerRef.current,
             {
               onEvent: (event: abcjs.NoteTimingEvent) => {
-                if (event) updatePlaybackCursor(event);
+                if (event) {
+                  updatePlaybackCursor(event);
+                  const starts = event.startCharArray || (typeof event.startChar === 'number' ? [event.startChar] : []);
+                  const ends = event.endCharArray || (typeof event.endChar === 'number' ? [event.endChar] : []);
+                  onPlaybackSourceRangesChange?.(starts.length ? { starts, ends } : null);
+                }
               },
               onBeat: (beatNumber: number, totalBeats: number, totalTime: number) => {
                 updatePlaybackPosition({
@@ -195,6 +205,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                   synthControllerRef.current.isStarted = false;
                 }
                 removePlaybackCursor();
+                onPlaybackSourceRangesChange?.(null);
               },
             },
             {
@@ -272,7 +283,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       removePlaybackCursor();
       updatePlaybackPosition({ progress: 0, playing: false });
     };
-  }, [tunes, updatePlaybackPosition]);
+  }, [onPlaybackSourceRangesChange, tunes, updatePlaybackPosition]);
 
   const applyAnchorSeek = React.useCallback((anchor: ScoreAnchor) => {
     const tune = tunes?.[0];

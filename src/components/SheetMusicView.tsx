@@ -36,6 +36,7 @@ import {
   SCORE_SCENE_GAP_REM,
 } from '../utils/scoreSceneSizing';
 import { AnnotationRail } from './AnnotationRail';
+import type { MeasureSystemsSnapshot } from '../music/abcPresentation';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const AUTO_SCROLL_DURATION_MS = 280;
@@ -180,6 +181,24 @@ const renderedMeasureIndex = (element: Element): number | null => {
     if (match) return Number(match[1]);
   }
   return null;
+};
+
+const collectRenderedMeasureSystems = (container: HTMLDivElement): readonly (readonly number[])[] => {
+  const lineClasses = new Set<string>();
+  container.querySelectorAll('.abcjs-staff').forEach((staff) => {
+    Array.from(staff.classList).forEach((className) => {
+      if (/^abcjs-l\d+$/.test(className)) lineClasses.add(className);
+    });
+  });
+  return Object.freeze([...lineClasses]
+    .sort((left, right) => Number(left.slice(7)) - Number(right.slice(7)))
+    .map((lineClass) => Object.freeze(Array.from(new Set(
+      Array.from(container.querySelectorAll(`.abcjs-bar.${lineClass}`)).flatMap((bar) => {
+        const index = renderedMeasureIndex(bar);
+        return index === null ? [] : [index + 1];
+      }),
+    )).sort((left, right) => left - right)))
+    .filter((system) => system.length > 0));
 };
 
 const installLineStartMeasureNumbers = (container: HTMLDivElement) => {
@@ -381,6 +400,9 @@ interface SheetMusicViewProps {
   navigationAnchor?: ScoreAnchor | null;
   onSelectAnchor?: (anchor: ScoreAnchor | null) => void;
   onTuneRendered?: (tune: abcjs.TuneObject[] | null) => void;
+  documentId?: string;
+  revision?: number;
+  onMeasureSystemsChange?: (snapshot: MeasureSystemsSnapshot | null) => void;
   getPlaybackPosition?: () => PlaybackPosition;
   zoom?: number;
   interfaceZoom?: number;
@@ -400,6 +422,9 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   navigationAnchor = null,
   onSelectAnchor,
   onTuneRendered,
+  documentId,
+  revision = 0,
+  onMeasureSystemsChange,
   getPlaybackPosition,
   zoom = 100,
   interfaceZoom = 100,
@@ -697,6 +722,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       containerRef.current.innerHTML = '';
       setRenderError(null);
       onTuneRendered?.(null);
+      onMeasureSystemsChange?.(null);
       measureOccurrencesRef.current = [];
       renderedTuneRef.current = null;
       setRenderGeneration((current) => current + 1);
@@ -793,6 +819,14 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         hitAreaJustHandled = true;
         selectMeasure(measure, undefined, modifiers);
       });
+      const systems = collectRenderedMeasureSystems(containerRef.current);
+      const measureCount = getRenderedMeasureCount(containerRef.current);
+      onMeasureSystemsChange?.(documentId && systems.length > 0 ? Object.freeze({
+        documentId,
+        revision,
+        measureCount,
+        systems,
+      }) : null);
 
       // Fallback: catch clicks that bubbled up without being stopped by a hit area.
       // This happens when the user clicks on a barline, staff line, rest, system
@@ -819,6 +853,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       console.error('abcjs render error:', err);
       containerRef.current.innerHTML = '';
       onTuneRendered?.(null);
+      onMeasureSystemsChange?.(null);
       measureOccurrencesRef.current = [];
       renderedTuneRef.current = null;
       setRenderError(err?.message || 'Failed to render sheet music SVG.');
@@ -828,7 +863,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       renderedContainer.removeEventListener('click', captureModifiers, true);
       renderedContainer.removeEventListener('click', handleContainerFallbackClick, false);
     };
-  }, [abcCode, onSelectAnchor, onTuneRendered, resolvePlaybackAnchor, transpose]);
+  }, [abcCode, documentId, onMeasureSystemsChange, onSelectAnchor, onTuneRendered, resolvePlaybackAnchor, revision, transpose]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -872,7 +907,10 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       block: 'center',
       inline: 'nearest',
     });
-    hitArea?.focus();
+    const isEditorActive = Boolean(document.activeElement?.closest?.('.editor-workspace-card, .abc-editor-card'));
+    if (!isEditorActive) {
+      hitArea?.focus();
+    }
   }, [navigationAnchor, onSelectAnchor, resolvePlaybackAnchor]);
 
   const isPlayingRef = useRef<boolean>(false);

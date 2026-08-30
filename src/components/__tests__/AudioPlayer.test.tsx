@@ -130,12 +130,13 @@ describe('AudioPlayer Component', () => {
   });
 
   it('draws a playback needle instead of bolding the active note', async () => {
+    const onPlaybackSourceRangesChange = vi.fn();
     const { container, unmount } = render(
       <>
         <svg data-testid="score-svg">
           <g data-testid="playing-note" />
         </svg>
-        <AudioPlayer tunes={[mockTune]} />
+        <AudioPlayer tunes={[mockTune]} onPlaybackSourceRangesChange={onPlaybackSourceRangesChange} />
       </>,
     );
 
@@ -148,7 +149,11 @@ describe('AudioPlayer Component', () => {
       top: 12,
       height: 36,
       elements: [[playingNote]],
+      startCharArray: [40, 84],
+      endCharArray: [41, 86],
     }));
+
+    expect(onPlaybackSourceRangesChange).toHaveBeenLastCalledWith({ starts: [40, 84], ends: [41, 86] });
 
     const needle = container.querySelector('.abcjs-playback-cursor');
     expect(playingNote.classList.contains('abcjs-highlight')).toBe(false);

@@ -131,6 +131,37 @@ describe('SheetMusicView Component', () => {
     expect(onTuneRendered).toHaveBeenCalled();
   });
 
+  it('reports renderer-owned measure systems with document revision identity', () => {
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
+      if (element && typeof element !== 'string') {
+        element.innerHTML = `<svg>
+          <g class="abcjs-staff abcjs-l0"></g>
+          <g class="abcjs-bar abcjs-l0 abcjs-mm0"></g>
+          <g class="abcjs-bar abcjs-l0 abcjs-mm1"></g>
+          <g class="abcjs-staff abcjs-l1"></g>
+          <g class="abcjs-bar abcjs-l1 abcjs-mm2"></g>
+          <g class="abcjs-bar abcjs-l1 abcjs-mm3"></g>
+        </svg>`;
+      }
+      return [{ getBpm: () => 120 }] as any;
+    });
+    const onMeasureSystemsChange = vi.fn();
+    render(
+      <SheetMusicView
+        abcCode={sampleAbc}
+        documentId="score-1"
+        revision={7}
+        onMeasureSystemsChange={onMeasureSystemsChange}
+      />,
+    );
+    expect(onMeasureSystemsChange).toHaveBeenCalledWith({
+      documentId: 'score-1',
+      revision: 7,
+      measureCount: 4,
+      systems: [[1, 2], [3, 4]],
+    });
+  });
+
   it('clears the rendered score and tune when ABC is emptied', () => {
     const onTuneRendered = vi.fn();
     const { rerender } = render(

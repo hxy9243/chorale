@@ -32,6 +32,7 @@ import {
   Plus,
   Settings,
   Trash2,
+  Wrench,
 } from 'lucide-react';
 import type { FileDocument } from '../types/document';
 import type { ScoreExportFormat } from '../hooks/useScoreExport';
@@ -621,9 +622,19 @@ export const FileRail: React.FC<FileRailProps> = ({
             title="Tools"
             onClick={() => handleTabClick('tools')}
           >
-            <Braces size={18} aria-hidden="true" />
+            <Wrench size={18} aria-hidden="true" />
           </button>
         </div>
+        <button
+          type="button"
+          className={`file-rail-tab ${editorVisible ? 'active' : ''}`}
+          onClick={onToggleEditor}
+          aria-label="ABC display"
+          aria-pressed={editorVisible}
+          title={editorVisible ? 'Close the ABC source panel' : 'Open the ABC source panel'}
+        >
+          <Braces size={18} aria-hidden="true" />
+        </button>
         <button
           type="button"
           className="file-rail-tab settings"
@@ -743,16 +754,6 @@ export const FileRail: React.FC<FileRailProps> = ({
           <div className="rail-section-header">
             <h2 className="rail-section-title" id="tools-tab-title">Tools</h2>
           </div>
-          <button
-            type="button"
-            className={`rail-tool-button ${editorVisible ? 'active' : ''}`}
-            onClick={onToggleEditor}
-            aria-pressed={editorVisible}
-            title={editorVisible ? 'Close the ABC source panel' : 'Open the ABC source panel'}
-          >
-            <Braces size={16} aria-hidden="true" />
-            <span>ABC display</span>
-          </button>
           <button
             type="button"
             className="rail-tool-button history"

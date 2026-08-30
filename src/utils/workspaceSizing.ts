@@ -5,7 +5,6 @@ export const DEFAULT_FILE_RAIL_WIDTH_FRACTION = 1 / 4;
 export const MIN_CHAT_PANEL_WIDTH = 280;
 export const CHAT_PANEL_WIDTH_FRACTION = 1 / 2;
 export const MIN_EDITOR_PANEL_WIDTH = 320;
-export const MAX_EDITOR_PANEL_WIDTH = 720;
 export const MIN_SCORE_WORKSPACE_WIDTH = 560;
 export const DESKTOP_PANEL_LAYOUT_MIN_WIDTH = 960;
 const PANEL_DIVIDER_ALLOWANCE = 8;
@@ -45,7 +44,7 @@ export const clampChatPanelWidth = (width: number, viewportWidth: number) => (
 );
 
 export const clampEditorPanelWidth = (width: number) => (
-  Math.max(MIN_EDITOR_PANEL_WIDTH, Math.min(MAX_EDITOR_PANEL_WIDTH, width))
+  Math.max(MIN_EDITOR_PANEL_WIDTH, width)
 );
 
 const dividerAllowance = (visiblePanelCount: number) => (
@@ -75,7 +74,7 @@ export const fitWorkspacePanelLayout = ({
     return {
       fileRailWidth: fileRailVisible ? desiredFileRailWidth : FILE_RAIL_BAR_WIDTH,
       chatPanelWidth: desiredChatPanelWidth,
-      editorPanelWidth: desiredEditorPanelWidth,
+      editorPanelWidth: Math.min(desiredEditorPanelWidth, safeViewportWidth),
       scoreWorkspaceWidth: safeViewportWidth,
       overlaySidePanels: fileRailVisible || chatPanelVisible,
     };

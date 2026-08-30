@@ -51,6 +51,7 @@ import {
   readMeasureReplacementAbc,
 } from './music/scoreDrafting';
 import { FILE_RAIL_BAR_WIDTH } from './utils/workspaceSizing';
+import type { PlaybackSourceRanges } from './music/abcPresentation';
 
 const DEFAULT_SHEET_ZOOM = 100;
 
@@ -132,6 +133,7 @@ export const App: React.FC = () => {
     abcSource: string;
     previousAnchor: ScoreAnchor | null;
   } | null>(null);
+  const [playbackSourceRanges, setPlaybackSourceRanges] = useState<PlaybackSourceRanges | null>(null);
 
   const playbackPositionRef = useRef<PlaybackPosition>({
     currentSeconds: 0,
@@ -237,7 +239,12 @@ export const App: React.FC = () => {
   useEffect(() => {
     setScoreNavigationAnchor(null);
     setScorePreview(null);
+    setPlaybackSourceRanges(null);
   }, [activeFileId]);
+
+  useEffect(() => {
+    setPlaybackSourceRanges(null);
+  }, [abcRevision]);
 
   useEffect(() => {
     if (scorePreview && scorePreview.proposal.sourceRevision !== abcRevision) {
@@ -491,6 +498,8 @@ export const App: React.FC = () => {
                       navigationAnchor={scoreNavigationAnchor}
                       onSelectAnchor={handleSelectAnchor}
                       onTuneRendered={handleTuneRendered}
+                      documentId={activeDocument.id}
+                      revision={abcRevision}
                       getPlaybackPosition={getPlaybackPosition}
                       zoom={zoom}
                       interfaceZoom={interfaceZoom.zoom}
@@ -519,7 +528,12 @@ export const App: React.FC = () => {
                   <AbcEditor
                     abcCode={abcCode}
                     onAbcChange={handleAbcChange}
+                    documentId={activeDocument?.id}
                     revision={abcRevision}
+                    activeAnchor={activeAnchor}
+                    onSelectAnchor={handleSelectAnchor}
+                    onNavigateMeasure={handleNavigateMeasure}
+                    playbackSourceRanges={playbackSourceRanges}
                     validationState={buildStatus}
                     validationMessage={workspaceMessage}
                     visible={editorVisible}
@@ -535,6 +549,7 @@ export const App: React.FC = () => {
               tunes={canRenderScore ? tunes : null}
               activeAnchor={activeAnchor}
               onPlaybackPositionChange={handlePlaybackPositionChange}
+              onPlaybackSourceRangesChange={setPlaybackSourceRanges}
             />
           </div>
           </main>
