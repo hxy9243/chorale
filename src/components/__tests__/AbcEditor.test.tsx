@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { AbcEditor } from '../AbcEditor';
+import * as autoScroll from '../../utils/autoScroll';
 
 describe('AbcEditor Component', () => {
   const formattedAbc = `X:1
@@ -102,9 +103,7 @@ K:C
   it('shows source rendered separately by beats and edits unified measures with underscore indicator', () => {
     const onSelectAnchor = vi.fn();
     const onNavigateMeasure = vi.fn();
-    const scrollIntoView = vi.fn();
-    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
-    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+    const scrollSpy = vi.spyOn(autoScroll, 'animateHorizontalScrollTo');
     const frameSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
       callback(0);
       return 1;
@@ -146,10 +145,10 @@ K:C
         onNavigateMeasure={onNavigateMeasure}
       />,
     );
-    expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    expect(scrollSpy).toHaveBeenCalled();
 
     frameSpy.mockRestore();
-    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: originalScrollIntoView });
+    scrollSpy.mockRestore();
   });
 
   it('uses the time-signature numerator for beat slots with implicit gaps', () => {
@@ -218,9 +217,7 @@ C D E F G A |
   });
 
   it('scrolls the active playing measure into view along the timeline during playback', () => {
-    const scrollIntoView = vi.fn();
-    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
-    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+    const scrollSpy = vi.spyOn(autoScroll, 'animateHorizontalScrollTo');
     const frameSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
       callback(0);
       return 1;
@@ -247,10 +244,10 @@ C D E F G A |
       />,
     );
 
-    expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    expect(scrollSpy).toHaveBeenCalled();
 
     frameSpy.mockRestore();
-    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: originalScrollIntoView });
+    scrollSpy.mockRestore();
   });
 
   it('commits valid measure edits and keeps structural changes out of canonical ABC', async () => {

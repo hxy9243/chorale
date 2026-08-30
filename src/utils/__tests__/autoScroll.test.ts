@@ -138,6 +138,40 @@ describe('autoScroll utils', () => {
       const target = calculateCenterScrollLeft(container, targetEl);
       expect(target).toBe(250);
     });
+
+    it('accurately accounts for interface zoom scaling (e.g. 140% and 80%)', () => {
+      // At 140% zoom (scale = 1.4): clientWidth = 400, getBoundingClientRect().width = 560
+      const zoomedInContainer = {
+        scrollLeft: 50,
+        clientWidth: 400,
+        scrollWidth: 1000,
+        getBoundingClientRect: () => ({ left: 140, right: 700, width: 560 } as DOMRect),
+      } as unknown as HTMLElement;
+
+      // Target center at 560 + 140 = 700, container center = 420. deltaX = +280.
+      // In layout coordinates: 280 / 1.4 = 200. Target scroll = 50 + 200 = 250.
+      const targetElZoomedIn = {
+        getBoundingClientRect: () => ({ left: 560, right: 840, width: 280 } as DOMRect),
+      } as unknown as HTMLElement;
+
+      expect(calculateCenterScrollLeft(zoomedInContainer, targetElZoomedIn)).toBe(250);
+
+      // At 80% zoom (scale = 0.8): clientWidth = 400, getBoundingClientRect().width = 320
+      const zoomedOutContainer = {
+        scrollLeft: 50,
+        clientWidth: 400,
+        scrollWidth: 1000,
+        getBoundingClientRect: () => ({ left: 80, right: 400, width: 320 } as DOMRect),
+      } as unknown as HTMLElement;
+
+      // Target center at 320 + 80 = 400, container center = 240. deltaX = +160.
+      // In layout coordinates: 160 / 0.8 = 200. Target scroll = 50 + 200 = 250.
+      const targetElZoomedOut = {
+        getBoundingClientRect: () => ({ left: 320, right: 480, width: 160 } as DOMRect),
+      } as unknown as HTMLElement;
+
+      expect(calculateCenterScrollLeft(zoomedOutContainer, targetElZoomedOut)).toBe(250);
+    });
   });
 
   describe('animateHorizontalScrollTo', () => {

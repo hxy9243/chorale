@@ -16,7 +16,10 @@ export const calculateCenterScrollTop = (
   const containerFocusY = containerRect.top + containerRect.height * targetRatio;
   const deltaY = lineCenterY - containerFocusY;
 
-  const targetScrollTop = container.scrollTop + deltaY;
+  const scaleY = container.clientHeight > 0 ? containerRect.height / container.clientHeight : 1;
+  const layoutDeltaY = scaleY > 0 ? deltaY / scaleY : deltaY;
+
+  const targetScrollTop = container.scrollTop + layoutDeltaY;
   const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
 
   return Math.max(0, Math.min(maxScroll, targetScrollTop));
@@ -87,7 +90,10 @@ export const calculateCenterScrollLeft = (
   const containerCenterX = containerRect.left + containerRect.width / 2;
   const deltaX = targetCenterX - containerCenterX;
 
-  const targetScrollLeft = container.scrollLeft + deltaX;
+  const scaleX = container.clientWidth > 0 ? containerRect.width / container.clientWidth : 1;
+  const layoutDeltaX = scaleX > 0 ? deltaX / scaleX : deltaX;
+
+  const targetScrollLeft = container.scrollLeft + layoutDeltaX;
   const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
 
   return Math.max(0, Math.min(maxScroll, targetScrollLeft));

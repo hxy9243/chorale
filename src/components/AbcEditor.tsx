@@ -195,7 +195,6 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
         const targetScrollLeft = calculateCenterScrollLeft(body, target);
         horizontalScrollControllerRef.current?.cancel();
         horizontalScrollControllerRef.current = animateHorizontalScrollTo(body, targetScrollLeft, 200);
-        target.scrollIntoView?.({ block: 'nearest', inline: 'center', behavior: 'smooth' });
       }
     });
     return () => {
@@ -216,7 +215,6 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
         const targetScrollLeft = calculateCenterScrollLeft(body, target);
         horizontalScrollControllerRef.current?.cancel();
         horizontalScrollControllerRef.current = animateHorizontalScrollTo(body, targetScrollLeft, 200);
-        target.scrollIntoView?.({ block: 'nearest', inline: 'center', behavior: 'smooth' });
       }
     });
     return () => {
