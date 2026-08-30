@@ -596,14 +596,41 @@ export const analyzeRawAbcLines = (
     if (lineCells.length > 0) {
       const sortedCells = [...lineCells].sort((a, b) => a.range.start - b.range.start);
       let lineCursor = start;
-      for (const cell of sortedCells) {
-        const cellStart = Math.max(start, cell.range.start);
-        const cellEnd = Math.min(end, cell.range.end);
+
+      for (let idx = 0; idx < sortedCells.length; idx += 1) {
+        const cell = sortedCells[idx];
+
+        let cellStart = lineCursor;
+        if (idx === 0 && lineCursor < cell.range.start) {
+          const prefixText = abcCode.slice(lineCursor, cell.range.start);
+          const voiceTagMatch = prefixText.match(/^(\s*\[V:[^\]]+\]\s*)/);
+          if (voiceTagMatch) {
+            const prefixEnd = lineCursor + voiceTagMatch[0].length;
+            segments.push(Object.freeze({
+              text: abcCode.slice(lineCursor, prefixEnd),
+            }));
+            lineCursor = prefixEnd;
+            cellStart = prefixEnd;
+          }
+        } else if (idx > 0 && lineCursor < cell.range.start) {
+          const betweenText = abcCode.slice(lineCursor, cell.range.start);
+          if (betweenText.includes('[V:')) {
+            segments.push(Object.freeze({
+              text: betweenText,
+            }));
+            lineCursor = cell.range.start;
+            cellStart = cell.range.start;
+          }
+        }
+
+        const cellEnd = Math.min(end, Math.max(cellStart, cell.range.end));
+
         if (cellStart > lineCursor) {
           segments.push(Object.freeze({
             text: abcCode.slice(lineCursor, cellStart),
           }));
         }
+
         if (cellEnd > cellStart) {
           const m = cell.measureNumber;
           const cellSelected = Boolean(activeAnchor && m >= activeAnchor.startMeasure && m <= activeAnchor.endMeasure);
@@ -614,9 +641,10 @@ export const analyzeRawAbcLines = (
             isSelected: cellSelected,
             isPlaying: cellPlaying,
           }));
+          lineCursor = cellEnd;
         }
-        lineCursor = Math.max(lineCursor, cellEnd);
       }
+
       if (lineCursor < end) {
         segments.push(Object.freeze({
           text: abcCode.slice(lineCursor, end),

@@ -131,6 +131,10 @@ K:C
     expect(upperLine.isPlaying).toBe(true); // Measure 2 is playing
     expect(upperLine.segments.find((s) => s.measureNumber === 1)?.isSelected).toBe(true);
     expect(upperLine.segments.find((s) => s.measureNumber === 2)?.isPlaying).toBe(true);
+    expect(upperLine.segments.map((s) => s.text).join('')).toBe(upperLine.text);
+    expect(upperLine.segments[0].text).toBe('[V:upper]');
+    expect(upperLine.segments[1].text).toBe(' C D E |');
+    expect(upperLine.segments[2].text).toBe(' F G A |');
 
     // Voice 2: lower (colorIndex 1)
     const lowerLine = analysis[5];
@@ -140,6 +144,10 @@ K:C
     expect(lowerLine.isPlaying).toBe(true); // Measure 2 is playing
     expect(lowerLine.segments.find((s) => s.measureNumber === 1)?.isSelected).toBe(true);
     expect(lowerLine.segments.find((s) => s.measureNumber === 2)?.isPlaying).toBe(true);
+    expect(lowerLine.segments.map((s) => s.text).join('')).toBe(lowerLine.text);
+    expect(lowerLine.segments[0].text).toBe('[V:lower]');
+    expect(lowerLine.segments[1].text).toBe(' C,3 |');
+    expect(lowerLine.segments[2].text).toBe(' F,3 |');
   });
 
   it('validates and applies safe header edits', () => {
