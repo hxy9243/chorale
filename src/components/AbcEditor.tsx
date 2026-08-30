@@ -104,6 +104,21 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   const committingRef = useRef(false);
   const editorBodyRef = useRef<HTMLDivElement>(null);
   const horizontalScrollControllerRef = useRef<SmoothScrollController | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const lineNumbersRef = useRef<HTMLDivElement>(null);
+
+  const handleTextareaScroll = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    if (backdropRef.current) {
+      backdropRef.current.scrollTop = textarea.scrollTop;
+      backdropRef.current.scrollLeft = textarea.scrollLeft;
+    }
+    if (lineNumbersRef.current) {
+      lineNumbersRef.current.scrollTop = textarea.scrollTop;
+    }
+  };
 
   const presentationResult = useMemo(() => {
     try {
@@ -235,6 +250,19 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
       window.removeEventListener('resize', updateProgress);
     };
   }, [presentation, view]);
+
+  useEffect(() => {
+    if (view !== 'raw') return;
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    if (backdropRef.current) {
+      backdropRef.current.scrollTop = textarea.scrollTop;
+      backdropRef.current.scrollLeft = textarea.scrollLeft;
+    }
+    if (lineNumbersRef.current) {
+      lineNumbersRef.current.scrollTop = textarea.scrollTop;
+    }
+  }, [abcCode, view]);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(abcCode);
@@ -508,11 +536,11 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
         <div className={`editor-body${view === 'raw' ? ' is-raw-view' : ''}`} ref={editorBodyRef}>
           {view === 'raw' ? (
             <div className="abc-raw-editor">
-              <div className="editor-line-numbers" aria-hidden="true">
+              <div className="editor-line-numbers" ref={lineNumbersRef} aria-hidden="true">
                 {rawLinesAnalysis.map((line) => <span key={line.lineNumber}>{line.lineNumber}</span>)}
               </div>
               <div className="abc-raw-content">
-                <div className="abc-raw-backdrop" aria-hidden="true">
+                <div className="abc-raw-backdrop" ref={backdropRef} aria-hidden="true">
                   {rawLinesAnalysis.map((line) => (
                     <div
                       key={line.lineNumber}
@@ -545,9 +573,11 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
                   ))}
                 </div>
                 <textarea
+                  ref={textareaRef}
                   className="abc-textarea"
                   value={abcCode}
                   onChange={(event) => onAbcChange(event.target.value)}
+                  onScroll={handleTextareaScroll}
                   placeholder="Parsed ABC code will appear here. Edit code directly to rebuild score output."
                   rows={Math.max(rawLinesAnalysis.length, 16)}
                   spellCheck={false}

@@ -71,6 +71,29 @@ K:C
     expect(upperMeasure2?.classList.contains('is-playing')).toBe(true);
   });
 
+  it('scrolls raw source backdrop and line numbers in sync with textarea', () => {
+    const longAbc = Array.from({ length: 50 }, (_, i) => `C D E F | % measure ${i + 1}`).join('\n');
+    const { container } = render(<AbcEditor abcCode={longAbc} onAbcChange={() => undefined} />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+
+    const textarea = container.querySelector('.abc-textarea') as HTMLTextAreaElement;
+    const backdrop = container.querySelector('.abc-raw-backdrop') as HTMLDivElement;
+    const lineNumbers = container.querySelector('.editor-line-numbers') as HTMLDivElement;
+
+    expect(textarea).toBeDefined();
+    expect(backdrop).toBeDefined();
+    expect(lineNumbers).toBeDefined();
+
+    textarea.scrollTop = 180;
+    textarea.scrollLeft = 20;
+    fireEvent.scroll(textarea);
+
+    expect(backdrop.scrollTop).toBe(180);
+    expect(backdrop.scrollLeft).toBe(20);
+    expect(lineNumbers.scrollTop).toBe(180);
+  });
+
   it('keeps editor chrome separate from the scrolling source body', () => {
     const { container } = render(<AbcEditor abcCode={formattedAbc} onAbcChange={() => undefined} />);
     expect(container.querySelector('.abc-editor-chrome')?.nextElementSibling).toBe(container.querySelector('.editor-body'));
