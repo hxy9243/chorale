@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { FilePenLine, ListMinus, ListPlus, X } from 'lucide-react';
+import { ListMinus, ListPlus, X } from 'lucide-react';
 import type { MeasureSpan } from '../types/document';
 import {
   MAX_DRAFT_MEASURES,
@@ -8,11 +8,10 @@ import {
   type MeasureMutationResult,
 } from '../music/scoreDrafting';
 
-type DraftingAction = 'insert-before' | 'insert-after' | 'edit' | 'delete';
+type DraftingAction = 'insert-before' | 'insert-after' | 'delete';
 
 export type MeasureDraftingToolbarProps = {
   span: MeasureSpan;
-  selectedAbc: string;
   onMutate(mutation: MeasureMutation): MeasureMutationResult;
 };
 
@@ -22,27 +21,31 @@ const spanLabel = (span: MeasureSpan) => span.startMeasure === span.endMeasure
 
 export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
   span,
-  selectedAbc,
   onMutate,
 }) => {
   const [action, setAction] = useState<DraftingAction | null>(null);
   const [count, setCount] = useState('1');
-  const [replacementAbc, setReplacementAbc] = useState(selectedAbc);
   const [errors, setErrors] = useState<readonly string[]>([]);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const initialRef = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
+  const initialInputRef = useRef<HTMLInputElement>(null);
+  const initialParaRef = useRef<HTMLParagraphElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setAction(null);
     setErrors([]);
-    setReplacementAbc(selectedAbc);
-  }, [selectedAbc, span.endMeasure, span.startMeasure]);
+  }, [span.endMeasure, span.startMeasure]);
 
   useEffect(() => {
     if (!action) return undefined;
     returnFocusRef.current = document.activeElement as HTMLElement | null;
-    window.requestAnimationFrame(() => initialRef.current?.focus());
+    window.requestAnimationFrame(() => {
+      if (action === 'delete') {
+        initialParaRef.current?.focus();
+      } else {
+        initialInputRef.current?.focus();
+      }
+    });
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -73,23 +76,20 @@ export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
   const open = (nextAction: DraftingAction) => {
     setErrors([]);
     setCount('1');
-    setReplacementAbc(selectedAbc);
     setAction(nextAction);
   };
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     if (!action) return;
-    const mutation: MeasureMutation = action === 'edit'
-      ? { kind: 'replace', span, replacementAbc }
-      : action === 'delete'
-        ? { kind: 'delete', span }
-        : {
-            kind: 'insert',
-            span,
-            position: action === 'insert-before' ? 'before' : 'after',
-            count: Number(count),
-          };
+    const mutation: MeasureMutation = action === 'delete'
+      ? { kind: 'delete', span }
+      : {
+          kind: 'insert',
+          span,
+          position: action === 'insert-before' ? 'before' : 'after',
+          count: Number(count),
+        };
     const result = onMutate(mutation);
     if (result.status === 'valid') {
       setAction(null);
@@ -102,10 +102,9 @@ export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
     <>
       <div className="measure-drafting-toolbar" role="group" aria-label={`Edit ${spanLabel(span)}`}>
         <span className="measure-drafting-toolbar-label">{spanLabel(span)}</span>
-        <button type="button" onClick={() => open('insert-before')}><ListPlus size={15} /> Add before</button>
-        <button type="button" onClick={() => open('insert-after')}><ListPlus size={15} /> Add after</button>
-        <button type="button" onClick={() => open('edit')}><FilePenLine size={15} /> Edit ABC</button>
-        <button type="button" className="danger" onClick={() => open('delete')}><ListMinus size={15} /> Delete</button>
+        <button type="button" onClick={() => open('insert-before')}><ListPlus size={14} /> Add before</button>
+        <button type="button" onClick={() => open('insert-after')}><ListPlus size={14} /> Add after</button>
+        <button type="button" className="danger" onClick={() => open('delete')}><ListMinus size={14} /> Delete</button>
       </div>
 
       {action && (
@@ -120,7 +119,7 @@ export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
             <header className="score-drafting-modal-header">
               <div>
                 <h2 id="measure-edit-modal-title">
-                  {action === 'edit' ? 'Edit measure ABC' : action === 'delete' ? 'Delete measures?' : 'Add measures'}
+                  {action === 'delete' ? 'Delete measures?' : 'Add measures'}
                 </h2>
                 <p>{spanLabel(span)}</p>
               </div>
@@ -130,24 +129,11 @@ export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
             </header>
             <form onSubmit={submit}>
               <div className="measure-edit-modal-body">
-                {action === 'edit' && (
-                  <label>
-                    <span>Replacement ABC</span>
-                    <textarea
-                      ref={initialRef}
-                      value={replacementAbc}
-                      onChange={(event) => setReplacementAbc(event.target.value)}
-                      rows={10}
-                      spellCheck={false}
-                    />
-                    <small>Keep the same measures and existing voices. New [V:&lt;id&gt;] voices are added as separate staves.</small>
-                  </label>
-                )}
                 {(action === 'insert-before' || action === 'insert-after') && (
                   <label>
                     <span>Number of measures</span>
                     <input
-                      ref={initialRef}
+                      ref={initialInputRef}
                       type="number"
                       min={MIN_DRAFT_MEASURES}
                       max={MAX_DRAFT_MEASURES}
@@ -159,7 +145,7 @@ export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
                   </label>
                 )}
                 {action === 'delete' && (
-                  <p ref={initialRef as React.RefObject<HTMLParagraphElement>} tabIndex={-1}>
+                  <p ref={initialParaRef} tabIndex={-1}>
                     This removes {spanLabel(span).toLowerCase()} from every voice. You can restore it with Undo.
                   </p>
                 )}
@@ -170,7 +156,7 @@ export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
               <footer className="score-drafting-modal-footer">
                 <button type="button" className="score-drafting-secondary-button" onClick={() => setAction(null)}>Cancel</button>
                 <button type="submit" className={action === 'delete' ? 'measure-delete-confirm' : 'score-drafting-primary-button'}>
-                  {action === 'delete' ? 'Delete measures' : action === 'edit' ? 'Replace measures' : 'Add measures'}
+                  {action === 'delete' ? 'Delete measures' : 'Add measures'}
                 </button>
               </footer>
             </form>

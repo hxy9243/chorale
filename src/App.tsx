@@ -12,7 +12,6 @@ import { AgentChatPanel } from './components/AgentChatPanel';
 import { AISettingsModal } from './components/AISettingsModal';
 import { EditingHistoryModal } from './components/EditingHistoryModal';
 import { NewScoreModal } from './components/NewScoreModal';
-import { MeasureDraftingToolbar } from './components/MeasureDraftingToolbar';
 import { useAIProviders } from './agent/useAIProviders';
 import { useInterfaceZoom } from './hooks/useInterfaceZoom';
 import {
@@ -48,7 +47,6 @@ import { extractScore } from './music/scoreSnapshot';
 import {
   applyMeasureMutation,
   applyWholeScoreReplacement,
-  readMeasureReplacementAbc,
 } from './music/scoreDrafting';
 import { FILE_RAIL_BAR_WIDTH } from './utils/workspaceSizing';
 import type { PlaybackSourceRanges } from './music/abcPresentation';
@@ -206,15 +204,6 @@ export const App: React.FC = () => {
       return 0;
     }
   }, [abcCode]);
-
-  const selectedMeasureAbc = useMemo(() => {
-    if (!activeAnchor) return '';
-    try {
-      return readMeasureReplacementAbc(abcCode, activeAnchor);
-    } catch {
-      return '';
-    }
-  }, [abcCode, activeAnchor]);
 
   const handleTuneRendered = useCallback((renderedTunes: abcjs.TuneObject[] | null) => {
     setTunes((prev) => {
@@ -482,16 +471,6 @@ export const App: React.FC = () => {
                           disabled={Boolean(scorePreview)}
                         />
                       )}
-                      draftingToolbar={
-                        activeAnchor && canRenderScore && !scorePreview ? (
-                          <MeasureDraftingToolbar
-                            key={`${activeFileId}:${activeAnchor.startMeasure}:${activeAnchor.endMeasure}`}
-                            span={activeAnchor}
-                            selectedAbc={selectedMeasureAbc}
-                            onMutate={handleMeasureMutation}
-                          />
-                        ) : undefined
-                      }
                       abcCode={canRenderScore ? displayAbc : ''}
                       annotations={activeDocument?.annotations || []}
                       activeAnchor={activeAnchor}
@@ -533,6 +512,7 @@ export const App: React.FC = () => {
                     activeAnchor={activeAnchor}
                     onSelectAnchor={handleSelectAnchor}
                     onNavigateMeasure={handleNavigateMeasure}
+                    onMeasureMutation={handleMeasureMutation}
                     playbackSourceRanges={playbackSourceRanges}
                     validationState={buildStatus}
                     validationMessage={workspaceMessage}

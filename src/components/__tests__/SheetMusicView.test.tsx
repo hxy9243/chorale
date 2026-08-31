@@ -1488,19 +1488,18 @@ describe('SheetMusicView Component', () => {
     expect(header?.closest('.sheet-zoom-wrapper')).not.toBeNull();
   });
 
-  it('renders optional drafting toolbar inside the left balance lane', () => {
+  it('does not render or reserve a drafting toolbar on the score surface', () => {
     const { container } = render(
       <SheetMusicView
         abcCode={sampleAbc}
         activeAnchor={{ startMeasure: 1, endMeasure: 1 }}
-        draftingToolbar={<div data-testid="test-drafting-toolbar">Measure Toolbar</div>}
       />,
     );
 
-    const toolbar = container.querySelector('[data-testid="test-drafting-toolbar"]');
-    expect(toolbar).not.toBeNull();
-    expect(toolbar?.closest('.measure-drafting-toolbar-anchor')).not.toBeNull();
-    expect(toolbar?.closest('.sheet-layout-balance')).not.toBeNull();
-    expect(toolbar?.closest('.sheet-zoom-wrapper')).not.toBeNull();
+    expect(container.querySelector('.measure-drafting-toolbar')).toBeNull();
+    expect(container.querySelector('.measure-drafting-toolbar-anchor')).toBeNull();
+    const balance = container.querySelector('.sheet-layout-balance');
+    expect(balance).not.toBeNull();
+    expect(balance?.children.length).toBe(0);
   });
 });

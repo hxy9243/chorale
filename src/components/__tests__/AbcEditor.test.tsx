@@ -353,4 +353,99 @@ C D E F G A |
     fireEvent.click(screen.getByRole('button', { name: 'Close ABC editor' }));
     expect(onToggleVisibility).toHaveBeenCalledOnce();
   });
+
+  it('renders Measure Source toolbar belt only when a measure/range is selected in Measure Source', () => {
+    const onMeasureMutation = vi.fn(() => ({
+      status: 'valid' as const,
+      abcSource: 'new source',
+      affectedSpan: { startMeasure: 1, endMeasure: 1 },
+    }));
+
+    const view = render(
+      <AbcEditor
+        abcCode={formattedAbc}
+        onAbcChange={() => undefined}
+        activeAnchor={{ startMeasure: 1, endMeasure: 1 }}
+        onMeasureMutation={onMeasureMutation}
+      />,
+    );
+
+    // Visible in Measure Source with activeAnchor
+    expect(screen.getByRole('group', { name: 'Edit Measure 1' })).toBeDefined();
+    expect(screen.getByRole('button', { name: /Add before/ })).toBeDefined();
+    expect(screen.getByRole('button', { name: /Add after/ })).toBeDefined();
+    expect(screen.getByRole('button', { name: /Delete/ })).toBeDefined();
+
+    // Updates when selection changes to a range
+    view.rerender(
+      <AbcEditor
+        abcCode={formattedAbc}
+        onAbcChange={() => undefined}
+        activeAnchor={{ startMeasure: 1, endMeasure: 2 }}
+        onMeasureMutation={onMeasureMutation}
+      />,
+    );
+    expect(screen.getByRole('group', { name: 'Edit Measures 1–2' })).toBeDefined();
+
+    // Hidden when activeAnchor is null
+    view.rerender(
+      <AbcEditor
+        abcCode={formattedAbc}
+        onAbcChange={() => undefined}
+        activeAnchor={null}
+        onMeasureMutation={onMeasureMutation}
+      />,
+    );
+    expect(screen.queryByRole('group', { name: /Edit Measure/ })).toBeNull();
+
+    // Unavailable in Raw Source view even if activeAnchor exists
+    view.rerender(
+      <AbcEditor
+        abcCode={formattedAbc}
+        onAbcChange={() => undefined}
+        activeAnchor={{ startMeasure: 1, endMeasure: 1 }}
+        onMeasureMutation={onMeasureMutation}
+      />,
+    );
+    expect(screen.getByRole('group', { name: 'Edit Measure 1' })).toBeDefined();
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+    expect(screen.queryByRole('group', { name: /Edit Measure/ })).toBeNull();
+  });
+
+  it('triggers onMeasureMutation from Measure Source toolbar belt actions', () => {
+    const onMeasureMutation = vi.fn(() => ({
+      status: 'valid' as const,
+      abcSource: 'new source',
+      affectedSpan: { startMeasure: 2, endMeasure: 2 },
+    }));
+
+    render(
+      <AbcEditor
+        abcCode={formattedAbc}
+        onAbcChange={() => undefined}
+        activeAnchor={{ startMeasure: 2, endMeasure: 2 }}
+        onMeasureMutation={onMeasureMutation}
+      />,
+    );
+
+    // Add before action
+    fireEvent.click(screen.getByRole('button', { name: /Add before/ }));
+    fireEvent.change(screen.getByLabelText(/^Number of measures/), { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add measures' }));
+    expect(onMeasureMutation).toHaveBeenCalledWith({
+      kind: 'insert',
+      span: { startMeasure: 2, endMeasure: 2 },
+      position: 'before',
+      count: 2,
+    });
+
+    // Delete action
+    fireEvent.click(screen.getByRole('button', { name: /Delete/ }));
+    expect(screen.getByRole('alertdialog', { name: 'Delete measures?' })).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete measures' }));
+    expect(onMeasureMutation).toHaveBeenCalledWith({
+      kind: 'delete',
+      span: { startMeasure: 2, endMeasure: 2 },
+    });
+  });
 });

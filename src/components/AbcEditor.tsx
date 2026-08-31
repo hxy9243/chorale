@@ -18,6 +18,11 @@ import {
   calculateCenterScrollLeft,
   type SmoothScrollController,
 } from '../utils/autoScroll';
+import {
+  type MeasureMutation,
+  type MeasureMutationResult,
+} from '../music/scoreDrafting';
+import { MeasureDraftingToolbar } from './MeasureDraftingToolbar';
 
 interface AbcEditorProps {
   abcCode: string;
@@ -27,6 +32,7 @@ interface AbcEditorProps {
   activeAnchor?: ScoreAnchor | null;
   onSelectAnchor?: (anchor: ScoreAnchor | null) => void;
   onNavigateMeasure?: (anchor: ScoreAnchor) => void;
+  onMeasureMutation?: (mutation: MeasureMutation) => MeasureMutationResult;
   playbackSourceRanges?: PlaybackSourceRanges | null;
   validationState?: 'idle' | 'building' | 'valid' | 'invalid';
   validationMessage?: string | null;
@@ -88,6 +94,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   activeAnchor = null,
   onSelectAnchor,
   onNavigateMeasure,
+  onMeasureMutation,
   playbackSourceRanges = null,
   validationState = 'idle',
   validationMessage,
@@ -522,6 +529,13 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
             <button type="button" role="tab" aria-selected={view === 'raw'} onClick={() => setView('raw')}>Raw Source</button>
           </div>
         </div>
+        {view === 'measures' && activeAnchor && onMeasureMutation && (
+          <MeasureDraftingToolbar
+            key={`${documentId}:${activeAnchor.startMeasure}:${activeAnchor.endMeasure}`}
+            span={activeAnchor}
+            onMutate={onMeasureMutation}
+          />
+        )}
         {validationMessage && <div className={`editor-banner ${validationState === 'invalid' ? 'error' : 'info'}`} role="status">{validationMessage}</div>}
         {draft?.error && (
           <div className="editor-banner error abc-draft-error" role="alert">

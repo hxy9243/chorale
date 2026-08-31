@@ -9,6 +9,7 @@ source_files:
   - src/music/scoreDrafting.ts
   - src/components/NewScoreModal.tsx
   - src/components/MeasureDraftingToolbar.tsx
+  - src/components/AbcEditor.tsx
   - src/components/SheetMusicView.tsx
   - src/hooks/useDocumentStore.ts
   - src/components/AgentChatPanel.tsx
@@ -18,6 +19,7 @@ test_files:
   - src/music/__tests__/scoreSnapshot.test.ts
   - src/hooks/__tests__/useDocumentStore.test.ts
   - src/components/__tests__/MeasureDraftingToolbar.test.tsx
+  - src/components/__tests__/AbcEditor.test.tsx
   - src/components/__tests__/NewScoreModal.test.tsx
   - src/components/__tests__/SheetMusicView.test.tsx
   - src/components/__tests__/AgentChatPanel.test.tsx
@@ -27,6 +29,7 @@ related_specs:
   - spec/design.md
   - spec/file-workspace-architecture.md
   - spec/score-surface.md
+  - spec/abc-editor.md
   - spec/pi-agent-chat.md
   - spec/agent-tools-and-profiles.md
 ---
@@ -97,14 +100,23 @@ Apply against the proposal's immutable source revision.
 
 ## 4. Selection controls
 
-An active written-measure selection exposes a React-owned contextual toolbar in the left lane of the
-score layout (the symmetric balance lane opposite the annotation rail), floating at the same vertical
-height as the selected measure with items arranged vertically: a measure span label followed by
-**Add before**, **Add after**, **Edit ABC**, and **Delete**. Positioning the floating toolbar in the
-left balance lane preserves the vertical viewport and scroll position of the entire page when selecting
-or deselecting measures. Dialogs have visible labels, initial focus, focus trapping, safe Escape,
-screen-reader status, and focus-visible styles. While the toolbar is present, scene sizing reserves its
-minimum width and left-aligns horizontal overflow so the controls cannot collapse behind the file rail.
+Measure selection is bidirectionally linked between the interactive sheet music surface and the ABC
+editor. When a measure or continuous measure range is selected, the ABC editor's **Measure Source**
+view exposes a compact contextual toolbar belt directly beneath the editor tabs. The belt displays the
+selected span label (e.g. `Measure 1` or `Measures 3–4`) and provides three structural mutation actions:
+**Add before**, **Add after**, and **Delete**.
+
+Direct cell editing in Measure Source is the sole content-editing mechanism; a separate "Edit ABC"
+replacement modal is not retained.
+
+Structural actions reuse the shared mutation engine:
+- **Add before** / **Add after** open an add-count dialog requesting the number of measures (1–256).
+- **Delete** opens a confirmation alertdialog warning that the selected measures will be removed across
+  all voices and can be restored via Undo.
+- Invalid structural edits keep their dialog open with the error message displayed.
+
+The toolbar belt is hidden when there is no active measure selection and is unavailable in Raw Source
+view. The score surface does not render or reserve layout for a drafting toolbar.
 
 Selection and draft UI are file scoped. Switching documents or editing raw source clears ephemeral
 selection, editor, and preview state.
