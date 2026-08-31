@@ -126,7 +126,7 @@ document identity or base revision becomes stale.
 - When an active measure selection exists in Measure Source view, a compact toolbar belt appears below
   the editor tabs showing the selected span (e.g. `Measure 1` or `Measures 3–4`) and actions for
   **Add before**, **Add after**, and **Delete**.
-- Structural mutations route through the shared mutation engine with add-count and delete-confirmation dialogs,
+- Structural mutations route through the shared mutation engine with 1-click instant measure insertion and delete-confirmation dialogs,
   triggering revision updates and annotation rebasing.
 - Playback source ranges resolve to one written measure, automatically scroll that measure
   into view along the timeline, and apply a distinct transient measure tint across voices.

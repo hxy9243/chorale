@@ -23,20 +23,16 @@ describe('MeasureDraftingToolbar', () => {
     expect(screen.getByRole('group', { name: 'Edit Measure 2' })).toBeDefined();
     expect(screen.getByText('Measure 2')).toBeDefined();
 
-    // Add before
+    // Add before (1-click direct add)
     fireEvent.click(screen.getByRole('button', { name: /Add before/ }));
-    fireEvent.change(screen.getByLabelText(/^Number of measures/), { target: { value: '3' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add measures' }));
     expect(onMutate).toHaveBeenCalledWith({
-      kind: 'insert', span: { startMeasure: 2, endMeasure: 2 }, position: 'before', count: 3,
+      kind: 'insert', span: { startMeasure: 2, endMeasure: 2 }, position: 'before', count: 1,
     });
 
-    // Add after
+    // Add after (1-click direct add)
     fireEvent.click(screen.getByRole('button', { name: /Add after/ }));
-    fireEvent.change(screen.getByLabelText(/^Number of measures/), { target: { value: '2' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add measures' }));
     expect(onMutate).toHaveBeenCalledWith({
-      kind: 'insert', span: { startMeasure: 2, endMeasure: 2 }, position: 'after', count: 2,
+      kind: 'insert', span: { startMeasure: 2, endMeasure: 2 }, position: 'after', count: 1,
     });
   });
 

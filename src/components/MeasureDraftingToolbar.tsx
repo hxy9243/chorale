@@ -2,13 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ListMinus, ListPlus, X } from 'lucide-react';
 import type { MeasureSpan } from '../types/document';
 import {
-  MAX_DRAFT_MEASURES,
-  MIN_DRAFT_MEASURES,
   type MeasureMutation,
   type MeasureMutationResult,
 } from '../music/scoreDrafting';
-
-type DraftingAction = 'insert-before' | 'insert-after' | 'delete';
 
 export type MeasureDraftingToolbarProps = {
   span: MeasureSpan;
@@ -23,33 +19,27 @@ export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
   span,
   onMutate,
 }) => {
-  const [action, setAction] = useState<DraftingAction | null>(null);
-  const [count, setCount] = useState('1');
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [errors, setErrors] = useState<readonly string[]>([]);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const initialInputRef = useRef<HTMLInputElement>(null);
-  const initialParaRef = useRef<HTMLParagraphElement>(null);
+  const deleteParaRef = useRef<HTMLParagraphElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    setAction(null);
+    setDeleteConfirmOpen(false);
     setErrors([]);
   }, [span.endMeasure, span.startMeasure]);
 
   useEffect(() => {
-    if (!action) return undefined;
+    if (!deleteConfirmOpen) return undefined;
     returnFocusRef.current = document.activeElement as HTMLElement | null;
     window.requestAnimationFrame(() => {
-      if (action === 'delete') {
-        initialParaRef.current?.focus();
-      } else {
-        initialInputRef.current?.focus();
-      }
+      deleteParaRef.current?.focus();
     });
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        setAction(null);
+        setDeleteConfirmOpen(false);
         return;
       }
       if (event.key !== 'Tab' || !dialogRef.current) return;
@@ -71,28 +61,31 @@ export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
       document.removeEventListener('keydown', onKeyDown);
       returnFocusRef.current?.focus();
     };
-  }, [action]);
+  }, [deleteConfirmOpen]);
 
-  const open = (nextAction: DraftingAction) => {
+  const handleAdd = (position: 'before' | 'after') => {
     setErrors([]);
-    setCount('1');
-    setAction(nextAction);
+    const result = onMutate({
+      kind: 'insert',
+      span,
+      position,
+      count: 1,
+    });
+    if (result.status !== 'valid') {
+      setErrors(result.errors);
+    }
   };
 
-  const submit = (event: React.FormEvent) => {
+  const openDeleteConfirm = () => {
+    setErrors([]);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!action) return;
-    const mutation: MeasureMutation = action === 'delete'
-      ? { kind: 'delete', span }
-      : {
-          kind: 'insert',
-          span,
-          position: action === 'insert-before' ? 'before' : 'after',
-          count: Number(count),
-        };
-    const result = onMutate(mutation);
+    const result = onMutate({ kind: 'delete', span });
     if (result.status === 'valid') {
-      setAction(null);
+      setDeleteConfirmOpen(false);
     } else {
       setErrors(result.errors);
     }
@@ -102,61 +95,59 @@ export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
     <>
       <div className="measure-drafting-toolbar" role="group" aria-label={`Edit ${spanLabel(span)}`}>
         <span className="measure-drafting-toolbar-label">{spanLabel(span)}</span>
-        <button type="button" onClick={() => open('insert-before')}><ListPlus size={14} /> Add before</button>
-        <button type="button" onClick={() => open('insert-after')}><ListPlus size={14} /> Add after</button>
-        <button type="button" className="danger" onClick={() => open('delete')}><ListMinus size={14} /> Delete</button>
+        <button type="button" onClick={() => handleAdd('before')}><ListPlus size={14} /> Add before</button>
+        <button type="button" onClick={() => handleAdd('after')}><ListPlus size={14} /> Add after</button>
+        <button type="button" className="danger" onClick={openDeleteConfirm}><ListMinus size={14} /> Delete</button>
       </div>
 
-      {action && (
+      {errors.length > 0 && !deleteConfirmOpen && (
+        <div className="editor-banner error abc-draft-error" role="alert">
+          {errors.map((error) => <span key={error}>{error}</span>)}
+        </div>
+      )}
+
+      {deleteConfirmOpen && (
         <div className="score-drafting-modal-overlay" role="presentation">
           <div
             ref={dialogRef}
             className="score-drafting-modal measure-edit-modal"
-            role={action === 'delete' ? 'alertdialog' : 'dialog'}
+            role="alertdialog"
             aria-modal="true"
-            aria-labelledby="measure-edit-modal-title"
+            aria-labelledby="measure-delete-modal-title"
           >
             <header className="score-drafting-modal-header">
               <div>
-                <h2 id="measure-edit-modal-title">
-                  {action === 'delete' ? 'Delete measures?' : 'Add measures'}
-                </h2>
+                <h2 id="measure-delete-modal-title">Delete measures?</h2>
                 <p>{spanLabel(span)}</p>
               </div>
-              <button type="button" className="score-drafting-icon-button" onClick={() => setAction(null)} aria-label="Close measure editor">
+              <button
+                type="button"
+                className="score-drafting-icon-button"
+                onClick={() => setDeleteConfirmOpen(false)}
+                aria-label="Close measure editor"
+              >
                 <X size={17} />
               </button>
             </header>
-            <form onSubmit={submit}>
+            <form onSubmit={handleDeleteSubmit}>
               <div className="measure-edit-modal-body">
-                {(action === 'insert-before' || action === 'insert-after') && (
-                  <label>
-                    <span>Number of measures</span>
-                    <input
-                      ref={initialInputRef}
-                      type="number"
-                      min={MIN_DRAFT_MEASURES}
-                      max={MAX_DRAFT_MEASURES}
-                      step="1"
-                      value={count}
-                      onChange={(event) => setCount(event.target.value)}
-                    />
-                    <small>Blank full-measure rests are added to every voice.</small>
-                  </label>
-                )}
-                {action === 'delete' && (
-                  <p ref={initialParaRef} tabIndex={-1}>
-                    This removes {spanLabel(span).toLowerCase()} from every voice. You can restore it with Undo.
-                  </p>
-                )}
+                <p ref={deleteParaRef} tabIndex={-1}>
+                  This removes {spanLabel(span).toLowerCase()} from every voice. You can restore it with Undo.
+                </p>
                 <div className="new-score-errors" role={errors.length ? 'alert' : 'status'} aria-live="polite">
                   {errors.map((error) => <p key={error}>{error}</p>)}
                 </div>
               </div>
               <footer className="score-drafting-modal-footer">
-                <button type="button" className="score-drafting-secondary-button" onClick={() => setAction(null)}>Cancel</button>
-                <button type="submit" className={action === 'delete' ? 'measure-delete-confirm' : 'score-drafting-primary-button'}>
-                  {action === 'delete' ? 'Delete measures' : 'Add measures'}
+                <button
+                  type="button"
+                  className="score-drafting-secondary-button"
+                  onClick={() => setDeleteConfirmOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="measure-delete-confirm">
+                  Delete measures
                 </button>
               </footer>
             </form>

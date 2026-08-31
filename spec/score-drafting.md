@@ -110,10 +110,10 @@ Direct cell editing in Measure Source is the sole content-editing mechanism; a s
 replacement modal is not retained.
 
 Structural actions reuse the shared mutation engine:
-- **Add before** / **Add after** open an add-count dialog requesting the number of measures (1–256).
+- **Add before** / **Add after** immediately insert one blank measure with full-measure rests across all voices without blocking modal dialogs.
 - **Delete** opens a confirmation alertdialog warning that the selected measures will be removed across
   all voices and can be restored via Undo.
-- Invalid structural edits keep their dialog open with the error message displayed.
+- Invalid structural edits surface their error message directly in the editor.
 
 The toolbar belt is hidden when there is no active measure selection and is unavailable in Raw Source
 view. The score surface does not render or reserve layout for a drafting toolbar.

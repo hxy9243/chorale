@@ -428,15 +428,13 @@ C D E F G A |
       />,
     );
 
-    // Add before action
+    // Add before action (1-click direct add)
     fireEvent.click(screen.getByRole('button', { name: /Add before/ }));
-    fireEvent.change(screen.getByLabelText(/^Number of measures/), { target: { value: '2' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add measures' }));
     expect(onMeasureMutation).toHaveBeenCalledWith({
       kind: 'insert',
       span: { startMeasure: 2, endMeasure: 2 },
       position: 'before',
-      count: 2,
+      count: 1,
     });
 
     // Delete action
