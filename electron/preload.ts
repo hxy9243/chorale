@@ -6,14 +6,18 @@ import type {
   SaveAIConnectionInput,
   SheetAgentRequest,
 } from '../src/agent/aiTypes';
-import type { SaveTextFileRequest } from '../src/types/fileBridge';
+import type { SavePdfFileRequest, SaveTextFileRequest } from '../src/types/fileBridge';
 import { AI_IPC, FILE_IPC } from './ipcChannels';
 
 const filesBridge = {
   saveTextFile: (request: SaveTextFileRequest) => (
     ipcRenderer.invoke(FILE_IPC.saveTextFile, request)
   ),
+  savePdfFile: (request: SavePdfFileRequest) => (
+    ipcRenderer.invoke(FILE_IPC.savePdfFile, request)
+  ),
 };
+
 
 const bridge: ChoraleAIBridge = {
   listConnections: () => ipcRenderer.invoke(AI_IPC.listConnections),

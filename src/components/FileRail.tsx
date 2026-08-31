@@ -34,7 +34,9 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { FileDocument } from '../types/document';
+import type { ScoreExportFormat } from '../hooks/useScoreExport';
 import { DeleteFileConfirmModal } from './DeleteFileConfirmModal';
+
 
 type RailPanel = 'files' | 'tools';
 type DropPlacement = 'before' | 'after';
@@ -71,6 +73,7 @@ interface ContextMenuState {
 }
 
 interface FileRailProps {
+
   documents: FileDocument[];
   activeFileId: string;
   onSelectDocument: (fileId: string) => void;
@@ -78,7 +81,7 @@ interface FileRailProps {
   onNewScore?: () => void;
   onDeleteDocument?: (fileId: string) => void;
   onDuplicateDocument?: (fileId: string) => void;
-  onExportDocument?: (fileId: string, format: 'musicxml') => void;
+  onExportDocument?: (fileId: string, format: ScoreExportFormat) => void;
   onReorderDocument?: (
     sourceFileId: string,
     targetFileId: string,
@@ -219,10 +222,11 @@ interface FileItemContextMenuProps {
   activeFileId: string;
   onOpen: () => void;
   onDuplicate: () => void;
-  onExport: (format: 'musicxml') => void;
+  onExport: (format: ScoreExportFormat) => void;
   onDelete: () => void;
   onClose: () => void;
 }
+
 
 const CONTEXT_MENU_WIDTH = 208;
 const CONTEXT_MENU_HEIGHT_ESTIMATE = 208;
@@ -354,13 +358,17 @@ const FileItemContextMenu: React.FC<FileItemContextMenuProps> = ({
               type="button"
               role="menuitem"
               className="file-context-menu-item"
-              disabled
-              title="Coming soon"
+              onClick={() => {
+                setSubmenuOpen(false);
+                onExport('pdf');
+                onClose();
+              }}
             >
               <FileText size={15} aria-hidden="true" />
-              <span>PDF (coming soon)</span>
+              <span>PDF (.pdf)</span>
             </button>
           </div>
+
         )}
       </div>
       <button
@@ -548,7 +556,7 @@ export const FileRail: React.FC<FileRailProps> = ({
     }
   };
 
-  const handleContextExport = (format: 'musicxml') => {
+  const handleContextExport = (format: ScoreExportFormat) => {
     if (!contextMenu) return;
     const fileId = contextMenu.fileId;
     if (onExportDocument) {
@@ -556,6 +564,7 @@ export const FileRail: React.FC<FileRailProps> = ({
     }
     setContextMenu(null);
   };
+
 
   const handleContextDelete = () => {
     if (!contextMenu) return;

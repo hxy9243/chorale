@@ -1,10 +1,18 @@
 import type {
   ChoraleFilesBridge,
+  SavePdfFileRequest,
+  SavePdfFileResult,
   SaveTextFileRequest,
   SaveTextFileResult,
 } from '../types/fileBridge';
 
-export type { ChoraleFilesBridge, SaveTextFileRequest, SaveTextFileResult };
+export type {
+  ChoraleFilesBridge,
+  SavePdfFileRequest,
+  SavePdfFileResult,
+  SaveTextFileRequest,
+  SaveTextFileResult,
+};
 
 export const saveTextFile = async (
   request: SaveTextFileRequest,
@@ -28,3 +36,46 @@ export const saveTextFile = async (
   }
   return { saved: true };
 };
+
+export const savePdfFile = async (
+  request: SavePdfFileRequest,
+): Promise<SavePdfFileResult> => {
+  const bridge: ChoraleFilesBridge | undefined = window.choraleFiles;
+  if (bridge && typeof bridge.savePdfFile === 'function') {
+    return bridge.savePdfFile(request);
+  }
+
+
+  // Web fallback: use hidden iframe to trigger browser print
+  if (typeof document !== 'undefined') {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    try {
+      const doc = iframe.contentWindow?.document;
+      if (doc) {
+        doc.open();
+        doc.write(request.html);
+        doc.close();
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        return { saved: false, initiated: true };
+      }
+    } catch {
+      return { saved: false };
+    } finally {
+      setTimeout(() => {
+        iframe.remove();
+      }, 1000);
+    }
+  }
+
+  return { saved: false };
+};
+

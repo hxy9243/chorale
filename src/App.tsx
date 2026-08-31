@@ -39,7 +39,7 @@ export {
   SHEET_ZOOM_KEY,
 };
 import { useDocumentStore } from './hooks/useDocumentStore';
-import { useScoreExport } from './hooks/useScoreExport';
+import { useScoreExport, type ScoreExportFormat } from './hooks/useScoreExport';
 import type { BuildResult, ScoreAnchor, ScoreChangeProposal } from './types/document';
 import { parseAbcHeaderMetadata, type ScoreMetadata } from './utils/abcMetadata';
 import type { PlaybackPosition } from './utils/repeatPlayback';
@@ -353,12 +353,13 @@ export const App: React.FC = () => {
 
   const { exportState: exportStatus, exportDocument, dismissStatus: dismissExportStatus } = useScoreExport();
 
-  const handleExportDocument = (fileId: string, format: 'musicxml' = 'musicxml') => {
+  const handleExportDocument = (fileId: string, format: ScoreExportFormat = 'musicxml') => {
     const targetDoc = documents.find((doc) => doc.id === fileId);
     if (targetDoc) {
       void exportDocument(targetDoc, format);
     }
   };
+
 
   useEffect(() => {
     if (exportStatus.status !== 'success' && exportStatus.status !== 'error') return undefined;

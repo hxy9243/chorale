@@ -17,4 +17,6 @@ export const AI_IPC = {
 
 export const FILE_IPC = {
   saveTextFile: 'chorale-file:save-text',
+  savePdfFile: 'chorale-file:save-pdf',
 } as const;
+
