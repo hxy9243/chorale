@@ -17,6 +17,7 @@ export type SavePdfFileRequest = Readonly<{
 export type SavePdfFileResult = Readonly<{
   saved: boolean;
   path?: string;
+  initiated?: boolean;
 }>;
 
 export type ChoraleFilesBridge = {

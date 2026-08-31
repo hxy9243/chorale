@@ -65,10 +65,10 @@ export const savePdfFile = async (
         doc.close();
         iframe.contentWindow?.focus();
         iframe.contentWindow?.print();
-        return { saved: true };
+        return { saved: false, initiated: true };
       }
     } catch {
-      // ignore print error
+      return { saved: false };
     } finally {
       setTimeout(() => {
         iframe.remove();
@@ -76,6 +76,6 @@ export const savePdfFile = async (
     }
   }
 
-  return { saved: true };
+  return { saved: false };
 };
 

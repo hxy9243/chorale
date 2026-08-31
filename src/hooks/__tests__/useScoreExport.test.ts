@@ -93,6 +93,20 @@ describe('useScoreExport', () => {
     expect(result.current.exportState.message).toContain('empty');
   });
 
+  it('returns to idle when web PDF fallback initiates print dialog without a file write', async () => {
+    mockSavePdfFile.mockResolvedValue({ saved: false, initiated: true });
+    const { result } = renderHook(() => useScoreExport());
+
+    let saved: unknown;
+    await act(async () => {
+      saved = await result.current.exportDocument(buildDocument(), 'pdf');
+    });
+
+    expect(saved).toEqual({ saved: false, initiated: true });
+    expect(result.current.exportState.status).toBe('idle');
+    expect(result.current.exportState.message).toBeNull();
+  });
+
   it('clears the status via dismissStatus', async () => {
     mockSaveTextFile.mockResolvedValue({ saved: true, path: '/tmp/Waltz.musicxml' });
     const { result } = renderHook(() => useScoreExport());

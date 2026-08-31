@@ -364,6 +364,145 @@ V:2 clef=bass
     expect(second.x).toBeGreaterThan(first.x + 35); // Clear gap between badges
     expect(first.y).toBeCloseTo(second.y, 1); // Same baseline
   });
+
+  it('hides synthetic tuplet rests in the exported score SVG output', () => {
+    const tupletAbc = `X:1
+T:Tuplet Score
+L:1/4
+M:2/4
+K:C
+(3x/C/E/ C |
+`;
+    const html = generateScorePdfHtml({
+      abcSource: tupletAbc,
+      fallbackTitle: 'Tuplet Test',
+    });
+
+    expect(html).toContain('visibility="hidden"');
+    expect(html).toContain('aria-hidden="true"');
+  });
+
+  it('renders a multi-system spanning annotation across all covered systems via interval intersection', () => {
+    const annotations: Annotation[] = [
+      {
+        id: 'ann-long',
+        kind: 'explanation',
+        span: { startMeasure: 1, endMeasure: 8 },
+        label: 'Global Form Arc',
+        body: 'Spans both system 1 (mm. 1–4) and system 2 (mm. 5–8).',
+        source: 'assistant',
+        createdAt: '2026-08-29T00:00:00.000Z',
+        updatedAt: '2026-08-29T00:00:00.000Z',
+      },
+    ];
+
+    const html = generateScorePdfHtml({
+      abcSource: MULTI_SYSTEM_ABC,
+      fallbackTitle: 'Multi-system Annotation Arc',
+      annotations,
+    });
+
+    // Both system rows should contain the annotation card
+    const cardMatches = html.match(/Global Form Arc/g);
+    expect(cardMatches).not.toBeNull();
+    expect(cardMatches?.length).toBe(2);
+
+    // Both system rows should have has-annotations class
+    const rowMatches = html.match(/class="print-system-row\s+has-annotations"/g);
+    expect(rowMatches?.length).toBe(2);
+  });
+
+  it('reserves annotation gutter only for systems with annotations while keeping unannotated systems full-width', () => {
+    const annotations: Annotation[] = [
+      {
+        id: 'ann-line1-only',
+        kind: 'modulation',
+        span: { startMeasure: 1, endMeasure: 2 },
+        label: 'Line 1 Modulation',
+        body: 'Only covers measures 1 to 2.',
+        source: 'user',
+        createdAt: '2026-08-29T00:00:00.000Z',
+        updatedAt: '2026-08-29T00:00:00.000Z',
+      },
+    ];
+
+    const html = generateScorePdfHtml({
+      abcSource: MULTI_SYSTEM_ABC,
+      fallbackTitle: 'Gutter Isolation Test',
+      annotations,
+    });
+
+    // System 1 should have annotations class
+    expect(html).toContain('class="print-system-row has-annotations"');
+    // System 2 should be notation-only (100% full width, no empty annotation gutter)
+    expect(html).toContain('class="print-system-row notation-only"');
+  });
+
+  it('de-conflicts three dense chord badges near right edge without overlapping at maxClampX', () => {
+    const annotations: Annotation[] = [
+      {
+        id: 'chord-dense-1',
+        kind: 'chord',
+        span: { startMeasure: 4, endMeasure: 4 },
+        position: { measure: 4, offset: { numerator: 1, denominator: 2 } }, // beat 3
+        chordSymbol: 'Am7',
+        romanNumeral: 'vi7',
+        label: 'Chord 1',
+        body: '',
+        source: 'user',
+        createdAt: '2026-08-29T00:00:00.000Z',
+        updatedAt: '2026-08-29T00:00:00.000Z',
+      },
+      {
+        id: 'chord-dense-2',
+        kind: 'chord',
+        span: { startMeasure: 4, endMeasure: 4 },
+        position: { measure: 4, offset: { numerator: 3, denominator: 4 } }, // beat 4
+        chordSymbol: 'D7',
+        romanNumeral: 'V7',
+        label: 'Chord 2',
+        body: '',
+        source: 'user',
+        createdAt: '2026-08-29T00:00:00.000Z',
+        updatedAt: '2026-08-29T00:00:00.000Z',
+      },
+      {
+        id: 'chord-dense-3',
+        kind: 'chord',
+        span: { startMeasure: 4, endMeasure: 4 },
+        position: { measure: 4, offset: { numerator: 7, denominator: 8 } }, // beat 4.5
+        chordSymbol: 'G',
+        romanNumeral: 'I',
+        label: 'Chord 3',
+        body: '',
+        source: 'user',
+        createdAt: '2026-08-29T00:00:00.000Z',
+        updatedAt: '2026-08-29T00:00:00.000Z',
+      },
+    ];
+
+    const html = generateScorePdfHtml({
+      abcSource: SAMPLE_ABC,
+      fallbackTitle: 'Three Badge Right-Edge Density Test',
+      annotations,
+    });
+
+    const matches = Array.from(
+      html.matchAll(/class="score-chord-badge"\s+transform="translate\(([^,]+),\s*([^)]+)\)"/g),
+    );
+    expect(matches.length).toBe(3);
+    const [b1, b2, b3] = matches.map((m) => ({
+      x: parseFloat(m[1]),
+      y: parseFloat(m[2]),
+    }));
+
+    // All three badges must have distinct, strictly increasing X coordinates with sufficient clearance
+    expect(b2.x).toBeGreaterThan(b1.x + 30);
+    expect(b3.x).toBeGreaterThan(b2.x + 30);
+
+    // Rightmost badge must not bleed beyond the SVG right margin clamp (780 - halfWidth - 14)
+    expect(b3.x).toBeLessThanOrEqual(780 - 14);
+  });
 });
 
 

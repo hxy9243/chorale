@@ -1,7 +1,7 @@
 import abcjs from 'abcjs';
 import type { Annotation, RangeAnnotation, ScoreInfo } from '../types/document';
-import { chordStaffSpacing } from './annotationLayout';
-import { prepareAbcForPlayback } from '../utils/abcAudio';
+import { chordStaffSpacing, packChordBadgeIntervals } from './annotationLayout';
+import { hideSyntheticTupletRests, prepareAbcForPlayback } from '../utils/abcAudio';
 import { parseAbcHeaderMetadata } from '../utils/abcMetadata';
 
 export class ScorePdfExportError extends Error {
@@ -219,7 +219,6 @@ export const generateScorePdfHtml = ({
     );
 
     const chordAnnotations = annotations.filter((a) => a.kind === 'chord');
-    const hasRangeAnnotations = rangeAnnotations.length > 0;
     const hasChords = chordAnnotations.length > 0;
 
     const preparedAbc = prepareAbcForPlayback(abcSource);
@@ -233,7 +232,7 @@ export const generateScorePdfHtml = ({
     };
 
     try {
-      abcjs.renderAbc(container, preparedAbc, {
+      const tunes = abcjs.renderAbc(container, preparedAbc, {
         responsive: 'resize',
         scale: 1,
         staffwidth: 740,
@@ -248,6 +247,7 @@ export const generateScorePdfHtml = ({
         },
         add_classes: true,
       });
+      hideSyntheticTupletRests(abcSource, tunes);
     } catch (error) {
       throw new ScorePdfExportError('Failed to engrave score with abcjs.', error);
     }
@@ -441,10 +441,8 @@ export const generateScorePdfHtml = ({
       // Debug log
       // console.log(`SYSTEM ${system.index} (${lineClass}): staffEls=${staffEls.length}, topStaffY=${topStaffY}, minObstacleY=${minObstacleY}, systemChordCenterY=${systemChordCenterY}, system.top=${system.top}`);
 
-      let previousPlacedRight = -Infinity;
-
-      sortedChords.forEach((chord) => {
-        if (chord.kind !== 'chord') return;
+      // Pre-compute target positions and badge dimensions for all chords on this line
+      const chordSpecs = sortedChords.map((chord) => {
         const measureIdx = chord.position.measure - 1;
 
         // Query elements specifically on this line
@@ -508,25 +506,60 @@ export const generateScorePdfHtml = ({
         const romanLen = chord.romanNumeral?.length ?? 0;
         const maxCharCount = Math.max(symbolLen, romanLen);
         const badgeWidth = Math.max(38, maxCharCount * 8.5 + 14);
-        const halfWidth = badgeWidth / 2;
         const badgeHeight = chord.romanNumeral ? 28 : 20;
+
+        return {
+          chord,
+          targetX,
+          badgeWidth,
+          badgeHeight,
+        };
+      });
+
+      const intervals = chordSpecs.map((spec) => ({
+        id: spec.chord.id,
+        systemId: String(system.index),
+        lineId: lineClass,
+        centerX: spec.targetX,
+        width: spec.badgeWidth,
+        minX: 10,
+        maxX: svgWidth - 14,
+      }));
+
+      const packedBadges = packChordBadgeIntervals(intervals, 6);
+      const packedMap = new Map(packedBadges.map((p) => [p.id, p]));
+
+      let previousPlacedRight = -Infinity;
+      let previousLane = 0;
+
+      chordSpecs.forEach(({ chord, targetX, badgeWidth, badgeHeight }) => {
+        const halfWidth = badgeWidth / 2;
         const halfHeight = badgeHeight / 2;
+        const packed = packedMap.get(chord.id);
 
-        let idealX = targetX;
+        let idealX = packed ? packed.left + halfWidth : targetX;
+        let lane = 0;
 
-        // De-conflict horizontally if placed near previous chord in this system
-        if (idealX - halfWidth < previousPlacedRight + 6) {
-          idealX = previousPlacedRight + 6 + halfWidth;
+        // If packed bounds still collide after horizontal solving (e.g. extreme density), stack vertically
+        if (idealX - halfWidth < previousPlacedRight + 4) {
+          lane = previousLane + 1;
+        } else {
+          lane = 0;
         }
 
-        // Strictly clamp within horizontal SVG line margins to avoid right/left edge clipping
+        // Clamp within margins
         const minClampX = halfWidth + 10;
         const maxClampX = svgWidth - halfWidth - 14;
         idealX = Math.max(minClampX, Math.min(idealX, maxClampX));
 
-        previousPlacedRight = idealX + halfWidth;
+        if (lane === 0) {
+          previousPlacedRight = idealX + halfWidth;
+          previousLane = 0;
+        } else {
+          previousLane = lane;
+        }
 
-        const badgeY = Math.max(20, systemChordCenterY);
+        const badgeY = Math.max(16, systemChordCenterY - lane * (badgeHeight + 4));
 
         const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         g.setAttribute('class', 'score-chord-badge');
@@ -577,11 +610,10 @@ export const generateScorePdfHtml = ({
 
   // Build system rows
   const systemRowsHtml = systems.map((system) => {
-    // Find range annotations belonging to this system
-    const systemAnnotations = rangeAnnotations.filter((ann) => {
-      const start = ann.span.startMeasure;
-      return start >= system.minMeasure && start <= system.maxMeasure;
-    });
+    // Find range annotations covering this system (interval intersection)
+    const systemAnnotations = rangeAnnotations.filter((ann) => (
+      ann.span.startMeasure <= system.maxMeasure && ann.span.endMeasure >= system.minMeasure
+    ));
 
     const systemSvgHtml = `
       <svg viewBox="0 ${system.top} ${svgWidth} ${system.height}" style="width: 100%; height: auto;" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
@@ -601,12 +633,14 @@ export const generateScorePdfHtml = ({
       </div>
     `).join('\n');
 
+    const systemHasAnnotations = systemAnnotations.length > 0;
+
     return `
-      <div class="print-system-row ${hasRangeAnnotations ? 'has-annotations' : 'notation-only'}">
+      <div class="print-system-row ${systemHasAnnotations ? 'has-annotations' : 'notation-only'}">
         <div class="print-notation-col">
           ${systemSvgHtml}
         </div>
-        ${hasRangeAnnotations ? `
+        ${systemHasAnnotations ? `
           <div class="print-annotation-col">
             ${annotationCardsHtml}
           </div>
