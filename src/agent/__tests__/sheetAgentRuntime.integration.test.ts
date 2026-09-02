@@ -51,9 +51,32 @@ const createStore = async (baseUrl: string) => {
     name: 'Chorale Test Model',
     source: 'live',
     reasoning: true,
+    maxTokens: 943_718,
   };
   await store.updateModels(connection.id, [model]);
   return { directory, store, connection: store.getConnection(connection.id)!, model };
+};
+
+const createOpenRouterStore = async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'chorale-openrouter-runtime-'));
+  directories.push(directory);
+  const store = new AIConnectionStore(directory, cipher);
+  await store.initialize();
+  const connection = await store.saveConnection({
+    name: 'OpenRouter integration provider',
+    kind: 'openrouter',
+    apiKey: 'integration-secret',
+  });
+  const model: AIModelOption = {
+    id: 'vendor/mandatory-reasoning-model',
+    name: 'Mandatory reasoning model',
+    source: 'live',
+    reasoning: true,
+    thinkingLevels: ['low', 'high'],
+    maxTokens: 943_718,
+  };
+  await store.updateModels(connection.id, [model]);
+  return { store, connection: store.getConnection(connection.id)!, model };
 };
 
 const request: SheetAgentRequest = {
@@ -85,6 +108,7 @@ const request: SheetAgentRequest = {
 
 afterEach(async () => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   for (const server of servers.splice(0)) {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -174,6 +198,7 @@ describe('SheetAgentRun provider transport', () => {
     expect(receivedBody).toContain('select_analysis_profile');
     expect(receivedBody).toContain('read_measure_range');
     expect(receivedBody).toContain('Before making any score-specific claim');
+    expect(JSON.parse(receivedBody)).toMatchObject({ max_completion_tokens: 16_384 });
     expect(events).toContainEqual(expect.objectContaining({
       type: 'chat-start',
       requestId: 'runtime-request',
@@ -205,6 +230,38 @@ describe('SheetAgentRun provider transport', () => {
     });
     expect(traceText).toContain('The dominant resolves to tonic.');
     expect(traceText).not.toContain('integration-secret');
+  });
+
+  it('does not disable mandatory OpenRouter reasoning and caps the output budget', async () => {
+    let receivedBody = '';
+    vi.stubGlobal('fetch', vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
+      receivedBody = String(init?.body ?? '');
+      return new Response([
+        'data: {"id":"chat-1","object":"chat.completion.chunk","created":1,"model":"vendor/mandatory-reasoning-model","choices":[{"index":0,"delta":{"role":"assistant","content":"Done."},"finish_reason":null}]}',
+        '',
+        'data: {"id":"chat-1","object":"chat.completion.chunk","created":1,"model":"vendor/mandatory-reasoning-model","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}',
+        '',
+        'data: [DONE]',
+        '',
+      ].join('\n'), {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+      });
+    }));
+    const { store, connection, model } = await createOpenRouterStore();
+    const run = new SheetAgentRun(
+      'openrouter-request',
+      { ...request, thinkingLevel: 'off' },
+      connection,
+      model,
+      store,
+      () => undefined,
+    );
+
+    await run.start();
+
+    expect(JSON.parse(receivedBody)).toMatchObject({ max_completion_tokens: 16_384 });
+    expect(JSON.parse(receivedBody)).not.toHaveProperty('reasoning');
   });
 
   it('aborts an in-flight upstream request', async () => {

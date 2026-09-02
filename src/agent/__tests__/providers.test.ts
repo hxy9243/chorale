@@ -72,6 +72,46 @@ describe('provider model discovery', () => {
     expect(models.map((model) => model.id)).toEqual(['gemini-test']);
   });
 
+  it('preserves live OpenRouter reasoning capabilities and mandatory reasoning', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      data: [{
+        id: 'vendor/optional-reasoning-model',
+        name: 'Optional reasoning model',
+        reasoning: {
+          mandatory: false,
+          supported_efforts: ['low', 'high'],
+        },
+      }, {
+        id: 'vendor/mandatory-reasoning-model',
+        name: 'Mandatory reasoning model',
+        reasoning: {
+          mandatory: true,
+          supported_efforts: ['low', 'high', 'max'],
+        },
+      }],
+    }), { status: 200 })));
+
+    const models = await queryModels(connection('openrouter'), { apiKey: 'provider-secret' });
+
+    expect(models).toEqual([{
+      id: 'vendor/mandatory-reasoning-model',
+      name: 'Mandatory reasoning model',
+      source: 'live',
+      contextWindow: undefined,
+      maxTokens: undefined,
+      reasoning: true,
+      thinkingLevels: ['low', 'high', 'max'],
+    }, {
+      id: 'vendor/optional-reasoning-model',
+      name: 'Optional reasoning model',
+      source: 'live',
+      contextWindow: undefined,
+      maxTokens: undefined,
+      reasoning: true,
+      thinkingLevels: ['off', 'low', 'high'],
+    }]);
+  });
+
   it('uses a custom OpenAI-compatible endpoint and validated headers', async () => {
     const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
       expect(new Headers(init.headers).get('X-Workspace')).toBe('chorale');

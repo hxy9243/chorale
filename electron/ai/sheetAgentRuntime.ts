@@ -19,6 +19,8 @@ import { projectToolLifecycleEvent } from './toolEvents';
 import { AGENT_PROFILE_REGISTRY } from './agentProfiles';
 import type { AgentTraceRun, AgentTraceStore } from './agentTrace';
 
+export const SHEET_AGENT_MAX_COMPLETION_TOKENS = 16_384;
+
 export const mapAgentError = (error: unknown): { code: AIErrorCode; message: string } => {
   if (error instanceof DOMException && error.name === 'AbortError') {
     return { code: 'aborted', message: 'The response was stopped.' };
@@ -233,7 +235,15 @@ export class SheetAgentRun {
         });
       },
       streamFn: (activeModel, context, options) => (
-        models.streamSimple(activeModel, context, options)
+        models.streamSimple(activeModel, context, {
+          ...options,
+          maxTokens: Math.min(
+            options?.maxTokens && options.maxTokens > 0
+              ? options.maxTokens
+              : activeModel.maxTokens,
+            SHEET_AGENT_MAX_COMPLETION_TOKENS,
+          ),
+        })
       ),
     });
     this.agent = agent;

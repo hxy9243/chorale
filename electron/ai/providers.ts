@@ -16,10 +16,13 @@ import { googleProvider } from '@earendil-works/pi-ai/providers/google';
 import { openaiProvider } from '@earendil-works/pi-ai/providers/openai';
 import { openaiCodexProvider } from '@earendil-works/pi-ai/providers/openai-codex';
 import { openrouterProvider } from '@earendil-works/pi-ai/providers/openrouter';
-import type {
-  AIConnectionPublic,
-  AIModelOption,
-  AIProviderKind,
+import {
+  AI_THINKING_LEVELS,
+  isAIThinkingLevel,
+  type AIConnectionPublic,
+  type AIModelOption,
+  type AIProviderKind,
+  type AIThinkingLevel,
 } from '../../src/agent/aiTypes';
 import type { AIConnectionStore, ConnectionSecret } from './connectionStore';
 
@@ -126,6 +129,19 @@ type UnknownModelInput = {
   contextWindow?: number;
   maxTokens?: number;
   reasoning?: boolean;
+  thinkingLevels?: AIThinkingLevel[];
+};
+
+const thinkingLevelMapFromOption = (
+  option: AIModelOption,
+): Model<Api>['thinkingLevelMap'] => {
+  if (!option.reasoning || !option.thinkingLevels) return undefined;
+  const supported = new Set(option.thinkingLevels);
+  const map: NonNullable<Model<Api>['thinkingLevelMap']> = {};
+  for (const level of AI_THINKING_LEVELS) {
+    map[level] = supported.has(level) ? (level === 'off' ? 'none' : level) : null;
+  }
+  return map;
 };
 
 const createRuntimeModel = (
@@ -134,7 +150,13 @@ const createRuntimeModel = (
   catalog: readonly Model<Api>[],
 ): Model<Api> => {
   const known = catalog.find((candidate) => candidate.id === option.id);
-  if (known) return known;
+  if (known) {
+    return {
+      ...known,
+      reasoning: option.reasoning ?? known.reasoning,
+      thinkingLevelMap: thinkingLevelMapFromOption(option) ?? known.thinkingLevelMap,
+    };
+  }
 
   const provider = connection.kind === 'custom'
     ? `custom-${connection.id}`
@@ -150,6 +172,7 @@ const createRuntimeModel = (
     provider,
     baseUrl,
     reasoning: option.reasoning ?? false,
+    thinkingLevelMap: thinkingLevelMapFromOption(option),
     input: ['text'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: option.contextWindow ?? 128_000,
@@ -191,6 +214,33 @@ const asModelRows = (value: unknown): Record<string, unknown>[] => (
     : []
 );
 
+const DEFAULT_REASONING_LEVELS: AIThinkingLevel[] = ['minimal', 'low', 'medium', 'high'];
+
+const openRouterReasoning = (
+  value: unknown,
+): Pick<UnknownModelInput, 'reasoning' | 'thinkingLevels'> => {
+  if (value !== true && (typeof value !== 'object' || value === null || Array.isArray(value))) {
+    return {};
+  }
+  const metadata = value === true ? {} : value as Record<string, unknown>;
+  const mandatory = metadata.mandatory === true;
+  const rawEfforts = Array.isArray(metadata.supported_efforts)
+    ? metadata.supported_efforts
+    : [];
+  const advertised = rawEfforts
+    .map((effort) => effort === 'none' ? 'off' : effort)
+    .filter(isAIThinkingLevel);
+  const supported = new Set<AIThinkingLevel>(
+    advertised.length > 0 ? advertised : DEFAULT_REASONING_LEVELS,
+  );
+  if (mandatory) supported.delete('off');
+  else supported.add('off');
+  return {
+    reasoning: true,
+    thinkingLevels: AI_THINKING_LEVELS.filter((level) => supported.has(level)),
+  };
+};
+
 const normalizeUnknownModels = (
   rows: UnknownModelInput[],
   catalog: readonly Model<Api>[],
@@ -199,7 +249,13 @@ const normalizeUnknownModels = (
   return [...new Map(rows.filter((row) => row.id).map((row) => {
     const known = byId.get(row.id);
     return [row.id, known
-      ? optionFromCatalogModel(known, 'live')
+      ? {
+          ...optionFromCatalogModel(known, 'live'),
+          ...(row.reasoning === undefined ? {} : {
+            reasoning: row.reasoning,
+            thinkingLevels: row.thinkingLevels,
+          }),
+        }
       : {
           id: row.id,
           name: row.name || row.id,
@@ -207,6 +263,7 @@ const normalizeUnknownModels = (
           contextWindow: row.contextWindow,
           maxTokens: row.maxTokens,
           reasoning: row.reasoning,
+          thinkingLevels: row.thinkingLevels,
         }];
   })).values()].sort((left, right) => left.name.localeCompare(right.name));
 };
@@ -275,6 +332,7 @@ export const queryModels = async (
     )
       ? (row.top_provider as Record<string, number>).max_completion_tokens
       : undefined,
+    ...(connection.kind === 'openrouter' ? openRouterReasoning(row.reasoning) : {}),
   }));
   return normalizeUnknownModels(rows, catalog);
 };
