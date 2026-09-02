@@ -6,7 +6,7 @@ import {
   DURABLE_CONVERSATION_MARKER_PREFIX,
 } from '../../agent/conversationStore';
 import type { AIProviderState } from '../../agent/useAIProviders';
-import type { SheetAgentRequest } from '../../agent/aiTypes';
+import type { AIModelOption, SheetAgentRequest } from '../../agent/aiTypes';
 import type { Annotation, AnnotationProposal, ScoreChangeProposal } from '../../types/document';
 import { storageAdapter } from '../../utils/storageAdapter';
 
@@ -444,6 +444,63 @@ describe('AgentChatPanel', () => {
     await screen.findByText('Grounded mock response');
     expect((agentSendMock.mock.calls[0][0] as SheetAgentRequest).thinkingLevel).toBe('medium');
     expect(localStorage.getItem('chorale.agent.thinkingLevel')).toBe('medium');
+  });
+
+  it('refreshes a provider model catalog every time that provider is selected', async () => {
+    const refreshModels = vi.fn(async (): Promise<AIModelOption[]> => ([{
+      id: 'glm-fresh',
+      name: 'GLM Fresh',
+      source: 'live' as const,
+      reasoning: true,
+      thinkingLevels: ['low', 'high', 'max'],
+    }]));
+    const setSelection = vi.fn(async () => undefined);
+    const providerState: AIProviderState = {
+      ...ai,
+      connections: [...ai.connections, {
+        id: 'openrouter-test',
+        name: 'OpenRouter test',
+        kind: 'openrouter',
+        authType: 'api-key',
+        persistence: 'encrypted',
+        status: 'ready',
+      }],
+      modelsByConnection: {
+        ...ai.modelsByConnection,
+        'openrouter-test': [{
+          id: 'glm-stale',
+          name: 'GLM Stale',
+          source: 'live',
+        }],
+      },
+      refreshModels,
+      setSelection,
+    };
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-provider-refresh"
+        abcCode={'X:1\nT:Refresh\nK:C\nCDEF|'}
+        activeFileName="Refresh.abc"
+        revision={1}
+        ai={providerState}
+        onOpenSettings={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', {
+      name: 'Choose AI provider, model, and thinking level',
+    }));
+    fireEvent.change(screen.getByLabelText('AI provider'), {
+      target: { value: 'openrouter-test' },
+    });
+
+    await waitFor(() => expect(refreshModels).toHaveBeenCalledWith('openrouter-test'));
+    expect(setSelection).toHaveBeenCalledWith({
+      connectionId: 'openrouter-test',
+      modelId: 'glm-fresh',
+    });
   });
 
   it('disables start new thread button when conversation is empty and does not create empty threads', () => {

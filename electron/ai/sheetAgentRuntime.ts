@@ -97,14 +97,41 @@ const summarizeResponseHeaders = (headers: Record<string, string>) => Object.fro
 
 const shouldPersistAgentEvent = (event: AgentEvent) => event.type !== 'message_update';
 
-export const projectAssistantDelta = (event: AgentEvent): string | undefined => {
-  if (event.type !== 'message_update') return undefined;
-  const update = event.assistantMessageEvent;
-  if (update.type === 'text_delta') return update.delta;
-  if (update.type === 'thinking_end' && update.content.trim()) {
-    return `<think>\n${update.content}\n</think>\n\n`;
-  }
-  return undefined;
+export const createAssistantDeltaProjector = () => {
+  const streamedThinking = new Map<number, string>();
+
+  return (event: AgentEvent): string | undefined => {
+    if (event.type !== 'message_update') return undefined;
+    const update = event.assistantMessageEvent;
+    if (update.type === 'text_delta') return update.delta;
+    if (update.type === 'thinking_start') {
+      streamedThinking.set(update.contentIndex, '');
+      return '<think>\n';
+    }
+    if (update.type === 'thinking_delta') {
+      if (streamedThinking.has(update.contentIndex)) {
+        streamedThinking.set(
+          update.contentIndex,
+          `${streamedThinking.get(update.contentIndex) ?? ''}${update.delta}`,
+        );
+      }
+      return update.delta;
+    }
+    if (update.type === 'thinking_end') {
+      const streamed = streamedThinking.get(update.contentIndex);
+      streamedThinking.delete(update.contentIndex);
+      if (streamed === undefined) {
+        return update.content.trim()
+          ? `<think>\n${update.content}\n</think>\n\n`
+          : undefined;
+      }
+      const remainder = update.content.startsWith(streamed)
+        ? update.content.slice(streamed.length)
+        : '';
+      return `${remainder}\n</think>\n\n`;
+    }
+    return undefined;
+  };
 };
 
 export class SheetAgentRun {
@@ -256,6 +283,7 @@ export class SheetAgentRun {
       providerKind: this.connection.kind,
     });
 
+    const projectAssistantDelta = createAssistantDeltaProjector();
     const unsubscribe = agent.subscribe(async (event) => {
       if (shouldPersistAgentEvent(event)) {
         await trace?.append('agent-event', event);

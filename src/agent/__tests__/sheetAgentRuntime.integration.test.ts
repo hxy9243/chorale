@@ -8,8 +8,8 @@ import abcjs from 'abcjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AIConnectionStore, type SecretCipher } from '../../../electron/ai/connectionStore';
 import {
+  createAssistantDeltaProjector,
   mapAgentError,
-  projectAssistantDelta,
   redactSecretValues,
   SheetAgentRun,
 } from '../../../electron/ai/sheetAgentRuntime';
@@ -264,6 +264,43 @@ describe('SheetAgentRun provider transport', () => {
     expect(JSON.parse(receivedBody)).not.toHaveProperty('reasoning');
   });
 
+  it('streams provider thinking deltas without repeating the completed trace', async () => {
+    const server = createServer((incoming, response) => {
+      incoming.resume();
+      incoming.on('end', () => {
+        response.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+        });
+        response.write('data: {"id":"chat-thinking","object":"chat.completion.chunk","created":1,"model":"chorale-test-model","choices":[{"index":0,"delta":{"role":"assistant","reasoning_content":"Checking "},"finish_reason":null}]}\n\n');
+        response.write('data: {"id":"chat-thinking","object":"chat.completion.chunk","created":1,"model":"chorale-test-model","choices":[{"index":0,"delta":{"reasoning_content":"the inner voices."},"finish_reason":null}]}\n\n');
+        response.write('data: {"id":"chat-thinking","object":"chat.completion.chunk","created":1,"model":"chorale-test-model","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n');
+        response.end('data: [DONE]\n\n');
+      });
+    });
+    const port = await listen(server);
+    const { store, connection, model } = await createStore(`http://127.0.0.1:${port}/v1`);
+    const events: AIEvent[] = [];
+    const run = new SheetAgentRun(
+      'thinking-stream-request',
+      request,
+      connection,
+      model,
+      store,
+      (event) => events.push(event),
+    );
+
+    await run.start();
+
+    expect(events.filter((event) => event.type === 'chat-delta').map((event) => event.text))
+      .toEqual([
+        '<think>\n',
+        'Checking ',
+        'the inner voices.',
+        '\n</think>\n\n',
+      ]);
+  });
+
   it('aborts an in-flight upstream request', async () => {
     let requestArrived!: () => void;
     const arrived = new Promise<void>((resolve) => {
@@ -314,6 +351,7 @@ describe('SheetAgentRun provider transport', () => {
 
 describe('assistant stream projection', () => {
   it('wraps completed provider thinking as a quoted chat trace', () => {
+    const projectAssistantDelta = createAssistantDeltaProjector();
     expect(projectAssistantDelta({
       type: 'message_update',
       assistantMessageEvent: {

@@ -806,8 +806,8 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       await ai.setSelection(null);
       return;
     }
-    const models = ai.modelsByConnection[connectionId] ?? [];
-    const firstModel = models[0] ?? (await ai.refreshModels(connectionId))[0];
+    const models = await ai.refreshModels(connectionId);
+    const firstModel = models[0];
     await ai.setSelection(firstModel ? { connectionId, modelId: firstModel.id } : null);
   };
 
