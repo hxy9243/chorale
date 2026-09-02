@@ -27,7 +27,7 @@
     "@educandu/abc-tools": "^3.0.3",
     "@fontsource-variable/ibm-plex-sans": "^5.3.0",
     "@fontsource/ibm-plex-mono": "^5.3.0",
-    "abc-utils": "github:hxy9243/abc-utils#f19798a2cb43b257b92f99e5bf7485e07c097b1f",
+    "abc-utils": "github:hxy9243/abc-utils#56f524eb83b7f9cf0e93e1e186a4d87899e2c476",
     "abcjs": "^6.6.4",
     "jszip": "^3.10.1",
     "lucide-react": "^0.475.0",
