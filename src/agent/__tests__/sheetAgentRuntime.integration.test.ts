@@ -119,6 +119,45 @@ afterEach(async () => {
 });
 
 describe('SheetAgentRun provider transport', () => {
+  it('rejects a steer after streaming ends instead of acknowledging a message no run can consume', async () => {
+    const { store, connection, model } = await createStore('http://127.0.0.1:1/v1');
+    const events: AIEvent[] = [];
+    const run = new SheetAgentRun(
+      'ended-run',
+      request,
+      connection,
+      model,
+      store,
+      (event) => events.push(event),
+    );
+    const steer = vi.fn();
+    const internals = run as unknown as {
+      acceptingSteers: boolean;
+      agent: { state: { isStreaming: boolean }; steer: typeof steer };
+    };
+    internals.acceptingSteers = true;
+    internals.agent = { state: { isStreaming: false }, steer };
+
+    await expect(run.steer({
+      messageId: 'late-steer',
+      question: 'Elaborate on that.',
+      context: request.context,
+    })).resolves.toEqual({ steered: false });
+    expect(steer).not.toHaveBeenCalled();
+    expect(events).not.toContainEqual(expect.objectContaining({ type: 'steer-accepted' }));
+
+    // agent_end closes the acceptance window before asynchronous trace cleanup,
+    // even though Pi has not yet flipped its public streaming state.
+    internals.agent.state.isStreaming = true;
+    internals.acceptingSteers = false;
+    await expect(run.steer({
+      messageId: 'agent-end-steer',
+      question: 'One more detail.',
+      context: request.context,
+    })).resolves.toEqual({ steered: false });
+    expect(steer).not.toHaveBeenCalled();
+  });
+
   it('sends authenticated score context and history, then streams deltas', async () => {
     let receivedBody = '';
     let receivedAuthorization = '';

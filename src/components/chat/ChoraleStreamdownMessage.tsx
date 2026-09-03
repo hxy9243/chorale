@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { Streamdown } from 'streamdown';
 import { parseMeasureReference } from '../../agent/measureReferences';
 import type { ScoreAnchor } from '../../types/document';
+import { CHORALE_STREAMDOWN_REHYPE_PLUGINS } from './streamdownConfig';
 
 interface ChoraleStreamdownMessageProps {
   content: string;
@@ -96,7 +97,7 @@ export const ChoraleStreamdownMessage = memo(function ChoraleStreamdownMessage({
         key={`streamdown-${totalMeasures}-${isStreaming}`}
         mode={isStreaming ? 'streaming' : 'static'}
         controls={false}
-        allowedTags={{}}
+        rehypePlugins={CHORALE_STREAMDOWN_REHYPE_PLUGINS}
         components={components}
       >
         {content}

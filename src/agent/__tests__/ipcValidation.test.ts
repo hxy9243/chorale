@@ -70,6 +70,81 @@ describe('AI IPC validation', () => {
     })).toThrow('history');
   });
 
+  it('validates and reconstructs structured history parts at the IPC boundary', () => {
+    const request = validateChatRequest({
+      question: 'Continue',
+      history: [{
+        id: 'assistant-1',
+        role: 'assistant',
+        content: 'Visible answer',
+        createdAt: '2026-09-03T00:00:00.000Z',
+        status: 'complete',
+        parts: [
+          { type: 'reasoning', text: 'Private reasoning', status: 'complete' },
+          { type: 'tool', toolCallId: 'tool-1', toolName: 'read_score', summary: 'Read measures 1-4', status: 'success', durationMs: 12 },
+          { type: 'text', text: 'Visible answer' },
+        ],
+        rendererOnly: 'must not cross the trust boundary',
+      }],
+      context: {
+        id: 'context',
+        documentId: 'document',
+        revision: 1,
+        capturedAt: '2026-09-03T00:00:00.000Z',
+        fileName: 'Test.abc',
+        abc: 'X:1\nK:C\nC|',
+        annotations: [],
+      },
+    });
+
+    expect(request.history[0]).toEqual({
+      id: 'assistant-1',
+      role: 'assistant',
+      content: 'Visible answer',
+      createdAt: '2026-09-03T00:00:00.000Z',
+      status: 'complete',
+      parts: [
+        { type: 'reasoning', text: 'Private reasoning', status: 'complete' },
+        { type: 'tool', toolCallId: 'tool-1', toolName: 'read_score', summary: 'Read measures 1-4', status: 'success', durationMs: 12 },
+        { type: 'text', text: 'Visible answer' },
+      ],
+    });
+  });
+
+  it('rejects malformed and oversized structured history parts', () => {
+    const context = {
+      id: 'context',
+      documentId: 'document',
+      revision: 1,
+      capturedAt: '2026-09-03T00:00:00.000Z',
+      fileName: 'Test.abc',
+      abc: 'X:1\nK:C\nC|',
+      annotations: [],
+    };
+    const message = {
+      id: 'assistant-1',
+      role: 'assistant',
+      content: '',
+      createdAt: '2026-09-03T00:00:00.000Z',
+    };
+
+    expect(() => validateChatRequest({
+      question: 'Continue',
+      history: [{ ...message, parts: [{ type: 'text', text: 'x'.repeat(500_001) }] }],
+      context,
+    })).toThrow('limits');
+    expect(() => validateChatRequest({
+      question: 'Continue',
+      history: [{ ...message, parts: [{ type: 'reasoning', text: 'x', status: 'unknown' }] }],
+      context,
+    })).toThrow('parts');
+    expect(() => validateChatRequest({
+      question: 'Continue',
+      history: [{ ...message, parts: [{ type: 'tool', toolCallId: 'tool-1', toolName: 'read_score', summary: 'x', status: 'success', durationMs: -1 }] }],
+      context,
+    })).toThrow('parts');
+  });
+
   it('accepts supported thinking levels, defaults old requests to off, and rejects unknown values', () => {
     const baseRequest = {
       question: 'Analyze this',

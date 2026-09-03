@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { ChoraleReasoningView } from '../ChoraleReasoningView';
 import { ChoraleStreamdownMessage } from '../ChoraleStreamdownMessage';
 
 describe('ChoraleStreamdownMessage', () => {
@@ -28,7 +29,7 @@ describe('ChoraleStreamdownMessage', () => {
     expect(disabledLink.getAttribute('aria-disabled')).toBe('true');
   });
 
-  it('strips raw HTML via allowedTags: []', () => {
+  it('disables raw HTML while preserving ordinary Markdown rendering', () => {
     render(
       <ChoraleStreamdownMessage
         content="Testing <img src=x onerror=alert(1)> and <b>bold text</b>."
@@ -38,6 +39,18 @@ describe('ChoraleStreamdownMessage', () => {
     );
 
     expect(document.querySelector('img')).toBeNull();
+    expect(document.querySelector('b')).toBeNull();
+  });
+
+  it('also disables raw HTML inside reasoning traces', () => {
+    render(
+      <ChoraleReasoningView
+        reasoning="Testing <img src=x onerror=alert(1)> and <b>bold thought</b>."
+      />,
+    );
+
+    expect(document.querySelector('img')).toBeNull();
+    expect(document.querySelector('b')).toBeNull();
   });
 
   it('renders a markdown table with semantic elements and without Streamdown control buttons', () => {
@@ -94,4 +107,3 @@ describe('ChoraleStreamdownMessage', () => {
     });
   });
 });
-

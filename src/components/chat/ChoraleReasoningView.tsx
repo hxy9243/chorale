@@ -1,5 +1,6 @@
 import { memo, useEffect, useState } from 'react';
 import { Streamdown } from 'streamdown';
+import { CHORALE_STREAMDOWN_REHYPE_PLUGINS } from './streamdownConfig';
 
 interface ChoraleReasoningViewProps {
   reasoning: string;
@@ -44,7 +45,7 @@ export const ChoraleReasoningView = memo(function ChoraleReasoningView({
         <Streamdown
           mode={isStreaming ? 'streaming' : 'static'}
           controls={false}
-          allowedTags={{}}
+          rehypePlugins={CHORALE_STREAMDOWN_REHYPE_PLUGINS}
         >
           {displayContent}
         </Streamdown>

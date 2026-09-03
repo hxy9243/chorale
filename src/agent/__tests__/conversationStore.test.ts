@@ -130,6 +130,42 @@ describe('conversationStore', () => {
     expect(v3Payload.files[fileId].threads[0].messages[0].id).toBe('msg-v3');
   });
 
+  it('treats an existing empty v4 store as authoritative over preserved v3 history', async () => {
+    const v3Store = {
+      version: 3,
+      files: {
+        [fileId]: buildConversation([{ ...messages[0], id: 'stale-v3' }]),
+      },
+    };
+    const emptyV4Store = { version: 4, files: {} };
+    localStorage.setItem(VERSION_3_CONVERSATION_STORAGE_KEY, JSON.stringify(v3Store));
+    localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify(emptyV4Store));
+
+    expect(loadConversation(fileId).threads[0].messages).toEqual([]);
+
+    await storageAdapter.setItem(VERSION_3_CONVERSATION_STORAGE_KEY, v3Store);
+    await storageAdapter.setItem(CONVERSATION_STORAGE_KEY, emptyV4Store);
+    await expect(loadConversationAsync(fileId)).resolves.toMatchObject({
+      threads: [{ messages: [] }],
+    });
+  });
+
+  it('does not resurrect preserved v3 history after clearing its migrated v4 conversation', () => {
+    const v3Store = {
+      version: 3,
+      files: {
+        [fileId]: buildConversation([{ ...messages[0], id: 'stale-v3' }]),
+      },
+    };
+    localStorage.setItem(VERSION_3_CONVERSATION_STORAGE_KEY, JSON.stringify(v3Store));
+
+    expect(loadConversation(fileId).threads[0].messages).toHaveLength(1);
+    clearConversation(fileId);
+
+    expect(loadConversation(fileId).threads[0].messages).toEqual([]);
+    expect(localStorage.getItem(VERSION_3_CONVERSATION_STORAGE_KEY)).not.toBeNull();
+  });
+
   it('safely handles unclosed or malformed <think> tags from interrupted streams', () => {
     const unclosed = parseLegacyThinkingMarkup('<think>Still thinking...', true);
     expect(unclosed).toEqual([

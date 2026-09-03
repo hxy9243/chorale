@@ -227,8 +227,8 @@ try {
           const sourceRevision = storedDocuments.find(({ id }) => id === activeFileId)?.revision;
           if (!Number.isInteger(sourceRevision)) continue;
           const timestamp = new Date().toISOString();
-          localStorage.setItem('chorale.pi-agent-conversation.v3', JSON.stringify({
-            version: 3,
+          localStorage.setItem('chorale.pi-agent-conversation.v4', JSON.stringify({
+            version: 4,
             files: {
               [activeFileId]: {
                 activeThreadId: 'thread-passage-smoke',
@@ -384,7 +384,7 @@ try {
         });
         database.close();
         const sourceRevision = storedDocuments.find(({ id }) => id === activeFileId)?.revision;
-        const store = JSON.parse(localStorage.getItem('chorale.pi-agent-conversation.v3') ?? 'null');
+        const store = JSON.parse(localStorage.getItem('chorale.pi-agent-conversation.v4') ?? 'null');
         if (Number.isInteger(sourceRevision) && store?.files?.[activeFileId]) {
           for (const thread of store.files[activeFileId].threads) {
             for (const message of thread.messages) {
@@ -395,7 +395,7 @@ try {
               }
             }
           }
-          localStorage.setItem('chorale.pi-agent-conversation.v3', JSON.stringify(store));
+          localStorage.setItem('chorale.pi-agent-conversation.v4', JSON.stringify(store));
           return true;
         }
       }
@@ -435,7 +435,7 @@ try {
       throw new Error(error.message + ' ' + JSON.stringify({
         activeFileId: localStorage.getItem('chorale.workspace.activeFileId'),
         chatOpen: localStorage.getItem('chorale.workspace.chatOpen'),
-        store: localStorage.getItem('chorale.pi-agent-conversation.v3'),
+        store: localStorage.getItem('chorale.pi-agent-conversation.v4'),
         assistantMessages: document.querySelectorAll('.agent-message.assistant').length,
         panel: Boolean(document.querySelector('.agent-panel')),
       }));
@@ -981,7 +981,7 @@ try {
     document.querySelector('[aria-label="Close settings"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 25));
     const readActiveThread = () => {
-      const store = JSON.parse(localStorage.getItem('chorale.pi-agent-conversation.v3') ?? 'null');
+      const store = JSON.parse(localStorage.getItem('chorale.pi-agent-conversation.v4') ?? 'null');
       const activeFileId = localStorage.getItem('chorale.workspace.activeFileId');
       const fileConversation = activeFileId ? store?.files?.[activeFileId] : null;
       return {

@@ -162,6 +162,7 @@ export class SheetAgentRun {
   };
   private hasUsage = false;
   private seenUsageMessages = new Set<unknown>();
+  private acceptingSteers = false;
 
   constructor(
     requestId: string,
@@ -297,7 +298,7 @@ export class SheetAgentRun {
   }
 
   async steer(steer: SheetAgentSteerRequest): Promise<{ steered: boolean }> {
-    if (this.cancelled || !this.agent) {
+    if (this.cancelled || !this.acceptingSteers || !this.agent?.state.isStreaming) {
       return { steered: false };
     }
     const steerPrompt = formatPrompt(steer.question, steer.context, this.scoreSnapshot);
@@ -397,6 +398,9 @@ export class SheetAgentRun {
     });
 
     const unsubscribe = agent.subscribe(async (event) => {
+      // Pi will not poll its steering queue again after agent_end. Close the
+      // acknowledgement window before any awaited trace work can yield.
+      if (event.type === 'agent_end') this.acceptingSteers = false;
       if (shouldPersistAgentEvent(event)) {
         await trace?.append('agent-event', event);
       }
@@ -439,6 +443,7 @@ export class SheetAgentRun {
 
     let outcome: Record<string, unknown> = { status: 'complete' };
     try {
+      this.acceptingSteers = true;
       await agent.prompt(currentPrompt);
       if (this.cancelled) throw new DOMException('The response was stopped.', 'AbortError');
       if (agent.state.errorMessage) throw new Error(agent.state.errorMessage);
@@ -467,6 +472,7 @@ export class SheetAgentRun {
         message: redactSecretValues(mapped.message, this.store.getSecret(this.connection.id)),
       });
     } finally {
+      this.acceptingSteers = false;
       this.flushDeltas();
       await trace?.append('run-end', {
         ...outcome,

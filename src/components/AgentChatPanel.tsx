@@ -543,13 +543,22 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   const threadPickerRef = useRef<HTMLDivElement | null>(null);
   const threadTriggerRef = useRef<HTMLButtonElement | null>(null);
   const conversationRef = useRef(conversation);
-  conversationRef.current = conversation;
   const abortControllerRef = useRef<AbortController | null>(null);
   const activeRunRef = useRef<{ fileId: string; threadId: string; assistantId: string } | null>(null);
   const activeRequestIdRef = useRef<string | null>(null);
   const agentRef = useRef<DesktopSheetAgent | null>(null);
   const documentRevisionRef = useRef({ fileId, revision });
   documentRevisionRef.current = { fileId, revision };
+
+  const updateConversation = useCallback((
+    nextOrUpdater: React.SetStateAction<PersistedFileConversation>,
+  ) => {
+    const next = typeof nextOrUpdater === 'function'
+      ? nextOrUpdater(conversationRef.current)
+      : nextOrUpdater;
+    conversationRef.current = next;
+    setConversation(next);
+  }, []);
 
   const stop = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -572,13 +581,13 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       setIsStreaming(false);
     }
     if (!fileId) {
-      setConversation(makeEmptyConversation());
+      updateConversation(makeEmptyConversation());
       setConversationFileId('');
       setDurableHydrationPending(false);
       setDurableHydrationFailed(false);
       return;
     }
-    setConversation(loadConversation(fileId));
+    updateConversation(loadConversation(fileId));
     setConversationFileId(fileId);
     let cancelled = false;
     const needsDurableHydration = conversationNeedsDurableHydration(fileId);
@@ -587,7 +596,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     if (needsDurableHydration) {
       void loadConversationAsync(fileId).then((loaded) => {
         if (!cancelled) {
-          setConversation(loaded);
+          updateConversation(loaded);
           setDurableHydrationFailed(false);
         }
       }).catch(() => {
@@ -606,7 +615,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [fileId, stop]);
+  }, [fileId, stop, updateConversation]);
 
   useEffect(() => {
     if (
@@ -637,7 +646,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
 
   useEffect(() => {
     if (!fileId || revision <= 0) return;
-    setConversation((current) => ({
+    updateConversation((current) => ({
       ...current,
       threads: current.threads.map((thread) => ({
         ...thread,
@@ -652,7 +661,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         )),
       })),
     }));
-  }, [fileId, revision]);
+  }, [fileId, revision, updateConversation]);
 
   const activeThread = useMemo(() => (
     conversation.threads.find((thread) => thread.id === conversation.activeThreadId) || conversation.threads[0]
@@ -660,8 +669,6 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
 
   const messages = useMemo(() => activeThread?.messages || [], [activeThread]);
   const pendingMessages = useMemo(() => activeThread?.pendingMessages || [], [activeThread]);
-  const pendingMessagesRef = useRef(pendingMessages);
-  pendingMessagesRef.current = pendingMessages;
   const anchorLabel = formatAnchorLabel(activeAnchor);
 
   const getAgent = useCallback(() => {
@@ -725,25 +732,25 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   }), [abcCode, activeAnchor, activeFileName, annotations, fileId, revision]);
 
   const updateMessages = useCallback((threadId: string, updater: (messages: ChatMessage[]) => ChatMessage[]) => {
-    setConversation((current) => replaceActiveThread(current, threadId, (thread) => ({
+    updateConversation((current) => replaceActiveThread(current, threadId, (thread) => ({
       ...thread,
       updatedAt: new Date().toISOString(),
       messages: updater(thread.messages),
     })));
-  }, []);
+  }, [updateConversation]);
 
   const updatePendingQueue = useCallback((threadId: string, nextQueue: QueuedChatMessage[]) => {
-    setConversation((current) => replaceActiveThread(current, threadId, (thread) => ({
+    updateConversation((current) => replaceActiveThread(current, threadId, (thread) => ({
       ...thread,
       pendingMessages: nextQueue,
     })));
-  }, []);
+  }, [updateConversation]);
 
   const handleNewThread = () => {
     if (!fileId || (activeThread && activeThread.messages.length === 0)) return;
     if (isStreaming) stop();
     const thread = makeThread();
-    setConversation((current) => ({
+    updateConversation((current) => ({
       activeThreadId: thread.id,
       threads: [thread, ...current.threads],
     }));
@@ -755,7 +762,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   const handleDeleteThread = () => {
     if (!fileId || !activeThread) return;
     if (isStreaming) stop();
-    setConversation((current) => {
+    updateConversation((current) => {
       const remainingThreads = current.threads.filter((candidate) => candidate.id !== activeThread.id);
       if (remainingThreads.length === 0) {
         const fresh = makeThread();
@@ -954,10 +961,11 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       proposals: [],
       scoreProposals: [],
     };
-    const history = activeThread.messages;
     const threadId = activeThread.id;
+    const history = conversationRef.current.threads.find((thread) => thread.id === threadId)?.messages
+      ?? activeThread.messages;
 
-    setConversation((current) => replaceActiveThread(current, threadId, (thread) => ({
+    updateConversation((current) => replaceActiveThread(current, threadId, (thread) => ({
       ...thread,
       title: thread.messages.length === 0 ? deriveThreadTitle(question) || thread.title : thread.title,
       updatedAt: new Date().toISOString(),
@@ -1163,13 +1171,13 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
 
         // Check if there are queued items to drain next in FIFO order (only if not cancelled)
         if (!controller.signal.aborted) {
-          const currentQueue = pendingMessagesRef.current;
+          const currentQueue = conversationRef.current.threads
+            .find((thread) => thread.id === threadId)?.pendingMessages ?? [];
           if (currentQueue.length > 0) {
             const steerIdx = currentQueue.findIndex((m) => m.lane === 'steer');
             const pickIdx = steerIdx >= 0 ? steerIdx : 0;
             const nextItem = currentQueue[pickIdx];
             const remainingQueue = currentQueue.filter((_, idx) => idx !== pickIdx);
-            pendingMessagesRef.current = remainingQueue;
             updatePendingQueue(threadId, remainingQueue);
             if (fileId) {
               savePendingQueue(fileId, threadId, remainingQueue);
@@ -1192,6 +1200,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     effectiveThinkingLevel,
     updateMessages,
     updatePendingQueue,
+    updateConversation,
     queueAdapter,
   ]);
 
@@ -1276,7 +1285,6 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     if (isStreaming) return;
     const dequeued = queueAdapter.runNext(item.id);
     if (!dequeued) return;
-    pendingMessagesRef.current = pendingMessagesRef.current.filter((m) => m.id !== dequeued.id);
     void executePrompt(dequeued.prompt, dequeued.context);
   }, [isStreaming, queueAdapter, executePrompt]);
 
@@ -1372,7 +1380,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
                       role="option"
                       aria-selected={thread.id === activeThread?.id}
                       onClick={() => {
-                        setConversation((current) => ({
+                        updateConversation((current) => ({
                           ...current,
                           activeThreadId: thread.id,
                         }));

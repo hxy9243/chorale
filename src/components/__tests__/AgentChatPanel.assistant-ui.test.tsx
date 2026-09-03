@@ -176,6 +176,7 @@ describe('AgentChatPanel assistant-ui features', () => {
     agentSendMock.mockImplementation((_req, callbacks, signal) => new Promise<void>((resolve, reject) => {
       callbacks.onRequestId?.('req-1');
       sendResolver = () => {
+        callbacks.onDelta?.('First answer', 'text');
         callbacks.onDone?.({ input: 10, output: 10, cacheRead: 0, cacheWrite: 0, totalTokens: 20 });
         resolve();
       };
@@ -213,7 +214,14 @@ describe('AgentChatPanel assistant-ui features', () => {
     expect(screen.getByText('Follow-up question')).toBeTruthy();
     expect(screen.getByText(/Pending Messages/)).toBeTruthy();
 
-    // 3. Type while streaming and press Ctrl+Shift+Enter -> priority steer
+    // 3. Ctrl+Enter is still a normal follow-up, not a priority steer
+    fireEvent.change(textarea, { target: { value: 'Ctrl follow-up' } });
+    fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true });
+
+    expect(screen.getByText('Ctrl follow-up')).toBeTruthy();
+    expect(agentSteerMock).not.toHaveBeenCalled();
+
+    // 4. Type while streaming and press Ctrl+Shift+Enter -> priority steer
     fireEvent.change(textarea, { target: { value: 'Steer priority' } });
     fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true, shiftKey: true });
 
@@ -221,11 +229,63 @@ describe('AgentChatPanel assistant-ui features', () => {
       expect(agentSteerMock).toHaveBeenCalled();
     });
 
-    // 4. Complete the active run -> queue should be drained next in FIFO order
+    // 5. Complete the active run -> queue should be drained next in FIFO order
     sendResolver();
     await waitFor(() => {
       expect(agentSendMock).toHaveBeenCalledTimes(2);
     });
+
+    const secondRequest = agentSendMock.mock.calls[1][0];
+    expect(secondRequest.history).toEqual(expect.arrayContaining([
+      expect.objectContaining({ role: 'user', content: 'First question' }),
+      expect.objectContaining({ role: 'assistant', content: 'First answer', status: 'complete' }),
+    ]));
+  });
+
+  it('requeues a steer rejected at the end-of-run boundary and executes it exactly once', async () => {
+    let resolveFirstSend: () => void = () => {};
+    agentSendMock.mockImplementationOnce((_req, callbacks) => new Promise<void>((resolve) => {
+      callbacks.onRequestId?.('req-ending');
+      resolveFirstSend = () => {
+        callbacks.onDone?.({ input: 10, output: 10, cacheRead: 0, cacheWrite: 0, totalTokens: 20 });
+        resolve();
+      };
+    })).mockImplementation((_req, callbacks) => {
+      callbacks.onDone?.({ input: 5, output: 5, cacheRead: 0, cacheWrite: 0, totalTokens: 10 });
+      return Promise.resolve();
+    });
+    agentSteerMock.mockResolvedValue({ steered: false });
+
+    render(
+      <AgentChatPanel
+        open
+        onClose={() => undefined}
+        fileId="doc-steer-race"
+        abcCode="X:1\nK:C\nC4|"
+        activeFileName="score.abc"
+        revision={1}
+        ai={ai}
+        onOpenSettings={() => undefined}
+      />,
+    );
+
+    const textarea = screen.getByLabelText('Ask about the current sheet');
+    fireEvent.change(textarea, { target: { value: 'Initial question' } });
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+    await waitFor(() => expect(agentSendMock).toHaveBeenCalledOnce());
+
+    fireEvent.change(textarea, { target: { value: 'Elaborate on that' } });
+    fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true, shiftKey: true });
+    await waitFor(() => {
+      expect(agentSteerMock).toHaveBeenCalledOnce();
+      expect(screen.getByText('Elaborate on that')).toBeTruthy();
+    });
+
+    await act(async () => resolveFirstSend());
+    await waitFor(() => expect(agentSendMock).toHaveBeenCalledTimes(2));
+    expect(agentSendMock.mock.calls[1][0].question).toBe('Elaborate on that');
+    await act(async () => Promise.resolve());
+    expect(agentSendMock).toHaveBeenCalledTimes(2);
   });
 
   it('Escape cancels the running stream while preserving draft and pending queue', async () => {

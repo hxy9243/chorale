@@ -165,7 +165,7 @@ export const ChoraleComposer = forwardRef<ChoraleComposerRef, ChoraleComposerPro
     if (event.nativeEvent.isComposing) return;
 
     if (event.key === 'Enter') {
-      if ((event.ctrlKey || event.metaKey)) {
+      if (isStreaming && event.shiftKey && (event.ctrlKey || event.metaKey)) {
         event.preventDefault();
         const text = draft.trim();
         if (text) {
@@ -393,7 +393,7 @@ export const ChoraleComposer = forwardRef<ChoraleComposerRef, ChoraleComposerPro
             <kbd className="agent-kbd">Enter</kbd> to queue
           </span>
           <span className="agent-stream-hint-item">
-            <kbd className="agent-kbd">{typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '⌘' : 'Ctrl'}+Enter</kbd> to steer
+            <kbd className="agent-kbd">{typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform || '') ? '⌘' : 'Ctrl'}+Shift+Enter</kbd> to steer
           </span>
         </div>
       )}

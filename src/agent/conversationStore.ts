@@ -341,29 +341,37 @@ const parseStored = (serialized: string | null): unknown => {
   }
 };
 
+const isVersion4Store = (value: unknown): value is Record<string, unknown> => (
+  Boolean(
+    value
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && (value as { version?: unknown }).version === 4
+    && (value as { files?: unknown }).files
+    && typeof (value as { files: unknown }).files === 'object'
+    && !Array.isArray((value as { files: unknown }).files)
+  )
+);
+
 const loadStore = (storage: Storage): PersistedConversationStore => {
-  const v4 = migrateConversationStore(parseStored(storage.getItem(VERSION_4_CONVERSATION_STORAGE_KEY)));
+  const storedV4 = parseStored(storage.getItem(VERSION_4_CONVERSATION_STORAGE_KEY));
+  const v4 = migrateConversationStore(storedV4);
+  if (isVersion4Store(storedV4)) {
+    return v4;
+  }
+
   const v3 = migrateConversationStore(parseStored(storage.getItem(VERSION_3_CONVERSATION_STORAGE_KEY)));
   const v2 = migrateConversationStore(parseStored(storage.getItem(VERSION_2_CONVERSATION_STORAGE_KEY)));
 
-  const mergedFiles: Record<string, PersistedFileConversation> = { ...v2.files };
-  for (const [fileId, fileConv] of Object.entries(v3.files)) {
-    mergedFiles[fileId] = fileConv;
-  }
-  for (const [fileId, fileConv] of Object.entries(v4.files)) {
-    const v3File = v3.files[fileId];
-    const v4HasMessages = fileConv.threads.some((t) => t.messages.length > 0);
-    const v3HasMessages = v3File?.threads.some((t) => t.messages.length > 0);
-    if (!v4HasMessages && v3HasMessages) {
-      mergedFiles[fileId] = v3File;
-    } else {
-      mergedFiles[fileId] = fileConv;
-    }
-  }
-
   return {
     version: 4,
-    files: mergedFiles,
+    files: {
+      ...v2.files,
+      ...v3.files,
+      // Early v3 builds briefly wrote their payload to the now-v4 key.
+      // Preserve that migration path while treating a valid v4 payload as authoritative.
+      ...v4.files,
+    },
   };
 };
 
@@ -371,7 +379,7 @@ const loadDurableStore = async (): Promise<PersistedConversationStore> => {
   const indexedV4 = await storageAdapter.getItem<unknown>(VERSION_4_CONVERSATION_STORAGE_KEY, null);
   let indexedStore = migrateConversationStore(indexedV4);
 
-  if (Object.keys(indexedStore.files).length === 0) {
+  if (!isVersion4Store(indexedV4)) {
     const indexedV3 = await storageAdapter.getItem<unknown>(VERSION_3_CONVERSATION_STORAGE_KEY, null);
     const migratedV3 = migrateConversationStore(indexedV3);
     if (Object.keys(migratedV3.files).length > 0) {
@@ -423,7 +431,12 @@ export const loadConversation = (
   storage: Storage = window.localStorage,
 ): PersistedFileConversation => {
   const store = loadStore(storage);
-  if (!storage.getItem(VERSION_4_CONVERSATION_STORAGE_KEY) && (storage.getItem(VERSION_3_CONVERSATION_STORAGE_KEY) || storage.getItem(VERSION_2_CONVERSATION_STORAGE_KEY))) {
+  const storedV4 = parseStored(storage.getItem(VERSION_4_CONVERSATION_STORAGE_KEY));
+  if (!isVersion4Store(storedV4) && (
+    storedV4
+    || storage.getItem(VERSION_3_CONVERSATION_STORAGE_KEY)
+    || storage.getItem(VERSION_2_CONVERSATION_STORAGE_KEY)
+  )) {
     saveStore(store, storage);
   }
   const existing = store.files[fileId];

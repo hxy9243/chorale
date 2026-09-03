@@ -9,8 +9,10 @@ source_files:
   - src/components/AgentChatPanel.tsx
   - src/components/chat/ChoraleExternalStoreAdapter.ts
   - src/components/chat/ChoraleQueueAdapter.ts
+  - src/components/chat/ChoraleComposer.tsx
   - src/components/chat/ChoraleStreamdownMessage.tsx
   - src/components/chat/ChoraleReasoningView.tsx
+  - src/components/chat/streamdownConfig.ts
   - src/components/chat/ChoraleToolDisplay.tsx
   - src/components/chat/ChoraleTokenUsage.tsx
   - src/components/chat/ChoraleQueueList.tsx
@@ -33,8 +35,10 @@ source_files:
   - electron/preload.ts
 test_files:
   - src/components/__tests__/AgentChatPanel.test.tsx
+  - src/components/__tests__/AgentChatPanel.assistant-ui.test.tsx
   - src/components/chat/__tests__/ChoraleStreamdownMessage.test.tsx
   - src/components/chat/__tests__/ChoraleQueueAdapter.test.ts
+  - src/components/chat/__tests__/ChoraleQueueList.test.tsx
   - src/components/chat/__tests__/ChoraleExternalStoreAdapter.test.ts
   - src/components/__tests__/AnnotationProposalCard.test.tsx
   - src/agent/__tests__/sheetToolFlow.test.ts
