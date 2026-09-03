@@ -8,6 +8,7 @@ import {
   validateChatRequest,
   validateSaveInput,
   validateSelection,
+  validateSteerRequest,
 } from './ipcValidation';
 
 const assertSender = (
@@ -71,6 +72,10 @@ export const registerAIIPC = (
   handle(AI_IPC.sendChat, 1, (event, request: unknown) => (
     controller.sendChat(validateChatRequest(request), emit(event))
   ));
+  handle(AI_IPC.steerChat, 2, (_event, requestId: unknown, steer: unknown) => {
+    const validated = validateSteerRequest(requestId, steer);
+    return controller.steerChat(validated.requestId, validated.steer);
+  });
   handle(AI_IPC.abortChat, 1, (_event, requestId: unknown) => (
     controller.abortChat(assertShortId(requestId, 'chat request ID'))
   ));

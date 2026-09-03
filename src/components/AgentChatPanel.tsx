@@ -1,5 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Plus, Send, Square, Trash2, X } from 'lucide-react';
+import { ChevronDown, Plus, Trash2, X } from 'lucide-react';
+import {
+  AssistantRuntimeProvider,
+  ThreadPrimitive,
+  useExternalStoreRuntime,
+} from '@assistant-ui/react';
 import { DesktopSheetAgent } from '../agent/DesktopSheetAgent';
 import { createMusicContextSnapshot } from '../agent/musicContext';
 import { prepareAbcForPlayback } from '../utils/abcAudio';
@@ -10,16 +15,25 @@ import {
 } from '../agent/aiTypes';
 import {
   conversationNeedsDurableHydration,
+  getConversationTotalTokens,
   loadConversation,
   loadConversationAsync,
   makeEmptyConversation,
   saveConversation,
   saveConversationAsync,
+  savePendingQueue,
+  savePendingQueueAsync,
 } from '../agent/conversationStore';
-import type { ChatMessage, ChatThread, MusicContextSnapshot, PersistedFileConversation } from '../agent/types';
+import type {
+  ChatMessage,
+  ChatMessagePart,
+  ChatThread,
+  MusicContextSnapshot,
+  PersistedFileConversation,
+  QueuedChatMessage,
+} from '../agent/types';
 import type { Annotation, ScoreAnchor, ScoreChangeProposal } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
-import { MarkdownMessage } from './MarkdownMessage';
 import { AnnotationProposalCard } from './AnnotationProposalCard';
 import { AnnotationEditor } from './AnnotationEditor';
 import { ScoreChangeProposalCard } from './ScoreChangeProposalCard';
@@ -29,6 +43,14 @@ import {
   prepareApplyAll,
   rejectAnnotationProposal,
 } from '../agent/proposalActions';
+import { ChoraleStreamdownMessage } from './chat/ChoraleStreamdownMessage';
+import { ChoraleReasoningView } from './chat/ChoraleReasoningView';
+import { ChoraleToolDisplay } from './chat/ChoraleToolDisplay';
+import { ChoraleTokenUsage } from './chat/ChoraleTokenUsage';
+import { ChoraleQueueList } from './chat/ChoraleQueueList';
+import { createChoraleQueueAdapter } from './chat/ChoraleQueueAdapter';
+import { createChoraleExternalStoreAdapter } from './chat/ChoraleExternalStoreAdapter';
+import { ChoraleComposer, type ChoraleComposerRef } from './chat/ChoraleComposer';
 
 interface AgentChatPanelProps {
   open: boolean;
@@ -64,19 +86,7 @@ const PROFILE_NAMES = {
   'form-phrase': 'Form and phrase analysis',
 } as const;
 
-const DEFAULT_TEXTAREA_HEIGHT = 80;
-const COMPOSER_MAX_PANEL_RATIO = 0.35;
-const KEYBOARD_RESIZE_STEP = 16;
 const THINKING_LEVEL_STORAGE_KEY = 'chorale.agent.thinkingLevel';
-const THINKING_LEVEL_LABELS: Record<AIThinkingLevel, string> = {
-  off: 'Off',
-  minimal: 'Minimal',
-  low: 'Low',
-  medium: 'Medium',
-  high: 'High',
-  xhigh: 'Extra high',
-  max: 'Maximum',
-};
 
 const loadThinkingLevel = (): AIThinkingLevel => {
   try {
@@ -94,6 +104,7 @@ const makeThread = (title = 'New thread'): ChatThread => ({
   title,
   updatedAt: new Date().toISOString(),
   messages: [],
+  pendingMessages: [],
 });
 
 const deriveThreadTitle = (question: string) => {
@@ -148,109 +159,410 @@ const markRunUnavailable = (
       ? {
           ...markProposalsUnavailable(message),
           content: message.content || 'Response stopped.',
-          status: 'stopped',
+          status: 'stopped' as const,
         }
       : message
   )),
 }));
 
+interface ChatMessageItemProps {
+  message: ChatMessage;
+  scoreMeter?: string;
+  totalMeasures: number;
+  invalidProposalIds: Record<string, string[]>;
+  editingProposal: { messageId: string; proposalId: string } | null;
+  conversationTotalTokens?: number;
+  onNavigateMeasure?: (anchor: ScoreAnchor) => void;
+  onEditProposal: (messageId: string, proposalId: string, annotation: Annotation) => void;
+  onRejectProposal: (messageId: string, proposalId: string) => void;
+  onApplyAll: (message: ChatMessage) => void;
+  onPreviewScoreProposal: (messageId: string, proposal: ScoreChangeProposal) => void;
+  onApplyScoreProposal: (messageId: string, proposal: ScoreChangeProposal) => void;
+  onDiscardScoreProposal: (messageId: string, proposal: ScoreChangeProposal) => void;
+  onStartEditProposal: (messageId: string, proposalId: string) => void;
+  onReturnToProposalEdit: (proposalId: string) => void;
+}
+
+const ChatMessageItem = React.memo(function ChatMessageItem({
+  message,
+  scoreMeter,
+  totalMeasures,
+  invalidProposalIds,
+  editingProposal,
+  conversationTotalTokens,
+  onNavigateMeasure,
+  onEditProposal,
+  onRejectProposal,
+  onApplyAll,
+  onPreviewScoreProposal,
+  onApplyScoreProposal,
+  onDiscardScoreProposal,
+  onStartEditProposal,
+  onReturnToProposalEdit,
+}: ChatMessageItemProps) {
+  const renderedParts = useMemo(() => {
+    if (!message.parts || message.parts.length === 0) return null;
+    const merged: ChatMessagePart[] = [];
+    for (const part of message.parts) {
+      const last = merged[merged.length - 1];
+      if (last && last.type === 'reasoning' && part.type === 'reasoning') {
+        last.text += part.text;
+        if (part.status === 'streaming') last.status = 'streaming';
+      } else if (last && last.type === 'text' && part.type === 'text') {
+        last.text += part.text;
+      } else {
+        merged.push({ ...part });
+      }
+    }
+    return merged;
+  }, [message.parts]);
+
+  if (message.role === 'user') {
+    return (
+      <article
+        className="agent-message user"
+        key={message.id}
+        data-status={message.status}
+      >
+        <div className="agent-message-label">
+          You
+        </div>
+        {message.context?.selection && (
+          <div className="agent-anchor-pill">
+            {formatAnchorLabel(message.context.selection)}
+          </div>
+        )}
+        <div className="agent-message-content">
+          {message.content}
+        </div>
+        {message.context && (
+          <div className="agent-message-context">
+            {message.context.fileName} · ABC rev {message.context.revision}
+          </div>
+        )}
+      </article>
+    );
+  }
+
+  const hasParts = Array.isArray(renderedParts) && renderedParts.length > 0;
+
+  return (
+    <article
+      className="agent-message assistant"
+      key={message.id}
+      data-status={message.status}
+    >
+      <div className="agent-message-label">
+        Chorale
+        {message.status === 'streaming' && <span>Thinking…</span>}
+        {message.status === 'stopped' && <span>Stopped</span>}
+      </div>
+
+      <div className="agent-message-content">
+        {hasParts ? (
+          renderedParts!.map((part, index) => {
+            if (part.type === 'reasoning') {
+              return (
+                <ChoraleReasoningView
+                  key={`reasoning-${index}`}
+                  reasoning={part.text}
+                  status={part.status}
+                />
+              );
+            }
+            if (part.type === 'tool') {
+              return (
+                <ChoraleToolDisplay
+                  key={part.toolCallId || `tool-${index}`}
+                  tool={part}
+                />
+              );
+            }
+            if (part.type === 'text') {
+              return (
+                <ChoraleStreamdownMessage
+                  key={`text-${index}`}
+                  content={part.text}
+                  isStreaming={message.status === 'streaming'}
+                  totalMeasures={totalMeasures}
+                  onNavigateMeasure={onNavigateMeasure || (() => undefined)}
+                />
+              );
+            }
+            return null;
+          })
+        ) : (
+          <ChoraleStreamdownMessage
+            content={message.content}
+            isStreaming={message.status === 'streaming'}
+            totalMeasures={totalMeasures}
+            onNavigateMeasure={onNavigateMeasure || (() => undefined)}
+          />
+        )}
+      </div>
+
+      {message.toolDisplays && message.toolDisplays.length > 0 && !message.parts?.some((p) => p.type === 'tool') && (
+        <div className="agent-tool-list" aria-label="Score tool activity">
+          {message.toolDisplays.map((tool) => (
+            <ChoraleToolDisplay
+              key={tool.toolCallId}
+              tool={tool}
+            />
+          ))}
+        </div>
+      )}
+
+      {message.proposals && message.proposals.length > 0 && (
+        <div className="annotation-proposal-list" aria-label="Annotation proposals">
+          {message.proposals.map((proposal) => (
+            editingProposal?.messageId === message.id
+            && editingProposal.proposalId === proposal.id ? (
+              <AnnotationEditor
+                key={proposal.id}
+                mode="proposal"
+                initialAnnotation={proposal.annotation}
+                defaultSpan={proposal.annotation.span}
+                meter={scoreMeter}
+                onSave={(annotation) => onEditProposal(message.id, proposal.id, annotation)}
+                onCancel={() => onReturnToProposalEdit(proposal.id)}
+              />
+            ) : (
+              <AnnotationProposalCard
+                key={proposal.id}
+                proposal={proposal}
+                readOnly={message.status === 'streaming'}
+                invalid={invalidProposalIds[message.id]?.includes(proposal.id)}
+                onNavigateMeasure={onNavigateMeasure}
+                onEdit={() => onStartEditProposal(message.id, proposal.id)}
+                onReject={() => onRejectProposal(message.id, proposal.id)}
+              />
+            )
+          ))}
+          <button
+            type="button"
+            className="annotation-apply-all"
+            disabled={
+              message.status === 'streaming'
+              || !message.proposals.some(({ state }) => state === 'proposed')
+            }
+            onClick={() => onApplyAll(message)}
+          >
+            Apply All
+          </button>
+        </div>
+      )}
+
+      {message.scoreProposals && message.scoreProposals.length > 0 && (
+        <div className="score-change-proposal-list" aria-label="Score change proposals">
+          {message.scoreProposals.map((proposal) => (
+            <ScoreChangeProposalCard
+              key={proposal.id}
+              proposal={proposal}
+              readOnly={message.status === 'streaming'}
+              onPreview={() => onPreviewScoreProposal(message.id, proposal)}
+              onApply={() => onApplyScoreProposal(message.id, proposal)}
+              onDiscard={() => onDiscardScoreProposal(message.id, proposal)}
+            />
+          ))}
+        </div>
+      )}
+
+      {message.profileRoutes && message.profileRoutes.length > 0 && (
+        <div className="agent-profile-route" aria-label="Analysis profiles">
+          {message.profileRoutes.map((profile) => (
+            <span key={profile}>{PROFILE_NAMES[profile]}</span>
+          ))}
+        </div>
+      )}
+
+      {!hasParts && message.toolDisplays && message.toolDisplays.length > 0 && (
+        <div className="agent-tool-list" aria-label="Score tool activity">
+          {message.toolDisplays.map((tool) => (
+            <ChoraleToolDisplay key={tool.toolCallId} tool={tool} />
+          ))}
+        </div>
+      )}
+
+      {message.status !== 'streaming' && (
+        <ChoraleTokenUsage
+          usage={message.usage}
+          conversationTotalTokens={conversationTotalTokens}
+        />
+      )}
+
+      {message.provider && (
+        <div className="agent-message-provider">
+          {message.provider.providerKind} · {message.provider.modelId}
+        </div>
+      )}
+      {message.context && (
+        <div className="agent-message-context">
+          {message.context.fileName} · ABC rev {message.context.revision}
+        </div>
+      )}
+    </article>
+  );
+}, (prev, next) => {
+  if (prev.message !== next.message) return false;
+  if (prev.totalMeasures !== next.totalMeasures) return false;
+  if (prev.scoreMeter !== next.scoreMeter) return false;
+  if (prev.conversationTotalTokens !== next.conversationTotalTokens) return false;
+  if (prev.onNavigateMeasure !== next.onNavigateMeasure) return false;
+  const prevEditing = prev.editingProposal?.messageId === prev.message.id ? prev.editingProposal.proposalId : null;
+  const nextEditing = next.editingProposal?.messageId === next.message.id ? next.editingProposal.proposalId : null;
+  if (prevEditing !== nextEditing) return false;
+  const prevInvalids = prev.invalidProposalIds[prev.message.id];
+  const nextInvalids = next.invalidProposalIds[next.message.id];
+  if (prevInvalids !== nextInvalids) return false;
+  return true;
+});
+
+interface MessageListProps {
+  messages: ChatMessage[];
+  scoreMeter?: string;
+  totalMeasures: number;
+  invalidProposalIds: Record<string, string[]>;
+  editingProposal: { messageId: string; proposalId: string } | null;
+  conversationTotalTokens?: number;
+  abcCode: string;
+  onNavigateMeasure?: (anchor: ScoreAnchor) => void;
+  onEditProposal: (messageId: string, proposalId: string, annotation: Annotation) => void;
+  onRejectProposal: (messageId: string, proposalId: string) => void;
+  onApplyAll: (message: ChatMessage) => void;
+  onPreviewScoreProposal: (messageId: string, proposal: ScoreChangeProposal) => void;
+  onApplyScoreProposal: (messageId: string, proposal: ScoreChangeProposal) => void;
+  onDiscardScoreProposal: (messageId: string, proposal: ScoreChangeProposal) => void;
+  onStartEditProposal: (messageId: string, proposalId: string) => void;
+  onReturnToProposalEdit: (proposalId: string) => void;
+  onSetDraft: (draft: string) => void;
+}
+
+const MemoizedMessageList = React.memo(function MemoizedMessageList({
+  messages,
+  scoreMeter,
+  totalMeasures,
+  invalidProposalIds,
+  editingProposal,
+  conversationTotalTokens,
+  abcCode,
+  onNavigateMeasure,
+  onEditProposal,
+  onRejectProposal,
+  onApplyAll,
+  onPreviewScoreProposal,
+  onApplyScoreProposal,
+  onDiscardScoreProposal,
+  onStartEditProposal,
+  onReturnToProposalEdit,
+  onSetDraft,
+}: MessageListProps) {
+  if (messages.length === 0) {
+    return (
+      <div className="agent-empty-state">
+        <div className="agent-suggestions">
+          <span>TRY ASKING</span>
+          {SUGGESTED_QUESTIONS.map((question) => (
+            <button
+              key={question}
+              type="button"
+              className="agent-suggestion"
+              onClick={() => onSetDraft(question)}
+              disabled={!abcCode.trim()}
+            >
+              {question}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {messages.map((message) => (
+        <ChatMessageItem
+          key={message.id}
+          message={message}
+          scoreMeter={scoreMeter}
+          totalMeasures={totalMeasures}
+          invalidProposalIds={invalidProposalIds}
+          editingProposal={editingProposal}
+          conversationTotalTokens={conversationTotalTokens}
+          onNavigateMeasure={onNavigateMeasure}
+          onEditProposal={onEditProposal}
+          onRejectProposal={onRejectProposal}
+          onApplyAll={onApplyAll}
+          onPreviewScoreProposal={onPreviewScoreProposal}
+          onApplyScoreProposal={onApplyScoreProposal}
+          onDiscardScoreProposal={onDiscardScoreProposal}
+          onStartEditProposal={onStartEditProposal}
+          onReturnToProposalEdit={onReturnToProposalEdit}
+        />
+      ))}
+    </>
+  );
+});
+
 export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   open,
   onClose,
-  fileId = '',
+  fileId,
   abcCode,
   activeFileName,
   revision,
   annotations = [],
-  activeAnchor = null,
+  activeAnchor,
   onClearAnchor,
   totalMeasures = 0,
   scoreMeter,
   ai,
   onOpenSettings,
-  onNavigateMeasure = () => undefined,
+  onNavigateMeasure,
   onApplyAnnotations,
   onPreviewScoreProposal,
   onApplyScoreProposal,
   onDiscardScoreProposal,
 }) => {
-  const [conversation, setConversation] = useState<PersistedFileConversation>(() => (
-    fileId ? loadConversation(fileId) : makeEmptyConversation()
-  ));
-  const [conversationFileId, setConversationFileId] = useState(fileId);
-  const [durableHydrationPending, setDurableHydrationPending] = useState(() => (
-    Boolean(fileId) && conversationNeedsDurableHydration(fileId)
-  ));
+  const [conversation, setConversation] = useState<PersistedFileConversation>(makeEmptyConversation);
+  const [conversationFileId, setConversationFileId] = useState<string>('');
+  const [durableHydrationPending, setDurableHydrationPending] = useState(false);
   const [durableHydrationFailed, setDurableHydrationFailed] = useState(false);
-  const [draft, setDraft] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [threadMenuOpen, setThreadMenuOpen] = useState(false);
-  const [providerPickerOpen, setProviderPickerOpen] = useState(false);
-  const [textareaHeight, setTextareaHeight] = useState<number | null>(null);
-  const [thinkingLevel, setThinkingLevel] = useState<AIThinkingLevel>(loadThinkingLevel);
   const [editingProposal, setEditingProposal] = useState<{
     messageId: string;
     proposalId: string;
   } | null>(null);
   const [invalidProposalIds, setInvalidProposalIds] = useState<Record<string, string[]>>({});
+  const [thinkingLevel, setThinkingLevel] = useState<AIThinkingLevel>(loadThinkingLevel);
+
+  const panelRef = useRef<HTMLElement | null>(null);
+  const composerRef = useRef<ChoraleComposerRef | null>(null);
+  const transcriptRef = useRef<HTMLDivElement | null>(null);
+  const threadPickerRef = useRef<HTMLDivElement | null>(null);
+  const threadTriggerRef = useRef<HTMLButtonElement | null>(null);
   const conversationRef = useRef(conversation);
-  conversationRef.current = conversation;
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const activeRunRef = useRef<{ fileId: string; threadId: string; assistantId: string } | null>(null);
+  const activeRequestIdRef = useRef<string | null>(null);
+  const agentRef = useRef<DesktopSheetAgent | null>(null);
   const documentRevisionRef = useRef({ fileId, revision });
   documentRevisionRef.current = { fileId, revision };
-  const agentRef = useRef<DesktopSheetAgent | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const activeRunRef = useRef<{
-    fileId: string;
-    threadId: string;
-    assistantId: string;
-  } | null>(null);
-  const panelRef = useRef<HTMLElement>(null);
-  const composerRef = useRef<HTMLFormElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const resizeStartRef = useRef<{ pointerId: number; pointerY: number; height: number } | null>(null);
-  const transcriptRef = useRef<HTMLDivElement>(null);
-  const threadPickerRef = useRef<HTMLDivElement>(null);
-  const threadTriggerRef = useRef<HTMLButtonElement>(null);
-  const providerPickerRef = useRef<HTMLDivElement>(null);
-  const providerTriggerRef = useRef<HTMLButtonElement>(null);
 
-  const getTextareaBounds = useCallback(() => {
-    const panel = panelRef.current;
-    const composer = composerRef.current;
-    const textarea = textareaRef.current;
-    if (!panel || !composer || !textarea) {
-      return { minHeight: DEFAULT_TEXTAREA_HEIGHT, maxHeight: DEFAULT_TEXTAREA_HEIGHT };
-    }
-
-    const renderedHeight = textarea.getBoundingClientRect().height || DEFAULT_TEXTAREA_HEIGHT;
-    const minHeight = Number.parseFloat(getComputedStyle(textarea).minHeight) || DEFAULT_TEXTAREA_HEIGHT;
-    const composerChrome = Math.max(0, composer.getBoundingClientRect().height - renderedHeight);
-    const maxHeight = Math.max(
-      minHeight,
-      Math.floor(panel.getBoundingClientRect().height * COMPOSER_MAX_PANEL_RATIO - composerChrome),
-    );
-    return { minHeight, maxHeight };
+  const updateConversation = useCallback((
+    nextOrUpdater: React.SetStateAction<PersistedFileConversation>,
+  ) => {
+    const next = typeof nextOrUpdater === 'function'
+      ? nextOrUpdater(conversationRef.current)
+      : nextOrUpdater;
+    conversationRef.current = next;
+    setConversation(next);
   }, []);
 
-  const setBoundedTextareaHeight = useCallback((requestedHeight: number) => {
-    const { minHeight, maxHeight } = getTextareaBounds();
-    setTextareaHeight(Math.min(maxHeight, Math.max(minHeight, requestedHeight)));
-  }, [getTextareaBounds]);
-
-  const growTextareaToContent = useCallback((textarea: HTMLTextAreaElement) => {
-    const { minHeight, maxHeight } = getTextareaBounds();
-    const currentHeight = textarea.getBoundingClientRect().height || DEFAULT_TEXTAREA_HEIGHT;
-    const overflow = textarea.scrollHeight - textarea.clientHeight;
-    if (overflow <= 1) {
-      textarea.style.overflowY = 'hidden';
-      return;
-    }
-
-    const nextHeight = Math.min(maxHeight, Math.max(minHeight, currentHeight + overflow));
-    setTextareaHeight(nextHeight);
-    textarea.style.overflowY = currentHeight + overflow > maxHeight ? 'auto' : 'hidden';
-  }, [getTextareaBounds]);
+  const stop = useCallback(() => {
+    abortControllerRef.current?.abort();
+  }, []);
 
   useEffect(() => {
     if (abortControllerRef.current) {
@@ -269,13 +581,13 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       setIsStreaming(false);
     }
     if (!fileId) {
-      setConversation(makeEmptyConversation());
+      updateConversation(makeEmptyConversation());
       setConversationFileId('');
       setDurableHydrationPending(false);
       setDurableHydrationFailed(false);
       return;
     }
-    setConversation(loadConversation(fileId));
+    updateConversation(loadConversation(fileId));
     setConversationFileId(fileId);
     let cancelled = false;
     const needsDurableHydration = conversationNeedsDurableHydration(fileId);
@@ -284,7 +596,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     if (needsDurableHydration) {
       void loadConversationAsync(fileId).then((loaded) => {
         if (!cancelled) {
-          setConversation(loaded);
+          updateConversation(loaded);
           setDurableHydrationFailed(false);
         }
       }).catch(() => {
@@ -296,14 +608,14 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         if (!cancelled) setDurableHydrationPending(false);
       });
     }
-    setDraft('');
+    composerRef.current?.setDraft('');
     setError(null);
     setEditingProposal(null);
     setInvalidProposalIds({});
     return () => {
       cancelled = true;
     };
-  }, [fileId]);
+  }, [fileId, stop, updateConversation]);
 
   useEffect(() => {
     if (
@@ -328,13 +640,13 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     try {
       window.localStorage.setItem(THINKING_LEVEL_STORAGE_KEY, thinkingLevel);
     } catch {
-      // Keep the session-level choice usable when browser storage is unavailable.
+      // Keep the choice usable when browser storage is unavailable.
     }
   }, [thinkingLevel]);
 
   useEffect(() => {
     if (!fileId || revision <= 0) return;
-    setConversation((current) => ({
+    updateConversation((current) => ({
       ...current,
       threads: current.threads.map((thread) => ({
         ...thread,
@@ -349,45 +661,20 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         )),
       })),
     }));
-  }, [fileId, revision]);
-
-  useEffect(() => {
-    if (draft) return;
-    setTextareaHeight(null);
-    if (textareaRef.current) textareaRef.current.style.overflowY = 'hidden';
-  }, [draft]);
-
-  useEffect(() => {
-    const panel = panelRef.current;
-    if (!panel || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => {
-      const { maxHeight } = getTextareaBounds();
-      setTextareaHeight((current) => (current === null ? null : Math.min(current, maxHeight)));
-    });
-    observer.observe(panel);
-    return () => observer.disconnect();
-  }, [getTextareaBounds]);
+  }, [fileId, revision, updateConversation]);
 
   const activeThread = useMemo(() => (
     conversation.threads.find((thread) => thread.id === conversation.activeThreadId) || conversation.threads[0]
   ), [conversation]);
 
   const messages = useMemo(() => activeThread?.messages || [], [activeThread]);
+  const pendingMessages = useMemo(() => activeThread?.pendingMessages || [], [activeThread]);
   const anchorLabel = formatAnchorLabel(activeAnchor);
-  const getAgent = () => {
+
+  const getAgent = useCallback(() => {
     agentRef.current ??= new DesktopSheetAgent();
     return agentRef.current;
-  };
-
-  useEffect(() => {
-    const transcript = transcriptRef.current;
-    if (!transcript) return;
-    if (typeof transcript.scrollTo === 'function') {
-      transcript.scrollTo({ top: transcript.scrollHeight, behavior: 'smooth' });
-    } else {
-      transcript.scrollTop = transcript.scrollHeight;
-    }
-  }, [messages]);
+  }, []);
 
   useEffect(() => () => {
     const activeRun = activeRunRef.current;
@@ -408,25 +695,16 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   }, [open]);
 
   useEffect(() => {
-    if (!threadMenuOpen && !providerPickerOpen) return;
-
-    const handleOutsideInteraction = (event: PointerEvent | FocusEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-
+    if (!threadMenuOpen) return;
+    const handleOutsideInteraction = (event: Event) => {
+      const target = event.target as Node | null;
       if (threadMenuOpen && !threadPickerRef.current?.contains(target)) {
         setThreadMenuOpen(false);
-      }
-      if (providerPickerOpen && !providerPickerRef.current?.contains(target)) {
-        setProviderPickerOpen(false);
       }
     };
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      if (providerPickerOpen) {
-        setProviderPickerOpen(false);
-        providerTriggerRef.current?.focus();
-      } else if (threadMenuOpen) {
+      if (threadMenuOpen) {
         setThreadMenuOpen(false);
         threadTriggerRef.current?.focus();
       }
@@ -440,40 +718,43 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       document.removeEventListener('focusin', handleOutsideInteraction, true);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [providerPickerOpen, threadMenuOpen]);
+  }, [threadMenuOpen]);
 
-  const captureContext = (): MusicContextSnapshot => createMusicContextSnapshot({
+  const captureContext = useCallback((): MusicContextSnapshot => createMusicContextSnapshot({
     id: makeId(),
-    documentId: fileId,
+    documentId: fileId || '',
     revision,
     capturedAt: new Date().toISOString(),
     fileName: activeFileName || 'Untitled score',
     abc: prepareAbcForPlayback(abcCode),
     selection: activeAnchor,
     annotations,
-  });
+  }), [abcCode, activeAnchor, activeFileName, annotations, fileId, revision]);
 
-  const updateMessages = (threadId: string, updater: (messages: ChatMessage[]) => ChatMessage[]) => {
-    setConversation((current) => replaceActiveThread(current, threadId, (thread) => ({
+  const updateMessages = useCallback((threadId: string, updater: (messages: ChatMessage[]) => ChatMessage[]) => {
+    updateConversation((current) => replaceActiveThread(current, threadId, (thread) => ({
       ...thread,
       updatedAt: new Date().toISOString(),
       messages: updater(thread.messages),
     })));
-  };
+  }, [updateConversation]);
 
-  const stop = () => {
-    abortControllerRef.current?.abort();
-  };
+  const updatePendingQueue = useCallback((threadId: string, nextQueue: QueuedChatMessage[]) => {
+    updateConversation((current) => replaceActiveThread(current, threadId, (thread) => ({
+      ...thread,
+      pendingMessages: nextQueue,
+    })));
+  }, [updateConversation]);
 
   const handleNewThread = () => {
     if (!fileId || (activeThread && activeThread.messages.length === 0)) return;
     if (isStreaming) stop();
     const thread = makeThread();
-    setConversation((current) => ({
+    updateConversation((current) => ({
       activeThreadId: thread.id,
       threads: [thread, ...current.threads],
     }));
-    setDraft('');
+    composerRef.current?.setDraft('');
     setError(null);
     setThreadMenuOpen(false);
   };
@@ -481,31 +762,27 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   const handleDeleteThread = () => {
     if (!fileId || !activeThread) return;
     if (isStreaming) stop();
-    const threadId = activeThread.id;
-    setConversation((current) => {
-      const deletedIndex = current.threads.findIndex((thread) => thread.id === threadId);
-      const remainingThreads = current.threads.filter((thread) => thread.id !== threadId);
+    updateConversation((current) => {
+      const remainingThreads = current.threads.filter((candidate) => candidate.id !== activeThread.id);
       if (remainingThreads.length === 0) {
-        const replacement = makeThread();
+        const fresh = makeThread();
         return {
-          activeThreadId: replacement.id,
-          threads: [replacement],
+          activeThreadId: fresh.id,
+          threads: [fresh],
         };
       }
-      const nextActiveIndex = Math.min(
-        Math.max(deletedIndex, 0),
-        remainingThreads.length - 1,
-      );
+      const activeIndex = current.threads.findIndex((candidate) => candidate.id === activeThread.id);
+      const nextActiveIndex = Math.max(0, activeIndex - 1);
       return {
         activeThreadId: remainingThreads[nextActiveIndex].id,
         threads: remainingThreads,
       };
     });
-    setDraft('');
+    composerRef.current?.setDraft('');
     setError(null);
   };
 
-  const returnToProposalEdit = (proposalId: string) => {
+  const returnToProposalEdit = useCallback((proposalId: string) => {
     setEditingProposal(null);
     queueMicrotask(() => {
       const editButtons = panelRef.current?.querySelectorAll<HTMLButtonElement>('[data-proposal-edit]');
@@ -513,9 +790,13 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         .find((button) => button.dataset.proposalEdit === proposalId)
         ?.focus();
     });
-  };
+  }, []);
 
-  const handleEditProposal = (
+  const handleStartEditProposal = useCallback((messageId: string, proposalId: string) => {
+    setEditingProposal({ messageId, proposalId });
+  }, []);
+
+  const handleEditProposal = useCallback((
     messageId: string,
     proposalId: string,
     annotation: Annotation,
@@ -528,9 +809,9 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     )));
     setInvalidProposalIds((current) => ({ ...current, [messageId]: [] }));
     returnToProposalEdit(proposalId);
-  };
+  }, [activeThread.id, messages, returnToProposalEdit, updateMessages]);
 
-  const handleRejectProposal = (messageId: string, proposalId: string) => {
+  const handleRejectProposal = useCallback((messageId: string, proposalId: string) => {
     updateMessages(activeThread.id, (current) => current.map((message) => (
       message.id === messageId && message.proposals
         ? {
@@ -539,13 +820,13 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
           }
         : message
     )));
-  };
+  }, [activeThread.id, updateMessages]);
 
-  const handleApplyAll = (message: ChatMessage) => {
+  const handleApplyAll = useCallback((message: ChatMessage) => {
     if (!message.proposals) return;
     const result = prepareApplyAll(
       message.proposals,
-      fileId,
+      fileId || '',
       revision,
       new Set(annotations.map(({ id }) => id)),
     );
@@ -570,9 +851,9 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Annotations could not be applied.');
     }
-  };
+  }, [activeThread.id, annotations, fileId, onApplyAnnotations, revision, updateMessages]);
 
-  const updateScoreProposalState = (
+  const updateScoreProposalState = useCallback((
     messageId: string,
     proposalId: string,
     state: ScoreChangeProposal['state'],
@@ -585,35 +866,80 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
           )),
         }
       : message
-  )));
+  ))), [activeThread.id, updateMessages]);
 
-  const handlePreviewScoreProposal = (messageId: string, proposal: ScoreChangeProposal) => {
+  const handlePreviewScoreProposal = useCallback((messageId: string, proposal: ScoreChangeProposal) => {
     const result = onPreviewScoreProposal?.(proposal) || 'invalid';
     if (result === 'outdated') updateScoreProposalState(messageId, proposal.id, 'outdated');
     if (result === 'invalid') setError('This score proposal can no longer be previewed safely.');
-  };
+  }, [onPreviewScoreProposal, updateScoreProposalState]);
 
-  const handleApplyScoreProposal = (messageId: string, proposal: ScoreChangeProposal) => {
+  const handleApplyScoreProposal = useCallback((messageId: string, proposal: ScoreChangeProposal) => {
     const result = onApplyScoreProposal?.(proposal) || 'invalid';
     if (result === 'accepted') updateScoreProposalState(messageId, proposal.id, 'accepted');
     if (result === 'outdated') updateScoreProposalState(messageId, proposal.id, 'outdated');
     if (result === 'invalid') setError('This score proposal could not be applied safely.');
-  };
+  }, [onApplyScoreProposal, updateScoreProposalState]);
 
-  const handleDiscardScoreProposal = (messageId: string, proposal: ScoreChangeProposal) => {
+  const handleDiscardScoreProposal = useCallback((messageId: string, proposal: ScoreChangeProposal) => {
     onDiscardScoreProposal?.(proposal);
     updateScoreProposalState(messageId, proposal.id, 'rejected');
+  }, [onDiscardScoreProposal, updateScoreProposalState]);
+
+  const selectedConnection = ai.connections.find(
+    (connection) => connection.id === ai.selection?.connectionId,
+  );
+  const selectedModels = selectedConnection
+    ? (ai.modelsByConnection[selectedConnection.id] ?? [])
+    : [];
+  const selectedModel = selectedModels.find((model) => model.id === ai.selection?.modelId);
+  const modelSupportsThinking = selectedModel?.reasoning === true;
+  const supportedThinkingLevels: AIThinkingLevel[] = modelSupportsThinking
+    ? (selectedModel.thinkingLevels ?? ['off', 'minimal', 'low', 'medium', 'high'])
+    : ['off'];
+  const effectiveThinkingLevel: AIThinkingLevel = supportedThinkingLevels.includes(thinkingLevel)
+    ? thinkingLevel
+    : supportedThinkingLevels.includes('medium')
+      ? 'medium'
+      : supportedThinkingLevels[0] ?? 'off';
+  const providerReady = (
+    ai.desktopAvailable &&
+    selectedConnection?.status === 'ready' &&
+    Boolean(selectedModel)
+  );
+
+  const chooseConnection = async (connectionId: string) => {
+    if (!connectionId) {
+      await ai.setSelection(null);
+      return;
+    }
+    const models = await ai.refreshModels(connectionId);
+    const firstModel = models[0];
+    await ai.setSelection(firstModel ? { connectionId, modelId: firstModel.id } : null);
   };
 
-  const sendMessage = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const question = draft.trim();
+  const queueAdapter = useMemo(() => createChoraleQueueAdapter({
+    fileId: fileId || '',
+    threadId: activeThread?.id || '',
+    pendingMessages,
+    onQueueChange: (nextQueue) => {
+      if (activeThread?.id) {
+        updatePendingQueue(activeThread.id, nextQueue);
+      }
+    },
+    getMusicContext: captureContext,
+  }), [fileId, activeThread?.id, pendingMessages, captureContext, updatePendingQueue]);
+
+  const executePrompt = useCallback(async (
+    question: string,
+    customContext?: MusicContextSnapshot,
+  ) => {
     if (
       !question || !abcCode.trim() || isStreaming || durableHydrationPending
       || !activeThread || !providerReady
     ) return;
 
-    const context = captureContext();
+    const context = customContext || captureContext();
     const userMessage: ChatMessage = {
       id: makeId(),
       role: 'user',
@@ -629,28 +955,30 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       content: '',
       createdAt: new Date().toISOString(),
       status: 'streaming',
+      parts: [],
       profileRoutes: [],
       toolDisplays: [],
       proposals: [],
       scoreProposals: [],
     };
-    const history = activeThread.messages;
     const threadId = activeThread.id;
+    const history = conversationRef.current.threads.find((thread) => thread.id === threadId)?.messages
+      ?? activeThread.messages;
 
-    setConversation((current) => replaceActiveThread(current, threadId, (thread) => ({
+    updateConversation((current) => replaceActiveThread(current, threadId, (thread) => ({
       ...thread,
       title: thread.messages.length === 0 ? deriveThreadTitle(question) || thread.title : thread.title,
       updatedAt: new Date().toISOString(),
       messages: [...thread.messages, userMessage, assistantMessage],
     })));
-    setDraft('');
+    composerRef.current?.setDraft('');
     setError(null);
     setIsStreaming(true);
 
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
-    activeRunRef.current = { fileId, threadId, assistantId };
+    activeRunRef.current = { fileId: fileId || '', threadId, assistantId };
     const isCurrentRun = () => (
       abortControllerRef.current === controller && !controller.signal.aborted
     );
@@ -663,13 +991,33 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         context,
         thinkingLevel: effectiveThinkingLevel,
       }, {
-        onDelta: (delta) => {
+        onRequestId: (reqId) => {
+          activeRequestIdRef.current = reqId;
+        },
+        onDelta: (delta, partType) => {
           if (!isCurrentRun()) return;
-          updateMessages(threadId, (current) => current.map((message) => (
-            message.id === assistantId
-              ? { ...message, content: message.content + delta }
-              : message
-          )));
+          updateMessages(threadId, (current) => current.map((message) => {
+            if (message.id !== assistantId) return message;
+            const targetType = partType ?? 'text';
+            const nextContent = targetType === 'reasoning' ? message.content : message.content + delta;
+            const parts = message.parts ? [...message.parts] : [];
+
+            const lastPart = parts[parts.length - 1];
+            if (lastPart && lastPart.type === targetType) {
+              parts[parts.length - 1] = {
+                ...lastPart,
+                text: lastPart.text + delta,
+                ...(targetType === 'reasoning' ? { status: 'streaming' as const } : {}),
+              };
+            } else {
+              if (targetType === 'reasoning') {
+                parts.push({ type: 'reasoning', text: delta, status: 'streaming' });
+              } else {
+                parts.push({ type: 'text', text: delta });
+              }
+            }
+            return { ...message, content: nextContent, parts };
+          }));
         },
         onStart: (provider) => {
           if (!isCurrentRun()) return;
@@ -687,30 +1035,45 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         },
         onToolStart: (tool) => {
           if (!isCurrentRun()) return;
-          updateMessages(threadId, (current) => current.map((message) => (
-            message.id === assistantId
-              ? {
-                  ...message,
-                  toolDisplays: [
-                    ...(message.toolDisplays || []).filter((item) => item.toolCallId !== tool.toolCallId),
-                    tool,
-                  ],
-                }
-              : message
-          )));
+          updateMessages(threadId, (current) => current.map((message) => {
+            if (message.id !== assistantId) return message;
+            const toolDisplays = [
+              ...(message.toolDisplays || []).filter((item) => item.toolCallId !== tool.toolCallId),
+              tool,
+            ];
+            const parts = (message.parts || []).map((p) => (
+              p.type === 'reasoning' && p.status === 'streaming' ? { ...p, status: 'complete' as const } : p
+            ));
+            parts.push({
+              type: 'tool',
+              toolCallId: tool.toolCallId,
+              toolName: tool.toolName,
+              summary: tool.summary,
+              status: 'running',
+              startTime: tool.startTime,
+            });
+            return { ...message, toolDisplays, parts };
+          }));
         },
         onToolDone: (tool) => {
           if (!isCurrentRun()) return;
           updateMessages(threadId, (current) => current.map((message) => {
-          if (message.id !== assistantId) return message;
-          const existing = message.toolDisplays || [];
-          const found = existing.some((item) => item.toolCallId === tool.toolCallId);
-          return {
-            ...message,
-            toolDisplays: found
-              ? existing.map((item) => item.toolCallId === tool.toolCallId ? tool : item)
-              : [...existing, tool],
-          };
+            if (message.id !== assistantId) return message;
+            const toolDisplays = (message.toolDisplays || []).map((item) => (
+              item.toolCallId === tool.toolCallId ? tool : item
+            ));
+            const parts = (message.parts || []).map((p) => (
+              p.type === 'tool' && p.toolCallId === tool.toolCallId
+                ? {
+                    ...p,
+                    status: tool.status,
+                    summary: tool.summary,
+                    durationMs: tool.durationMs,
+                    endTime: tool.endTime,
+                  }
+                : p
+            ));
+            return { ...message, toolDisplays, parts };
           }));
         },
         onProposalCreated: (proposal) => {
@@ -746,10 +1109,38 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
               : message
           )));
         },
+        onSteerAccepted: (messageId) => {
+          if (!isCurrentRun()) return;
+          queueAdapter.remove(messageId);
+        },
+        onDone: (usage) => {
+          if (!isCurrentRun()) return;
+          updateMessages(threadId, (current) => current.map((message) => {
+            if (message.id !== assistantId) return message;
+            const parts = (message.parts || []).map((p) => (
+              p.type === 'reasoning' && p.status === 'streaming' ? { ...p, status: 'complete' as const } : p
+            ));
+            return {
+              ...message,
+              status: 'complete',
+              parts,
+              usage,
+            };
+          }));
+        },
       }, controller.signal);
+
       if (isCurrentRun()) {
         updateMessages(threadId, (current) => current.map((message) => (
-          message.id === assistantId ? { ...message, status: 'complete' } : message
+          message.id === assistantId
+            ? {
+                ...message,
+                status: 'complete',
+                parts: (message.parts || []).map((p) => (
+                  p.type === 'reasoning' && p.status === 'streaming' ? { ...p, status: 'complete' as const } : p
+                )),
+              }
+            : message
         )));
       }
     } catch (caught) {
@@ -760,6 +1151,9 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
               ...markProposalsUnavailable(message),
               content: message.content || (wasStopped ? 'Response stopped.' : 'No response received.'),
               status: wasStopped ? 'stopped' : 'error',
+              parts: (message.parts || []).map((p) => (
+                p.type === 'reasoning' && p.status === 'streaming' ? { ...p, status: 'stopped' as const } : p
+              )),
             }
           : message
       )));
@@ -772,486 +1166,323 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       if (abortControllerRef.current === controller) {
         abortControllerRef.current = null;
         activeRunRef.current = null;
+        activeRequestIdRef.current = null;
         setIsStreaming(false);
+
+        // Check if there are queued items to drain next in FIFO order (only if not cancelled)
+        if (!controller.signal.aborted) {
+          const currentQueue = conversationRef.current.threads
+            .find((thread) => thread.id === threadId)?.pendingMessages ?? [];
+          if (currentQueue.length > 0) {
+            const steerIdx = currentQueue.findIndex((m) => m.lane === 'steer');
+            const pickIdx = steerIdx >= 0 ? steerIdx : 0;
+            const nextItem = currentQueue[pickIdx];
+            const remainingQueue = currentQueue.filter((_, idx) => idx !== pickIdx);
+            updatePendingQueue(threadId, remainingQueue);
+            if (fileId) {
+              savePendingQueue(fileId, threadId, remainingQueue);
+              void savePendingQueueAsync(fileId, threadId, remainingQueue);
+            }
+            void executePrompt(nextItem.prompt, nextItem.context);
+          }
+        }
       }
     }
-  };
+  }, [
+    abcCode,
+    isStreaming,
+    durableHydrationPending,
+    activeThread,
+    providerReady,
+    captureContext,
+    fileId,
+    getAgent,
+    effectiveThinkingLevel,
+    updateMessages,
+    updatePendingQueue,
+    updateConversation,
+    queueAdapter,
+  ]);
 
-  if (!open) return null;
+  const handlePrioritySteer = useCallback(async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const steerContext = captureContext();
+    const steerMsgId = `steer-${makeId()}`;
 
-  const selectedConnection = ai.connections.find(
-    (connection) => connection.id === ai.selection?.connectionId,
-  );
-  const selectedModels = selectedConnection
-    ? (ai.modelsByConnection[selectedConnection.id] ?? [])
-    : [];
-  const selectedModel = selectedModels.find((model) => model.id === ai.selection?.modelId);
-  const modelSupportsThinking = selectedModel?.reasoning === true;
-  const supportedThinkingLevels: AIThinkingLevel[] = modelSupportsThinking
-    ? (selectedModel.thinkingLevels ?? ['off', 'minimal', 'low', 'medium', 'high'])
-    : ['off'];
-  const effectiveThinkingLevel: AIThinkingLevel = supportedThinkingLevels.includes(thinkingLevel)
-    ? thinkingLevel
-    : supportedThinkingLevels.includes('medium')
-      ? 'medium'
-      : supportedThinkingLevels[0] ?? 'off';
-  const providerReady = (
-    ai.desktopAvailable &&
-    selectedConnection?.status === 'ready' &&
-    Boolean(selectedModel)
-  );
-
-  const chooseConnection = async (connectionId: string) => {
-    if (!connectionId) {
-      await ai.setSelection(null);
-      return;
+    if (isStreaming && activeRequestIdRef.current) {
+      try {
+        const result = await getAgent().steer(activeRequestIdRef.current, {
+          messageId: steerMsgId,
+          question: trimmed,
+          context: steerContext,
+        });
+        if (result.steered) {
+          return;
+        }
+      } catch {
+        // Race occurred or steer rejected
+      }
     }
-    const models = await ai.refreshModels(connectionId);
-    const firstModel = models[0];
-    await ai.setSelection(firstModel ? { connectionId, modelId: firstModel.id } : null);
-  };
+
+    if (isStreaming) {
+      // If active run ended or steer failed mid-race, add to front of FIFO queue
+      const existingQueue = queueAdapter.rawItems;
+      const newItem: QueuedChatMessage = {
+        id: steerMsgId,
+        prompt: trimmed,
+        lane: 'queue',
+        createdAt: new Date().toISOString(),
+        context: steerContext,
+      };
+      if (fileId && activeThread?.id) {
+        const nextQueue = [newItem, ...existingQueue];
+        updatePendingQueue(activeThread.id, nextQueue);
+        savePendingQueue(fileId, activeThread.id, nextQueue);
+        void savePendingQueueAsync(fileId, activeThread.id, nextQueue);
+      }
+    } else {
+      void executePrompt(trimmed, steerContext);
+    }
+  }, [
+    captureContext,
+    isStreaming,
+    getAgent,
+    queueAdapter.rawItems,
+    fileId,
+    activeThread?.id,
+    updatePendingQueue,
+    executePrompt,
+  ]);
+
+  const handleEnqueueFollowUp = useCallback((text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    queueAdapter.enqueue({ content: [{ type: 'text', text: trimmed }] });
+  }, [queueAdapter]);
+
+  const handleSteerNow = useCallback(async (item: QueuedChatMessage) => {
+    if (isStreaming && activeRequestIdRef.current) {
+      try {
+        const res = await getAgent().steer(activeRequestIdRef.current, {
+          messageId: item.id,
+          question: item.prompt,
+          context: item.context,
+        });
+        if (res.steered) {
+          queueAdapter.remove(item.id);
+          return;
+        }
+      } catch {
+        // Race
+      }
+    }
+    // If run ended during steer race, move item to front of FIFO queue
+    queueAdapter.move(item.id, { lane: 'queue', insertBefore: queueAdapter.items[0]?.id });
+  }, [isStreaming, getAgent, queueAdapter]);
+
+  const handleRunNext = useCallback((item: QueuedChatMessage) => {
+    if (isStreaming) return;
+    const dequeued = queueAdapter.runNext(item.id);
+    if (!dequeued) return;
+    void executePrompt(dequeued.prompt, dequeued.context);
+  }, [isStreaming, queueAdapter, executePrompt]);
+
+  const storeAdapter = useMemo(
+    () => createChoraleExternalStoreAdapter({
+      messages: activeThread?.messages ?? [],
+      isRunning: isStreaming,
+      onNew: async (msg) => {
+        const text = typeof msg.content === 'string'
+          ? msg.content
+          : msg.content.filter((p) => p.type === 'text').map((p) => (p as any).text).join('\n');
+        if (text) void executePrompt(text);
+      },
+      onCancel: async () => {
+        stop();
+      },
+      queue: queueAdapter,
+    }),
+    [activeThread?.messages, isStreaming, queueAdapter, executePrompt, stop],
+  );
+
+  const runtime = useExternalStoreRuntime(storeAdapter);
 
   if (!open) return null;
+
+  const conversationTotalTokens = getConversationTotalTokens(activeThread);
 
   return (
-    <aside
-      className="agent-panel"
-      aria-label="Current sheet assistant"
-      aria-busy={durableHydrationPending}
-      inert={durableHydrationPending}
-      ref={panelRef}
-    >
-      <div className="agent-panel-header">
-        <div className="agent-title-row">
-          <div>
-            <h2>Chat with this score</h2>
-            <p>Grounded in {activeFileName || 'the active score'}</p>
-          </div>
-          <div className="agent-header-actions">
-          <button
-            className="agent-icon-button"
-            type="button"
-            onClick={handleNewThread}
-            title="Start new thread"
-            aria-label="Start new thread"
-            disabled={!fileId || (!!activeThread && activeThread.messages.length === 0)}
-          >
-            <Plus size={17} />
-          </button>
-          <button
-            className="agent-icon-button"
-            type="button"
-            onClick={onClose}
-            title="Close assistant"
-            aria-label="Close assistant"
-          >
-            <X size={18} />
-          </button>
-          </div>
-        </div>
-        <div className="agent-history-row">
-          <div className="agent-history-control" ref={threadPickerRef}>
-            <button
-              ref={threadTriggerRef}
-              type="button"
-              className="agent-history-trigger"
-              aria-label="Conversation history"
-              aria-haspopup="listbox"
-              aria-expanded={threadMenuOpen}
-              aria-controls="conversation-history-menu"
-              onClick={() => {
-                setThreadMenuOpen((current) => !current);
-                setProviderPickerOpen(false);
-              }}
-            >
-              <span>{activeThread?.title || 'New thread'}</span>
-              <ChevronDown className="agent-history-chevron" size={16} aria-hidden="true" />
-            </button>
-            {threadMenuOpen && (
-              <div
-                className="agent-history-menu"
-                id="conversation-history-menu"
-                role="listbox"
-                aria-label="Conversation threads"
-              >
-                {conversation.threads.map((thread) => (
-                  <button
-                    key={thread.id}
-                    type="button"
-                    role="option"
-                    aria-selected={thread.id === activeThread?.id}
-                    onClick={() => {
-                      setConversation((current) => ({
-                        ...current,
-                        activeThreadId: thread.id,
-                      }));
-                      setThreadMenuOpen(false);
-                      threadTriggerRef.current?.focus();
-                    }}
-                  >
-                    <span>{thread.title}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <button
-            className="agent-icon-button agent-delete-thread-button"
-            type="button"
-            onClick={handleDeleteThread}
-            title="Delete current thread"
-            aria-label="Delete current thread"
-            disabled={!fileId || !activeThread}
-          >
-            <Trash2 size={16} aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-
-      <div className="agent-transcript" ref={transcriptRef} role="log" aria-live="polite">
-        {messages.length === 0 ? (
-          <div className="agent-empty-state">
-            <div className="agent-suggestions">
-              <span>TRY ASKING</span>
-              {SUGGESTED_QUESTIONS.map((question) => (
-                <button
-                  key={question}
-                  type="button"
-                  className="agent-suggestion"
-                  onClick={() => setDraft(question)}
-                  disabled={!abcCode.trim()}
-                >
-                  {question}
-                </button>
-              ))}
+    <AssistantRuntimeProvider runtime={runtime}>
+      <aside
+        className="agent-panel"
+        aria-label="Current sheet assistant"
+        aria-busy={durableHydrationPending}
+        inert={durableHydrationPending}
+        ref={panelRef}
+      >
+        <div className="agent-panel-header">
+          <div className="agent-title-row">
+            <div>
+              <h2>Chat with this score</h2>
+              <p>Grounded in {activeFileName || 'the active score'}</p>
             </div>
-          </div>
-        ) : messages.map((message) => (
-          <article
-            className={`agent-message ${message.role}`}
-            key={message.id}
-            data-status={message.status}
-          >
-            <div className="agent-message-label">
-              {message.role === 'user' ? 'You' : 'Chorale'}
-              {message.status === 'streaming' && <span>Thinking…</span>}
-              {message.status === 'stopped' && <span>Stopped</span>}
-            </div>
-            {message.context?.selection && (
-              <div className="agent-anchor-pill">
-                {formatAnchorLabel(message.context.selection)}
-              </div>
-            )}
-            <div className="agent-message-content">
-              {message.role === 'assistant' ? (
-                <MarkdownMessage
-                  content={message.content}
-                  totalMeasures={totalMeasures}
-                  onNavigateMeasure={onNavigateMeasure}
-                />
-              ) : message.content}
-            </div>
-            {message.proposals && message.proposals.length > 0 && (
-              <div className="annotation-proposal-list" aria-label="Annotation proposals">
-                {message.proposals.map((proposal) => (
-                  editingProposal?.messageId === message.id
-                  && editingProposal.proposalId === proposal.id ? (
-                    <AnnotationEditor
-                      key={proposal.id}
-                      mode="proposal"
-                      initialAnnotation={proposal.annotation}
-                      defaultSpan={proposal.annotation.span}
-                      meter={scoreMeter}
-                      onSave={(annotation) => handleEditProposal(message.id, proposal.id, annotation)}
-                      onCancel={() => returnToProposalEdit(proposal.id)}
-                    />
-                  ) : (
-                    <AnnotationProposalCard
-                      key={proposal.id}
-                      proposal={proposal}
-                      readOnly={message.status === 'streaming'}
-                      invalid={invalidProposalIds[message.id]?.includes(proposal.id)}
-                      onNavigateMeasure={onNavigateMeasure}
-                      onEdit={() => {
-                        setEditingProposal({ messageId: message.id, proposalId: proposal.id });
-                      }}
-                      onReject={() => handleRejectProposal(message.id, proposal.id)}
-                    />
-                  )
-                ))}
-                <button
-                  type="button"
-                  className="annotation-apply-all"
-                  disabled={
-                    message.status === 'streaming'
-                    || !message.proposals.some(({ state }) => state === 'proposed')
-                  }
-                  onClick={() => handleApplyAll(message)}
-                >
-                  Apply All
-                </button>
-              </div>
-            )}
-            {message.scoreProposals && message.scoreProposals.length > 0 && (
-              <div className="score-change-proposal-list" aria-label="Score change proposals">
-                {message.scoreProposals.map((proposal) => (
-                  <ScoreChangeProposalCard
-                    key={proposal.id}
-                    proposal={proposal}
-                    readOnly={message.status === 'streaming'}
-                    onPreview={() => handlePreviewScoreProposal(message.id, proposal)}
-                    onApply={() => handleApplyScoreProposal(message.id, proposal)}
-                    onDiscard={() => handleDiscardScoreProposal(message.id, proposal)}
-                  />
-                ))}
-              </div>
-            )}
-            {message.profileRoutes && message.profileRoutes.length > 0 && (
-              <div className="agent-profile-route" aria-label="Analysis profiles">
-                {message.profileRoutes.map((profile) => (
-                  <span key={profile}>{PROFILE_NAMES[profile]}</span>
-                ))}
-              </div>
-            )}
-            {message.toolDisplays && message.toolDisplays.length > 0 && (
-              <div className="agent-tool-list" aria-label="Score tool activity">
-                {message.toolDisplays.map((tool) => (
-                  <div
-                    className="agent-tool-row"
-                    data-status={tool.status}
-                    data-tool-call-id={tool.toolCallId}
-                    key={tool.toolCallId}
-                  >
-                    {tool.summary}
-                  </div>
-                ))}
-              </div>
-            )}
-            {message.provider && (
-              <div className="agent-message-provider">
-                {message.provider.providerKind} · {message.provider.modelId}
-              </div>
-            )}
-            {message.context && (
-              <div className="agent-message-context">
-                {message.context.fileName} · ABC rev {message.context.revision}
-              </div>
-            )}
-          </article>
-        ))}
-      </div>
-
-      {error && <div className="agent-error" role="alert">{error}</div>}
-
-      <form className="agent-composer" onSubmit={sendMessage} ref={composerRef}>
-        {!ai.desktopAvailable && (
-          <div className="agent-provider-required">
-            <span>AI providers require the Chorale desktop app.</span>
-          </div>
-        )}
-        {ai.desktopAvailable && (
-          <div className="agent-provider-picker" ref={providerPickerRef}>
-            <button
-              ref={providerTriggerRef}
-              type="button"
-              className="agent-provider-trigger"
-              aria-label="Choose AI provider, model, and thinking level"
-              aria-haspopup="dialog"
-              aria-expanded={providerPickerOpen}
-              aria-controls="agent-provider-popover"
-              onClick={() => {
-                setProviderPickerOpen((current) => !current);
-                setThreadMenuOpen(false);
-              }}
-            >
-              <span>{selectedConnection?.name || 'Select provider'}</span>
-              <strong>{selectedModel?.name || 'No model'}</strong>
-              <ChevronDown size={14} aria-hidden="true" />
-            </button>
-            {providerPickerOpen && (
-            <div className="agent-provider-popover" id="agent-provider-popover" role="dialog" aria-label="AI chat configuration">
-              <label>
-                Provider
-                <select
-                  aria-label="AI provider"
-                  value={selectedConnection?.id ?? ''}
-                  onChange={(event) => void chooseConnection(event.target.value).catch((caught) => {
-                    setError(caught instanceof Error ? caught.message : 'Could not select provider.');
-                  })}
-                >
-                  <option value="">Select provider…</option>
-                  {ai.connections.map((connection) => (
-                    <option key={connection.id} value={connection.id}>
-                      {connection.name} ({connection.status})
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Model
-                <select
-                  aria-label="AI model"
-                  value={selectedModel?.id ?? ''}
-                  disabled={!selectedConnection}
-                  onChange={(event) => {
-                    if (selectedConnection) {
-                      void ai.setSelection({
-                        connectionId: selectedConnection.id,
-                        modelId: event.target.value,
-                      });
-                      setProviderPickerOpen(false);
-                    }
-                  }}
-                >
-                  <option value="">Select model…</option>
-                  {selectedModels.map((model) => (
-                    <option key={model.id} value={model.id}>{model.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Thinking level
-                <select
-                  aria-label="Thinking level"
-                  value={effectiveThinkingLevel}
-                  disabled={!modelSupportsThinking}
-                  onChange={(event) => {
-                    if (isAIThinkingLevel(event.target.value)) {
-                      setThinkingLevel(event.target.value);
-                    }
-                  }}
-                >
-                  {supportedThinkingLevels.map((level) => (
-                    <option key={level} value={level}>{THINKING_LEVEL_LABELS[level]}</option>
-                  ))}
-                </select>
-              </label>
-              {!modelSupportsThinking && selectedModel && (
-                <p className="agent-provider-note">This model does not advertise thinking support.</p>
-              )}
-              <button type="button" onClick={() => {
-                setProviderPickerOpen(false);
-                onOpenSettings();
-              }}>Manage providers</button>
-            </div>
-            )}
-          </div>
-        )}
-        {anchorLabel && (
-          <div className="agent-composer-anchor">
-            <span>Selected {anchorLabel}</span>
-            {onClearAnchor && (
+            <div className="agent-header-actions">
               <button
+                className="agent-icon-button"
                 type="button"
-                className="agent-anchor-clear-btn"
-                onClick={onClearAnchor}
-                title="Clear selection"
-                aria-label={`Deselect ${anchorLabel} from chat context`}
+                onClick={handleNewThread}
+                title="Start new thread"
+                aria-label="Start new thread"
+                disabled={!fileId || (!!activeThread && activeThread.messages.length === 0)}
               >
-                <X className="w-3 h-3" />
+                <Plus size={17} />
               </button>
-            )}
+              <button
+                className="agent-icon-button"
+                type="button"
+                onClick={onClose}
+                title="Close assistant"
+                aria-label="Close assistant"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
-        )}
-        <label htmlFor="agent-question" className="sr-only">Ask about the current sheet</label>
-        <div className="agent-composer-input">
-          <textarea
-            ref={textareaRef}
-            id="agent-question"
-            value={draft}
-            style={textareaHeight === null ? undefined : { height: `${textareaHeight}px` }}
-            onChange={(event) => {
-              setDraft(event.target.value);
-              if (event.target.value) growTextareaToContent(event.currentTarget);
-            }}
-            placeholder={!ai.desktopAvailable
-              ? 'Open Chorale desktop to use AI'
-              : !providerReady
-                ? 'Select a provider and model'
-                : abcCode.trim()
-                  ? 'Ask about the current sheet…'
-                  : 'Load a score to start chatting'}
-            disabled={!abcCode.trim() || isStreaming || !providerReady}
-            rows={3}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                event.currentTarget.form?.requestSubmit();
+          <div className="agent-history-row">
+            <div className="agent-history-control" ref={threadPickerRef}>
+              <button
+                ref={threadTriggerRef}
+                type="button"
+                className="agent-history-trigger"
+                aria-label="Conversation history"
+                aria-haspopup="listbox"
+                aria-expanded={threadMenuOpen}
+                aria-controls="conversation-history-menu"
+                onClick={() => {
+                  setThreadMenuOpen((current) => !current);
+                }}
+              >
+                <span>{activeThread?.title || 'New thread'}</span>
+                <ChevronDown className="agent-history-chevron" size={16} aria-hidden="true" />
+              </button>
+              {threadMenuOpen && (
+                <div
+                  className="agent-history-menu"
+                  id="conversation-history-menu"
+                  role="listbox"
+                  aria-label="Conversation threads"
+                >
+                  {conversation.threads.map((thread) => (
+                    <button
+                      key={thread.id}
+                      type="button"
+                      role="option"
+                      aria-selected={thread.id === activeThread?.id}
+                      onClick={() => {
+                        updateConversation((current) => ({
+                          ...current,
+                          activeThreadId: thread.id,
+                        }));
+                        setThreadMenuOpen(false);
+                        threadTriggerRef.current?.focus();
+                      }}
+                    >
+                      <span>{thread.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              className="agent-icon-button agent-delete-thread-button"
+              type="button"
+              onClick={handleDeleteThread}
+              title="Delete current thread"
+              aria-label="Delete current thread"
+              disabled={!fileId || !activeThread}
+            >
+              <Trash2 size={16} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+
+        <ThreadPrimitive.Root className="agent-chat-thread" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+          <ThreadPrimitive.Viewport
+            className="agent-transcript"
+            ref={transcriptRef}
+            role="log"
+            aria-live="polite"
+            autoScroll
+            turnAnchor="bottom"
+          >
+            <MemoizedMessageList
+              messages={messages}
+              scoreMeter={scoreMeter}
+              totalMeasures={totalMeasures}
+              invalidProposalIds={invalidProposalIds}
+              editingProposal={editingProposal}
+              conversationTotalTokens={conversationTotalTokens}
+              abcCode={abcCode}
+              onNavigateMeasure={onNavigateMeasure}
+              onEditProposal={handleEditProposal}
+              onRejectProposal={handleRejectProposal}
+              onApplyAll={handleApplyAll}
+              onPreviewScoreProposal={handlePreviewScoreProposal}
+              onApplyScoreProposal={handleApplyScoreProposal}
+              onDiscardScoreProposal={handleDiscardScoreProposal}
+              onStartEditProposal={handleStartEditProposal}
+              onReturnToProposalEdit={returnToProposalEdit}
+              onSetDraft={(text) => composerRef.current?.setDraft(text)}
+            />
+
+            {pendingMessages.length > 0 && (
+              <ChoraleQueueList
+                items={pendingMessages}
+                isRunning={isStreaming}
+                onRunNext={handleRunNext}
+                onSteerNow={handleSteerNow}
+                onEdit={(itemId, newPrompt) => queueAdapter.edit(itemId, { content: [{ type: 'text', text: newPrompt }] })}
+                onRemove={(itemId) => queueAdapter.remove(itemId)}
+                onReorder={(itemId, direction) => queueAdapter.reorder(itemId, direction)}
+              />
+            )}
+          </ThreadPrimitive.Viewport>
+
+          {error && <div className="agent-error" role="alert">{error}</div>}
+
+          <ChoraleComposer
+            ref={composerRef}
+            abcCode={abcCode}
+            isStreaming={isStreaming}
+            providerReady={providerReady}
+            ai={ai}
+            selectedConnection={selectedConnection}
+            selectedModel={selectedModel}
+            selectedModels={selectedModels}
+            effectiveThinkingLevel={effectiveThinkingLevel}
+            supportedThinkingLevels={supportedThinkingLevels}
+            modelSupportsThinking={modelSupportsThinking}
+            anchorLabel={anchorLabel}
+            onClearAnchor={onClearAnchor}
+            onOpenSettings={onOpenSettings}
+            onSend={(text) => void executePrompt(text)}
+            onPrioritySteer={(text) => void handlePrioritySteer(text)}
+            onEnqueue={handleEnqueueFollowUp}
+            onStop={stop}
+            onThinkingLevelChange={setThinkingLevel}
+            onConnectionChange={chooseConnection}
+            onModelChange={async (modelId) => {
+              if (selectedConnection) {
+                await ai.setSelection({
+                  connectionId: selectedConnection.id,
+                  modelId,
+                });
               }
             }}
           />
-          <button
-            className="agent-composer-resize-handle"
-            type="button"
-            aria-label="Resize chat input"
-            aria-controls="agent-question"
-            title="Drag vertically or use the arrow keys to resize"
-            disabled={!abcCode.trim() || isStreaming || !providerReady}
-            onPointerDown={(event) => {
-              const textarea = textareaRef.current;
-              if (!textarea) return;
-              resizeStartRef.current = {
-                pointerId: event.pointerId,
-                pointerY: event.clientY,
-                height: textarea.getBoundingClientRect().height || DEFAULT_TEXTAREA_HEIGHT,
-              };
-              event.currentTarget.setPointerCapture?.(event.pointerId);
-            }}
-            onPointerMove={(event) => {
-              const start = resizeStartRef.current;
-              if (!start || start.pointerId !== event.pointerId) return;
-              setBoundedTextareaHeight(start.height + start.pointerY - event.clientY);
-            }}
-            onPointerUp={(event) => {
-              if (resizeStartRef.current?.pointerId === event.pointerId) {
-                resizeStartRef.current = null;
-                event.currentTarget.releasePointerCapture?.(event.pointerId);
-              }
-            }}
-            onPointerCancel={() => {
-              resizeStartRef.current = null;
-            }}
-            onKeyDown={(event) => {
-              const textarea = textareaRef.current;
-              if (!textarea || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
-              event.preventDefault();
-              const currentHeight = textarea.getBoundingClientRect().height || DEFAULT_TEXTAREA_HEIGHT;
-              setBoundedTextareaHeight(
-                currentHeight + (event.key === 'ArrowUp' ? KEYBOARD_RESIZE_STEP : -KEYBOARD_RESIZE_STEP),
-              );
-            }}
-          >
-            <svg
-              className="agent-composer-resize-icon"
-              viewBox="0 0 16 16"
-              aria-hidden="true"
-            >
-              <path d="M3 1 15 13" />
-              <path d="M8 1 15 8" />
-              <path d="M13 1 15 3" />
-            </svg>
-          </button>
-        </div>
-        {isStreaming ? (
-          <button
-            className="agent-send-button"
-            type="button"
-            onClick={stop}
-            aria-label="Stop"
-          >
-            <Square size={16} />
-          </button>
-        ) : (
-          <button
-            className="agent-send-button"
-            type="submit"
-            disabled={!draft.trim() || !abcCode.trim() || !providerReady}
-            aria-label="Send"
-          >
-            <Send size={16} />
-          </button>
-        )}
-      </form>
-    </aside>
+        </ThreadPrimitive.Root>
+      </aside>
+    </AssistantRuntimeProvider>
   );
 };

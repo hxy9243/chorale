@@ -3,7 +3,7 @@ title: "Interaction Model Spec"
 description: "Specification for cross-surface interaction flows connecting score selection, playback seek, chat references, and annotation proposals"
 category: "interaction"
 date: 2026-08-05
-updated: 2026-08-21
+updated: 2026-09-03
 status: "implemented"
 source_files:
   - src/types/document.ts
@@ -19,7 +19,8 @@ source_files:
   - src/components/ScoreMetadataHeader.tsx
   - src/components/EditingHistoryModal.tsx
   - src/components/AgentChatPanel.tsx
-  - src/components/MarkdownMessage.tsx
+  - src/components/chat/ChoraleStreamdownMessage.tsx
+  - src/components/chat/ChoraleReasoningView.tsx
 test_files:
   - src/utils/__tests__/anchor.test.ts
   - src/utils/__tests__/repeatPlayback.test.ts
@@ -41,7 +42,7 @@ related_specs:
 # Interaction Model Spec
 
 Date: 2026-08-05  
-Updated: 2026-08-21  
+Updated: 2026-09-03
 Source: `spec/agent-analysis-and-annotations.md`
 
 ## 1. Goal
@@ -85,7 +86,8 @@ Disconnected ranges are not supported.
 2. Electron validates it and constructs one immutable `ScoreSnapshot`.
 3. The agent calls `select_analysis_profile`; chat displays the selected route.
 4. The agent reads score data through registered tools; correlated tool rows display progress.
-5. Model reasoning (e.g. `<think>...</think>`) is streamed into collapsible thinking disclosure blocks.
+5. Model reasoning streams as structured reasoning parts into collapsible thinking disclosure blocks;
+   legacy `<think>...</think>` history is converted during conversation migration.
 6. The agent returns Markdown with score references and may call `propose_annotations`.
 7. A valid measure reference selects, scrolls, focuses, and seeks the passage without autoplay.
 

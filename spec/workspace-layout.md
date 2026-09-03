@@ -3,7 +3,7 @@ title: "Workspace Layout Spec"
 description: "Specification for the top-level desktop workspace structure, header, file rail, central score workspace, and chat panel"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-08-30
+updated: 2026-09-03
 status: "implemented"
 source_files:
   - src/App.tsx
@@ -40,7 +40,7 @@ related_specs:
 # Workspace Layout Spec
 
 Date: 2026-07-28  
-Updated: 2026-08-30
+Updated: 2026-09-03
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 ## 1. Goal
@@ -125,8 +125,8 @@ The chat panel is part of the fixed workspace layout on desktop. It supports hor
 It functions as a persistent product surface with:
 
 - file-scoped title row and a full-width, consistently styled thread selector beneath it
-- conversation transcript with collapsible reasoning/thinking traces and tool progress
-- tool disclosure
+- conversation transcript with collapsible structured reasoning, tool progress, and per-round token usage
+- persisted follow-up queue controls for edit, remove, reorder, run next, and priority steering
 - anchored composer with provider/model selector, thinking level selector (`off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`), and active range chip
 - resize drag handle on left edge
 

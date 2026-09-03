@@ -119,6 +119,45 @@ afterEach(async () => {
 });
 
 describe('SheetAgentRun provider transport', () => {
+  it('rejects a steer after streaming ends instead of acknowledging a message no run can consume', async () => {
+    const { store, connection, model } = await createStore('http://127.0.0.1:1/v1');
+    const events: AIEvent[] = [];
+    const run = new SheetAgentRun(
+      'ended-run',
+      request,
+      connection,
+      model,
+      store,
+      (event) => events.push(event),
+    );
+    const steer = vi.fn();
+    const internals = run as unknown as {
+      acceptingSteers: boolean;
+      agent: { state: { isStreaming: boolean }; steer: typeof steer };
+    };
+    internals.acceptingSteers = true;
+    internals.agent = { state: { isStreaming: false }, steer };
+
+    await expect(run.steer({
+      messageId: 'late-steer',
+      question: 'Elaborate on that.',
+      context: request.context,
+    })).resolves.toEqual({ steered: false });
+    expect(steer).not.toHaveBeenCalled();
+    expect(events).not.toContainEqual(expect.objectContaining({ type: 'steer-accepted' }));
+
+    // agent_end closes the acceptance window before asynchronous trace cleanup,
+    // even though Pi has not yet flipped its public streaming state.
+    internals.agent.state.isStreaming = true;
+    internals.acceptingSteers = false;
+    await expect(run.steer({
+      messageId: 'agent-end-steer',
+      question: 'One more detail.',
+      context: request.context,
+    })).resolves.toEqual({ steered: false });
+    expect(steer).not.toHaveBeenCalled();
+  });
+
   it('sends authenticated score context and history, then streams deltas', async () => {
     let receivedBody = '';
     let receivedAuthorization = '';
@@ -206,7 +245,15 @@ describe('SheetAgentRun provider transport', () => {
     }));
     expect(events.filter((event) => event.type === 'chat-delta').map((event) => event.text).join(''))
       .toBe('The dominant resolves to tonic.');
-    expect(events.at(-1)).toEqual({ type: 'chat-done', requestId: 'runtime-request' });
+    expect(events.at(-1)).toEqual({
+      type: 'chat-done',
+      requestId: 'runtime-request',
+      usage: expect.objectContaining({
+        input: expect.any(Number),
+        output: expect.any(Number),
+        totalTokens: expect.any(Number),
+      }),
+    });
 
     const traceFiles = await readdir(traceDirectory);
     expect(traceFiles).toHaveLength(1);
@@ -292,13 +339,10 @@ describe('SheetAgentRun provider transport', () => {
 
     await run.start();
 
-    expect(events.filter((event) => event.type === 'chat-delta').map((event) => event.text))
-      .toEqual([
-        '<think>\n',
-        'Checking ',
-        'the inner voices.',
-        '\n</think>\n\n',
-      ]);
+    const deltaEvents = events.filter((event): event is Extract<AIEvent, { type: 'chat-delta' }> => event.type === 'chat-delta');
+    expect(deltaEvents.map((event) => ({ text: event.text, partType: event.partType }))).toEqual([
+      { text: 'Checking the inner voices.', partType: 'reasoning' },
+    ]);
   });
 
   it('aborts an in-flight upstream request', async () => {

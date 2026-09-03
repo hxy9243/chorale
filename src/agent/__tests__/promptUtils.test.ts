@@ -171,4 +171,57 @@ describe('promptUtils', () => {
     expect(editedPrompt).not.toContain('globalKey="C"');
     expect(editedPrompt).not.toContain('C E G c |');
   });
+
+  it('serializes only visible text parts and excludes reasoning traces from assistant history turns', () => {
+    const mockModel: Model<'openai-responses'> = {
+      id: 'gpt-4o',
+      name: 'GPT-4o',
+      api: 'openai-responses',
+      provider: 'openai',
+      baseUrl: 'https://api.openai.com/v1',
+      reasoning: false,
+      input: ['text'],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: 128000,
+      maxTokens: 4096,
+    };
+
+    const messages: ChatMessage[] = [
+      {
+        id: 'msg-user',
+        role: 'user',
+        content: 'Identify cadence in m. 4',
+        createdAt: '2026-09-02T12:00:00.000Z',
+        status: 'complete',
+      },
+      {
+        id: 'msg-asst',
+        role: 'assistant',
+        content: 'It is an authentic cadence in C major.',
+        createdAt: '2026-09-02T12:00:05.000Z',
+        status: 'complete',
+        parts: [
+          { type: 'reasoning', text: 'Let me analyze the bass voice: G to C. Soprano has B to C. This is a perfect authentic cadence.', status: 'complete' },
+          {
+            type: 'tool',
+            toolCallId: 'tc-1',
+            toolName: 'read_measure_range',
+            summary: 'Read measure 4',
+            status: 'success',
+          },
+          { type: 'text', text: 'It is an authentic cadence in C major.' },
+        ],
+      },
+    ];
+
+    const history = toAgentHistory(messages, mockModel);
+    expect(history).toHaveLength(2);
+    expect(history[1].role).toBe('assistant');
+    const assistantContent = (history[1] as any).content;
+    expect(assistantContent).toEqual([{ type: 'text', text: 'It is an authentic cadence in C major.' }]);
+    // Reasoning trace and tool summaries must NOT be present in assistant turn content
+    expect(JSON.stringify(assistantContent)).not.toContain('Let me analyze the bass voice');
+    expect(JSON.stringify(assistantContent)).not.toContain('Read measure 4');
+  });
 });
+

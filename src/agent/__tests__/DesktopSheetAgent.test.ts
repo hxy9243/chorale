@@ -223,4 +223,124 @@ describe('DesktopSheetAgent', () => {
       new AbortController().signal,
     )).rejects.toThrow('desktop app');
   });
+
+  it('forwards steerChat to the preload bridge', async () => {
+    const fake = makeBridge();
+    fake.bridge.steerChat = vi.fn(async () => ({ steered: true }));
+    window.choraleAI = fake.bridge;
+
+    const agent = new DesktopSheetAgent();
+    const result = await agent.steer('req-123', {
+      messageId: 'msg-steer',
+      question: 'Focus on measure 3',
+      context: request.context,
+    });
+
+    expect(fake.bridge.steerChat).toHaveBeenCalledWith('req-123', {
+      messageId: 'msg-steer',
+      question: 'Focus on measure 3',
+      context: request.context,
+    });
+    expect(result).toEqual({ steered: true });
+  });
+
+  it('handles structured deltas, tool timing, steer acceptance, and round usage', async () => {
+    const fake = makeBridge();
+    window.choraleAI = fake.bridge;
+    vi.mocked(fake.bridge.sendChat).mockImplementation(async () => {
+      fake.emit({
+        type: 'chat-start',
+        requestId: 'request-1',
+        connectionId: 'conn-1',
+        modelId: 'm-1',
+        providerKind: 'openai',
+      });
+      fake.emit({
+        type: 'chat-delta',
+        requestId: 'request-1',
+        text: 'Thinking step',
+        partType: 'reasoning',
+        partId: 'part-0',
+      });
+      fake.emit({
+        type: 'tool-start',
+        requestId: 'request-1',
+        toolCallId: 'tc-1',
+        toolName: 'read_measure_range',
+        summary: 'Reading mm. 1-2',
+        startTime: '2026-09-02T12:00:00.000Z',
+      });
+      fake.emit({
+        type: 'tool-done',
+        requestId: 'request-1',
+        toolCallId: 'tc-1',
+        toolName: 'read_measure_range',
+        status: 'success',
+        summary: 'Read 2 measures',
+        durationMs: 120,
+        endTime: '2026-09-02T12:00:00.120Z',
+      });
+      fake.emit({
+        type: 'steer-accepted',
+        requestId: 'request-1',
+        messageId: 'steer-1',
+      });
+      fake.emit({
+        type: 'chat-done',
+        requestId: 'request-1',
+        usage: {
+          input: 100,
+          output: 50,
+          cacheRead: 10,
+          cacheWrite: 0,
+          totalTokens: 160,
+        },
+      });
+      return { requestId: 'request-1' };
+    });
+
+    const onDelta = vi.fn();
+    const onToolStart = vi.fn();
+    const onToolDone = vi.fn();
+    const onSteerAccepted = vi.fn();
+    const onDone = vi.fn();
+
+    await new DesktopSheetAgent().send(
+      request,
+      {
+        onDelta,
+        onStart: vi.fn(),
+        onToolStart,
+        onToolDone,
+        onSteerAccepted,
+        onDone,
+      },
+      new AbortController().signal,
+    );
+
+    expect(onDelta).toHaveBeenCalledWith('Thinking step', 'reasoning', 'part-0');
+    expect(onToolStart).toHaveBeenCalledWith({
+      toolCallId: 'tc-1',
+      toolName: 'read_measure_range',
+      status: 'running',
+      summary: 'Reading mm. 1-2',
+      startTime: '2026-09-02T12:00:00.000Z',
+    });
+    expect(onToolDone).toHaveBeenCalledWith({
+      toolCallId: 'tc-1',
+      toolName: 'read_measure_range',
+      status: 'success',
+      summary: 'Read 2 measures',
+      durationMs: 120,
+      endTime: '2026-09-02T12:00:00.120Z',
+    });
+    expect(onSteerAccepted).toHaveBeenCalledWith('steer-1');
+    expect(onDone).toHaveBeenCalledWith({
+      input: 100,
+      output: 50,
+      cacheRead: 10,
+      cacheWrite: 0,
+      totalTokens: 160,
+    });
+  });
 });

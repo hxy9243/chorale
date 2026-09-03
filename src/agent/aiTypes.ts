@@ -1,4 +1,4 @@
-import type { ChatMessage, MusicContextSnapshot } from './types';
+import type { ChatMessage, MusicContextSnapshot, RoundUsage } from './types';
 import type { AgentProfileId, AnnotationProposal, ScoreChangeProposal } from '../types/document';
 
 export const AI_PROVIDER_KINDS = [
@@ -69,6 +69,12 @@ export type SheetAgentRequest = {
   thinkingLevel: AIThinkingLevel;
 };
 
+export type SheetAgentSteerRequest = {
+  messageId: string;
+  question: string;
+  context: MusicContextSnapshot;
+};
+
 export type AIErrorCode =
   | 'desktop_required'
   | 'invalid_request'
@@ -97,7 +103,13 @@ export type AIEvent =
       modelId: string;
       providerKind: AIProviderKind;
     }
-  | { type: 'chat-delta'; requestId: string; text: string }
+  | {
+      type: 'chat-delta';
+      requestId: string;
+      text: string;
+      partType?: 'text' | 'reasoning';
+      partId?: string;
+    }
   | { type: 'profile-route'; requestId: string; profiles: AgentProfileId[] }
   | {
       type: 'tool-start';
@@ -105,6 +117,7 @@ export type AIEvent =
       toolCallId: string;
       toolName: string;
       summary: string;
+      startTime?: string;
     }
   | {
       type: 'tool-done';
@@ -113,10 +126,13 @@ export type AIEvent =
       toolName: string;
       status: 'success' | 'error';
       summary: string;
+      durationMs?: number;
+      endTime?: string;
     }
   | { type: 'proposal-created'; requestId: string; proposal: AnnotationProposal }
   | { type: 'score-proposal-created'; requestId: string; proposal: ScoreChangeProposal }
-  | { type: 'chat-done'; requestId: string }
+  | { type: 'steer-accepted'; requestId: string; messageId: string }
+  | { type: 'chat-done'; requestId: string; usage?: RoundUsage }
   | { type: 'chat-error'; requestId: string; code: AIErrorCode; message: string }
   | {
       type: 'oauth-update';
@@ -138,6 +154,7 @@ export type ChoraleAIBridge = {
   cancelCodexLogin(flowId: string): Promise<void>;
   logoutConnection(connectionId: string): Promise<void>;
   sendChat(request: SheetAgentRequest): Promise<{ requestId: string }>;
+  steerChat(requestId: string, steer: SheetAgentSteerRequest): Promise<{ steered: boolean }>;
   abortChat(requestId: string): Promise<void>;
   onAIEvent(listener: (event: AIEvent) => void): () => void;
 };

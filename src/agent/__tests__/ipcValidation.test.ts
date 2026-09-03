@@ -5,6 +5,7 @@ import {
   validateChatRequest,
   validateSaveInput,
   validateSelection,
+  validateSteerRequest,
 } from '../../../electron/ipcValidation';
 
 describe('AI IPC validation', () => {
@@ -67,6 +68,81 @@ describe('AI IPC validation', () => {
         annotations: [],
       },
     })).toThrow('history');
+  });
+
+  it('validates and reconstructs structured history parts at the IPC boundary', () => {
+    const request = validateChatRequest({
+      question: 'Continue',
+      history: [{
+        id: 'assistant-1',
+        role: 'assistant',
+        content: 'Visible answer',
+        createdAt: '2026-09-03T00:00:00.000Z',
+        status: 'complete',
+        parts: [
+          { type: 'reasoning', text: 'Private reasoning', status: 'complete' },
+          { type: 'tool', toolCallId: 'tool-1', toolName: 'read_score', summary: 'Read measures 1-4', status: 'success', durationMs: 12 },
+          { type: 'text', text: 'Visible answer' },
+        ],
+        rendererOnly: 'must not cross the trust boundary',
+      }],
+      context: {
+        id: 'context',
+        documentId: 'document',
+        revision: 1,
+        capturedAt: '2026-09-03T00:00:00.000Z',
+        fileName: 'Test.abc',
+        abc: 'X:1\nK:C\nC|',
+        annotations: [],
+      },
+    });
+
+    expect(request.history[0]).toEqual({
+      id: 'assistant-1',
+      role: 'assistant',
+      content: 'Visible answer',
+      createdAt: '2026-09-03T00:00:00.000Z',
+      status: 'complete',
+      parts: [
+        { type: 'reasoning', text: 'Private reasoning', status: 'complete' },
+        { type: 'tool', toolCallId: 'tool-1', toolName: 'read_score', summary: 'Read measures 1-4', status: 'success', durationMs: 12 },
+        { type: 'text', text: 'Visible answer' },
+      ],
+    });
+  });
+
+  it('rejects malformed and oversized structured history parts', () => {
+    const context = {
+      id: 'context',
+      documentId: 'document',
+      revision: 1,
+      capturedAt: '2026-09-03T00:00:00.000Z',
+      fileName: 'Test.abc',
+      abc: 'X:1\nK:C\nC|',
+      annotations: [],
+    };
+    const message = {
+      id: 'assistant-1',
+      role: 'assistant',
+      content: '',
+      createdAt: '2026-09-03T00:00:00.000Z',
+    };
+
+    expect(() => validateChatRequest({
+      question: 'Continue',
+      history: [{ ...message, parts: [{ type: 'text', text: 'x'.repeat(500_001) }] }],
+      context,
+    })).toThrow('limits');
+    expect(() => validateChatRequest({
+      question: 'Continue',
+      history: [{ ...message, parts: [{ type: 'reasoning', text: 'x', status: 'unknown' }] }],
+      context,
+    })).toThrow('parts');
+    expect(() => validateChatRequest({
+      question: 'Continue',
+      history: [{ ...message, parts: [{ type: 'tool', toolCallId: 'tool-1', toolName: 'read_score', summary: 'x', status: 'success', durationMs: -1 }] }],
+      context,
+    })).toThrow('parts');
   });
 
   it('accepts supported thinking levels, defaults old requests to off, and rejects unknown values', () => {
@@ -209,5 +285,43 @@ describe('AI IPC validation', () => {
       selection: { startMeasure: 1, endMeasure: 2 },
       annotations: [],
     });
+  });
+
+  it('validates steer request bounds and IDs', () => {
+    const validContext = {
+      id: 'snapshot-current',
+      documentId: 'document-current',
+      revision: 2,
+      capturedAt: '2026-08-05T00:00:00.000Z',
+      fileName: 'score.abc',
+      abc: 'X:1\nK:C\nC|',
+      annotations: [],
+    };
+
+    const validated = validateSteerRequest('req-1', {
+      messageId: 'steer-1',
+      question: 'Change cadence to authentic',
+      context: validContext,
+    });
+    expect(validated).toEqual({
+      requestId: 'req-1',
+      steer: {
+        messageId: 'steer-1',
+        question: 'Change cadence to authentic',
+        context: expect.objectContaining({ id: 'snapshot-current' }),
+      },
+    });
+
+    expect(() => validateSteerRequest('', { messageId: 'm1', question: 'q', context: validContext }))
+      .toThrow('request ID');
+    expect(() => validateSteerRequest('req-1', null))
+      .toThrow('Invalid steer request');
+    expect(() => validateSteerRequest('req-1', { messageId: '', question: 'q', context: validContext }))
+      .toThrow('message ID');
+    expect(() => validateSteerRequest('req-1', {
+      messageId: 'm1',
+      question: 'a'.repeat(20_001),
+      context: validContext,
+    })).toThrow('limits');
   });
 });
