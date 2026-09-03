@@ -117,4 +117,35 @@ describe('ChoraleQueueAdapter', () => {
     const second = secondAdapter.runNext();
     expect(second?.id).toBe('q-1'); // FIFO order
   });
+
+  it('runNext atomically pops a specific item when itemId is provided', () => {
+    let pending: QueuedChatMessage[] = [
+      { id: 'q-1', prompt: 'First Queue', lane: 'queue', createdAt: '2026-09-02T12:00:00.000Z', context: dummyContext },
+      { id: 'q-2', prompt: 'Second Queue', lane: 'queue', createdAt: '2026-09-02T12:01:00.000Z', context: dummyContext },
+      { id: 'q-3', prompt: 'Third Queue', lane: 'queue', createdAt: '2026-09-02T12:02:00.000Z', context: dummyContext },
+    ];
+    const onQueueChange = vi.fn((next) => {
+      pending = next;
+    });
+
+    const adapter = createChoraleQueueAdapter({
+      fileId: 'doc-1',
+      threadId: 't-1',
+      pendingMessages: pending,
+      onQueueChange,
+      getMusicContext: () => dummyContext,
+    });
+
+    // Running non-existent ID returns null and leaves queue unchanged
+    const nonExistent = adapter.runNext('does-not-exist');
+    expect(nonExistent).toBeNull();
+    expect(pending).toHaveLength(3);
+
+    // Running specific ID pops that item
+    const picked = adapter.runNext('q-2');
+    expect(picked?.id).toBe('q-2');
+    expect(pending).toHaveLength(2);
+    expect(pending.map((m) => m.id)).toEqual(['q-1', 'q-3']);
+  });
 });
+

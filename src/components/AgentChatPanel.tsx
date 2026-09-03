@@ -22,6 +22,7 @@ import {
   saveConversation,
   saveConversationAsync,
   savePendingQueue,
+  savePendingQueueAsync,
 } from '../agent/conversationStore';
 import type {
   ChatMessage,
@@ -989,9 +990,9 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
           if (!isCurrentRun()) return;
           updateMessages(threadId, (current) => current.map((message) => {
             if (message.id !== assistantId) return message;
-            const nextContent = message.content + delta;
-            const parts = message.parts ? [...message.parts] : [];
             const targetType = partType ?? 'text';
+            const nextContent = targetType === 'reasoning' ? message.content : message.content + delta;
+            const parts = message.parts ? [...message.parts] : [];
 
             const lastPart = parts[parts.length - 1];
             if (lastPart && lastPart.type === targetType) {
@@ -1168,9 +1169,11 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
             const pickIdx = steerIdx >= 0 ? steerIdx : 0;
             const nextItem = currentQueue[pickIdx];
             const remainingQueue = currentQueue.filter((_, idx) => idx !== pickIdx);
+            pendingMessagesRef.current = remainingQueue;
             updatePendingQueue(threadId, remainingQueue);
             if (fileId) {
               savePendingQueue(fileId, threadId, remainingQueue);
+              void savePendingQueueAsync(fileId, threadId, remainingQueue);
             }
             void executePrompt(nextItem.prompt, nextItem.context);
           }
@@ -1227,6 +1230,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         const nextQueue = [newItem, ...existingQueue];
         updatePendingQueue(activeThread.id, nextQueue);
         savePendingQueue(fileId, activeThread.id, nextQueue);
+        void savePendingQueueAsync(fileId, activeThread.id, nextQueue);
       }
     } else {
       void executePrompt(trimmed, steerContext);
@@ -1267,6 +1271,14 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     // If run ended during steer race, move item to front of FIFO queue
     queueAdapter.move(item.id, { lane: 'queue', insertBefore: queueAdapter.items[0]?.id });
   }, [isStreaming, getAgent, queueAdapter]);
+
+  const handleRunNext = useCallback((item: QueuedChatMessage) => {
+    if (isStreaming) return;
+    const dequeued = queueAdapter.runNext(item.id);
+    if (!dequeued) return;
+    pendingMessagesRef.current = pendingMessagesRef.current.filter((m) => m.id !== dequeued.id);
+    void executePrompt(dequeued.prompt, dequeued.context);
+  }, [isStreaming, queueAdapter, executePrompt]);
 
   const storeAdapter = useMemo(
     () => createChoraleExternalStoreAdapter({
@@ -1420,7 +1432,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
               <ChoraleQueueList
                 items={pendingMessages}
                 isRunning={isStreaming}
-                onRunNext={(item) => void executePrompt(item.prompt, item.context)}
+                onRunNext={handleRunNext}
                 onSteerNow={handleSteerNow}
                 onEdit={(itemId, newPrompt) => queueAdapter.edit(itemId, { content: [{ type: 'text', text: newPrompt }] })}
                 onRemove={(itemId) => queueAdapter.remove(itemId)}

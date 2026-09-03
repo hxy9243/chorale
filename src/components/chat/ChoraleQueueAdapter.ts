@@ -1,6 +1,6 @@
 import type { AppendMessage, QueueItemState } from '@assistant-ui/react';
 import type { MusicContextSnapshot, QueuedChatMessage } from '../../agent/types';
-import { savePendingQueue } from '../../agent/conversationStore';
+import { savePendingQueue, savePendingQueueAsync } from '../../agent/conversationStore';
 
 export type QueuePlacement = {
   readonly lane?: 'queue' | 'steer';
@@ -53,12 +53,15 @@ export const createChoraleQueueAdapter = ({
   getMusicContext,
 }: ChoraleQueueOptions): ExternalThreadQueueAdapter & {
   rawItems: QueuedChatMessage[];
-  runNext: () => QueuedChatMessage | null;
+  runNext: (itemId?: string) => QueuedChatMessage | null;
   reorder: (itemId: string, direction: 'up' | 'down') => void;
 } => {
   const persistAndNotify = (next: QueuedChatMessage[]) => {
     onQueueChange(next);
-    savePendingQueue(fileId, threadId, next);
+    if (fileId && threadId) {
+      savePendingQueue(fileId, threadId, next);
+      void savePendingQueueAsync(fileId, threadId, next);
+    }
   };
 
   const enqueueItem = (prompt: string, lane: 'queue' | 'steer') => {
@@ -141,12 +144,19 @@ export const createChoraleQueueAdapter = ({
       persistAndNotify(next);
     },
 
-    runNext: (): QueuedChatMessage | null => {
+    runNext: (itemId?: string): QueuedChatMessage | null => {
       if (pendingMessages.length === 0) return null;
-      // FIFO selection: pick first steer item if any, otherwise first queue item
-      const steerIdx = pendingMessages.findIndex((m) => m.lane === 'steer');
-      const pickIdx = steerIdx >= 0 ? steerIdx : 0;
+      let pickIdx = -1;
+      if (itemId) {
+        pickIdx = pendingMessages.findIndex((m) => m.id === itemId);
+        if (pickIdx < 0) return null;
+      } else {
+        // FIFO selection: pick first steer item if any, otherwise first queue item
+        const steerIdx = pendingMessages.findIndex((m) => m.lane === 'steer');
+        pickIdx = steerIdx >= 0 ? steerIdx : 0;
+      }
       const item = pendingMessages[pickIdx];
+      if (!item) return null;
       const next = pendingMessages.filter((_, idx) => idx !== pickIdx);
       persistAndNotify(next);
       return item;

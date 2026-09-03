@@ -109,23 +109,38 @@ export const formatPrompt = (
 const assistantHistoryMessage = (
   message: ChatMessage,
   model: Model<Api>,
-): AssistantMessage => ({
-  role: 'assistant',
-  content: [{ type: 'text', text: message.content }],
-  api: model.api,
-  provider: model.provider,
-  model: model.id,
-  usage: EMPTY_USAGE,
-  stopReason: message.status === 'stopped' ? 'aborted' : 'stop',
-  timestamp: Date.parse(message.createdAt),
-});
+): AssistantMessage => {
+  const visibleText = message.parts && message.parts.length > 0
+    ? message.parts
+        .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+        .map((part) => part.text)
+        .join('')
+    : message.content;
+
+  return {
+    role: 'assistant',
+    content: [{ type: 'text', text: visibleText }],
+    api: model.api,
+    provider: model.provider,
+    model: model.id,
+    usage: EMPTY_USAGE,
+    stopReason: message.status === 'stopped' ? 'aborted' : 'stop',
+    timestamp: Date.parse(message.createdAt),
+  };
+};
 
 export const toAgentHistory = (
   messages: ChatMessage[],
   model: Model<Api>,
 ): AgentMessage[] => (
   messages.flatMap<AgentMessage>((message) => {
-    if (!message.content.trim() || message.status === 'error' || message.status === 'streaming') {
+    const visibleText = message.parts && message.parts.length > 0
+      ? message.parts
+          .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+          .map((part) => part.text)
+          .join('')
+      : message.content;
+    if (!visibleText.trim() || message.status === 'error' || message.status === 'streaming') {
       return [];
     }
     if (message.role === 'user') {

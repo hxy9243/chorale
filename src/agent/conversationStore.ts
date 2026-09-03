@@ -539,12 +539,14 @@ export const savePendingQueue = (
   }
 };
 
-export const savePendingQueueAsync = async (
+let durableSaveQueue: Promise<boolean> = Promise.resolve(true);
+
+export const savePendingQueueAsync = (
   fileId: string,
   threadId: string,
   pendingMessages: QueuedChatMessage[],
 ): Promise<boolean> => {
-  try {
+  durableSaveQueue = durableSaveQueue.then(async () => {
     const store = await loadDurableStore();
     const existingFile = store.files[fileId] ?? createDefaultFileConversation();
     const nextThreads = existingFile.threads.map((thread) => (
@@ -560,17 +562,14 @@ export const savePendingQueueAsync = async (
       },
     } satisfies PersistedConversationStore);
     return Boolean(saved);
-  } catch {
-    return false;
-  }
+  }).catch(() => false);
+  return durableSaveQueue;
 };
 
 export const conversationNeedsDurableHydration = (
   fileId: string,
   storage: Storage = window.localStorage,
 ): boolean => storage.getItem(durableConversationMarkerKey(fileId)) === '1';
-
-let durableSaveQueue: Promise<boolean> = Promise.resolve(true);
 
 export const saveConversationAsync = (
   fileId: string,
