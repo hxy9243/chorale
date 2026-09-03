@@ -3,14 +3,15 @@ title: "Passage-Aware Music Tutor, Agent Tools, and Annotations"
 description: "Authoritative product specification for passage analysis, analysis profiles, score tools, proposal review, and canonical annotation overlay rendering"
 category: "core-product"
 date: 2026-08-05
-updated: 2026-08-30
+updated: 2026-09-03
 status: "implemented"
 source_files:
   - src/components/SheetMusicView.tsx
   - src/components/AnnotationOverlay.tsx
   - src/components/AnnotationRail.tsx
   - src/components/AgentChatPanel.tsx
-  - src/components/MarkdownMessage.tsx
+  - src/components/chat/ChoraleStreamdownMessage.tsx
+  - src/components/chat/ChoraleReasoningView.tsx
   - src/components/AnnotationProposalCard.tsx
   - src/components/AnnotationEditor.tsx
   - src/music/documentSchema.ts
@@ -49,7 +50,7 @@ related_specs:
 # Passage-Aware Music Tutor, Agent Tools, and Annotations
 
 Date: 2026-08-05  
-Updated: 2026-08-30
+Updated: 2026-09-03
 Status: Implemented specification (Milestones 1 & 2 delivered)
 
 ## 1. Product goal
@@ -107,16 +108,16 @@ Milestone 2 builds on the same canonical annotation and musical-position contrac
 
 ## 3. Current-state constraints
 
-Verified 2026-08-30:
+Verified 2026-09-03:
 
 | Capability | Current state | Evidence |
 |---|---|---|
-| Measure selection | One measure at a time | `src/components/SheetMusicView.tsx` |
+| Measure selection | One continuous written-measure range at a time | `src/components/SheetMusicView.tsx` |
 | Playback handoff | Shared anchor and repeat-aware occurrence behavior exist | `src/components/AudioPlayer.tsx`, `src/utils/repeatPlayback.ts` |
-| Agent runtime | Production Pi runtime streams text with `tools: []` | `electron/ai/sheetAgentRuntime.ts` |
+| Agent runtime | Production Pi runtime streams structured text and reasoning deltas plus score-tool lifecycle events | `electron/ai/sheetAgentRuntime.ts` |
 | Chat grounding | Full ABC and one optional selection are captured | `src/components/AgentChatPanel.tsx`, `src/agent/types.ts` |
-| Markdown | Assistant messages render as plain text | `src/components/AgentChatPanel.tsx` |
-| Annotations | A legacy persisted shape exists without store mutations or overlays | `src/types/document.ts`, `src/hooks/useDocumentStore.ts` |
+| Markdown | Assistant text and reasoning render through sanitized Streamdown surfaces with raw HTML disabled | `src/components/chat/ChoraleStreamdownMessage.tsx`, `src/components/chat/ChoraleReasoningView.tsx` |
+| Annotations | Canonical annotations support proposal review, persistence, editing, and React-owned overlays | `src/types/document.ts`, `src/hooks/useDocumentStore.ts`, `src/components/AnnotationOverlay.tsx` |
 | Persistence | Documents and full conversations use IndexedDB; conversations also keep a compact local-storage mirror | `src/utils/storageAdapter.ts`, `src/agent/conversationStore.ts` |
 
 Existing provider configuration, cancellation, playback, repeat handling, ABC editing, and workspace persistence must continue to work.
@@ -389,8 +390,10 @@ span and opens its detail or editing UI.
 
 - Accepted annotations remain inline in `FileDocument` and use IndexedDB autosave.
 - Annotation changes do not increment the ABC revision or create `ScoreVersion` records.
-- Conversation storage remains schema version 3 for proposals, profile routes, and tool-display metadata.
-- Version-2 conversations migrate with empty proposal and tool metadata.
+- Conversation storage uses schema version 4 for ordered text, reasoning, and tool parts; token usage;
+  persisted pending messages; proposals; and profile routes.
+- Version-2 and version-3 conversations migrate to v4. Legacy thinking markup becomes structured
+  reasoning, interrupted streams become stopped messages, and the v3 key remains untouched for rollback.
 - IndexedDB stores full conversations; local storage is a compact synchronous mirror and fallback.
 - Hydration merges both stores by file ID and prefers IndexedDB when the same file exists in both.
 - No IndexedDB object-store migration is required.

@@ -3,7 +3,7 @@ title: "File Workspace Architecture"
 description: "Architecture specification covering runtime layers, document store, shared music libraries, data contracts, and invariants"
 category: "architecture"
 date: 2026-08-05
-updated: 2026-08-30
+updated: 2026-09-03
 status: "implemented"
 source_files:
   - src/types/document.ts
@@ -48,7 +48,7 @@ related_specs:
 # File Workspace Architecture
 
 Date: 2026-08-05
-Updated: 2026-08-30
+Updated: 2026-09-03
 Source: Existing workspace architecture plus `spec/agent-analysis-and-annotations.md`
 
 ## 1. Goal
@@ -107,9 +107,10 @@ These modules are independent of React and Electron UI code.
 
 - `FileDocument` values, including accepted annotations, remain in IndexedDB.
 - Active-file and workspace preferences remain in their existing stores.
-- File-scoped conversation history remains schema version 3. IndexedDB is the full-fidelity store;
-  local storage is a compact synchronous mirror and fallback. Hydration merges both file maps,
-  preferring IndexedDB for duplicate file IDs and backfilling local-only files when possible.
+- File-scoped conversation history uses schema version 4. IndexedDB is the full-fidelity store;
+  local storage is a compact synchronous mirror and fallback. A valid v4 store is authoritative.
+  Legacy v2/v3 stores are consulted only when v4 is absent or invalid, and the v3 key is preserved
+  for rollback.
 
 ## 3. Core data contracts
 
@@ -184,8 +185,10 @@ The same canonical `Annotation` type crosses document, context, IPC validation, 
 - `storageAdapter.getDocuments()` invokes pure `normalizeFileDocument` for IndexedDB and memory paths.
 - `useDocumentStore` owns UI state and mutations, not schema migration.
 - Legacy annotation kinds normalize to the canonical four-kind model.
-- Conversation v2 migrates to v3 with empty/default proposal, profile-route, and tool-display metadata.
-- Durable hydration merges version-3 IndexedDB and local-storage records without changing the schema.
+- Conversation v2 and v3 migrate to v4 with ordered structured parts, normalized stopped status for
+  interrupted streams, token usage, and a persisted pending queue. Legacy v3 data remains untouched.
+- Durable hydration prefers valid version-4 IndexedDB data and falls back to legacy data only when v4
+  is absent or invalid.
 - No IndexedDB object-store migration is needed because annotations remain inline.
 
 ## 6. Failure boundaries

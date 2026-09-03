@@ -15,6 +15,7 @@ Chorale is a Proof of Concept (PoC) web application that imports MusicXML files 
 - **ABC Code Editor**: View & edit ABC notation in real-time with instant score re-rendering and copy to clipboard button.
 - **Score Drafting**: Create a blank two-staff piano score, select measures, and make revision-tracked insert, replace, or delete edits.
 - **Desktop Music Tutor**: Ask grounded questions, review annotations, and preview agent-proposed measure or whole-score changes before applying them.
+- **Durable Tutor Conversations**: Inspect structured reasoning and tool progress, queue follow-up prompts while a run is busy, steer urgent corrections with `Ctrl/Cmd+Shift+Enter`, and review per-round token usage.
 
 ---
 
@@ -76,6 +77,14 @@ Trace files contain score and conversation content verbatim and are not encrypte
 ```bash
 npm test
 ```
+
+### Check chat performance
+
+```bash
+npm run benchmark:chat
+```
+
+This builds the app and checks composer responsiveness against a large conversation fixture.
 
 ### Build for Production
 ```bash

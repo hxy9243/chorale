@@ -3,7 +3,7 @@ title: "Chorale Design Spec Index"
 description: "Index and high-level architectural overview of Chorale specifications and implemented features"
 category: "overview"
 date: 2026-08-05
-updated: 2026-08-30
+updated: 2026-09-03
 status: "implemented"
 source_files:
   - src/App.tsx
@@ -52,7 +52,7 @@ related_specs:
 # Chorale Design Spec Index
 
 Date: 2026-08-05  
-Updated: 2026-08-30
+Updated: 2026-09-03
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 This directory splits the design into category-specific specs instead of keeping the entire workspace design in one file.
@@ -64,7 +64,7 @@ This directory splits the design into category-specific specs instead of keeping
 - [interaction-model.md](./interaction-model.md): shared `ScoreAnchor` model, repeat-pass resolution, user scroll-pause, inline metadata editing flows, undo/redo flows, and cross-surface interaction flows
 - [abc-editor.md](./abc-editor.md): split-pane editor behavior, draggable divider, validation state, and bidirectional metadata synchronization requirements
 - [playback-dock.md](./playback-dock.md): playback UI, WebAudio volume/mute controls, seek behavior, and score-cursor alignment
-- [pi-agent-chat.md](./pi-agent-chat.md): resizable chat panel, per-file thread model, immutable context envelope, agent tool status, Markdown links, and proposal review
+- [pi-agent-chat.md](./pi-agent-chat.md): assistant-ui chat runtime, per-file threads, immutable context, structured reasoning and tool parts, durable follow-up queues, token usage, Markdown links, and proposal review
 - [settings-and-auth.md](./settings-and-auth.md): settings modal, custom API endpoint configuration (OpenAI/Anthropic/Google Gemini/OpenRouter/Custom), ChatGPT OAuth authentication, safe credential storage, and agent trace export
 - [file-workspace-architecture.md](./file-workspace-architecture.md): runtime architecture, debounced persistence boundaries, editing history timeline, shared music & ABC metadata libraries, contracts, and invariants
 - [score-drafting.md](./score-drafting.md): blank piano-score creation, fail-closed measure mutations, and reviewable score-change proposals
@@ -101,7 +101,7 @@ The design direction is a file-owned music workspace where score viewing, ABC ed
 - [x] Icon-tabbed Files and Tools rail panels, direct bottom settings action, handled drag-reordered files, and ABC display ownership
 - [x] Score editing history modal (`EditingHistoryModal.tsx`) accessible via Tools panel with categorized snapshot timeline and one-click revert
 - [x] Header Undo/Redo action buttons with keyboard shortcuts (Ctrl+Z / ⌘Z and Ctrl+Shift+Z / ⌘Shift+Z)
-- [x] Resizable right-side chat panel with toggle, per-file thread persistence, and configurable thinking level
+- [x] Resizable assistant-ui chat panel with per-file v4 thread persistence, structured reasoning and tool parts, durable queued follow-ups, priority steering, token usage, and configurable thinking level
 - [x] Persistent top header with consolidated score title, undo/redo buttons, and status pills (`Auto-saved`, `SVG ready`, `Music ready`)
 - [x] Floating score display options with scroll-reactive translucency and synchronized sheet zoom controls
 - [x] Visual score metadata header (`ScoreMetadataHeader`) with serif typography (`--font-serif`), right-aligned attribution, Add Field (`+`) menu, and interactive Key/Meter/Tempo metadata chips with inline ABC editing and validation

@@ -3,8 +3,8 @@ title: "Chat With Music Sheet and Agent Tooling"
 description: "Specification for the passage-aware Music Tutor chat panel, assistant-ui runtime integration, Streamdown rendering with score references, structured message parts, dual-lane queue with steering, and token accounting"
 category: "agent-chat"
 date: 2026-08-05
-updated: 2026-09-02
-status: "in-progress"
+updated: 2026-09-03
+status: "implemented"
 source_files:
   - src/components/AgentChatPanel.tsx
   - src/components/chat/ChoraleExternalStoreAdapter.ts
@@ -59,8 +59,8 @@ related_specs:
 # Chat With Music Sheet and Agent Tooling
 
 Date: 2026-08-05
-Updated: 2026-09-02
-Status: Stage 3 (Agent Creation & Editing)
+Updated: 2026-09-03
+Status: Implemented in desktop app
 
 ## 1. Goal
 
@@ -148,7 +148,8 @@ Applying annotations does not increment the ABC revision. Deleting a chat thread
 
 ## 7. Markdown and links
 
-Raw HTML is disabled (`allowedTags: []`) and there is no `dangerouslySetInnerHTML` rendering path.
+Raw HTML is disabled by omitting Streamdown's raw HTML rehype plugin while retaining its sanitizer
+and URL hardening plugins. There is no `dangerouslySetInnerHTML` rendering path.
 
 ```md
 [m. 5](#measure-5)
