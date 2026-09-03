@@ -6,6 +6,7 @@ import type {
   AISelection,
   SaveAIConnectionInput,
   SheetAgentRequest,
+  SheetAgentSteerRequest,
 } from '../../src/agent/aiTypes';
 import type { AIConnectionStore } from './connectionStore';
 import {
@@ -253,6 +254,12 @@ export class AIController {
     const run = this.activeRuns.get(requestId);
     if (!run) throw new Error('Chat request not found.');
     run.abort();
+  }
+
+  async steerChat(requestId: string, steer: SheetAgentSteerRequest): Promise<{ steered: boolean }> {
+    const run = this.activeRuns.get(requestId);
+    if (!run) return { steered: false };
+    return run.steer(steer);
   }
 
   abortAll() {

@@ -2,6 +2,7 @@ import type {
   AISelection,
   SaveAIConnectionInput,
   SheetAgentRequest,
+  SheetAgentSteerRequest,
 } from '../src/agent/aiTypes';
 import { isAIProviderKind, isAIThinkingLevel } from '../src/agent/aiTypes';
 import type { ChatMessage, MusicContextSnapshot } from '../src/agent/types';
@@ -262,5 +263,31 @@ export const validateChatRequest = (value: unknown): SheetAgentRequest => {
     history,
     context,
     thinkingLevel,
+  };
+};
+
+export const validateSteerRequest = (
+  requestIdValue: unknown,
+  steerValue: unknown,
+): { requestId: string; steer: SheetAgentSteerRequest } => {
+  const requestId = assertShortId(requestIdValue, 'request ID');
+  if (!isRecord(steerValue)) {
+    throw new Error('Invalid steer request.');
+  }
+  const messageId = assertShortId(steerValue.messageId, 'message ID');
+  if (
+    typeof steerValue.question !== 'string' ||
+    steerValue.question.length > MAX_QUESTION_LENGTH
+  ) {
+    throw new Error('Steer request exceeds the supported limits.');
+  }
+  const context = validateMusicContext(steerValue.context);
+  return {
+    requestId,
+    steer: {
+      messageId,
+      question: steerValue.question,
+      context,
+    },
   };
 };

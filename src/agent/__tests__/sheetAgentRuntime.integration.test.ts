@@ -206,7 +206,15 @@ describe('SheetAgentRun provider transport', () => {
     }));
     expect(events.filter((event) => event.type === 'chat-delta').map((event) => event.text).join(''))
       .toBe('The dominant resolves to tonic.');
-    expect(events.at(-1)).toEqual({ type: 'chat-done', requestId: 'runtime-request' });
+    expect(events.at(-1)).toEqual({
+      type: 'chat-done',
+      requestId: 'runtime-request',
+      usage: expect.objectContaining({
+        input: expect.any(Number),
+        output: expect.any(Number),
+        totalTokens: expect.any(Number),
+      }),
+    });
 
     const traceFiles = await readdir(traceDirectory);
     expect(traceFiles).toHaveLength(1);
@@ -292,13 +300,10 @@ describe('SheetAgentRun provider transport', () => {
 
     await run.start();
 
-    expect(events.filter((event) => event.type === 'chat-delta').map((event) => event.text))
-      .toEqual([
-        '<think>\n',
-        'Checking ',
-        'the inner voices.',
-        '\n</think>\n\n',
-      ]);
+    const deltaEvents = events.filter((event): event is Extract<AIEvent, { type: 'chat-delta' }> => event.type === 'chat-delta');
+    expect(deltaEvents.map((event) => ({ text: event.text, partType: event.partType }))).toEqual([
+      { text: 'Checking the inner voices.', partType: 'reasoning' },
+    ]);
   });
 
   it('aborts an in-flight upstream request', async () => {

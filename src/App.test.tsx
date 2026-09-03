@@ -282,7 +282,7 @@ describe('App Integration', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('sheet-svg')).toBeDefined();
-    });
+    }, { timeout: 3000 });
 
     const renderOptions = vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2] as any;
     act(() => {

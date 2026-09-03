@@ -109,4 +109,28 @@ describe('AIController model cache behavior', () => {
     expect(saved.status).toBe('ready');
     expect(saved.modelsUpdatedAt).toBeTruthy();
   });
+
+  it('returns steered: false when the steered run is inactive or already ended', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'chorale-controller-'));
+    directories.push(directory);
+    const store = new AIConnectionStore(directory, cipher);
+    await store.initialize();
+    const controller = new AIController(store, unusedOAuth);
+
+    const result = await controller.steerChat('inactive-run', {
+      messageId: 'msg-1',
+      question: 'Check m. 2',
+      context: {
+        id: 'ctx-1',
+        documentId: 'doc-1',
+        revision: 1,
+        capturedAt: '2026-09-02T12:00:00.000Z',
+        fileName: 'score.abc',
+        abc: 'X:1\nK:C\nC4|',
+        annotations: [],
+      },
+    });
+
+    expect(result).toEqual({ steered: false });
+  });
 });

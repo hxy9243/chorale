@@ -1,11 +1,13 @@
-import { Agent, type AgentEvent } from '@earendil-works/pi-agent-core';
+import { Agent, type AgentEvent, type AgentMessage } from '@earendil-works/pi-agent-core';
 import type {
   AIConnectionPublic,
   AIErrorCode,
   AIEvent,
   AIModelOption,
   SheetAgentRequest,
+  SheetAgentSteerRequest,
 } from '../../src/agent/aiTypes';
+import type { RoundUsage } from '../../src/agent/types';
 import type { AIConnectionStore } from './connectionStore';
 import { createProviderRuntime } from './providers';
 import { formatPrompt, toAgentHistory } from '../../src/agent/promptUtils';
@@ -147,6 +149,20 @@ export class SheetAgentRun {
   private readonly emit: (event: AIEvent) => void;
   private readonly traceStore?: AgentTraceStore;
 
+  private pendingDeltas: Array<{ partType: 'text' | 'reasoning'; text: string; partId?: string }> = [];
+  private batchTimer: NodeJS.Timeout | null = null;
+  private toolStarts = new Map<string, { hr: number; iso: string }>();
+
+  private accumulatedUsage: RoundUsage = {
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+    totalTokens: 0,
+  };
+  private hasUsage = false;
+  private seenUsageMessages = new Set<unknown>();
+
   constructor(
     requestId: string,
     request: SheetAgentRequest,
@@ -175,6 +191,7 @@ export class SheetAgentRun {
       selection: this.request.context.selection,
       onProfileRoute: (profiles) => {
         if (!this.cancelled) {
+          this.flushDeltas();
           this.emit({
             type: 'profile-route',
             requestId: this.requestId,
@@ -184,6 +201,7 @@ export class SheetAgentRun {
       },
       onProposalCreated: (proposal) => {
         if (!this.cancelled) {
+          this.flushDeltas();
           this.emit({
             type: 'proposal-created',
             requestId: this.requestId,
@@ -193,6 +211,7 @@ export class SheetAgentRun {
       },
       onScoreProposalCreated: (proposal) => {
         if (!this.cancelled) {
+          this.flushDeltas();
           this.emit({
             type: 'score-proposal-created',
             requestId: this.requestId,
@@ -201,6 +220,100 @@ export class SheetAgentRun {
         }
       },
     });
+  }
+
+  private queueDelta(partType: 'text' | 'reasoning', text: string, partId?: string) {
+    if (this.cancelled || !text) return;
+    this.pendingDeltas.push({ partType, text, partId });
+    if (!this.batchTimer) {
+      this.batchTimer = setTimeout(() => {
+        this.batchTimer = null;
+        this.flushDeltas();
+      }, 50);
+    }
+  }
+
+  flushDeltas() {
+    if (this.batchTimer) {
+      clearTimeout(this.batchTimer);
+      this.batchTimer = null;
+    }
+    if (this.pendingDeltas.length === 0) return;
+
+    const deltas = this.pendingDeltas;
+    this.pendingDeltas = [];
+
+    let current: { partType: 'text' | 'reasoning'; text: string; partId?: string } | null = null;
+    for (const delta of deltas) {
+      if (current && current.partType === delta.partType && current.partId === delta.partId) {
+        current.text += delta.text;
+      } else {
+        if (current) {
+          this.emit({
+            type: 'chat-delta',
+            requestId: this.requestId,
+            text: current.text,
+            partType: current.partType,
+            partId: current.partId,
+          });
+        }
+        current = { ...delta };
+      }
+    }
+    if (current) {
+      this.emit({
+        type: 'chat-delta',
+        requestId: this.requestId,
+        text: current.text,
+        partType: current.partType,
+        partId: current.partId,
+      });
+    }
+  }
+
+  private accumulateUsage(u?: Record<string, unknown>, messageIdentity?: unknown) {
+    if (!u || typeof u !== 'object') return;
+    if (messageIdentity && this.seenUsageMessages.has(messageIdentity)) return;
+    if (messageIdentity) this.seenUsageMessages.add(messageIdentity);
+
+    const input = typeof u.input === 'number' ? u.input : 0;
+    const output = typeof u.output === 'number' ? u.output : 0;
+    const cacheRead = typeof u.cacheRead === 'number' ? u.cacheRead : 0;
+    const cacheWrite = typeof u.cacheWrite === 'number' ? u.cacheWrite : 0;
+    const reasoning = typeof u.reasoning === 'number' ? u.reasoning : undefined;
+    const totalTokens = typeof u.totalTokens === 'number'
+      ? u.totalTokens
+      : (input + output + cacheRead + cacheWrite);
+
+    this.accumulatedUsage.input += input;
+    this.accumulatedUsage.output += output;
+    this.accumulatedUsage.cacheRead += cacheRead;
+    this.accumulatedUsage.cacheWrite += cacheWrite;
+    if (reasoning !== undefined) {
+      this.accumulatedUsage.reasoning = (this.accumulatedUsage.reasoning ?? 0) + reasoning;
+    }
+    this.accumulatedUsage.totalTokens += totalTokens;
+    this.hasUsage = true;
+  }
+
+  async steer(steer: SheetAgentSteerRequest): Promise<{ steered: boolean }> {
+    if (this.cancelled || !this.agent) {
+      return { steered: false };
+    }
+    const steerPrompt = formatPrompt(steer.question, steer.context, this.scoreSnapshot);
+    const userMessage: AgentMessage = {
+      role: 'user',
+      content: steerPrompt,
+      timestamp: Date.now(),
+    };
+    this.agent.steer(userMessage);
+    this.flushDeltas();
+    this.emit({
+      type: 'steer-accepted',
+      requestId: this.requestId,
+      messageId: steer.messageId,
+    });
+    return { steered: true };
   }
 
   async start() {
@@ -283,24 +396,44 @@ export class SheetAgentRun {
       providerKind: this.connection.kind,
     });
 
-    const projectAssistantDelta = createAssistantDeltaProjector();
     const unsubscribe = agent.subscribe(async (event) => {
       if (shouldPersistAgentEvent(event)) {
         await trace?.append('agent-event', event);
       }
-      if (
-        (event.type === 'tool_execution_start' || event.type === 'tool_execution_end')
-        && !this.cancelled
-      ) {
-        this.emit(projectToolLifecycleEvent(this.requestId, event));
-      }
-      const assistantDelta = projectAssistantDelta(event);
-      if (assistantDelta !== undefined && !this.cancelled) {
-        this.emit({
-          type: 'chat-delta',
-          requestId: this.requestId,
-          text: assistantDelta,
-        });
+
+      if (event.type === 'tool_execution_start') {
+        const hr = performance.now();
+        const iso = new Date().toISOString();
+        this.toolStarts.set(event.toolCallId, { hr, iso });
+        if (!this.cancelled) {
+          this.flushDeltas();
+          this.emit(projectToolLifecycleEvent(this.requestId, event, { startTime: iso }));
+        }
+      } else if (event.type === 'tool_execution_end') {
+        const start = this.toolStarts.get(event.toolCallId);
+        const durationMs = start ? Math.max(0, Math.round(performance.now() - start.hr)) : undefined;
+        const endTime = new Date().toISOString();
+        if (!this.cancelled) {
+          this.flushDeltas();
+          this.emit(projectToolLifecycleEvent(this.requestId, event, {
+            startTime: start?.iso,
+            durationMs,
+            endTime,
+          }));
+        }
+      } else if (event.type === 'message_update') {
+        const update = event.assistantMessageEvent;
+        if (update.type === 'text_delta') {
+          this.queueDelta('text', update.delta, `part-${update.contentIndex}`);
+        } else if (update.type === 'thinking_delta') {
+          this.queueDelta('reasoning', update.delta, `part-${update.contentIndex}`);
+        }
+      } else if (event.type === 'turn_end' && 'message' in event) {
+        const msg = event.message as unknown as Record<string, unknown>;
+        this.accumulateUsage(msg?.usage as Record<string, unknown>, msg);
+      } else if (event.type === 'message_end' && 'message' in event) {
+        const msg = event.message as unknown as Record<string, unknown>;
+        this.accumulateUsage(msg?.usage as Record<string, unknown>, msg);
       }
     });
 
@@ -309,8 +442,22 @@ export class SheetAgentRun {
       await agent.prompt(currentPrompt);
       if (this.cancelled) throw new DOMException('The response was stopped.', 'AbortError');
       if (agent.state.errorMessage) throw new Error(agent.state.errorMessage);
-      this.emit({ type: 'chat-done', requestId: this.requestId });
+
+      // Check for any final assistant message usage
+      for (const msg of agent.state.messages) {
+        if ((msg as any).role === 'assistant') {
+          this.accumulateUsage((msg as any).usage, msg);
+        }
+      }
+
+      this.flushDeltas();
+      this.emit({
+        type: 'chat-done',
+        requestId: this.requestId,
+        usage: this.hasUsage ? { ...this.accumulatedUsage } : undefined,
+      });
     } catch (error) {
+      this.flushDeltas();
       const mapped = mapAgentError(error);
       outcome = { status: mapped.code === 'aborted' ? 'aborted' : 'error', error, mapped };
       this.emit({
@@ -320,6 +467,7 @@ export class SheetAgentRun {
         message: redactSecretValues(mapped.message, this.store.getSecret(this.connection.id)),
       });
     } finally {
+      this.flushDeltas();
       await trace?.append('run-end', {
         ...outcome,
         selectedProfiles: this.sheetTools.state.selectedProfiles,
@@ -333,6 +481,7 @@ export class SheetAgentRun {
 
   abort() {
     this.cancelled = true;
+    this.flushDeltas();
     this.agent?.abort();
   }
 }

@@ -5,6 +5,7 @@ import type {
   ChoraleAIBridge,
   SaveAIConnectionInput,
   SheetAgentRequest,
+  SheetAgentSteerRequest,
 } from '../src/agent/aiTypes';
 import type { SavePdfFileRequest, SaveTextFileRequest } from '../src/types/fileBridge';
 import { AI_IPC, FILE_IPC } from './ipcChannels';
@@ -46,6 +47,9 @@ const bridge: ChoraleAIBridge = {
     ipcRenderer.invoke(AI_IPC.logoutConnection, connectionId)
   ),
   sendChat: (request: SheetAgentRequest) => ipcRenderer.invoke(AI_IPC.sendChat, request),
+  steerChat: (requestId: string, steer: SheetAgentSteerRequest) => (
+    ipcRenderer.invoke(AI_IPC.steerChat, requestId, steer)
+  ),
   abortChat: (requestId: string) => ipcRenderer.invoke(AI_IPC.abortChat, requestId),
   onAIEvent: (listener: (event: AIEvent) => void) => {
     const wrapped = (_event: Electron.IpcRendererEvent, payload: AIEvent) => listener(payload);

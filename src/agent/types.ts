@@ -12,7 +12,43 @@ export type ChatToolDisplay = {
   toolName: string;
   status: 'running' | 'success' | 'error';
   summary: string;
+  durationMs?: number;
+  startTime?: string;
+  endTime?: string;
 };
+
+export type RoundUsage = {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  reasoning?: number;
+  totalTokens: number;
+};
+
+export type ChatTextPart = {
+  type: 'text';
+  text: string;
+};
+
+export type ChatReasoningPart = {
+  type: 'reasoning';
+  text: string;
+  status?: 'streaming' | 'complete' | 'stopped';
+};
+
+export type ChatToolPart = {
+  type: 'tool';
+  toolCallId: string;
+  toolName: string;
+  summary: string;
+  status: 'running' | 'success' | 'error';
+  durationMs?: number;
+  startTime?: string;
+  endTime?: string;
+};
+
+export type ChatMessagePart = ChatTextPart | ChatReasoningPart | ChatToolPart;
 
 export type MusicContextSnapshot = Readonly<{
   id: string;
@@ -25,6 +61,14 @@ export type MusicContextSnapshot = Readonly<{
   annotations: readonly Annotation[];
 }>;
 
+export type QueuedChatMessage = {
+  id: string;
+  prompt: string;
+  lane: 'queue' | 'steer';
+  createdAt: string;
+  context: MusicContextSnapshot;
+};
+
 export type ChatMessage = {
   id: string;
   role: 'user' | 'assistant';
@@ -32,6 +76,8 @@ export type ChatMessage = {
   createdAt: string;
   context?: MusicContextSnapshot;
   status?: 'streaming' | 'complete' | 'stopped' | 'error';
+  parts?: ChatMessagePart[];
+  usage?: RoundUsage;
   profileRoutes?: AgentProfileId[];
   toolDisplays?: ChatToolDisplay[];
   proposals?: AnnotationProposal[];
@@ -54,6 +100,7 @@ export type ChatThread = {
   title: string;
   updatedAt: string;
   messages: ChatMessage[];
+  pendingMessages?: QueuedChatMessage[];
 };
 
 export type PersistedFileConversation = {
@@ -62,6 +109,6 @@ export type PersistedFileConversation = {
 };
 
 export type PersistedConversationStore = {
-  version: 3;
+  version: 4;
   files: Record<string, PersistedFileConversation>;
 };

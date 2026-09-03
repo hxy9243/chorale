@@ -1,17 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CONVERSATION_STORAGE_KEY,
-  conversationNeedsDurableHydration,
-  VERSION_2_CONVERSATION_STORAGE_KEY,
+  getConversationTotalTokens,
+  parseLegacyThinkingMarkup,
+  savePendingQueue,
+  VERSION_3_CONVERSATION_STORAGE_KEY,
   clearConversation,
   loadConversation,
   loadConversationAsync,
   makeEmptyConversation,
-  migrateConversationStore,
   saveConversation,
   saveConversationAsync,
 } from '../conversationStore';
-import type { ChatMessage, PersistedFileConversation } from '../types';
+import type { ChatMessage, PersistedFileConversation, QueuedChatMessage } from '../types';
 import { storageAdapter } from '../../utils/storageAdapter';
 
 const messages: ChatMessage[] = [{
@@ -42,16 +43,18 @@ describe('conversationStore', () => {
     storageAdapter.clearMemoryStore();
   });
 
-  it('round-trips the versioned Chorale conversation schema', () => {
+  it('round-trips the versioned Chorale conversation schema v4', () => {
     saveConversation(fileId, buildConversation(messages));
 
-    expect(loadConversation(fileId).threads[0].messages).toEqual(messages.map((message) => ({
+    const loaded = loadConversation(fileId);
+    expect(loaded.threads[0].messages).toEqual(messages.map((message) => ({
       ...message,
+      parts: [{ type: 'text', text: message.content }],
       profileRoutes: [],
       toolDisplays: [],
       proposals: [],
     })));
-    expect(JSON.parse(localStorage.getItem(CONVERSATION_STORAGE_KEY) ?? '{}').version).toBe(3);
+    expect(JSON.parse(localStorage.getItem(CONVERSATION_STORAGE_KEY) ?? '{}').version).toBe(4);
   });
 
   it('round-trips conversations through durable storage', async () => {
@@ -66,13 +69,13 @@ describe('conversationStore', () => {
     const localOnly = buildConversation([{ ...messages[0], id: 'local-only', content: 'Local recovery.' }]);
     const localCollision = buildConversation([{ ...messages[0], id: 'local-old', content: 'Compact local.' }]);
     localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
-      version: 3,
+      version: 4,
       files: { 'doc-local': localOnly, 'doc-shared': localCollision },
     }));
     const indexedOnly = buildConversation([{ ...messages[0], id: 'indexed-only', content: 'Durable only.' }]);
     const indexedCollision = buildConversation([{ ...messages[0], id: 'indexed-full', content: 'Full durable.' }]);
     vi.spyOn(storageAdapter, 'getItem').mockResolvedValue({
-      version: 3,
+      version: 4,
       files: { 'doc-indexed': indexedOnly, 'doc-shared': indexedCollision },
     });
     const setItem = vi.spyOn(storageAdapter, 'setItem').mockResolvedValue(true);
@@ -92,163 +95,131 @@ describe('conversationStore', () => {
     }));
   });
 
-  it('falls back to a compact local mirror when score proposals exceed local storage quota', () => {
-    const originalSetItem = Storage.prototype.setItem;
-    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
-      if (key === CONVERSATION_STORAGE_KEY && value.includes('replacementAbc')) {
-        throw new DOMException('Quota exceeded', 'QuotaExceededError');
-      }
-      return originalSetItem.call(this, key, value);
-    });
-    const scoreProposalMessage: ChatMessage = {
-      ...messages[0],
-      role: 'assistant',
-      scoreProposals: [{
-        id: 'score-proposal-large',
-        runId: 'run-large',
-        documentId: fileId,
-        sourceRevision: 1,
-        state: 'proposed',
-        kind: 'replace-score',
-        span: { startMeasure: 1, endMeasure: 1 },
-        summary: 'Large score rewrite.',
-        replacementAbc: 'X:1\nK:C\nC4 |]',
-        validation: { status: 'valid', errors: [] },
-      }],
-    };
-
-    saveConversation(fileId, buildConversation([scoreProposalMessage]));
-
-    expect(conversationNeedsDurableHydration(fileId)).toBe(true);
-    expect(localStorage.getItem(CONVERSATION_STORAGE_KEY)).not.toContain('replacementAbc');
-    saveConversation('doc-small', buildConversation(messages));
-    expect(conversationNeedsDurableHydration(fileId)).toBe(true);
-    setItem.mockRestore();
-  });
-
-  it('restores full score proposals from durable storage after a compact quota fallback', async () => {
-    let durableStore: unknown = null;
-    vi.spyOn(storageAdapter, 'getItem').mockImplementation(async (_key, fallback) => (
-      (durableStore ?? fallback) as typeof fallback
-    ));
-    vi.spyOn(storageAdapter, 'setItem').mockImplementation(async (_key, value) => {
-      durableStore = value;
-      return true;
-    });
-    const originalSetItem = Storage.prototype.setItem;
-    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
-      if (key === CONVERSATION_STORAGE_KEY && value.includes('replacementAbc')) {
-        throw new DOMException('Quota exceeded', 'QuotaExceededError');
-      }
-      return originalSetItem.call(this, key, value);
-    });
-    const scoreProposalMessage: ChatMessage = {
-      ...messages[0],
-      role: 'assistant',
-      scoreProposals: [{
-        id: 'score-proposal-recovery',
-        runId: 'run-recovery',
-        documentId: fileId,
-        sourceRevision: 1,
-        state: 'proposed',
-        kind: 'replace-score',
-        span: { startMeasure: 1, endMeasure: 1 },
-        summary: 'Recover this score rewrite.',
-        replacementAbc: 'X:1\nK:C\nC4 |]',
-        validation: { status: 'valid', errors: [] },
-      }],
-    };
-    const conversation = buildConversation([scoreProposalMessage]);
-
-    saveConversation(fileId, conversation);
-    expect(conversationNeedsDurableHydration(fileId)).toBe(true);
-    expect(localStorage.getItem(CONVERSATION_STORAGE_KEY)).not.toContain('replacementAbc');
-
-    await saveConversationAsync(fileId, conversation);
-    await expect(loadConversationAsync(fileId)).resolves.toMatchObject({
-      threads: [{
-        messages: [{
-          scoreProposals: [{
-            id: 'score-proposal-recovery',
-            replacementAbc: 'X:1\nK:C\nC4 |]',
-            state: 'proposed',
-          }],
-        }],
-      }],
-    });
-    setItem.mockRestore();
-  });
-
-  it('reports durable write failure and retains the hydration marker', async () => {
-    vi.spyOn(storageAdapter, 'getItem').mockResolvedValue(null);
-    vi.spyOn(storageAdapter, 'setItem').mockResolvedValue(false);
-    const originalSetItem = Storage.prototype.setItem;
-    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
-      if (key === CONVERSATION_STORAGE_KEY && value.includes('replacementAbc')) {
-        throw new DOMException('Quota exceeded', 'QuotaExceededError');
-      }
-      return originalSetItem.call(this, key, value);
-    });
-    const conversation = buildConversation([{
-      ...messages[0],
-      role: 'assistant',
-      scoreProposals: [{
-        id: 'score-proposal-unsaved',
-        runId: 'run-unsaved',
-        documentId: fileId,
-        sourceRevision: 1,
-        state: 'proposed',
-        kind: 'replace-score',
-        span: { startMeasure: 1, endMeasure: 1 },
-        summary: 'Unsaved score rewrite.',
-        replacementAbc: 'X:1\nK:C\nC4 |]',
-        validation: { status: 'valid', errors: [] },
-      }],
-    }]);
-
-    saveConversation(fileId, conversation);
-
-    await expect(saveConversationAsync(fileId, conversation)).resolves.toBe(false);
-    expect(conversationNeedsDurableHydration(fileId)).toBe(true);
-    setItem.mockRestore();
-  });
-
-  it('purely migrates version 2 messages with default proposal and tool metadata', () => {
-    const version2 = {
-      version: 2,
-      files: {
-        [fileId]: buildConversation(messages),
-      },
-    };
-
-    expect(migrateConversationStore(version2)).toMatchObject({
+  it('migrates version 3 storage, preserving the v3 key intact for rollback', () => {
+    const v3Store = {
       version: 3,
       files: {
         [fileId]: {
+          activeThreadId: 't-1',
           threads: [{
+            id: 't-1',
+            title: 'V3 Thread',
+            updatedAt: '2026-08-15T00:00:00.000Z',
             messages: [{
-              id: 'message-1',
-              profileRoutes: [],
-              toolDisplays: [],
-              proposals: [],
+              id: 'msg-v3',
+              role: 'assistant',
+              content: '<think>Analyzing harmony...</think>It is a cadence.',
+              createdAt: '2026-08-15T00:01:00.000Z',
+              status: 'complete',
             }],
           }],
         },
       },
-    });
-    expect(version2.version).toBe(2);
-    expect(version2.files[fileId].threads[0].messages[0]).not.toHaveProperty('proposals');
+    };
+    localStorage.setItem(VERSION_3_CONVERSATION_STORAGE_KEY, JSON.stringify(v3Store));
+
+    const loaded = loadConversation(fileId);
+    expect(loaded.threads[0].messages[0].parts).toEqual([
+      { type: 'reasoning', text: 'Analyzing harmony...', status: 'complete' },
+      { type: 'text', text: 'It is a cadence.' },
+    ]);
+    expect(JSON.parse(localStorage.getItem(CONVERSATION_STORAGE_KEY) ?? '{}').version).toBe(4);
+    // V3 storage key remains intact for rollback safety!
+    expect(localStorage.getItem(VERSION_3_CONVERSATION_STORAGE_KEY)).not.toBeNull();
   });
 
-  it('loads version 2 storage once and persists the migrated version 3 store', () => {
-    localStorage.setItem(VERSION_2_CONVERSATION_STORAGE_KEY, JSON.stringify({
-      version: 2,
-      files: { [fileId]: buildConversation(messages) },
-    }));
+  it('safely handles unclosed or malformed <think> tags from interrupted streams', () => {
+    const unclosed = parseLegacyThinkingMarkup('<think>Still thinking...', true);
+    expect(unclosed).toEqual([
+      { type: 'reasoning', text: 'Still thinking...', status: 'stopped' },
+    ]);
 
-    expect(loadConversation(fileId).threads[0].messages[0]).toMatchObject({ proposals: [] });
-    expect(JSON.parse(localStorage.getItem(CONVERSATION_STORAGE_KEY) ?? '{}').version).toBe(3);
-    expect(localStorage.getItem(VERSION_2_CONVERSATION_STORAGE_KEY)).toBeNull();
+    const mixed = parseLegacyThinkingMarkup('Prefix <think>Thought</think> Middle <think>Unfinished', true);
+    expect(mixed).toEqual([
+      { type: 'text', text: 'Prefix ' },
+      { type: 'reasoning', text: 'Thought', status: 'complete' },
+      { type: 'text', text: ' Middle ' },
+      { type: 'reasoning', text: 'Unfinished', status: 'stopped' },
+    ]);
+  });
+
+  it('persists and restores pending queue, normalizing steer items to queue on restart', () => {
+    const pending: QueuedChatMessage[] = [{
+      id: 'q-1',
+      prompt: 'Check measure 4',
+      lane: 'steer',
+      createdAt: '2026-09-02T12:00:00.000Z',
+      context: {
+        id: 'ctx-1',
+        documentId: fileId,
+        revision: 1,
+        capturedAt: '2026-09-02T12:00:00.000Z',
+        fileName: 'score.abc',
+        abc: 'X:1\nK:C\nC4|',
+        annotations: [],
+      },
+    }];
+    const conversation = buildConversation(messages);
+    conversation.threads[0].pendingMessages = pending;
+    saveConversation(fileId, conversation);
+
+    const loaded = loadConversation(fileId);
+    // Restored steer items normalize to ordinary FIFO queue (lane: 'queue') and never auto-run
+    expect(loaded.threads[0].pendingMessages).toEqual([{
+      ...pending[0],
+      lane: 'queue',
+    }]);
+  });
+
+  it('supports queue-only persistence during active streaming runs', () => {
+    saveConversation(fileId, buildConversation(messages));
+    const threadId = loadConversation(fileId).activeThreadId;
+
+    const queued: QueuedChatMessage = {
+      id: 'q-queued',
+      prompt: 'Followup while running',
+      lane: 'queue',
+      createdAt: '2026-09-02T12:05:00.000Z',
+      context: {
+        id: 'ctx-2',
+        documentId: fileId,
+        revision: 1,
+        capturedAt: '2026-09-02T12:05:00.000Z',
+        fileName: 'score.abc',
+        abc: 'X:1\nK:C\nC4|',
+        annotations: [],
+      },
+    };
+
+    savePendingQueue(fileId, threadId, [queued]);
+    expect(loadConversation(fileId).threads[0].pendingMessages).toEqual([queued]);
+  });
+
+  it('calculates conversation total tokens from stored round usage to prevent drift', () => {
+    const thread = buildConversation([{
+      ...messages[0],
+      role: 'assistant',
+      usage: {
+        input: 100,
+        output: 50,
+        cacheRead: 20,
+        cacheWrite: 10,
+        totalTokens: 180,
+      },
+    }, {
+      ...messages[0],
+      id: 'msg-2',
+      role: 'assistant',
+      usage: {
+        input: 150,
+        output: 75,
+        cacheRead: 30,
+        cacheWrite: 0,
+        totalTokens: 255,
+      },
+    }]).threads[0];
+
+    expect(getConversationTotalTokens(thread)).toBe(435);
   });
 
   it('marks an interrupted streaming message as stopped on reload', () => {

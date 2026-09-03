@@ -11,6 +11,7 @@ export const AI_IPC = {
   cancelCodexLogin: 'chorale-ai:cancel-codex-login',
   logoutConnection: 'chorale-ai:logout-connection',
   sendChat: 'chorale-ai:send-chat',
+  steerChat: 'chorale-ai:steer-chat',
   abortChat: 'chorale-ai:abort-chat',
   event: 'chorale-ai:event',
 } as const;

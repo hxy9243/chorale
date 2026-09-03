@@ -5,6 +5,7 @@ import {
   validateChatRequest,
   validateSaveInput,
   validateSelection,
+  validateSteerRequest,
 } from '../../../electron/ipcValidation';
 
 describe('AI IPC validation', () => {
@@ -209,5 +210,43 @@ describe('AI IPC validation', () => {
       selection: { startMeasure: 1, endMeasure: 2 },
       annotations: [],
     });
+  });
+
+  it('validates steer request bounds and IDs', () => {
+    const validContext = {
+      id: 'snapshot-current',
+      documentId: 'document-current',
+      revision: 2,
+      capturedAt: '2026-08-05T00:00:00.000Z',
+      fileName: 'score.abc',
+      abc: 'X:1\nK:C\nC|',
+      annotations: [],
+    };
+
+    const validated = validateSteerRequest('req-1', {
+      messageId: 'steer-1',
+      question: 'Change cadence to authentic',
+      context: validContext,
+    });
+    expect(validated).toEqual({
+      requestId: 'req-1',
+      steer: {
+        messageId: 'steer-1',
+        question: 'Change cadence to authentic',
+        context: expect.objectContaining({ id: 'snapshot-current' }),
+      },
+    });
+
+    expect(() => validateSteerRequest('', { messageId: 'm1', question: 'q', context: validContext }))
+      .toThrow('request ID');
+    expect(() => validateSteerRequest('req-1', null))
+      .toThrow('Invalid steer request');
+    expect(() => validateSteerRequest('req-1', { messageId: '', question: 'q', context: validContext }))
+      .toThrow('message ID');
+    expect(() => validateSteerRequest('req-1', {
+      messageId: 'm1',
+      question: 'a'.repeat(20_001),
+      context: validContext,
+    })).toThrow('limits');
   });
 });

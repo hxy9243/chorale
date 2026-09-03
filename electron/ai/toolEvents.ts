@@ -53,6 +53,7 @@ export const summarizeToolDone = (event: ToolDoneEvent): string => {
 export const projectToolLifecycleEvent = (
   requestId: string,
   event: ToolStartEvent | ToolDoneEvent,
+  timing?: { startTime?: string; durationMs?: number; endTime?: string },
 ): Extract<AIEvent, { type: 'tool-start' | 'tool-done' }> => (
   event.type === 'tool_execution_start'
     ? {
@@ -61,6 +62,7 @@ export const projectToolLifecycleEvent = (
         toolCallId: event.toolCallId,
         toolName: event.toolName,
         summary: summarizeToolStart(event),
+        ...(timing?.startTime ? { startTime: timing.startTime } : {}),
       }
     : {
         type: 'tool-done',
@@ -69,5 +71,7 @@ export const projectToolLifecycleEvent = (
         toolName: event.toolName,
         status: event.isError ? 'error' : 'success',
         summary: summarizeToolDone(event),
+        ...(timing?.durationMs !== undefined ? { durationMs: timing.durationMs } : {}),
+        ...(timing?.endTime ? { endTime: timing.endTime } : {}),
       }
 );

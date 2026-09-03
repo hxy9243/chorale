@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import net from 'node:net';
@@ -6,13 +7,18 @@ import path from 'node:path';
 import process from 'node:process';
 
 const projectDirectory = path.resolve(import.meta.dirname, '..');
-const electronBinary = path.join(
-  projectDirectory,
-  'node_modules',
-  'electron',
-  'dist',
-  process.platform === 'win32' ? 'electron.exe' : 'electron',
-);
+const resolveElectronBinary = () => {
+  const rootElectron = path.resolve(projectDirectory, '..', '..', '..', 'node_modules', 'electron', 'dist', process.platform === 'win32' ? 'electron.exe' : 'electron');
+  if (existsSync(rootElectron)) return rootElectron;
+  return path.join(
+    projectDirectory,
+    'node_modules',
+    'electron',
+    'dist',
+    process.platform === 'win32' ? 'electron.exe' : 'electron',
+  );
+};
+const electronBinary = resolveElectronBinary();
 const mainEntry = path.join(projectDirectory, 'dist-electron', 'main.js');
 const launchedChildren = new Set();
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
