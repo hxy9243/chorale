@@ -124,8 +124,10 @@ describe('conversationStore', () => {
       { type: 'text', text: 'It is a cadence.' },
     ]);
     expect(JSON.parse(localStorage.getItem(CONVERSATION_STORAGE_KEY) ?? '{}').version).toBe(4);
-    // V3 storage key remains intact for rollback safety!
-    expect(localStorage.getItem(VERSION_3_CONVERSATION_STORAGE_KEY)).not.toBeNull();
+    // V3 storage key remains intact with a valid, unchanged v3 payload for rollback safety!
+    const v3Payload = JSON.parse(localStorage.getItem(VERSION_3_CONVERSATION_STORAGE_KEY) ?? '{}');
+    expect(v3Payload.version).toBe(3);
+    expect(v3Payload.files[fileId].threads[0].messages[0].id).toBe('msg-v3');
   });
 
   it('safely handles unclosed or malformed <think> tags from interrupted streams', () => {

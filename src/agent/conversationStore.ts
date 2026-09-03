@@ -404,7 +404,6 @@ const saveStore = (
 ) => {
   const serialized = JSON.stringify(store);
   storage.setItem(VERSION_4_CONVERSATION_STORAGE_KEY, serialized);
-  storage.setItem(VERSION_3_CONVERSATION_STORAGE_KEY, serialized);
 };
 
 const loadLegacyMessages = (storage: Storage): ChatMessage[] => {
