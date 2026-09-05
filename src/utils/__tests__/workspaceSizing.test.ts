@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   clampChatPanelWidth,
+  clampEditorPanelWidth,
   fitWorkspacePanelLayout,
   clampFileRailWidth,
   defaultFileRailWidth,
@@ -31,6 +32,28 @@ describe('chat panel sizing', () => {
   it('retains a usable minimum on narrow viewports', () => {
     expect(maximumChatPanelWidth(720)).toBe(360);
     expect(clampChatPanelWidth(100, 720)).toBe(280);
+  });
+});
+
+describe('ABC editor sizing', () => {
+  it('has no arbitrary maximum but still retains a usable minimum', () => {
+    expect(clampEditorPanelWidth(100)).toBe(320);
+    expect(clampEditorPanelWidth(1_200)).toBe(1_200);
+  });
+
+  it('fits an oversized preference to the available workspace', () => {
+    const layout = fitWorkspacePanelLayout({
+      viewportWidth: 1_600,
+      fileRailWidth: 360,
+      chatPanelWidth: 420,
+      editorPanelWidth: 1_200,
+      fileRailVisible: false,
+      chatPanelVisible: false,
+      editorPanelVisible: true,
+    });
+
+    expect(layout.editorPanelWidth).toBe(968);
+    expect(layout.scoreWorkspaceWidth).toBe(MIN_SCORE_WORKSPACE_WIDTH);
   });
 });
 
@@ -103,4 +126,3 @@ describe('workspace panel fitting', () => {
     expect(layout.overlaySidePanels).toBe(false);
   });
 });
-

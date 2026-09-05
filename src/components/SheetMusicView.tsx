@@ -30,16 +30,16 @@ import { chordStaffSpacing } from '../music/annotationLayout';
 import {
   fitScoreSceneTracks,
   MIN_SCORE_ANNOTATION_WIDTH_REM,
-  MIN_SCORE_DRAFTING_TOOLBAR_WIDTH_REM,
   PREFERRED_SCORE_ANNOTATION_WIDTH_REM,
   PREFERRED_SCORE_NOTATION_WIDTH_REM,
   SCORE_SCENE_GAP_REM,
 } from '../utils/scoreSceneSizing';
 import { AnnotationRail } from './AnnotationRail';
+import type { MeasureSystemsSnapshot } from '../music/abcPresentation';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
-const AUTO_SCROLL_DURATION_MS = 280;
-const AUTO_SCROLL_RESUME_DURATION_MS = 320;
+const AUTO_SCROLL_DURATION_MS = 200;
+const AUTO_SCROLL_RESUME_DURATION_MS = 200;
 
 const anchorScrollBehavior = (): ScrollBehavior => (
   typeof window.matchMedia === 'function'
@@ -180,6 +180,24 @@ const renderedMeasureIndex = (element: Element): number | null => {
     if (match) return Number(match[1]);
   }
   return null;
+};
+
+const collectRenderedMeasureSystems = (container: HTMLDivElement): readonly (readonly number[])[] => {
+  const lineClasses = new Set<string>();
+  container.querySelectorAll('.abcjs-staff').forEach((staff) => {
+    Array.from(staff.classList).forEach((className) => {
+      if (/^abcjs-l\d+$/.test(className)) lineClasses.add(className);
+    });
+  });
+  return Object.freeze([...lineClasses]
+    .sort((left, right) => Number(left.slice(7)) - Number(right.slice(7)))
+    .map((lineClass) => Object.freeze(Array.from(new Set(
+      Array.from(container.querySelectorAll(`.abcjs-bar.${lineClass}`)).flatMap((bar) => {
+        const index = renderedMeasureIndex(bar);
+        return index === null ? [] : [index + 1];
+      }),
+    )).sort((left, right) => left - right)))
+    .filter((system) => system.length > 0));
 };
 
 const installLineStartMeasureNumbers = (container: HTMLDivElement) => {
@@ -374,13 +392,15 @@ const updateMeasureHitAreaSelection = (
 
 interface SheetMusicViewProps {
   header?: React.ReactNode;
-  draftingToolbar?: React.ReactNode;
   abcCode: string;
   annotations?: readonly Annotation[];
   activeAnchor?: ScoreAnchor | null;
   navigationAnchor?: ScoreAnchor | null;
   onSelectAnchor?: (anchor: ScoreAnchor | null) => void;
   onTuneRendered?: (tune: abcjs.TuneObject[] | null) => void;
+  documentId?: string;
+  revision?: number;
+  onMeasureSystemsChange?: (snapshot: MeasureSystemsSnapshot | null) => void;
   getPlaybackPosition?: () => PlaybackPosition;
   zoom?: number;
   interfaceZoom?: number;
@@ -393,13 +413,15 @@ interface SheetMusicViewProps {
 
 export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   header,
-  draftingToolbar,
   abcCode,
   annotations = [],
   activeAnchor = null,
   navigationAnchor = null,
   onSelectAnchor,
   onTuneRendered,
+  documentId,
+  revision = 0,
+  onMeasureSystemsChange,
   getPlaybackPosition,
   zoom = 100,
   interfaceZoom = 100,
@@ -432,37 +454,6 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     anchorYByAnnotationId: {},
     scoreHeight: 0,
   });
-  const [draftingToolbarTop, setDraftingToolbarTop] = useState<number | null>(null);
-
-  const updateDraftingToolbarPosition = React.useCallback(() => {
-    if (!activeAnchor || !containerRef.current || !sheetSceneRef.current) {
-      setDraftingToolbarTop(null);
-      return;
-    }
-    const hitArea = containerRef.current.querySelector<SVGGraphicsElement>(
-      `.abcjs-measure-hit-area[data-measure="${activeAnchor.startMeasure}"]`,
-    );
-    const measureElement = hitArea || containerRef.current.querySelector<SVGGraphicsElement>(
-      `.abcjs-mm${Math.max(0, activeAnchor.startMeasure - 1)}`,
-    );
-    if (!measureElement) {
-      setDraftingToolbarTop(0);
-      return;
-    }
-    const layoutEl = sheetSceneRef.current.querySelector<HTMLElement>('.sheet-annotation-layout');
-    if (!layoutEl) return;
-
-    const layoutRect = layoutEl.getBoundingClientRect();
-    const layoutWidth = layoutEl.offsetWidth;
-    const scale = layoutWidth > 0 && layoutRect.width > 0
-      ? layoutRect.width / layoutWidth
-      : (effectiveZoom > 0 ? effectiveZoom : 1);
-
-    const measureRect = measureElement.getBoundingClientRect();
-    const topInLayout = (measureRect.top - layoutRect.top) / scale;
-    const safeTop = Number.isFinite(topInLayout) ? Math.max(0, Math.round(topInLayout)) : 0;
-    setDraftingToolbarTop((current) => (current === safeTop ? current : safeTop));
-  }, [activeAnchor, effectiveZoom]);
 
   const [rootFontSize] = useState(() => (
     typeof document !== 'undefined'
@@ -475,9 +466,6 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       notationWidth: rootFontSize * PREFERRED_SCORE_NOTATION_WIDTH_REM,
       annotationWidth: rootFontSize * PREFERRED_SCORE_ANNOTATION_WIDTH_REM,
       minAnnotationWidth: rootFontSize * MIN_SCORE_ANNOTATION_WIDTH_REM,
-      minBalanceWidth: draftingToolbar
-        ? rootFontSize * MIN_SCORE_DRAFTING_TOOLBAR_WIDTH_REM
-        : 0,
       gap: rootFontSize * SCORE_SCENE_GAP_REM,
     })
     : null;
@@ -554,24 +542,16 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     const viewport = sheetViewportRef.current;
     const notation = sheetSceneRef.current?.querySelector<HTMLElement>('.sheet-notation-column');
     if (!viewport || !notation) return;
-    if (draftingToolbar) {
-      viewport.scrollLeft = 0;
-      return;
-    }
     const viewportRect = viewport.getBoundingClientRect();
     const notationRect = notation.getBoundingClientRect();
     const delta = notationRect.left + notationRect.width / 2
       - (viewportRect.left + viewportRect.width / 2);
     if (Math.abs(delta) > 0.5) viewport.scrollLeft += delta;
-  }, [draftingToolbar]);
+  }, []);
 
   React.useLayoutEffect(() => {
     centerNotation();
   }, [centerNotation, renderGeneration, sceneSize]);
-
-  React.useLayoutEffect(() => {
-    updateDraftingToolbarPosition();
-  }, [updateDraftingToolbarPosition, renderGeneration, sceneSize]);
 
   React.useLayoutEffect(() => {
     const viewport = sheetViewportRef.current;
@@ -588,16 +568,13 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     }
     const viewportWidth = measuredViewportWidth || viewportWidthRef.current;
     if (viewportWidth <= 0) return;
-    if (draftingToolbar || (sceneSize && sceneSize.width * effectiveZoom <= viewportWidth)) {
+    if (sceneSize && sceneSize.width * effectiveZoom <= viewportWidth) {
       viewport.scrollLeft = 0;
       return;
     }
     const unscaledCenter = (viewport.scrollLeft + viewportWidth / 2) / previousZoom;
     viewport.scrollLeft = unscaledCenter * effectiveZoom - viewportWidth / 2;
-  }, [draftingToolbar, effectiveZoom, sceneSize]);
-
-  const updateDraftingToolbarPositionRef = useRef(updateDraftingToolbarPosition);
-  updateDraftingToolbarPositionRef.current = updateDraftingToolbarPosition;
+  }, [effectiveZoom, sceneSize]);
 
   useEffect(() => {
     const viewport = sheetViewportRef.current;
@@ -611,7 +588,6 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       frame = window.requestAnimationFrame(() => {
         frame = null;
         centerNotation();
-        updateDraftingToolbarPositionRef.current?.();
       });
     };
     const observer = new ResizeObserver((entries) => {
@@ -697,6 +673,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       containerRef.current.innerHTML = '';
       setRenderError(null);
       onTuneRendered?.(null);
+      onMeasureSystemsChange?.(null);
       measureOccurrencesRef.current = [];
       renderedTuneRef.current = null;
       setRenderGeneration((current) => current + 1);
@@ -793,6 +770,14 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         hitAreaJustHandled = true;
         selectMeasure(measure, undefined, modifiers);
       });
+      const systems = collectRenderedMeasureSystems(containerRef.current);
+      const measureCount = getRenderedMeasureCount(containerRef.current);
+      onMeasureSystemsChange?.(documentId && systems.length > 0 ? Object.freeze({
+        documentId,
+        revision,
+        measureCount,
+        systems,
+      }) : null);
 
       // Fallback: catch clicks that bubbled up without being stopped by a hit area.
       // This happens when the user clicks on a barline, staff line, rest, system
@@ -819,6 +804,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       console.error('abcjs render error:', err);
       containerRef.current.innerHTML = '';
       onTuneRendered?.(null);
+      onMeasureSystemsChange?.(null);
       measureOccurrencesRef.current = [];
       renderedTuneRef.current = null;
       setRenderError(err?.message || 'Failed to render sheet music SVG.');
@@ -828,7 +814,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       renderedContainer.removeEventListener('click', captureModifiers, true);
       renderedContainer.removeEventListener('click', handleContainerFallbackClick, false);
     };
-  }, [abcCode, onSelectAnchor, onTuneRendered, resolvePlaybackAnchor, transpose]);
+  }, [abcCode, documentId, onMeasureSystemsChange, onSelectAnchor, onTuneRendered, resolvePlaybackAnchor, revision, transpose]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -872,7 +858,10 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       block: 'center',
       inline: 'nearest',
     });
-    hitArea?.focus();
+    const isEditorActive = Boolean(document.activeElement?.closest?.('.editor-workspace-card, .abc-editor-card'));
+    if (!isEditorActive) {
+      hitArea?.focus();
+    }
   }, [navigationAnchor, onSelectAnchor, resolvePlaybackAnchor]);
 
   const isPlayingRef = useRef<boolean>(false);
@@ -1189,16 +1178,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                 className="sheet-annotation-layout"
                 style={sceneTrackStyle}
               >
-                <div className="sheet-layout-balance" aria-hidden={!draftingToolbar}>
-                  {draftingToolbar && (
-                    <div
-                      className="measure-drafting-toolbar-anchor"
-                      style={draftingToolbarTop !== null ? { top: `${draftingToolbarTop}px` } : undefined}
-                    >
-                      {draftingToolbar}
-                    </div>
-                  )}
-                </div>
+                <div className="sheet-layout-balance" aria-hidden="true" />
                 <div className="sheet-notation-column">
                   {header}
                   <div ref={containerRef} id="paper" className="abcjs-paper-container" />

@@ -131,6 +131,37 @@ describe('SheetMusicView Component', () => {
     expect(onTuneRendered).toHaveBeenCalled();
   });
 
+  it('reports renderer-owned measure systems with document revision identity', () => {
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
+      if (element && typeof element !== 'string') {
+        element.innerHTML = `<svg>
+          <g class="abcjs-staff abcjs-l0"></g>
+          <g class="abcjs-bar abcjs-l0 abcjs-mm0"></g>
+          <g class="abcjs-bar abcjs-l0 abcjs-mm1"></g>
+          <g class="abcjs-staff abcjs-l1"></g>
+          <g class="abcjs-bar abcjs-l1 abcjs-mm2"></g>
+          <g class="abcjs-bar abcjs-l1 abcjs-mm3"></g>
+        </svg>`;
+      }
+      return [{ getBpm: () => 120 }] as any;
+    });
+    const onMeasureSystemsChange = vi.fn();
+    render(
+      <SheetMusicView
+        abcCode={sampleAbc}
+        documentId="score-1"
+        revision={7}
+        onMeasureSystemsChange={onMeasureSystemsChange}
+      />,
+    );
+    expect(onMeasureSystemsChange).toHaveBeenCalledWith({
+      documentId: 'score-1',
+      revision: 7,
+      measureCount: 4,
+      systems: [[1, 2], [3, 4]],
+    });
+  });
+
   it('clears the rendered score and tune when ABC is emptied', () => {
     const onTuneRendered = vi.fn();
     const { rerender } = render(
@@ -1457,19 +1488,18 @@ describe('SheetMusicView Component', () => {
     expect(header?.closest('.sheet-zoom-wrapper')).not.toBeNull();
   });
 
-  it('renders optional drafting toolbar inside the left balance lane', () => {
+  it('does not render or reserve a drafting toolbar on the score surface', () => {
     const { container } = render(
       <SheetMusicView
         abcCode={sampleAbc}
         activeAnchor={{ startMeasure: 1, endMeasure: 1 }}
-        draftingToolbar={<div data-testid="test-drafting-toolbar">Measure Toolbar</div>}
       />,
     );
 
-    const toolbar = container.querySelector('[data-testid="test-drafting-toolbar"]');
-    expect(toolbar).not.toBeNull();
-    expect(toolbar?.closest('.measure-drafting-toolbar-anchor')).not.toBeNull();
-    expect(toolbar?.closest('.sheet-layout-balance')).not.toBeNull();
-    expect(toolbar?.closest('.sheet-zoom-wrapper')).not.toBeNull();
+    expect(container.querySelector('.measure-drafting-toolbar')).toBeNull();
+    expect(container.querySelector('.measure-drafting-toolbar-anchor')).toBeNull();
+    const balance = container.querySelector('.sheet-layout-balance');
+    expect(balance).not.toBeNull();
+    expect(balance?.children.length).toBe(0);
   });
 });

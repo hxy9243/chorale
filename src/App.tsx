@@ -12,7 +12,6 @@ import { AgentChatPanel } from './components/AgentChatPanel';
 import { AISettingsModal } from './components/AISettingsModal';
 import { EditingHistoryModal } from './components/EditingHistoryModal';
 import { NewScoreModal } from './components/NewScoreModal';
-import { MeasureDraftingToolbar } from './components/MeasureDraftingToolbar';
 import { useAIProviders } from './agent/useAIProviders';
 import { useInterfaceZoom } from './hooks/useInterfaceZoom';
 import {
@@ -48,9 +47,9 @@ import { extractScore } from './music/scoreSnapshot';
 import {
   applyMeasureMutation,
   applyWholeScoreReplacement,
-  readMeasureReplacementAbc,
 } from './music/scoreDrafting';
 import { FILE_RAIL_BAR_WIDTH } from './utils/workspaceSizing';
+import type { PlaybackSourceRanges } from './music/abcPresentation';
 
 const DEFAULT_SHEET_ZOOM = 100;
 
@@ -132,6 +131,7 @@ export const App: React.FC = () => {
     abcSource: string;
     previousAnchor: ScoreAnchor | null;
   } | null>(null);
+  const [playbackSourceRanges, setPlaybackSourceRanges] = useState<PlaybackSourceRanges | null>(null);
 
   const playbackPositionRef = useRef<PlaybackPosition>({
     currentSeconds: 0,
@@ -205,15 +205,6 @@ export const App: React.FC = () => {
     }
   }, [abcCode]);
 
-  const selectedMeasureAbc = useMemo(() => {
-    if (!activeAnchor) return '';
-    try {
-      return readMeasureReplacementAbc(abcCode, activeAnchor);
-    } catch {
-      return '';
-    }
-  }, [abcCode, activeAnchor]);
-
   const handleTuneRendered = useCallback((renderedTunes: abcjs.TuneObject[] | null) => {
     setTunes((prev) => {
       if (prev === renderedTunes) return prev;
@@ -237,7 +228,12 @@ export const App: React.FC = () => {
   useEffect(() => {
     setScoreNavigationAnchor(null);
     setScorePreview(null);
+    setPlaybackSourceRanges(null);
   }, [activeFileId]);
+
+  useEffect(() => {
+    setPlaybackSourceRanges(null);
+  }, [abcRevision]);
 
   useEffect(() => {
     if (scorePreview && scorePreview.proposal.sourceRevision !== abcRevision) {
@@ -475,22 +471,14 @@ export const App: React.FC = () => {
                           disabled={Boolean(scorePreview)}
                         />
                       )}
-                      draftingToolbar={
-                        activeAnchor && canRenderScore && !scorePreview ? (
-                          <MeasureDraftingToolbar
-                            key={`${activeFileId}:${activeAnchor.startMeasure}:${activeAnchor.endMeasure}`}
-                            span={activeAnchor}
-                            selectedAbc={selectedMeasureAbc}
-                            onMutate={handleMeasureMutation}
-                          />
-                        ) : undefined
-                      }
                       abcCode={canRenderScore ? displayAbc : ''}
                       annotations={activeDocument?.annotations || []}
                       activeAnchor={activeAnchor}
                       navigationAnchor={scoreNavigationAnchor}
                       onSelectAnchor={handleSelectAnchor}
                       onTuneRendered={handleTuneRendered}
+                      documentId={activeDocument.id}
+                      revision={abcRevision}
                       getPlaybackPosition={getPlaybackPosition}
                       zoom={zoom}
                       interfaceZoom={interfaceZoom.zoom}
@@ -519,7 +507,13 @@ export const App: React.FC = () => {
                   <AbcEditor
                     abcCode={abcCode}
                     onAbcChange={handleAbcChange}
+                    documentId={activeDocument?.id}
                     revision={abcRevision}
+                    activeAnchor={activeAnchor}
+                    onSelectAnchor={handleSelectAnchor}
+                    onNavigateMeasure={handleNavigateMeasure}
+                    onMeasureMutation={handleMeasureMutation}
+                    playbackSourceRanges={playbackSourceRanges}
                     validationState={buildStatus}
                     validationMessage={workspaceMessage}
                     visible={editorVisible}
@@ -535,6 +529,7 @@ export const App: React.FC = () => {
               tunes={canRenderScore ? tunes : null}
               activeAnchor={activeAnchor}
               onPlaybackPositionChange={handlePlaybackPositionChange}
+              onPlaybackSourceRangesChange={setPlaybackSourceRanges}
             />
           </div>
           </main>

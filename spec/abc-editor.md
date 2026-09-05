@@ -3,10 +3,13 @@ title: "ABC Editor Spec"
 description: "Specification for the ABC code editor pane, split view, draggable divider, and score/playback synchronization"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-08-21
+updated: 2026-08-29
 status: "implemented"
 source_files:
   - src/components/AbcEditor.tsx
+  - src/music/abcPresentation.ts
+  - src/components/SheetMusicView.tsx
+  - src/components/AudioPlayer.tsx
   - src/components/ScoreMetadataHeader.tsx
   - src/utils/abcMetadata.ts
   - src/hooks/useWorkspaceLayout.ts
@@ -15,6 +18,9 @@ source_files:
   - src/App.tsx
 test_files:
   - src/components/__tests__/AbcEditor.test.tsx
+  - src/music/__tests__/abcPresentation.test.ts
+  - src/components/__tests__/SheetMusicView.test.tsx
+  - src/components/__tests__/AudioPlayer.test.tsx
   - src/components/__tests__/ScoreMetadataHeader.test.tsx
   - src/utils/__tests__/abcMetadata.test.ts
   - src/App.test.tsx
@@ -27,8 +33,8 @@ related_specs:
 
 # ABC Editor Spec
 
-Date: 2026-07-28  
-Updated: 2026-08-21  
+Date: 2026-07-28
+Updated: 2026-08-29
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 ## 1. Goal
@@ -60,7 +66,79 @@ Expected UI elements:
 
 These communicate whether the current text can safely drive score and playback output.
 
-## 4. Synchronization rules
+The title, status, view controls, voice selector, and close action remain fixed while the
+editor content scrolls. ABC metadata is part of the source content and scrolls normally.
+
+## 4. Formatted and raw views
+
+The pane provides three views over one canonical ABC string:
+
+- **Measure View** is the default experimental workspace. It lays every written measure on
+  one horizontally scrollable timeline, stacks all voices inside each measure, and positions
+  note events by cumulative duration so simultaneous beats align vertically. Sheet info header
+  fields (`X:1`, `T:Title`, `M:Meter`, `K:Key`, `C:Composer`, etc.) are directly editable inline
+  with underscore indicators. In display mode, measure events render separated by beat columns
+  to maintain cross-voice alignment. When editing, each measure is edited as a unified measure source
+  string with an underscore editing indicator instead of a system default edit box. Measure headers
+  or source rows navigate, scroll, and focus the corresponding sheet range; sheet selection scrolls
+  the matching source measure into view. Playback automatically scrolls the active playing measure
+  into view along the horizontal timeline. Vertical wheel movement traverses the horizontal source,
+  and a persistent bottom navigator scrubs the same timeline.
+
+- **Formatted** is a text-focused, voice-colored projection. It preserves literal header
+  fields, adds dim human-readable field labels, and lays each voice's measures out using
+  the same system groups as the rendered sheet. One shared horizontal canvas scrolls all
+  systems together rather than giving every system an independent scrollbar.
+- **Raw Source** retains the complete editable textarea and current every-keystroke
+  revision, autosave, validation, score, and playback behavior as normal source code with original
+  source returns and natural line wrapping. Layered on top of normal source presentation, it provides
+  per-line-row source code line numbering aligned with actual line entries without counting wrapped visual lines,
+  background coloring for voice lines matching the palette of the measure score, range selection and
+  playback highlights, and darkened, comfortably-spaced sheet header explanations decoupled from line text flow.
+
+Formatted view is available only for a valid single tune whose source ownership can be
+proved. Each voice has a deterministic accessible color used by its selector and source
+background. Source fragments that cannot be represented safely remain available in Raw
+Source and produce a visible warning rather than being silently omitted.
+
+### 4.1 Safe formatted editing
+
+A formatted measure is editable only when abcjs maps it to one contiguous, single-line,
+measure-local source range. Bar and repeat boundaries, volta markers, comments, newlines,
+overlapping ranges, and structural or ambiguous fragments are read-only or Raw Source-only.
+
+An edit is committed only when the candidate:
+
+- parses as exactly one tune without fatal warnings;
+- retains voice identifiers and order, measure count, header bytes, and boundary bytes;
+- changes only the target cell's source range; and
+- produces the same presentation ownership for all non-target fragments.
+
+Invalid drafts remain local to the editor with an error state; they do not update the
+canonical ABC, score, revision history, autosave, or playback. A draft is cancelled if its
+document identity or base revision becomes stale.
+
+## 5. Selection, navigation, and playback
+
+- Clicking or keyboard-activating an ABC measure selects that measure through the shared
+  `ScoreAnchor`; Shift extends from the existing selection origin.
+- Every voice's cells in the selected written-measure range receive the selection cue.
+- When an active measure selection exists in Measure Source view, a compact toolbar belt appears below
+  the editor tabs showing the selected span (e.g. `Measure 1` or `Measures 3–4`) and actions for
+  **Add before**, **Add after**, and **Delete**.
+- Structural mutations route through the shared mutation engine with 1-click instant measure insertion and delete-confirmation dialogs,
+  triggering revision updates and annotation rebasing.
+- Playback source ranges resolve to one written measure, automatically scroll that measure
+  into view along the timeline, and apply a distinct transient measure tint across voices.
+  Unresolved or conflicting events clear the tint.
+- Playback tint clears on pause, stop, finish, source change, and unmount.
+
+Rendered system snapshots are accepted only when document ID, revision, and measure domain
+match the current presentation. While a matching snapshot is unavailable, Formatted renders
+the complete measure domain immediately in readable four-measure fallback systems, then
+progressively adopts the exact rendered system groups when the matching snapshot arrives.
+
+## 6. Synchronization rules
 
 The editor stays synchronized with:
 
@@ -71,7 +149,7 @@ The editor stays synchronized with:
 
 Source edits travel through the same rebuild pipeline as imported or applied file changes.
 
-## 5. Failure behavior
+## 7. Failure behavior
 
 Invalid ABC is treated explicitly:
 
@@ -79,8 +157,9 @@ Invalid ABC is treated explicitly:
 - stale score output is prevented from overwriting newer edits
 - stale audio output is cleared or disabled (`hasPlayback: false`)
 - newer valid revisions must not be overwritten by older invalid async results
+- the fixed editor chrome remains visible even when pasted source is long or invalid
 
-## 6. Relationship to current implementation
+## 8. Relationship to current implementation
 
 The current implementation provides:
 

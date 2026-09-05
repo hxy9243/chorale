@@ -1,7 +1,6 @@
 export const PREFERRED_SCORE_NOTATION_WIDTH_REM = 48;
 export const PREFERRED_SCORE_ANNOTATION_WIDTH_REM = 24;
 export const MIN_SCORE_ANNOTATION_WIDTH_REM = 16;
-export const MIN_SCORE_DRAFTING_TOOLBAR_WIDTH_REM = 10;
 export const SCORE_SCENE_GAP_REM = 0.5;
 
 export interface ScoreSceneTracksInput {

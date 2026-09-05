@@ -2,7 +2,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   easeOutCubic,
   calculateCenterScrollTop,
+  calculateCenterScrollLeft,
   animateScrollTo,
+  animateHorizontalScrollTo,
 } from '../autoScroll';
 
 describe('autoScroll utils', () => {
@@ -116,6 +118,97 @@ describe('autoScroll utils', () => {
       // Step shouldn't update container after cancel
       if (rafCallback) (rafCallback as (t: number) => void)(250);
       expect(container.scrollTop).toBe(0);
+    });
+  });
+
+  describe('calculateCenterScrollLeft', () => {
+    it('calculates horizontal scroll target to center target element', () => {
+      const container = {
+        scrollLeft: 50,
+        clientWidth: 400,
+        scrollWidth: 1000,
+        getBoundingClientRect: () => ({ left: 100, right: 500, width: 400 } as DOMRect),
+      } as unknown as HTMLElement;
+
+      const targetEl = {
+        getBoundingClientRect: () => ({ left: 400, right: 600, width: 200 } as DOMRect),
+      } as unknown as HTMLElement;
+
+      // Target center = 500, container center = 300, deltaX = +200, targetScrollLeft = 50 + 200 = 250
+      const target = calculateCenterScrollLeft(container, targetEl);
+      expect(target).toBe(250);
+    });
+
+    it('accurately accounts for interface zoom scaling (e.g. 140% and 80%)', () => {
+      // At 140% zoom (scale = 1.4): clientWidth = 400, getBoundingClientRect().width = 560
+      const zoomedInContainer = {
+        scrollLeft: 50,
+        clientWidth: 400,
+        scrollWidth: 1000,
+        getBoundingClientRect: () => ({ left: 140, right: 700, width: 560 } as DOMRect),
+      } as unknown as HTMLElement;
+
+      // Target center at 560 + 140 = 700, container center = 420. deltaX = +280.
+      // In layout coordinates: 280 / 1.4 = 200. Target scroll = 50 + 200 = 250.
+      const targetElZoomedIn = {
+        getBoundingClientRect: () => ({ left: 560, right: 840, width: 280 } as DOMRect),
+      } as unknown as HTMLElement;
+
+      expect(calculateCenterScrollLeft(zoomedInContainer, targetElZoomedIn)).toBe(250);
+
+      // At 80% zoom (scale = 0.8): clientWidth = 400, getBoundingClientRect().width = 320
+      const zoomedOutContainer = {
+        scrollLeft: 50,
+        clientWidth: 400,
+        scrollWidth: 1000,
+        getBoundingClientRect: () => ({ left: 80, right: 400, width: 320 } as DOMRect),
+      } as unknown as HTMLElement;
+
+      // Target center at 320 + 80 = 400, container center = 240. deltaX = +160.
+      // In layout coordinates: 160 / 0.8 = 200. Target scroll = 50 + 200 = 250.
+      const targetElZoomedOut = {
+        getBoundingClientRect: () => ({ left: 320, right: 480, width: 160 } as DOMRect),
+      } as unknown as HTMLElement;
+
+      expect(calculateCenterScrollLeft(zoomedOutContainer, targetElZoomedOut)).toBe(250);
+    });
+  });
+
+  describe('animateHorizontalScrollTo', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('animates scroll left smoothly over 200ms duration', () => {
+      const container = {
+        scrollLeft: 0,
+      } as unknown as HTMLElement;
+
+      let rafCallback: ((time: number) => void) | null = null;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
+        rafCallback = cb;
+        return 1;
+      });
+
+      const onComplete = vi.fn();
+      const controller = animateHorizontalScrollTo(container, 200, 200, onComplete);
+
+      expect(container.scrollLeft).toBe(0);
+
+      // Half-way frame (100ms)
+      if (rafCallback) (rafCallback as (t: number) => void)(100);
+      expect(container.scrollLeft).toBe(175);
+
+      // Completion frame (200ms)
+      if (rafCallback) (rafCallback as (t: number) => void)(200);
+      expect(container.scrollLeft).toBe(200);
+      expect(onComplete).toHaveBeenCalledTimes(1);
+
+      controller.cancel();
     });
   });
 });

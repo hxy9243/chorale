@@ -16,7 +16,10 @@ export const calculateCenterScrollTop = (
   const containerFocusY = containerRect.top + containerRect.height * targetRatio;
   const deltaY = lineCenterY - containerFocusY;
 
-  const targetScrollTop = container.scrollTop + deltaY;
+  const scaleY = container.clientHeight > 0 ? containerRect.height / container.clientHeight : 1;
+  const layoutDeltaY = scaleY > 0 ? deltaY / scaleY : deltaY;
+
+  const targetScrollTop = container.scrollTop + layoutDeltaY;
   const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight);
 
   return Math.max(0, Math.min(maxScroll, targetScrollTop));
@@ -29,7 +32,7 @@ export interface SmoothScrollController {
 export const animateScrollTo = (
   container: HTMLElement,
   targetScrollTop: number,
-  durationMs = 300,
+  durationMs = 200,
   onComplete?: () => void,
 ): SmoothScrollController => {
   const startScrollTop = container.scrollTop;
@@ -54,6 +57,76 @@ export const animateScrollTo = (
     container.scrollTop = progress === 1
       ? targetScrollTop
       : startScrollTop + distance * ease;
+
+    if (progress < 1) {
+      animationFrameId = requestAnimationFrame(step);
+    } else {
+      animationFrameId = null;
+      onComplete?.();
+    }
+  };
+
+  animationFrameId = requestAnimationFrame(step);
+
+  return {
+    cancel: () => {
+      cancelled = true;
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+    },
+  };
+};
+
+export const calculateCenterScrollLeft = (
+  container: HTMLElement,
+  targetEl: Element,
+): number => {
+  const targetRect = targetEl.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
+
+  const targetCenterX = targetRect.left + targetRect.width / 2;
+  const containerCenterX = containerRect.left + containerRect.width / 2;
+  const deltaX = targetCenterX - containerCenterX;
+
+  const scaleX = container.clientWidth > 0 ? containerRect.width / container.clientWidth : 1;
+  const layoutDeltaX = scaleX > 0 ? deltaX / scaleX : deltaX;
+
+  const targetScrollLeft = container.scrollLeft + layoutDeltaX;
+  const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
+
+  return Math.max(0, Math.min(maxScroll, targetScrollLeft));
+};
+
+export const animateHorizontalScrollTo = (
+  container: HTMLElement,
+  targetScrollLeft: number,
+  durationMs = 200,
+  onComplete?: () => void,
+): SmoothScrollController => {
+  const startScrollLeft = container.scrollLeft;
+  const distance = targetScrollLeft - startScrollLeft;
+  if (Math.abs(distance) < 1 || durationMs <= 0) {
+    container.scrollLeft = targetScrollLeft;
+    onComplete?.();
+    return { cancel: () => {} };
+  }
+
+  const startTime = performance.now();
+  let animationFrameId: number | null = null;
+  let cancelled = false;
+
+  const step = (currentTime: number) => {
+    if (cancelled) return;
+
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(1, elapsed / durationMs);
+    const ease = easeOutCubic(progress);
+
+    container.scrollLeft = progress === 1
+      ? targetScrollLeft
+      : startScrollLeft + distance * ease;
 
     if (progress < 1) {
       animationFrameId = requestAnimationFrame(step);

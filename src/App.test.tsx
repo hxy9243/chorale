@@ -80,6 +80,7 @@ describe('App Integration', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
     fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
     expect(screen.getByPlaceholderText(/Parsed ABC code will appear here/)).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: 'Close ABC editor' }));
     expect(screen.queryByPlaceholderText(/Parsed ABC code will appear here/)).toBeNull();
@@ -456,6 +457,7 @@ describe('App Integration', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
     fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
     const editor = screen.getByPlaceholderText(/Parsed ABC code will appear here/);
 
     for (let edit = 1; edit <= 8; edit += 1) {
@@ -502,6 +504,7 @@ describe('App Integration', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
     fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
     const editor = screen.getByPlaceholderText(/Parsed ABC code will appear here/);
     fireEvent.change(editor, { target: { value: 'X:1\nT:Persisted Score\nK:C\nCDEF G' } });
 
