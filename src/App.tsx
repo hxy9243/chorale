@@ -254,22 +254,33 @@ export const App: React.FC = () => {
     setScoreNavigationAnchor(anchor);
   }, []);
 
-  useEffect(() => {
+  // Adjust state during render when activeFileId changes
+  const [prevActiveFileId, setPrevActiveFileId] = useState(activeFileId);
+  if (activeFileId !== prevActiveFileId) {
+    setPrevActiveFileId(activeFileId);
     setScoreNavigationAnchor(null);
     setScorePreview(null);
     setPlaybackSourceRanges(null);
-  }, [activeFileId]);
+  }
 
-  useEffect(() => {
+  // Adjust state during render when abcRevision changes
+  const [prevAbcRevision, setPrevAbcRevision] = useState(abcRevision);
+  if (abcRevision !== prevAbcRevision) {
+    setPrevAbcRevision(abcRevision);
     setPlaybackSourceRanges(null);
-  }, [abcRevision]);
+  }
+
+  // Invalidate score preview if its proposal revision does not match current abcRevision
+  const previewStale = Boolean(scorePreview && scorePreview.proposal.sourceRevision !== abcRevision);
+  if (previewStale) {
+    setScorePreview(null);
+  }
 
   useEffect(() => {
-    if (scorePreview && scorePreview.proposal.sourceRevision !== abcRevision) {
+    if (previewStale) {
       setActiveAnchor(null);
-      setScorePreview(null);
     }
-  }, [abcRevision, scorePreview, setActiveAnchor]);
+  }, [previewStale, setActiveAnchor]);
 
   const handlePreviewScoreProposal = useCallback((proposal: ScoreChangeProposal) => {
     if (proposal.documentId !== activeFileId || proposal.sourceRevision !== abcRevision) return 'outdated' as const;
@@ -321,11 +332,20 @@ export const App: React.FC = () => {
   const isFirstBuildRef = useRef(true);
   const lastActiveDocIdRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (!activeDocument || !displayAbc.trim()) {
+  // Reset build status during render when document or score text is empty
+  const hasDocumentScore = Boolean(activeDocument && displayAbc.trim());
+  const [prevHasDocumentScore, setPrevHasDocumentScore] = useState(hasDocumentScore);
+  if (hasDocumentScore !== prevHasDocumentScore) {
+    setPrevHasDocumentScore(hasDocumentScore);
+    if (!hasDocumentScore) {
       setBuildStatus('idle');
       setBuildResult(null);
       setTunes(null);
+    }
+  }
+
+  useEffect(() => {
+    if (!activeDocument || !displayAbc.trim()) {
       return;
     }
 
