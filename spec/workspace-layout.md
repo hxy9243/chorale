@@ -82,7 +82,8 @@ A bottom-anchored **Settings** icon is a direct action that opens the settings d
 
 Required content:
 
-- **Files**: equal-weight **New Score** and **Import Score** actions directly under the panel title;
+- **Files**: equal-weight **New Score** and **Import Score** actions directly under the panel title,
+  stacked vertically as two rows of text with full-width underlines and padding (instead of a square button style);
   import accepts `.xml`, `.musicxml`, `.mxl`, and `.abc`, while New Score opens the fixed two-staff
   piano-score builder. The panel also contains the active and available file list with format badge
   (MXL, ABC, MusicXML) and state indicator (`original`, `edited`)
@@ -92,7 +93,7 @@ Required content:
 - dedicated top-anchored toggle expansion icon (`PanelLeftClose` / `PanelLeft`) that collapses the rail and re-expands it to the last focused panel; last focused panel persists as `chorale.workspace.fileRailActivePanel`
 - file management actions: compact 44px rows omit a leading document icon and use the full row as the pointer drag surface; sortable transforms move neighboring rows around a persistent source slot while a matching overlay follows the pointer and settles into place, without a native drag-image handoff or disappearing placeholder; Arrow Up/Arrow Down on the focused file name provides keyboard reordering; score deletion allows deleting documents down to 0, which displays an empty workspace placeholder until a file is imported or loaded
 - vertical scrolling is allowed inside the selected panel; horizontal scrolling is clipped
-- persistent icon rail with collapsible content panel state (`railCollapsed` state) and horizontal drag-to-resize handle (`.file-rail-resize-handle`) when expanded; features a generous 14px hit target, `col-resize` cursor, and a tactile hover indicator with a full-height track line and centered terracotta grip capsule (`#ad503b`)
+- persistent icon rail with collapsible content panel state (`railCollapsed` state) and horizontal drag-to-resize handle (`.file-rail-resize-handle`) when expanded; features a generous 14px hit target, `col-resize` cursor, transparent unhovered state preserving a clean sidebar edge with no right-side shadow or white sliver lines (nothing on the right side of the scroller), and a tactile hover indicator with a full-height track line and centered terracotta grip capsule (`#ad503b`)
 - default width at 25% of the logical layout viewport when expanded, bounded between 240px and 560px so long file names remain legible
 - persistent resized width in local storage (`chorale.workspace.fileRailWidth`) and collapse state (`chorale.workspace.fileRailCollapsed`)
 

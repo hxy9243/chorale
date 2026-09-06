@@ -1984,20 +1984,20 @@ textarea {
 .file-rail-resize-handle {
   position: absolute;
   top: 0;
-  right: 0;
+  right: -7px;
   bottom: 0;
-  width: 5px;
+  width: 14px;
   padding: 0;
   border: 0;
   background: transparent;
   cursor: col-resize;
-  z-index: 5;
+  z-index: 35;
   transition: background 140ms ease;
 }
 
 .file-rail-resize-handle:hover,
 .file-rail-resize-handle:active {
-  background: var(--figma-coral);
+  background: transparent;
 }
 
 .import-btn {

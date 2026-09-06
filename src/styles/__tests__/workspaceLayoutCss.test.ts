@@ -95,5 +95,44 @@ describe('workspace layout CSS contract', () => {
     );
   });
 
+  it('keeps file rail resize handle invisible unless hovered and preserves clean sidebar edge', () => {
+    // file-rail-resize-handle::after grip is NOT disabled with display: none
+    expect(themeCss).not.toMatch(
+      /\.file-rail-resize-handle::after\s*{[^}]*display:\s*none\s*!important/s,
+    );
 
+    // file-rail-resize-handle hover keeps transparent background rather than a solid fill
+    expect(themeCss).toMatch(
+      /\.file-rail-resize-handle:hover,\s*\.file-rail-resize-handle:active\s*{[^}]*background:\s*transparent\s*!important;/s,
+    );
+
+    // controls.css also keeps transparent background on hover
+    expect(controlsCss).toMatch(
+      /\.file-rail-resize-handle:hover,\s*\.file-rail-resize-handle:active\s*{[^}]*background:\s*transparent\s*!important;/s,
+    );
+
+    // file-rail maintains clean edge with zero borders conflicting with the paper shadow
+    expect(themeCss).toMatch(
+      /\.file-rail\s*{[^}]*border:\s*0;[^}]*border-right:\s*0;[^}]*border-inline-end:\s*0;/s,
+    );
+  });
+
+  it('keeps left sidebar edge clean with no right-side shadow or white slivers next to scroller', () => {
+    // .file-rail sets box-shadow: none !important
+    expect(themeCss).toMatch(
+      /\.file-rail\s*{[^}]*box-shadow:\s*none\s*!important;/s,
+    );
+
+    // .file-rail-panel-stack sets box-shadow: none !important
+    expect(controlsCss).toMatch(
+      /\.file-rail-panel-stack\s*{[^}]*box-shadow:\s*none\s*!important;/s,
+    );
+
+    // tokens.css defines --shadow-sidebar as none
+    expect(tokensCss).toMatch(/--shadow-sidebar:\s*none;/);
+
+    // Ensure no hard white sliver (#efebe2) shadow is applied to the rail or panel stack
+    expect(themeCss).not.toMatch(/\.file-rail\s*{[^}]*#efebe2/s);
+    expect(controlsCss).not.toMatch(/\.file-rail-panel-stack\s*{[^}]*#efebe2/s);
+  });
 });

@@ -496,11 +496,11 @@ button.btn-chorale:hover:not(:disabled) {
   color: var(--text-primary) !important;
 }
 
-/* Paper Sidebar: warm paper, directional shadow, fluid adjustable width */
+/* Paper Sidebar: warm paper, fluid adjustable width with clean edge */
 .file-rail-panel-stack {
   background: var(--surface-paper) !important;
   border-right: 0 !important;
-  box-shadow: var(--shadow-sidebar) !important;
+  box-shadow: none !important;
   width: 100% !important;
   min-width: 0 !important;
   flex: 1 !important;
@@ -513,20 +513,21 @@ button.btn-chorale:hover:not(:disabled) {
 .file-rail-resize-handle {
   position: absolute;
   top: 0;
-  right: 0;
+  right: -7px;
   bottom: 0;
-  width: 6px;
+  width: 14px;
   padding: 0;
   border: 0;
   background: transparent;
   cursor: col-resize;
-  z-index: 10;
+  z-index: 35;
+  outline: none;
   transition: background var(--dur-micro) var(--ease-out);
 }
 
 .file-rail-resize-handle:hover,
 .file-rail-resize-handle:active {
-  background: var(--accent-rust) !important;
+  background: transparent !important;
 }
 
 .file-rail-section {

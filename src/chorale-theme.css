@@ -3216,7 +3216,7 @@ textarea:disabled,
 
   .file-rail-resize-handle:hover,
   .chat-rail-resize-handle:hover {
-    background: var(--color-accent);
+    background: transparent;
   }
 
   .agent-suggestion:hover:not(:disabled) {
@@ -9242,14 +9242,13 @@ body,
    Design Revamp: Pane-Top Tabs, Paper Depth, Sidebars & ABC Editor Header
    ========================================================================== */
 
-/* 1. Left sidebar: directional paper shadow and warmer contrast */
+/* 1. Left sidebar: warm contrast with clean edge and no right-side shadow/white sliver */
 .file-rail {
+  border: 0;
+  border-right: 0;
+  border-inline-end: 0;
   background: #ede8df;
-  box-shadow:
-    1px 0 0 #ccc6bb,
-    4px 0 0 -1px #efebe2,
-    5px 0 0 -1px #d9d2c6,
-    10px 0 20px rgba(85, 72, 45, 0.09) !important;
+  box-shadow: none !important;
   z-index: 10;
   position: relative;
   overflow: visible !important;
@@ -9275,8 +9274,9 @@ body,
   bottom: 0;
   right: -7px;
   width: 14px;
-  background: transparent;
-  border: 0;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
   padding: 0;
   cursor: col-resize;
   z-index: 35;
@@ -9954,15 +9954,10 @@ body.is-resizing-col .editor-divider::before {
   background: #ad503b;
 }
 
-/* The file rail keeps its single edge line; remove the overlapping hover fill/grip. */
+/* Keep handle background transparent so only the crisp hover indicator line and centered grip capsule show. */
 .file-rail-resize-handle:hover,
 .file-rail-resize-handle:active {
   background: transparent !important;
-}
-
-.file-rail-resize-handle::after {
-  display: none !important;
-  content: none !important;
 }
 
 /* The transport belongs to the workspace viewport, not a single pane. */

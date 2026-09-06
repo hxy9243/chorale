@@ -38,11 +38,7 @@
   --radius-round: 999rem;
 
   /* Directional paper elevations (DESIGN.md Section 2 & 5) */
-  --shadow-sidebar:
-    1px 0 #ccc6bb,
-    5px 0 0 -1px #efebe2,
-    6px 0 0 -1px #d9d2c6,
-    12px 0 24px #55482d12;
+  --shadow-sidebar: none;
   --shadow-sheet: 0 1px 3px #42341e18, 0 9px 20px #42341e12;
   --shadow-workspace: 0 10px 25px #4c402c0b;
   --shadow-menu: 0 8px 24px #29282420;
