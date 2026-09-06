@@ -126,7 +126,8 @@ K:C
     expect(view.container.querySelectorAll('[data-timeline-measure="1"] .abc-source-beat-display')).toHaveLength(8);
     expect(view.container.querySelector('.abc-beat-lane')).toBeNull();
     expect(view.container.querySelector('.abc-timeline-source')).toBeNull();
-    expect(screen.getByRole('slider', { name: 'Navigate measures' })).toBeDefined();
+    expect(screen.queryByRole('slider', { name: 'Navigate measures' })).toBeNull();
+    expect(screen.getByRole('slider', { name: 'Scroll ABC source horizontally' })).toBeDefined();
 
     const upperMeasure2Button = screen.getByRole('button', { name: 'Edit upper, measure 2' });
     fireEvent.click(upperMeasure2Button);
@@ -341,18 +342,19 @@ C D E F G A |
     expect(onAbcChange).toHaveBeenCalledWith(expect.stringContaining('T:New Score Title'));
   });
 
-  it('provides a close button inside the editor window', () => {
-    const onToggleVisibility = vi.fn();
+  it('renders a streamlined toolbar header with view switcher, status pill, and copy button', () => {
     render(
       <AbcEditor
         abcCode={'X:1\nT:Test\nK:C\nC|'}
         onAbcChange={() => undefined}
-        onToggleVisibility={onToggleVisibility}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Close ABC editor' }));
-    expect(onToggleVisibility).toHaveBeenCalledOnce();
+    expect(screen.getByRole('tab', { name: 'Measure Source' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Raw Source' })).toBeDefined();
+    expect(screen.getByRole('button', { name: /Copy/i })).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Close ABC editor' })).toBeNull();
   });
+
 
   it('renders Measure Source toolbar belt only when a measure/range is selected in Measure Source', () => {
     const onMeasureMutation = vi.fn(() => ({

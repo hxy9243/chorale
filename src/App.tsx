@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import abcjs from 'abcjs';
+import { FileMusic, Plus, X } from 'lucide-react';
 import { Header } from './components/Header';
 import { FileRail } from './components/FileRail';
 import { RightRail } from './components/RightRail';
@@ -9,9 +9,8 @@ import { SheetMusicView } from './components/SheetMusicView';
 import { AudioPlayer } from './components/AudioPlayer';
 import { AbcEditor } from './components/AbcEditor';
 import { AgentChatPanel } from './components/AgentChatPanel';
-import { AISettingsModal } from './components/AISettingsModal';
-import { EditingHistoryModal } from './components/EditingHistoryModal';
-import { NewScoreModal } from './components/NewScoreModal';
+import { WorkspacePaneMenu } from './components/workspace/WorkspacePaneMenu';
+import { WorkspaceModals } from './components/workspace/WorkspaceModals';
 import { useAIProviders } from './agent/useAIProviders';
 import { useInterfaceZoom } from './hooks/useInterfaceZoom';
 import {
@@ -26,6 +25,19 @@ import {
   FILE_RAIL_ACTIVE_PANEL_KEY,
   SHEET_ZOOM_KEY,
 } from './hooks/useWorkspaceLayout';
+import { useDocumentStore } from './hooks/useDocumentStore';
+import { useScoreExport, type ScoreExportFormat } from './hooks/useScoreExport';
+import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
+import { useWorkspacePanes } from './hooks/useWorkspacePanes';
+import { useScorePreview } from './hooks/useScorePreview';
+import { useScoreBuild, type BuildStatus } from './hooks/useScoreBuild';
+import type { ScoreAnchor } from './types/document';
+import { parseAbcHeaderMetadata, type ScoreMetadata } from './utils/abcMetadata';
+import type { PlaybackPosition } from './utils/repeatPlayback';
+import { prepareAbcForPlayback } from './utils/abcAudio';
+import { extractScore } from './music/scoreSnapshot';
+import { FILE_RAIL_BAR_WIDTH } from './utils/workspaceSizing';
+import type { PlaybackSourceRanges } from './music/abcPresentation';
 
 export {
   EDITOR_VISIBLE_KEY,
@@ -36,33 +48,10 @@ export {
   FILE_RAIL_COLLAPSED_KEY,
   FILE_RAIL_ACTIVE_PANEL_KEY,
   SHEET_ZOOM_KEY,
+  type BuildStatus,
 };
-import { useDocumentStore } from './hooks/useDocumentStore';
-import { useScoreExport, type ScoreExportFormat } from './hooks/useScoreExport';
-import type { BuildResult, ScoreAnchor, ScoreChangeProposal } from './types/document';
-import { parseAbcHeaderMetadata, type ScoreMetadata } from './utils/abcMetadata';
-import type { PlaybackPosition } from './utils/repeatPlayback';
-import { prepareAbcForPlayback } from './utils/abcAudio';
-import { extractScore } from './music/scoreSnapshot';
-import {
-  applyMeasureMutation,
-  applyWholeScoreReplacement,
-} from './music/scoreDrafting';
-import { FILE_RAIL_BAR_WIDTH } from './utils/workspaceSizing';
-import type { PlaybackSourceRanges } from './music/abcPresentation';
 
 const DEFAULT_SHEET_ZOOM = 100;
-
-type BuildStatus = 'idle' | 'building' | 'valid' | 'invalid';
-
-const buildValidationMessage = (status: BuildStatus, buildResult: BuildResult | null) => {
-  if (status === 'building') return 'Checking ABC syntax and rebuilding derived score output.';
-  if (status === 'invalid') return buildResult?.errors[0]?.message || 'ABC could not be rebuilt.';
-  if (status === 'valid' && buildResult) {
-    return `Rendered ${buildResult.renderedTuneCount} tune${buildResult.renderedTuneCount === 1 ? '' : 's'} with playback ${buildResult.hasPlayback ? 'available' : 'disabled'}.`;
-  }
-  return null;
-};
 
 export const App: React.FC = () => {
   const {
@@ -115,29 +104,21 @@ export const App: React.FC = () => {
     railActivePanel,
     setRailActivePanel,
     beginEditorResize,
+    beginEditorResizeFromRight,
     beginRailResize,
     beginChatResize,
   } = useWorkspaceLayout(interfaceZoom);
 
-  const [tunes, setTunes] = useState<abcjs.TuneObject[] | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [newScoreModalOpen, setNewScoreModalOpen] = useState(false);
-  const [buildStatus, setBuildStatus] = useState<BuildStatus>('idle');
-  const [buildResult, setBuildResult] = useState<BuildResult | null>(null);
   const [scoreNavigationAnchor, setScoreNavigationAnchor] = useState<ScoreAnchor | null>(null);
-  const [scorePreview, setScorePreview] = useState<{
-    proposal: ScoreChangeProposal;
-    abcSource: string;
-    previousAnchor: ScoreAnchor | null;
-  } | null>(null);
   const [playbackSourceRanges, setPlaybackSourceRanges] = useState<PlaybackSourceRanges | null>(null);
 
   const playbackPositionRef = useRef<PlaybackPosition>({
     currentSeconds: 0,
     isPlaying: false,
   });
-  const buildRequestRef = useRef(0);
 
   const aiProviders = useAIProviders();
   const openSettings = useCallback(() => setSettingsOpen(true), []);
@@ -146,42 +127,73 @@ export const App: React.FC = () => {
   const closeHistoryModal = useCallback(() => setHistoryModalOpen(false), []);
   const closeNewScoreModal = useCallback(() => setNewScoreModalOpen(false), []);
 
-  // Global Undo / Redo keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      const isInput =
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable ||
-          target.closest('.editor-workspace-card') ||
-          target.closest('.chat-panel'));
+  // Keyboard shortcuts (Undo/Redo)
+  useWorkspaceShortcuts({
+    canUndo,
+    canRedo,
+    onUndo: handleUndo,
+    onRedo: handleRedo,
+  });
 
-      if (isInput) return;
+  // Score proposal & preview lifecycle
+  const {
+    scorePreview,
+    displayAbc,
+    handlePreviewScoreProposal,
+    handleApplyScoreProposal,
+    handleDiscardScoreProposal,
+    handleExitScorePreview,
+  } = useScorePreview({
+    activeFileId,
+    abcCode,
+    abcRevision,
+    activeAnchor,
+    setActiveAnchor,
+    handleWholeScoreReplacement,
+    handleMeasureMutation,
+  });
 
-      const isMac = navigator.platform.toUpperCase().includes('MAC');
-      const isCmdOrCtrl = isMac ? event.metaKey : event.ctrlKey;
+  // ABC syntax compilation & validation lifecycle
+  const {
+    buildStatus,
+    buildResult,
+    tunes,
+    canRenderScore,
+    workspaceMessage,
+    handleTuneRendered,
+  } = useScoreBuild({
+    activeDocument,
+    displayAbc,
+    abcRevision,
+  });
 
-      if (isCmdOrCtrl && event.key.toLowerCase() === 'z') {
-        event.preventDefault();
-        if (event.shiftKey) {
-          if (canRedo) handleRedo();
-        } else {
-          if (canUndo) handleUndo();
-        }
-      } else if (isCmdOrCtrl && event.key.toLowerCase() === 'y') {
-        event.preventDefault();
-        if (canRedo) handleRedo();
-      }
-    };
+  // Workspace tabbed panes & menu
+  const {
+    sheetVisible,
+    sheetPaneOnRight,
+    paneMenuOpen,
+    paneMenuRef,
+    openSheetPane,
+    openEditorPane,
+    closeSheetPane,
+    togglePaneMenu,
+  } = useWorkspacePanes();
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canUndo, canRedo, handleUndo, handleRedo]);
+  // Adjust state during render when activeFileId changes
+  const [prevActiveFileId, setPrevActiveFileId] = useState(activeFileId);
+  if (activeFileId !== prevActiveFileId) {
+    setPrevActiveFileId(activeFileId);
+    setScoreNavigationAnchor(null);
+    setPlaybackSourceRanges(null);
+  }
 
-  const displayAbc = scorePreview?.abcSource || abcCode;
-  const canRenderScore = buildStatus === 'valid';
+  // Adjust state during render when abcRevision changes
+  const [prevAbcRevision, setPrevAbcRevision] = useState(abcRevision);
+  if (abcRevision !== prevAbcRevision) {
+    setPrevAbcRevision(abcRevision);
+    setPlaybackSourceRanges(null);
+  }
+
   const liveMetadata = useMemo(() => parseAbcHeaderMetadata(displayAbc), [displayAbc]);
   const scoreTitle = liveMetadata.title || activeDocument?.scoreInfo.title || activeFileName || 'Untitled score';
   const scoreComposer = liveMetadata.composer || activeDocument?.scoreInfo.composer || 'Unknown composer';
@@ -205,17 +217,6 @@ export const App: React.FC = () => {
     }
   }, [abcCode]);
 
-  const handleTuneRendered = useCallback((renderedTunes: abcjs.TuneObject[] | null) => {
-    setTunes((prev) => {
-      if (prev === renderedTunes) return prev;
-      if (!prev && !renderedTunes) return null;
-      if (prev && renderedTunes && prev.length === renderedTunes.length && prev[0] === renderedTunes[0]) {
-        return prev;
-      }
-      return renderedTunes;
-    });
-  }, []);
-
   const handleSelectAnchor = useCallback((anchor: ScoreAnchor | null) => {
     setScoreNavigationAnchor(null);
     setActiveAnchor(anchor);
@@ -225,127 +226,11 @@ export const App: React.FC = () => {
     setScoreNavigationAnchor(anchor);
   }, []);
 
-  useEffect(() => {
-    setScoreNavigationAnchor(null);
-    setScorePreview(null);
-    setPlaybackSourceRanges(null);
-  }, [activeFileId]);
-
-  useEffect(() => {
-    setPlaybackSourceRanges(null);
-  }, [abcRevision]);
-
-  useEffect(() => {
-    if (scorePreview && scorePreview.proposal.sourceRevision !== abcRevision) {
-      setActiveAnchor(null);
-      setScorePreview(null);
-    }
-  }, [abcRevision, scorePreview, setActiveAnchor]);
-
-  const handlePreviewScoreProposal = useCallback((proposal: ScoreChangeProposal) => {
-    if (proposal.documentId !== activeFileId || proposal.sourceRevision !== abcRevision) return 'outdated' as const;
-    const result = proposal.kind === 'replace-score'
-      ? applyWholeScoreReplacement(abcCode, proposal.replacementAbc)
-      : applyMeasureMutation(abcCode, {
-          kind: 'replace', span: proposal.span, replacementAbc: proposal.replacementAbc,
-        });
-    if (result.status !== 'valid') return 'invalid' as const;
-    setScorePreview({
-      proposal,
-      abcSource: result.abcSource,
-      previousAnchor: scorePreview?.previousAnchor ?? activeAnchor,
-    });
-    setActiveAnchor(proposal.span);
-    return 'ready' as const;
-  }, [abcCode, abcRevision, activeAnchor, activeFileId, scorePreview, setActiveAnchor]);
-
-  const handleApplyScoreProposal = useCallback((proposal: ScoreChangeProposal) => {
-    if (proposal.documentId !== activeFileId || proposal.sourceRevision !== abcRevision) return 'outdated' as const;
-    const result = proposal.kind === 'replace-score'
-      ? handleWholeScoreReplacement(proposal.replacementAbc, 'tool-apply')
-      : handleMeasureMutation({
-          kind: 'replace', span: proposal.span, replacementAbc: proposal.replacementAbc,
-        }, 'tool-apply');
-    if (result.status !== 'valid') return 'invalid' as const;
-    setScorePreview(null);
-    return 'accepted' as const;
-  }, [abcRevision, activeFileId, handleMeasureMutation, handleWholeScoreReplacement]);
-
-  const handleDiscardScoreProposal = useCallback((proposal: ScoreChangeProposal) => {
-    if (scorePreview?.proposal.id !== proposal.id) return;
-    setActiveAnchor(scorePreview.previousAnchor);
-    setScorePreview(null);
-  }, [scorePreview, setActiveAnchor]);
-
-  const handleExitScorePreview = useCallback(() => {
-    if (!scorePreview) return;
-    setActiveAnchor(scorePreview.previousAnchor);
-    setScorePreview(null);
-  }, [scorePreview, setActiveAnchor]);
-
   const getPlaybackPosition = useCallback(() => playbackPositionRef.current, []);
 
   const handlePlaybackPositionChange = useCallback((position: PlaybackPosition) => {
     playbackPositionRef.current = position;
   }, []);
-
-  const isFirstBuildRef = useRef(true);
-  const lastActiveDocIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!activeDocument || !displayAbc.trim()) {
-      setBuildStatus('idle');
-      setBuildResult(null);
-      setTunes(null);
-      return;
-    }
-
-    const isDocSwitch = lastActiveDocIdRef.current !== activeDocument.id;
-    lastActiveDocIdRef.current = activeDocument.id;
-
-    const requestId = ++buildRequestRef.current;
-    const delay = (isFirstBuildRef.current || isDocSwitch) ? 0 : 140;
-    isFirstBuildRef.current = false;
-    const timeout = window.setTimeout(() => {
-      try {
-        const parsedTunes = typeof abcjs.parseOnly === 'function'
-          ? abcjs.parseOnly(prepareAbcForPlayback(displayAbc))
-          : abcjs.renderAbc(document.createElement('div'), prepareAbcForPlayback(displayAbc));
-        if (requestId !== buildRequestRef.current) return;
-
-        const result: BuildResult = {
-          fileId: activeDocument.id,
-          revision: abcRevision,
-          validation: 'valid',
-          errors: [],
-          renderedTuneCount: parsedTunes?.length || 0,
-          hasPlayback: (parsedTunes?.length || 0) > 0,
-        };
-        setBuildResult(result);
-        setBuildStatus('valid');
-      } catch (caught) {
-        if (requestId !== buildRequestRef.current) return;
-        const message = caught instanceof Error ? caught.message : 'ABC validation failed.';
-        const result: BuildResult = {
-          fileId: activeDocument.id,
-          revision: abcRevision,
-          validation: 'invalid',
-          errors: [{ message }],
-          renderedTuneCount: 0,
-          hasPlayback: false,
-        };
-        setBuildResult(result);
-        setBuildStatus('invalid');
-      }
-    }, delay);
-
-    return () => window.clearTimeout(timeout);
-  }, [displayAbc, abcRevision, activeDocument]);
-
-  const workspaceMessage = useMemo(
-    () => buildValidationMessage(buildStatus, buildResult),
-    [buildResult, buildStatus],
-  );
 
   const { exportState: exportStatus, exportDocument, dismissStatus: dismissExportStatus } = useScoreExport();
 
@@ -355,7 +240,6 @@ export const App: React.FC = () => {
       void exportDocument(targetDoc, format);
     }
   };
-
 
   useEffect(() => {
     if (exportStatus.status !== 'success' && exportStatus.status !== 'error') return undefined;
@@ -411,99 +295,190 @@ export const App: React.FC = () => {
             onRedo={handleRedo}
           />
           <main
-            className={`central-workspace ${editorVisible ? 'editor-open' : 'editor-hidden'}`}
+            className={`central-workspace ${sheetVisible ? 'sheet-open' : 'sheet-hidden'} ${editorVisible ? 'editor-open' : 'editor-hidden'}`}
             style={{ '--editor-panel-width': editorVisible ? `${fittedPanelLayout.editorPanelWidth}px` : '0px' } as React.CSSProperties}
           >
-          <div className="score-editor-shell">
-            <section className="score-workspace-card">
-              <ScoreCardHeader
-                title={scoreTitle}
-                zoom={zoom}
-                onZoomIn={() => setZoom((z) => clampSheetZoom(z + 10))}
-                onZoomOut={() => setZoom((z) => clampSheetZoom(z - 10))}
-                onResetZoom={() => setZoom(DEFAULT_SHEET_ZOOM)}
-              />
-
-              {!activeDocument && (
-                <section className="empty-sheet-placeholder" aria-labelledby="empty-score-heading">
-                  <h2 id="empty-score-heading">Start a score</h2>
-                  <span>Create a blank piano score or import an existing file.</span>
-                  <div className="empty-score-actions">
-                    <button type="button" onClick={() => setNewScoreModalOpen(true)}>New Score</button>
-                    <button type="button" onClick={() => document.querySelector<HTMLInputElement>('.file-rail input[type="file"]')?.click()}>Import Score</button>
+          <div className={`score-editor-shell ${!sheetVisible ? 'sheet-hidden' : ''} ${!editorVisible ? 'editor-hidden' : ''}`}>
+            {sheetVisible && (
+              <section className={`workspace-pane score-pane ${sheetPaneOnRight ? 'sheet-pane-on-right' : ''}`}>
+                <div className="pane-tab-strip">
+                  <div className="pane-tab active" role="tab" aria-selected="true">
+                    <span className="pane-tab-title">Sheet</span>
+                    <button
+                      type="button"
+                      className="pane-tab-close"
+                      onClick={closeSheetPane}
+                      title="Close Sheet pane"
+                      aria-label="Close Sheet pane"
+                    >
+                      <X size={12} aria-hidden="true" />
+                    </button>
                   </div>
-                </section>
-              )}
-              {activeDocument && <>
-              {scorePreview && (
-                <div className="score-preview-banner" role="status">
-                  <span>Previewing {scorePreview.proposal.span.startMeasure === scorePreview.proposal.span.endMeasure
-                    ? `measure ${scorePreview.proposal.span.startMeasure}`
-                    : `measures ${scorePreview.proposal.span.startMeasure}–${scorePreview.proposal.span.endMeasure}`}</span>
-                  <button type="button" onClick={handleExitScorePreview}>Back to current</button>
+                  {!editorVisible && (
+                    <div className="pane-tab-actions">
+                      <button
+                        type="button"
+                        className="workspace-add-tab-btn"
+                        onClick={togglePaneMenu}
+                        title="Open pane"
+                        aria-label="Open pane"
+                        aria-haspopup="menu"
+                        aria-expanded={paneMenuOpen}
+                      >
+                        <Plus size={14} aria-hidden="true" />
+                      </button>
+                      {paneMenuOpen && (
+                        <WorkspacePaneMenu
+                          paneMenuRef={paneMenuRef}
+                          sheetVisible={sheetVisible}
+                          editorVisible={editorVisible}
+                          onOpenSheet={() => openSheetPane(editorVisible)}
+                          onOpenEditor={() => openEditorPane(setEditorVisible)}
+                        />
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
 
-              <div className="score-canvas">
-                <div className="score-sheet">
-                  {buildStatus === 'invalid' && (
-                    <div className="workspace-status-row invalid" role="alert">
-                      <span className="workspace-status-indicator invalid">Invalid ABC</span>
-                      <span>{workspaceMessage}</span>
+                <div className="workspace-pane-card score-workspace-card">
+                  <ScoreCardHeader
+                    title={scoreTitle}
+                    zoom={zoom}
+                    onZoomIn={() => setZoom((z) => clampSheetZoom(z + 10))}
+                    onZoomOut={() => setZoom((z) => clampSheetZoom(z - 10))}
+                    onResetZoom={() => setZoom(DEFAULT_SHEET_ZOOM)}
+                  />
+
+                  {!activeDocument && (
+                    <section className="empty-sheet-placeholder" aria-labelledby="empty-score-heading">
+                      <h2 id="empty-score-heading">Start a score</h2>
+                      <span>Create a blank piano score or import an existing file.</span>
+                      <div className="empty-score-actions">
+                        <button type="button" onClick={() => setNewScoreModalOpen(true)}>New Score</button>
+                        <button type="button" onClick={() => document.querySelector<HTMLInputElement>('.file-rail input[type="file"]')?.click()}>Import Score</button>
+                      </div>
+                    </section>
+                  )}
+                  {activeDocument && <>
+                  {scorePreview && (
+                    <div className="score-preview-banner" role="status">
+                      <span>Previewing {scorePreview.proposal.span.startMeasure === scorePreview.proposal.span.endMeasure
+                        ? `measure ${scorePreview.proposal.span.startMeasure}`
+                        : `measures ${scorePreview.proposal.span.startMeasure}–${scorePreview.proposal.span.endMeasure}`}</span>
+                      <button type="button" onClick={handleExitScorePreview}>Back to current</button>
                     </div>
                   )}
 
-                  <div className="score-view-wrapper">
-                    <SheetMusicView
-                      header={(
-                        <ScoreMetadataHeader
-                          title={scoreTitle}
-                          subtitle={liveMetadata.subtitle}
-                          composer={scoreComposer}
-                          author={liveMetadata.author}
-                          rhythm={liveMetadata.rhythm}
-                          origin={liveMetadata.origin}
-                          keySignature={scoreKey}
-                          meter={scoreMeter}
-                          tempoText={scoreTempoText}
-                          tempoBpm={scoreTempoBpm}
-                          onUpdateMetadata={handleMetadataChange}
-                          disabled={Boolean(scorePreview)}
-                        />
+                  <div className="score-canvas">
+                    <div className="score-sheet">
+                      {buildStatus === 'invalid' && (
+                        <div className="workspace-status-row invalid" role="alert">
+                          <span className="workspace-status-indicator invalid">Invalid ABC</span>
+                          <span>{workspaceMessage}</span>
+                        </div>
                       )}
-                      abcCode={canRenderScore ? displayAbc : ''}
-                      annotations={activeDocument?.annotations || []}
-                      activeAnchor={activeAnchor}
-                      navigationAnchor={scoreNavigationAnchor}
-                      onSelectAnchor={handleSelectAnchor}
-                      onTuneRendered={handleTuneRendered}
-                      documentId={activeDocument.id}
-                      revision={abcRevision}
-                      getPlaybackPosition={getPlaybackPosition}
-                      zoom={zoom}
-                      interfaceZoom={interfaceZoom.zoom}
-                      onZoomChange={(newZoom) => setZoom(clampSheetZoom(newZoom))}
-                      meter={scoreMeter}
-                      onCreateAnnotation={handleAddAnnotation}
-                      onUpdateAnnotation={handleUpdateAnnotation}
-                      onDeleteAnnotation={handleDeleteAnnotation}
-                    />
+
+                      <div className="score-view-wrapper">
+                        <SheetMusicView
+                          header={(
+                            <ScoreMetadataHeader
+                              title={scoreTitle}
+                              subtitle={liveMetadata.subtitle}
+                              composer={scoreComposer}
+                              author={liveMetadata.author}
+                              rhythm={liveMetadata.rhythm}
+                              origin={liveMetadata.origin}
+                              keySignature={scoreKey}
+                              meter={scoreMeter}
+                              tempoText={scoreTempoText}
+                              tempoBpm={scoreTempoBpm}
+                              onUpdateMetadata={handleMetadataChange}
+                              disabled={Boolean(scorePreview)}
+                            />
+                          )}
+                          abcCode={canRenderScore ? displayAbc : ''}
+                          annotations={activeDocument?.annotations || []}
+                          activeAnchor={activeAnchor}
+                          navigationAnchor={scoreNavigationAnchor}
+                          onSelectAnchor={handleSelectAnchor}
+                          onTuneRendered={handleTuneRendered}
+                          documentId={activeDocument.id}
+                          revision={abcRevision}
+                          getPlaybackPosition={getPlaybackPosition}
+                          zoom={zoom}
+                          interfaceZoom={interfaceZoom.zoom}
+                          onZoomChange={(newZoom) => setZoom(clampSheetZoom(newZoom))}
+                          meter={scoreMeter}
+                          onCreateAnnotation={handleAddAnnotation}
+                          onUpdateAnnotation={handleUpdateAnnotation}
+                          onDeleteAnnotation={handleDeleteAnnotation}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  </>}
+                </div>
+              </section>
+            )}
+
+            {sheetVisible && editorVisible && (
+              <button
+                type="button"
+                className={`editor-divider ${sheetPaneOnRight ? 'sheet-pane-on-right' : ''}`}
+                aria-label="Resize ABC editor"
+                onPointerDown={sheetPaneOnRight ? beginEditorResizeFromRight : beginEditorResize}
+              />
+            )}
+
+            {editorVisible && (
+              <section
+                className="workspace-pane editor-pane"
+                style={{
+                  width: sheetVisible ? `${fittedPanelLayout.editorPanelWidth}px` : '100%',
+                  flex: sheetVisible ? 'none' : '1',
+                }}
+              >
+                <div className="pane-tab-strip">
+                  <div className="pane-tab active" role="tab" aria-selected="true">
+                    <span className="pane-tab-title">ABC code</span>
+                    <button
+                      type="button"
+                      className="pane-tab-close"
+                      onClick={() => setEditorVisible(false)}
+                      title="Close ABC source pane"
+                      aria-label="Close ABC source pane"
+                    >
+                      <X size={12} aria-hidden="true" />
+                    </button>
+                  </div>
+                  <div className="pane-tab-actions">
+                    <button
+                      type="button"
+                      className="workspace-add-tab-btn"
+                      onClick={togglePaneMenu}
+                      title="Open pane"
+                      aria-label="Open pane"
+                      aria-haspopup="menu"
+                      aria-expanded={paneMenuOpen}
+                    >
+                      <Plus size={14} aria-hidden="true" />
+                    </button>
+                    {paneMenuOpen && (
+                      <WorkspacePaneMenu
+                        paneMenuRef={paneMenuRef}
+                        sheetVisible={sheetVisible}
+                        editorVisible={editorVisible}
+                        onOpenSheet={() => openSheetPane(editorVisible)}
+                        onOpenEditor={() => openEditorPane(setEditorVisible)}
+                      />
+                    )}
                   </div>
                 </div>
 
-              </div>
-              </>}
-            </section>
-
-            {editorVisible && (
-              <>
-                <button
-                  type="button"
-                  className="editor-divider"
-                  aria-label="Resize ABC editor"
-                  onPointerDown={beginEditorResize}
-                />
-                <div className="editor-workspace-card" style={{ width: `${fittedPanelLayout.editorPanelWidth}px` }}>
+                <div
+                  className="workspace-pane-card editor-workspace-card"
+                  style={{ width: sheetVisible ? `${fittedPanelLayout.editorPanelWidth}px` : '100%' }}
+                >
                   <AbcEditor
                     abcCode={abcCode}
                     onAbcChange={handleAbcChange}
@@ -517,21 +492,57 @@ export const App: React.FC = () => {
                     validationState={buildStatus}
                     validationMessage={workspaceMessage}
                     visible={editorVisible}
-                    onToggleVisibility={() => setEditorVisible(false)}
                   />
                 </div>
-              </>
+              </section>
+            )}
+
+            {!sheetVisible && !editorVisible && (
+              <div className="workspace-empty-panes" role="status">
+                <div className="workspace-empty-panes-card">
+                  <div className="workspace-empty-icon">
+                    <FileMusic size={32} aria-hidden="true" />
+                  </div>
+                  <h3>No panes open</h3>
+                  <p>Open Sheet music or ABC source to view and edit score content.</p>
+                  <div className="workspace-empty-actions">
+                    <button
+                      type="button"
+                      className="workspace-add-tab-btn empty-state-btn"
+                      onClick={togglePaneMenu}
+                      aria-haspopup="menu"
+                      aria-expanded={paneMenuOpen}
+                    >
+                      <Plus size={15} aria-hidden="true" />
+                      <span>Open Pane</span>
+                    </button>
+                    {paneMenuOpen && (
+                      <WorkspacePaneMenu
+                        paneMenuRef={paneMenuRef}
+                        sheetVisible={sheetVisible}
+                        editorVisible={editorVisible}
+                        onOpenSheet={() => openSheetPane(editorVisible)}
+                        onOpenEditor={() => openEditorPane(setEditorVisible)}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
             )}
           </div>
 
-          <div className="playback-dock-container">
-            <AudioPlayer
-              tunes={canRenderScore ? tunes : null}
-              activeAnchor={activeAnchor}
-              onPlaybackPositionChange={handlePlaybackPositionChange}
-              onPlaybackSourceRangesChange={setPlaybackSourceRanges}
-            />
-          </div>
+          {sheetVisible && activeDocument && (
+            <div className="playback-dock-container">
+              <AudioPlayer
+                tunes={canRenderScore ? tunes : null}
+                totalMeasures={totalMeasures}
+                activeAnchor={activeAnchor}
+                onPlaybackPositionChange={handlePlaybackPositionChange}
+                onPlaybackSourceRangesChange={setPlaybackSourceRanges}
+              />
+            </div>
+          )}
+
           </main>
         </div>
 
@@ -576,40 +587,27 @@ export const App: React.FC = () => {
           />
         </div>
       </div>
-      <AISettingsModal
-        open={settingsOpen}
-        onClose={closeSettings}
-        ai={aiProviders}
+      <WorkspaceModals
+        settingsOpen={settingsOpen}
+        onCloseSettings={closeSettings}
+        aiProviders={aiProviders}
         interfaceZoom={interfaceZoom.zoom}
         onInterfaceZoomChange={interfaceZoom.setZoom}
-      />
-      <EditingHistoryModal
-        open={historyModalOpen}
-        onClose={closeHistoryModal}
+        historyModalOpen={historyModalOpen}
+        onCloseHistoryModal={closeHistoryModal}
         scoreTitle={scoreTitle}
-        history={editingHistory}
+        editingHistory={editingHistory}
         activeHistoryIndex={activeHistoryIndex}
         canUndo={canUndo}
         canRedo={canRedo}
         onUndo={handleUndo}
         onRedo={handleRedo}
         onRevertTo={handleRevertTo}
+        newScoreModalOpen={newScoreModalOpen}
+        onCloseNewScoreModal={closeNewScoreModal}
+        onCreateDocument={handleCreateDocument}
+        exportStatus={exportStatus}
       />
-      <NewScoreModal
-        open={newScoreModalOpen}
-        onClose={closeNewScoreModal}
-        onCreate={handleCreateDocument}
-      />
-      {exportStatus.status === 'success' && (
-        <div className="export-status-toast" role="status">
-          Exported {exportStatus.message ?? 'file'}
-        </div>
-      )}
-      {exportStatus.status === 'error' && (
-        <div className="export-status-toast error" role="alert">
-          Export failed: {exportStatus.message ?? 'unknown error'}
-        </div>
-      )}
     </div>
   );
 };

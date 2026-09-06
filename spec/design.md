@@ -84,7 +84,7 @@ The design direction is a file-owned music workspace where score viewing, ABC ed
 - file-scoped workspace state with debounced local storage persistence and bounded revision history
 - score editing history timeline (up to 100 entries) with categories (`origin`, `metadata`, `body`, `annotation`), header undo/redo actions, and tools history revert
 - shared `ScoreAnchor` model linking score selection, playback seek, and chat prompt context
-- split score and ABC workspace with drag-resizable panes
+- single-score presentation workspace with individual Sheet and ABC Source tabs, plus menu defaulting to split screen right, and drag-resizable split screen panes
 - auto-centering playback line with user scroll pause behavior
 - repeat-aware measure selection avoiding unnecessary DOM re-renders
 - line-start measure numbers and smooth score transition rendering

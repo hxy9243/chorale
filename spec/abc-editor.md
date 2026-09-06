@@ -57,17 +57,19 @@ Required behavior:
 
 Expected UI elements:
 
-- `ABC code` heading and subtitle
-- visible validity status pill (`Valid · r{revision}`, `Rebuilding`, `Invalid ABC`)
-- line numbers
+- a dedicated top tab (`| ABC code ✕ |`) attached directly above the pane; clicking `✕` closes the ABC source pane
+- streamlined toolbar header containing:
+  - view switcher (`Measure Source` / `Raw Source`)
+  - visible validity status pill (`Valid ABC`, `Checking…`, `Invalid ABC`)
+  - copy ABC action button
+- line numbers (in Raw Source)
 - live refresh or rebuild status indicator
-- copy ABC action button
-- an always-visible icon close button in the ABC pane's upper-right corner; reopening remains available from **Tools**
 
 These communicate whether the current text can safely drive score and playback output.
 
-The title, status, view controls, voice selector, and close action remain fixed while the
+The pane tab, view controls, status pill, and copy action remain fixed while the
 editor content scrolls. ABC metadata is part of the source content and scrolls normally.
+
 
 ## 4. Formatted and raw views
 

@@ -1,6 +1,7 @@
 import {
   app,
   BrowserWindow,
+  Menu,
   net,
   protocol,
   session,
@@ -81,6 +82,7 @@ const createWindow = async () => {
     minWidth: 1024,
     minHeight: 700,
     show: false,
+    autoHideMenuBar: true,
     backgroundColor: '#f4f1ea',
     webPreferences: {
       preload: preloadPath,
@@ -89,6 +91,9 @@ const createWindow = async () => {
       sandbox: true,
     },
   });
+
+  Menu.setApplicationMenu(null);
+  mainWindow.setMenuBarVisibility(false);
 
   const expectedDevelopmentUrl = developmentRendererUrl();
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));

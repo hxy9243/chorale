@@ -480,8 +480,69 @@ describe('FileRail Component', () => {
         onToggleCollapse={onToggleCollapse}
         activePanel="tools"
         onActivePanelChange={onActivePanelChange}
-      />,
+      />
     );
     expect(screen.getByRole('tabpanel', { name: 'Tools' })).toBeDefined();
   });
+
+  it('renders vertically stacked New Score and Import score actions with search bar below', () => {
+    const { container } = render(<FileRail {...defaultProps} />);
+
+    const actions = container.querySelector('.file-create-actions');
+    expect(actions).toBeDefined();
+
+    const buttons = actions?.querySelectorAll('button');
+    expect(buttons?.length).toBe(2);
+    expect(buttons?.[0].textContent).toContain('New Score');
+    expect(buttons?.[1].textContent).toContain('Import score');
+
+    const searchInput = screen.getByRole('textbox', { name: 'Search scores' });
+    expect(searchInput).toBeDefined();
+    expect(searchInput.getAttribute('placeholder')).toBe('Search scores…');
+  });
+
+  it('filters scores in real time by title or filename and clears with clear button or Escape', () => {
+    render(<FileRail {...defaultProps} />);
+
+    expect(screen.getByText('Bach Minuet')).toBeDefined();
+    expect(screen.getByText('Beethoven Ode')).toBeDefined();
+
+    const searchInput = screen.getByRole('textbox', { name: 'Search scores' });
+
+    // Filter by "Bach"
+    fireEvent.change(searchInput, { target: { value: 'Bach' } });
+    expect(screen.getByText('Bach Minuet')).toBeDefined();
+    expect(screen.queryByText('Beethoven Ode')).toBeNull();
+
+    // Clear button appears
+    const clearBtn = screen.getByRole('button', { name: 'Clear search' });
+    expect(clearBtn).toBeDefined();
+
+    // Click clear button
+    fireEvent.click(clearBtn);
+    expect(screen.getByText('Bach Minuet')).toBeDefined();
+    expect(screen.getByText('Beethoven Ode')).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull();
+
+    // Filter by "Ode" and clear with Escape key
+    fireEvent.change(searchInput, { target: { value: 'Ode' } });
+    expect(screen.queryByText('Bach Minuet')).toBeNull();
+    expect(screen.getByText('Beethoven Ode')).toBeDefined();
+
+    fireEvent.keyDown(searchInput, { key: 'Escape' });
+    expect(screen.getByText('Bach Minuet')).toBeDefined();
+    expect(screen.getByText('Beethoven Ode')).toBeDefined();
+  });
+
+  it('displays empty state message when no scores match search query', () => {
+    render(<FileRail {...defaultProps} />);
+
+    const searchInput = screen.getByRole('textbox', { name: 'Search scores' });
+    fireEvent.change(searchInput, { target: { value: 'Chopin' } });
+
+    expect(screen.queryByText('Bach Minuet')).toBeNull();
+    expect(screen.queryByText('Beethoven Ode')).toBeNull();
+    expect(screen.getByText('No scores match “Chopin”')).toBeDefined();
+  });
 });
+

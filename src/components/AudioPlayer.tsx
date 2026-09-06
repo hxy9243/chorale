@@ -57,6 +57,7 @@ const updatePlaybackCursor = (event: abcjs.NoteTimingEvent) => {
 
 interface AudioPlayerProps {
   tunes: abcjs.TuneObject[] | null;
+  totalMeasures?: number;
   activeAnchor?: ScoreAnchor | null;
   onPlaybackPositionChange?: (position: PlaybackPosition) => void;
   onPlaybackSourceRangesChange?: (ranges: PlaybackSourceRanges | null) => void;
@@ -64,6 +65,7 @@ interface AudioPlayerProps {
 
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   tunes,
+  totalMeasures,
   activeAnchor,
   onPlaybackPositionChange,
   onPlaybackSourceRangesChange,
@@ -71,16 +73,30 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   const soundFontBaseVolume = 0.4;
   const synthControllerRef = useRef<any>(null);
+  const currentTune = tunes?.[0] || null;
+  const [loadedTune, setLoadedTune] = useState<abcjs.TuneObject | null>(null);
+  const isReady = Boolean(currentTune && loadedTune === currentTune);
+
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [isReady, setIsReady] = useState<boolean>(false);
   const [volume, setVolume] = useState<number>(0.8);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [playbackProgress, setPlaybackProgress] = useState(0);
   const [totalDurationMs, setTotalDurationMs] = useState(0);
+  const [currentMeasure, setCurrentMeasure] = useState<number | null>(null);
   const playbackProgressRef = useRef(0);
   const totalDurationMsRef = useRef(0);
   const isPlayingRef = useRef(false);
+
+  const [prevTune, setPrevTune] = useState<abcjs.TuneObject | null>(currentTune);
+  if (currentTune !== prevTune) {
+    setPrevTune(currentTune);
+    setPlaybackProgress(0);
+    setTotalDurationMs(0);
+    setCurrentMeasure(null);
+    setIsPlaying(false);
+    setAudioError(null);
+  }
 
   const audioContainerRef = useRef<HTMLDivElement>(null);
   const masterGainRef = useRef<GainNode | null>(null);
@@ -145,13 +161,18 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   // Primary synth initialization on tune change
   useEffect(() => {
-    const currentTune = tunes?.[0] || null;
     removePlaybackCursor();
     onPlaybackSourceRangesChange?.(null);
+    onPlaybackPositionChange?.({ currentSeconds: 0, isPlaying: false });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('chorale-playback-state', { detail: { isPlaying: false } }));
+    }
+
     if (!currentTune) {
-      setIsReady(false);
-      updatePlaybackPosition({ progress: 0, durationMs: 0, playing: false });
       lastInitTuneRef.current = null;
+      playbackProgressRef.current = 0;
+      totalDurationMsRef.current = 0;
+      isPlayingRef.current = false;
       return;
     }
 
@@ -159,22 +180,23 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       return;
     }
     lastInitTuneRef.current = currentTune;
-    setIsReady(false);
-    updatePlaybackPosition({ progress: 0, durationMs: 0, playing: false });
-
-    const synthApi = (abcjs as any).synth;
-    if (!synthApi || (synthApi.isSupported && !synthApi.isSupported())) {
-      setAudioError('WebAudio is not supported in this browser environment.');
-      return;
-    }
+    playbackProgressRef.current = 0;
+    totalDurationMsRef.current = 0;
+    isPlayingRef.current = false;
 
     let synthControl: any;
     let cancelled = false;
 
     const initSynth = async () => {
       try {
+        const synthApi = (abcjs as any).synth;
+        if (!synthApi || (synthApi.isSupported && !synthApi.isSupported())) {
+          setAudioError('WebAudio is not supported in this browser environment.');
+          setLoadedTune(null);
+          return;
+        }
+
         setAudioError(null);
-        setIsReady(false);
 
         // Create audio synth controller
         synthControl = new synthApi.SynthController();
@@ -188,18 +210,26 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
               onEvent: (event: abcjs.NoteTimingEvent) => {
                 if (event) {
                   updatePlaybackCursor(event);
+                  if (isFiniteNumber(event.measureNumber)) {
+                    setCurrentMeasure(event.measureNumber + 1);
+                  }
                   const starts = event.startCharArray || (typeof event.startChar === 'number' ? [event.startChar] : []);
                   const ends = event.endCharArray || (typeof event.endChar === 'number' ? [event.endChar] : []);
                   onPlaybackSourceRangesChange?.(starts.length ? { starts, ends } : null);
                 }
               },
               onBeat: (beatNumber: number, totalBeats: number, totalTime: number) => {
+                const beatsPerMeasure = currentTune.getBeatsPerMeasure?.() || 0;
+                if (beatsPerMeasure > 0) {
+                  setCurrentMeasure(Math.max(1, Math.floor(beatNumber / beatsPerMeasure) + 1));
+                }
                 updatePlaybackPosition({
                   progress: totalBeats > 0 ? beatNumber / totalBeats : 0,
                   durationMs: totalTime,
                 });
               },
               onFinished: () => {
+                setCurrentMeasure(null);
                 updatePlaybackPosition({ progress: 0, playing: false });
                 if (synthControllerRef.current) {
                   synthControllerRef.current.isStarted = false;
@@ -259,11 +289,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         if (Number.isFinite(totalTime) && totalTime > 0) {
           updatePlaybackPosition({ durationMs: totalTime * 1000 });
         }
-        setIsReady(true);
+        setLoadedTune(currentTune);
       } catch (err: any) {
         if (cancelled) return;
         console.error('Error initializing audio synth:', err);
         setAudioError('Could not initialize audio synthesizer.');
+        setLoadedTune(null);
       }
     };
 
@@ -281,9 +312,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         synthControllerRef.current = null;
       }
       removePlaybackCursor();
-      updatePlaybackPosition({ progress: 0, playing: false });
+      onPlaybackPositionChange?.({ currentSeconds: 0, isPlaying: false });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('chorale-playback-state', { detail: { isPlaying: false } }));
+      }
     };
-  }, [onPlaybackSourceRangesChange, tunes, updatePlaybackPosition]);
+  }, [currentTune, soundFontBaseVolume, onPlaybackPositionChange, onPlaybackSourceRangesChange, updatePlaybackPosition]);
 
   const applyAnchorSeek = React.useCallback((anchor: ScoreAnchor) => {
     const tune = tunes?.[0];
@@ -364,6 +398,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     synthControllerRef.current.restart?.();
     synthControllerRef.current.isStarted = false;
     synthControllerRef.current.seek?.(0);
+    setCurrentMeasure(null);
     updatePlaybackPosition({ progress: 0, playing: false });
     removePlaybackCursor();
   };
@@ -387,6 +422,17 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
 
   const currentMs = playbackProgress * totalDurationMs;
+  const fallbackMeasureTotal = (() => {
+    const tune = tunes?.[0];
+    const totalBeats = tune?.getTotalBeats?.() || 0;
+    const beatsPerMeasure = tune?.getBeatsPerMeasure?.() || 0;
+    return totalBeats > 0 && beatsPerMeasure > 0
+      ? Math.ceil(totalBeats / beatsPerMeasure)
+      : 0;
+  })();
+  const displayedMeasureTotal = totalMeasures && totalMeasures > 0
+    ? totalMeasures
+    : fallbackMeasureTotal;
 
   return (
     <div className="audio-player-card glass-panel">
@@ -431,27 +477,40 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           >
             <Square className="w-4 h-4 fill-current" />
           </button>
+        </div>
 
-          <div className="playback-progress" aria-label="Playback position">
-            <div>
+        <div className="playback-progress" aria-label="Playback position">
+          <div className="playback-progress-meta">
+            <div className="playback-progress-time">
               <strong>{formatTime(currentMs)}</strong>
               <span>/ {totalDurationMs > 0 ? formatTime(totalDurationMs) : '--:--'}</span>
             </div>
-            <button
-              type="button"
-              className="playback-progress-track"
-              onClick={handleSeekTrackClick}
-              aria-label="Seek playback"
-              disabled={!isReady}
-            >
-              <span style={{ width: `${playbackProgress * 100}%` }} />
-            </button>
           </div>
-          {activeAnchor && (
-            <div className="playback-loop-pill">
-              <span>Selected {formatAnchorLabel(activeAnchor)}</span>
-            </div>
-          )}
+          <button
+            type="button"
+            className="playback-progress-track"
+            onClick={handleSeekTrackClick}
+            aria-label="Seek playback"
+            disabled={!isReady}
+          >
+            <span style={{ width: `${playbackProgress * 100}%` }} />
+          </button>
+        </div>
+
+        <div className="playback-status-stack">
+          <span className="playback-measure-pill" aria-label="Current measure">
+            {`m. ${currentMeasure ?? '—'} / ${displayedMeasureTotal || '—'}`}
+          </span>
+
+          <div className="playback-selection-slot" aria-label="Playback selection">
+            {activeAnchor ? (
+              <div className="playback-loop-pill">
+                <span>Selected {formatAnchorLabel(activeAnchor)}</span>
+              </div>
+            ) : (
+              <span className="playback-selection-empty">No selection</span>
+            )}
+          </div>
         </div>
 
         <div className="control-slider-group">

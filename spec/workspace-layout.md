@@ -3,7 +3,7 @@ title: "Workspace Layout Spec"
 description: "Specification for the top-level desktop workspace structure, header, file rail, central score workspace, and chat panel"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-09-03
+updated: 2026-09-05
 status: "implemented"
 source_files:
   - src/App.tsx
@@ -28,6 +28,7 @@ test_files:
   - src/utils/__tests__/abcMetadata.test.ts
   - src/utils/__tests__/fileHistory.test.ts
   - src/hooks/__tests__/useResizablePanel.test.ts
+  - src/styles/__tests__/workspaceLayoutCss.test.ts
 related_specs:
   - spec/design.md
   - spec/score-surface.md
@@ -91,7 +92,7 @@ Required content:
 - dedicated top-anchored toggle expansion icon (`PanelLeftClose` / `PanelLeft`) that collapses the rail and re-expands it to the last focused panel; last focused panel persists as `chorale.workspace.fileRailActivePanel`
 - file management actions: compact 44px rows omit a leading document icon and use the full row as the pointer drag surface; sortable transforms move neighboring rows around a persistent source slot while a matching overlay follows the pointer and settles into place, without a native drag-image handoff or disappearing placeholder; Arrow Up/Arrow Down on the focused file name provides keyboard reordering; score deletion allows deleting documents down to 0, which displays an empty workspace placeholder until a file is imported or loaded
 - vertical scrolling is allowed inside the selected panel; horizontal scrolling is clipped
-- persistent icon rail with collapsible content panel state (`railCollapsed` state) and horizontal drag-to-resize handle when expanded
+- persistent icon rail with collapsible content panel state (`railCollapsed` state) and horizontal drag-to-resize handle (`.file-rail-resize-handle`) when expanded; features a generous 14px hit target, `col-resize` cursor, and a tactile hover indicator with a full-height track line and centered terracotta grip capsule (`#ad503b`)
 - default width at 25% of the logical layout viewport when expanded, bounded between 240px and 560px so long file names remain legible
 - persistent resized width in local storage (`chorale.workspace.fileRailWidth`) and collapse state (`chorale.workspace.fileRailCollapsed`)
 
@@ -108,11 +109,15 @@ It contains:
 
 - score metadata header (`ScoreMetadataHeader`): centered serif title (`--font-serif`), right-aligned score taglines/attribution (composer, author/lyricist, subtitle, origin, rhythm) with an Add Field menu (`+`), and centered interactive metadata chips (Key, Meter, Tempo) supporting inline ABC editing and validation
 - a compact rounded display-options panel (`ScoreCardHeader`) floating at the score's upper center; it is highly translucent at rest, becomes less translucent during score scrolling, and becomes clearest on hover or keyboard focus
-- continuous full-page paper score surface (`.sheet-viewport` spanning 100% width and height with pure-CSS paper texture, centered notation track, auto-centering playback line, line-start measure numbers, and zoom layout space reservation)
-- optional split ABC editor pane (horizontal drag-to-resize, width bounded between 320px and 720px, default 420px, persisted as `chorale.workspace.editorWidth`) with Measure Source toolbar belt for structural measure edits
-- playback dock anchored to the visible bottom of the central workspace, independent of content height and interface zoom (max-width bounded to 800px for centered desktop presentation)
+- pane-top tabs: each active pane (Sheet and ABC source) has a dedicated tab attached directly flush on top of the actual pane (`| Sheet ✕ |` and `| ABC code ✕ |`); the tab's left edge aligns with the pane card's left edge, and clicking `✕` on a tab closes that pane
+- pane elevation and layout: a small gap separates panes, each pane features a 1px border and soft paper drop shadow, and their vertical heights align and extend cleanly flush to the bottom with zero bottom padding on the central workspace
+- `+` pane launcher: a `+` button in the workspace tab strip opens a small popover window listing the available panes ("Sheet" and "ABC source") to open/show; if all panes are closed, an empty desk state displays a prompt to open panes
+- continuous full-page paper score surface (`.sheet-viewport` spanning 100% width and height with simple pure-CSS paper background, full-width notation track utilizing 100% of the Sheet tab pane width, auto-centering playback line, line-start measure numbers, and zoom layout space reservation)
+- optional split ABC editor pane with full-height interactive drag divider (`.editor-divider` with `col-resize` cursor, full-height guide line, and centered terracotta grip capsule on hover) allowing smooth width adjustment (bounded between 320px and 720px, default 420px, persisted as `chorale.workspace.editorWidth`) with Measure Source toolbar belt for structural measure edits
+- playback dock anchored to the visible bottom of the central workspace with a distinct accent color (dark ink capsule surface) and drop shadow to separate cleanly from the desk background (expanded max-width bounded to 900px with playback progress occupying at least 60% of the width, and selected measure anchors rendered on a separate text metadata row to prevent blocking or clipping the track)
 
-The score remains the dominant surface. The editor is subordinate even when visible.
+The score and editor panes present clean physical paper depth above the desk surface, with no single/split toggle on the top right. Native system window controls (minimize, maximize, close) are enabled without an application menu bar.
+
 
 ## 5. Right work rail and chat panel
 

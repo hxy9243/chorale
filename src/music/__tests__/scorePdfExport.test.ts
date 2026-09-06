@@ -140,6 +140,92 @@ describe('scorePdfExport', () => {
     expect(html).toContain('mm. 3–4');
   });
 
+  it('keeps each explanation annotation distinct in the exported annotation column', () => {
+    const annotations: Annotation[] = [
+      {
+        id: 'ann-explanation-1',
+        kind: 'explanation',
+        span: { startMeasure: 1, endMeasure: 1 },
+        label: 'Opening gesture',
+        body: 'The opening establishes the tonal center.',
+        source: 'assistant',
+        createdAt: '2026-08-29T00:00:00.000Z',
+        updatedAt: '2026-08-29T00:00:00.000Z',
+      },
+      {
+        id: 'ann-explanation-2',
+        kind: 'explanation',
+        span: { startMeasure: 2, endMeasure: 2 },
+        label: 'Sequential answer',
+        body: 'The answer repeats the contour a step higher.',
+        source: 'assistant',
+        createdAt: '2026-08-29T00:00:00.000Z',
+        updatedAt: '2026-08-29T00:00:00.000Z',
+      },
+      {
+        id: 'ann-explanation-3',
+        kind: 'explanation',
+        span: { startMeasure: 3, endMeasure: 3 },
+        label: 'Cadential turn',
+        body: 'The line resolves through a clear cadential turn.',
+        source: 'assistant',
+        createdAt: '2026-08-29T00:00:00.000Z',
+        updatedAt: '2026-08-29T00:00:00.000Z',
+      },
+    ];
+
+    const html = generateScorePdfHtml({
+      abcSource: SAMPLE_ABC,
+      fallbackTitle: 'Distinct Explanations',
+      annotations,
+    });
+
+    for (const text of [
+      'Opening gesture',
+      'The opening establishes the tonal center.',
+      'Sequential answer',
+      'The answer repeats the contour a step higher.',
+      'Cadential turn',
+      'The line resolves through a clear cadential turn.',
+    ]) {
+      expect(html.split(text)).toHaveLength(2);
+    }
+  });
+
+  it('does not project the first explanation onto unrelated score systems', () => {
+    const annotations: Annotation[] = [
+      {
+        id: 'ann-system-1',
+        kind: 'explanation',
+        span: { startMeasure: 1, endMeasure: 1 },
+        label: 'First-system explanation',
+        body: 'This belongs only beside the first system.',
+        source: 'assistant',
+        createdAt: '2026-08-29T00:00:00.000Z',
+        updatedAt: '2026-08-29T00:00:00.000Z',
+      },
+      {
+        id: 'ann-system-2',
+        kind: 'explanation',
+        span: { startMeasure: 5, endMeasure: 5 },
+        label: 'Second-system explanation',
+        body: 'This belongs only beside the second system.',
+        source: 'assistant',
+        createdAt: '2026-08-29T00:00:00.000Z',
+        updatedAt: '2026-08-29T00:00:00.000Z',
+      },
+    ];
+
+    const html = generateScorePdfHtml({
+      abcSource: MULTI_SYSTEM_ABC,
+      fallbackTitle: 'System-specific Explanations',
+      annotations,
+    });
+
+    expect(html.split('First-system explanation')).toHaveLength(2);
+    expect(html.split('Second-system explanation')).toHaveLength(2);
+  });
+
   it('renders notation-only layout when no range annotations exist', () => {
     const html = generateScorePdfHtml({
       abcSource: SAMPLE_ABC,
@@ -504,5 +590,3 @@ K:C
     expect(b3.x).toBeLessThanOrEqual(780 - 14);
   });
 });
-
-

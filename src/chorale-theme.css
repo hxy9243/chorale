@@ -1280,50 +1280,25 @@ textarea:disabled,
   overflow-y: hidden;
   border-radius: 0;
   /*
-   * Pure-CSS paper feel, layered over the same warm base:
-   *  1. top-light sheen (light falls from above)
-   *  2. soft vignette toward the bottom edge
-   *  3. fine laid lines (vertical chain marks)
-   *  4. cross-grain fiber texture
-   *  5. diagonal fiber flecks
-   *  6. base warm paper color
+   * Simple pure-CSS paper background for sheet music:
+   * Warm ivory base with soft overhead light gradation and subtle page depth,
+   * keeping notation, staves, and annotations clear without decorative grain or moiré.
    */
   background:
     radial-gradient(
-      130% 80% at 50% -10%,
-      color-mix(in srgb, #ffffff 50%, transparent) 0%,
-      transparent 62%
+      ellipse 120% 60% at 50% 0%,
+      rgba(255, 255, 255, 0.65) 0%,
+      transparent 70%
     ),
-    radial-gradient(
-      150% 90% at 50% 118%,
-      color-mix(in srgb, var(--color-score-paper-2) 78%, transparent) 0%,
-      transparent 58%
-    ),
-    repeating-linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--color-score-paper-2) 36%, transparent) 0 1px,
-      transparent 1px 4px
-    ),
-    repeating-linear-gradient(
-      0deg,
-      color-mix(in srgb, var(--color-score-paper-2) 8%, transparent) 0 1px,
-      transparent 1px 3px
-    ),
-    repeating-linear-gradient(
-      112deg,
-      rgba(255, 255, 255, 0.28) 0 1px,
-      transparent 1px 5px
-    ),
-    repeating-linear-gradient(
-      24deg,
-      color-mix(in srgb, var(--color-score-paper-2) 25%, transparent) 0 2px,
-      transparent 2px 7px
-    ),
-    var(--color-paper-raised);
+    linear-gradient(
+      180deg,
+      var(--color-paper-raised) 0%,
+      color-mix(in srgb, var(--color-paper-raised) 85%, var(--color-score-paper-2)) 100%
+    );
   color: var(--color-ink);
   box-shadow:
-    inset 0 0 28px color-mix(in srgb, var(--color-score-paper-2) 30%, transparent),
-    inset 0 0 3px color-mix(in srgb, var(--color-score-paper-2) 45%, transparent);
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 0 16px color-mix(in srgb, var(--color-score-paper-2) 18%, transparent);
 }
 
 .abcjs-paper-container {
@@ -9226,4 +9201,1033 @@ body,
   background: var(--color-accent-strong);
   color: var(--color-accent-ink);
   filter: brightness(1.08);
+}
+
+/* ==========================================================================
+   Design Revamp: Pane-Top Tabs, Paper Depth, Sidebars & ABC Editor Header
+   ========================================================================== */
+
+/* 1. Left sidebar: directional paper shadow and warmer contrast */
+.file-rail {
+  background: #ede8df;
+  box-shadow:
+    1px 0 0 #ccc6bb,
+    4px 0 0 -1px #efebe2,
+    5px 0 0 -1px #d9d2c6,
+    10px 0 20px rgba(85, 72, 45, 0.09) !important;
+  z-index: 10;
+  position: relative;
+  overflow: visible !important;
+}
+
+.file-rail-tabs {
+  background: #e2ded4;
+  border-inline-end: 1px solid #dcd8ce;
+}
+
+.file-rail-section {
+  background: #ede8df;
+}
+
+.file-rail-tab.active {
+  background: #fffdfa;
+  border-color: #dcd8ce;
+}
+
+.file-rail-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -7px;
+  width: 14px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: col-resize;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+}
+
+/* 2. Right sidebar contrast */
+.right-panel {
+  background: #ede8df;
+  box-shadow:
+    -1px 0 0 #ccc6bb,
+    -4px 0 0 -1px #efebe2,
+    -8px 0 16px rgba(85, 72, 45, 0.06);
+  z-index: 9;
+  position: relative;
+  overflow: visible !important;
+}
+
+.chat-rail-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -7px;
+  width: 14px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: col-resize;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+}
+
+.chat-panel-stack {
+  background: #ede8df;
+}
+
+.right-rail {
+  background: #e2ded4;
+  border-inline-start: 1px solid #dcd8ce;
+}
+
+/* 3. Central workspace & desk background */
+.central-column {
+  background: #e9e5dc;
+}
+
+.app-header {
+  background: #f6f3ec;
+  border-bottom: 1px solid #dcd8ce;
+}
+
+.central-workspace {
+  background: #e9e5dc;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  padding-bottom: 0 !important;
+}
+
+/* 4. Score-editor shell: inter-pane gap and bottom flush alignment */
+.score-editor-shell {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  padding: 8px 12px 0 12px;
+  gap: 0;
+  background: #e9e5dc;
+  box-sizing: border-box;
+  align-items: stretch;
+  position: relative;
+}
+
+/* 5. Workspace pane containers and pane-top tabs */
+.workspace-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  min-width: 0;
+}
+
+.workspace-pane.score-pane {
+  flex: 1;
+}
+
+.workspace-pane.editor-pane {
+  flex: none;
+}
+
+.score-editor-shell.sheet-hidden .workspace-pane.editor-pane {
+  flex: 1;
+  width: 100% !important;
+}
+
+.pane-tab-strip {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 28px;
+  flex: none;
+  padding: 0;
+  margin: 0;
+  position: relative;
+  z-index: 3;
+}
+
+.pane-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 8px 0 12px;
+  background: #fffdfa;
+  border: 1px solid #dcd8ce;
+  border-bottom: 1px solid #fffdfa;
+  border-radius: 4px 4px 0 0;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  color: #292824;
+  position: relative;
+  margin-bottom: -1px;
+  margin-left: 0;
+  z-index: 3;
+  box-shadow: 0 -1px 3px rgba(66, 52, 30, 0.05);
+}
+
+.pane-tab-title {
+  white-space: nowrap;
+}
+
+.pane-tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: #716d65;
+  cursor: pointer;
+  margin-left: 2px;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.pane-tab-close:hover {
+  background: #ece7dd;
+  color: #292824;
+}
+
+.pane-tab-actions {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  height: 28px;
+}
+
+.workspace-add-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: #716d65;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.workspace-add-tab-btn:hover,
+.workspace-add-tab-btn[aria-expanded='true'] {
+  background: #ece7dd;
+  border-color: #dcd8ce;
+  color: #292824;
+}
+
+/* 6. Pane cards: paper border, drop shadow, bottom flush alignment */
+.workspace-pane-card {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  background: #fffdfa;
+  border: 1px solid #dcd8ce;
+  border-bottom: 0 !important; /* Aligns flush on the bottom with no gap */
+  border-top-left-radius: 0; /* Tab sits directly flush on top of pane */
+  border-top-right-radius: 4px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow:
+    0 1px 3px rgba(66, 52, 30, 0.08),
+    0 4px 14px rgba(66, 52, 30, 0.06);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.workspace-pane-card.score-workspace-card {
+  background: #fffdfa;
+}
+
+/* 6.1 The pane fills the workspace, but the score scene keeps main's
+   intrinsic measurement so zooming remains scrollable and centred. */
+.workspace-pane.score-pane .score-canvas,
+.workspace-pane.score-pane .score-sheet,
+.workspace-pane.score-pane .score-view-wrapper,
+.workspace-pane.score-pane .sheet-music-card,
+.workspace-pane.score-pane .sheet-viewport {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+/* Keep the zoom readout above the score scene and its transformed SVG while below overlays/modals. */
+.workspace-pane.score-pane .score-display-options {
+  z-index: var(--z-raised);
+}
+
+.workspace-pane-card.editor-workspace-card {
+  background: #fffdfa;
+}
+
+/* A sole source pane must not retain its saved split width. */
+.score-editor-shell.sheet-hidden .workspace-pane-card.editor-workspace-card {
+  width: 100% !important;
+}
+
+/* A pane opened beside an existing pane appears to its right. */
+.workspace-pane.editor-pane {
+  order: 1;
+}
+
+.editor-divider.sheet-pane-on-right {
+  order: 2;
+}
+
+.workspace-pane.score-pane.sheet-pane-on-right {
+  order: 3;
+}
+
+/* 7. Editor resize divider between panes */
+.editor-divider {
+  width: 14px;
+  margin: 0;
+  flex: none;
+  height: 100%;
+  background: transparent;
+  border: 0;
+  cursor: col-resize;
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  outline: none;
+}
+
+/* ==========================================================================
+   7.1 Hover Adjustable Indicators for Sidebars
+   ========================================================================== */
+
+.file-rail-resize-handle::before,
+.chat-rail-resize-handle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: transparent;
+  transition: background 150ms ease;
+  pointer-events: none;
+}
+
+.file-rail-resize-handle::before {
+  right: 6px;
+}
+
+.chat-rail-resize-handle::before {
+  left: 6px;
+}
+
+.file-rail-resize-handle::after,
+.chat-rail-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%) scale(0.9);
+  width: 4px;
+  height: 48px;
+  border-radius: 2px;
+  background: transparent;
+  opacity: 0;
+  box-shadow: none;
+  transition:
+    opacity 150ms ease,
+    background 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
+  pointer-events: none;
+}
+
+.file-rail-resize-handle::after {
+  right: 5px;
+}
+
+.chat-rail-resize-handle::after {
+  left: 5px;
+}
+
+/* Hover state: highlight line and reveal tactile grip capsule */
+.file-rail-resize-handle:hover::before,
+.chat-rail-resize-handle:hover::before {
+  background: #dcd8ce;
+}
+
+.file-rail-resize-handle:hover::after,
+.chat-rail-resize-handle:hover::after {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+  background: #ad503b;
+  box-shadow:
+    0 1px 4px rgba(66, 52, 30, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+/* Active dragging state: prominent feedback */
+.file-rail-resize-handle:active::before,
+.chat-rail-resize-handle:active::before,
+body.is-resizing-col .file-rail-resize-handle::before,
+body.is-resizing-col .chat-rail-resize-handle::before {
+  background: #ad503b;
+}
+
+.file-rail-resize-handle:active::after,
+.chat-rail-resize-handle:active::after,
+body.is-resizing-col .file-rail-resize-handle::after,
+body.is-resizing-col .chat-rail-resize-handle::after {
+  opacity: 1;
+  transform: translateY(-50%) scale(1.1);
+  background: #8c3f2e;
+  box-shadow:
+    0 2px 8px rgba(173, 80, 59, 0.4),
+    0 0 0 2px rgba(173, 80, 59, 0.25);
+}
+
+/* Global cursor lock during drag */
+body.is-resizing-col {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body.is-resizing-col * {
+  user-select: none !important;
+  cursor: col-resize !important;
+}
+
+/* 8. Pop-up menu for '+' button */
+.workspace-pane-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 100;
+  min-width: 160px;
+  background: #fffdfa;
+  border: 1px solid #dcd8ce;
+  border-radius: 6px;
+  box-shadow:
+    0 8px 24px rgba(41, 40, 36, 0.12),
+    0 2px 6px rgba(41, 40, 36, 0.06);
+  padding: 4px;
+}
+
+.workspace-pane-menu-header {
+  padding: 6px 8px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #716d65;
+  font-family: var(--font-mono);
+}
+
+.workspace-pane-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #292824;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 100ms ease;
+}
+
+.workspace-pane-menu-item:hover {
+  background: #ece7dd;
+}
+
+.workspace-pane-menu-item.is-active {
+  color: #292824;
+}
+
+.pane-menu-badge {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #d8e2d7;
+  color: #292824;
+  font-weight: 500;
+}
+
+.pane-menu-action {
+  margin-left: auto;
+  font-size: 11px;
+  color: #ad503b;
+  font-weight: 500;
+}
+
+/* 9. Empty panes state */
+.workspace-empty-panes {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+}
+
+.workspace-empty-panes-card {
+  text-align: center;
+  padding: 36px 28px;
+  background: #fffdfa;
+  border: 1px solid #dcd8ce;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(41, 40, 36, 0.08);
+  max-width: 380px;
+}
+
+.workspace-empty-icon {
+  display: inline-flex;
+  margin-bottom: 12px;
+  color: #716d65;
+}
+
+.workspace-empty-panes-card h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #292824;
+}
+
+.workspace-empty-panes-card p {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #716d65;
+}
+
+.workspace-empty-actions {
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+.workspace-add-tab-btn.empty-state-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  width: auto;
+  height: 32px;
+  background: #292824;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.workspace-add-tab-btn.empty-state-btn:hover {
+  background: #49463e;
+  color: #fff;
+}
+
+/* 10. Re-styled ABC editor header */
+.abc-editor-card .editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 2.25rem;
+  height: 2.25rem;
+  padding: 0 8px;
+  border-bottom: 1px solid #dcd8ce;
+  background: #f6f3ec;
+  padding-inline-end: 8px;
+}
+
+.abc-editor-card .abc-editor-tabs {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 4px;
+  background: #eae5dc;
+  gap: 2px;
+}
+
+.abc-editor-card .abc-editor-tabs button {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: #716d65;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+  min-height: auto;
+}
+
+.abc-editor-card .abc-editor-tabs button:hover:not(:disabled) {
+  color: #292824;
+}
+
+.abc-editor-card .abc-editor-tabs button[aria-selected='true'] {
+  background: #fffdfa;
+  color: #292824;
+  box-shadow: 0 1px 2px rgba(41, 40, 36, 0.08);
+}
+
+.abc-editor-card .editor-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.abc-editor-card .editor-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  height: 22px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid #dcd8ce;
+  border-radius: 3px;
+  background: #fffdfa;
+  color: #292824;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.abc-editor-card .editor-copy-btn:hover {
+  background: #ece7dd;
+}
+
+.abc-editor-card .editor-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  border-radius: 3px;
+  border: 0;
+  background: #fffdfa;
+  color: #292824;
+  border-bottom: 2px solid #ccc6bb;
+}
+
+.abc-editor-card .editor-status-pill.valid {
+  border-bottom-color: #6d8067;
+  color: #292824;
+}
+
+.abc-editor-card .editor-status-pill.invalid {
+  border-bottom-color: #ad503b;
+  color: #ad503b;
+}
+
+/* Keep the source's measure navigator at the bottom edge of its pane. */
+.workspace-pane.editor-pane .abc-editor-card {
+  height: 100%;
+  min-height: 0;
+}
+
+.workspace-pane.editor-pane .abc-editor-card .editor-body {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.workspace-pane.editor-pane .abc-measure-view {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 100%;
+  flex-direction: column;
+}
+
+.workspace-pane.editor-pane .abc-measure-timeline {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.workspace-pane.editor-pane .abc-timeline-measure {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+}
+
+.workspace-pane.editor-pane .abc-timeline-voice-stack {
+  flex: 1 1 auto;
+}
+
+.abc-horizontal-scrollbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding: 6px 10px;
+  border-top: 1px solid #dcd8ce;
+  background: #f6f3ec;
+}
+
+.abc-horizontal-scrollbar input {
+  width: 100%;
+  accent-color: #6d8067;
+}
+
+/* Keep one resize line at the source/sheet split without decorating its hit area. */
+.editor-divider,
+.editor-divider:hover,
+.editor-divider:active {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.editor-divider::after {
+  display: none !important;
+  content: none !important;
+}
+
+.editor-divider::before {
+  content: '' !important;
+  display: block !important;
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: transparent;
+  pointer-events: none;
+  transition: background 150ms ease;
+}
+
+.editor-divider:hover::before {
+  background: #dcd8ce;
+}
+
+.editor-divider:active::before,
+body.is-resizing-col .editor-divider::before {
+  background: #ad503b;
+}
+
+/* The file rail keeps its single edge line; remove the overlapping hover fill/grip. */
+.file-rail-resize-handle:hover,
+.file-rail-resize-handle:active {
+  background: transparent !important;
+}
+
+.file-rail-resize-handle::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* The transport belongs to the workspace viewport, not a single pane. */
+.central-workspace > .playback-dock-container {
+  position: static !important;
+  inset: auto !important;
+  z-index: var(--z-tooltip);
+  flex: none;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 0;
+  transform: none !important;
+  padding: 8px 24px 12px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.central-workspace > .playback-dock-container::before {
+  display: none !important;
+}
+
+.central-workspace > .playback-dock-container .audio-player-card {
+  display: block !important;
+  width: 80% !important;
+  max-width: none !important;
+  padding: 8px 18px !important;
+  color: #f6f3ec !important;
+  background: #24221d !important;
+  border: 1px solid #1a1915 !important;
+  border-radius: 28px !important;
+  box-shadow:
+    0 8px 24px rgba(24, 22, 18, 0.22),
+    0 2px 6px rgba(24, 22, 18, 0.12) !important;
+}
+
+.central-workspace > .playback-dock-container .player-controls-bar {
+  display: grid !important;
+  grid-template-columns: auto minmax(10rem, 1fr) 11rem minmax(0, 9rem);
+  align-items: center !important;
+  width: 100% !important;
+  margin: 0 !important;
+  gap: 12px !important;
+}
+
+.central-workspace > .playback-dock-container .main-play-buttons {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.central-workspace > .playback-dock-container .btn-circle {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  border-radius: 50% !important;
+}
+
+.central-workspace > .playback-dock-container .playback-progress {
+  display: flex !important;
+  flex-direction: column !important;
+  min-width: 0 !important;
+  gap: 4px !important;
+  color: #dcd8ce !important;
+}
+
+.central-workspace > .playback-dock-container .playback-progress-meta,
+.central-workspace > .playback-dock-container .playback-progress-time {
+  display: flex !important;
+  align-items: center !important;
+}
+
+.central-workspace > .playback-dock-container .playback-progress strong {
+  color: #fffdfa !important;
+}
+
+.central-workspace > .playback-dock-container .playback-progress span {
+  color: #dcd8ce !important;
+}
+
+.central-workspace > .playback-dock-container .playback-progress-track {
+  width: 100% !important;
+  height: 6px !important;
+  background: #393630 !important;
+  border: 0 !important;
+  border-radius: 3px !important;
+}
+
+.central-workspace > .playback-dock-container .playback-progress-track span {
+  display: block !important;
+  height: 100% !important;
+  background: #768d71 !important;
+  border-radius: inherit !important;
+}
+
+.central-workspace > .playback-dock-container .playback-measure-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: none;
+  padding: 1px 8px;
+  border: 1px solid #c4ad82;
+  border-radius: 10px;
+  color: #24221d;
+  background: #f6f0e5;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.central-workspace > .playback-dock-container .playback-status-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 11rem;
+  min-width: 0;
+}
+
+.central-workspace > .playback-dock-container .playback-selection-slot {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.central-workspace > .playback-dock-container .playback-loop-pill,
+.central-workspace > .playback-dock-container .playback-selection-empty {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  color: #24221d;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.3;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.central-workspace > .playback-dock-container .playback-loop-pill {
+  padding: 1px 8px !important;
+  border: 1px solid #c4ad82 !important;
+  border-radius: 10px !important;
+  background: #f6f0e5 !important;
+}
+
+.central-workspace > .playback-dock-container .playback-selection-empty {
+  color: #b9b4aa;
+}
+
+.central-workspace > .playback-dock-container .control-slider-group {
+  display: flex !important;
+  align-items: center;
+  min-width: 0;
+  max-width: 9rem;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.central-workspace > .playback-dock-container .control-slider-group .btn {
+  flex: none;
+}
+
+.central-workspace > .playback-dock-container .audio-slider {
+  width: auto;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.central-workspace > .playback-dock-container .slider-value {
+  min-width: 2.25rem;
+  color: #fffdfa;
+  font-size: 11px;
+}
+
+@media (max-width: 60rem) {
+  .central-workspace > .playback-dock-container .audio-player-card {
+    width: 100% !important;
+  }
+
+  .central-workspace > .playback-dock-container .player-controls-bar {
+    grid-template-columns: auto minmax(8rem, 1fr) 11rem minmax(0, 8rem);
+  }
+
+  .central-workspace > .playback-dock-container .playback-status-stack {
+    width: 11rem;
+  }
+}
+
+/* Measure Source keeps its full viewport while the source scroll control floats below it. */
+.workspace-pane.editor-pane .abc-editor-card .editor-body.is-measure-view {
+  position: relative;
+  flex: 1 1 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+}
+
+.workspace-pane.editor-pane .editor-body.is-measure-view .abc-measure-view {
+  display: block;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0 0 var(--space-lg);
+}
+
+.workspace-pane.editor-pane .editor-body.is-measure-view .abc-header-source {
+  padding-top: 0;
+}
+
+.workspace-pane.editor-pane .editor-body.is-measure-view .abc-measure-timeline,
+.workspace-pane.editor-pane .editor-body.is-measure-view .abc-timeline-measure,
+.workspace-pane.editor-pane .editor-body.is-measure-view .abc-timeline-voice-stack {
+  flex: none;
+  min-height: 0;
+}
+
+.workspace-pane.editor-pane .abc-editor-card > .abc-horizontal-scrollbar {
+  display: flex;
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  height: 10%;
+  min-height: 0;
+  max-height: 10%;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+  z-index: var(--z-raised);
+}
+
+.workspace-pane.editor-pane .abc-horizontal-scrollbar input {
+  width: 80%;
+  height: 1.125rem;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, #9c978d 1px, transparent 1.4px) 0 50% / 8px 8px repeat-x,
+    #e5e0d6;
+  cursor: ew-resize;
+  pointer-events: auto;
+}
+
+.workspace-pane.editor-pane .abc-horizontal-scrollbar input::-webkit-slider-thumb {
+  width: 13px;
+  height: 13px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid #5a6657;
+  border-radius: 2px;
+  background: #6d8067;
+  box-shadow: 0 1px 2px rgba(36, 34, 29, 0.28);
+}
+
+.workspace-pane.editor-pane .abc-horizontal-scrollbar input::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border: 1px solid #5a6657;
+  border-radius: 2px;
+  background: #6d8067;
+  box-shadow: 0 1px 2px rgba(36, 34, 29, 0.28);
+}
+
+/* The ABC card owns all remaining editor-pane height beneath its tab strip. */
+.workspace-pane.editor-pane {
+  min-height: 0;
+}
+
+.workspace-pane.editor-pane .editor-workspace-card {
+  display: flex;
+  flex: 1 1 auto;
+  width: 100% !important;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.workspace-pane.editor-pane .editor-workspace-card .abc-editor-card {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  gap: 0;
 }

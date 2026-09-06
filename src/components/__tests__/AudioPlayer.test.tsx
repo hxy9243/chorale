@@ -59,6 +59,13 @@ describe('AudioPlayer Component', () => {
     expect(screen.getByText('/ --:--')).toBeDefined();
   });
 
+  it('shows the current and total measure count in a fixed transport slot', () => {
+    render(<AudioPlayer tunes={[mockTune]} totalMeasures={12} />);
+
+    expect(screen.getByLabelText('Current measure').textContent).toBe('m. — / 12');
+    expect(screen.getByLabelText('Playback selection').textContent).toBe('No selection');
+  });
+
   it('toggles mute state when mute button is clicked', () => {
     render(<AudioPlayer tunes={null} />);
 
@@ -110,6 +117,7 @@ describe('AudioPlayer Component', () => {
 
     expect(screen.getByText('0:30')).toBeDefined();
     expect(screen.getByText('/ 2:00')).toBeDefined();
+    expect(screen.getByLabelText('Current measure').textContent).toBe('m. 8 / 4');
     expect(onPlaybackPositionChange).toHaveBeenLastCalledWith({
       currentSeconds: 30,
       isPlaying: true,
