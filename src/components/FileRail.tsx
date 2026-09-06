@@ -675,7 +675,7 @@ export const FileRail: React.FC<FileRailProps> = ({
           <div className="file-create-actions">
             <button
               type="button"
-              className="import-btn"
+              className="import-btn file-action-row"
               onClick={onNewScore}
               disabled={loading}
               title="Create a blank piano score"
@@ -685,7 +685,7 @@ export const FileRail: React.FC<FileRailProps> = ({
             </button>
             <button
               type="button"
-              className="import-btn"
+              className="import-btn file-action-row"
               onClick={() => fileInputRef.current?.click()}
               disabled={loading}
               title="Import an ABC, MusicXML, or MXL score"

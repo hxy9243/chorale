@@ -17,6 +17,11 @@ const themeCss = readFileSync(
   'utf8',
 );
 
+const controlsCss = readFileSync(
+  resolve(process.cwd(), 'src/styles/controls.css'),
+  'utf8',
+);
+
 describe('workspace layout CSS contract', () => {
   it('lets the visible right panel shrink inside the workspace grid row', () => {
     expect(responsiveCss).toMatch(
@@ -71,4 +76,24 @@ describe('workspace layout CSS contract', () => {
       /\.central-workspace\s*>\s*\.playback-dock-container\s+\.audio-player-card\s*{[^}]*background:\s*#52504a\s*!important;/s,
     );
   });
+
+  it('renders score creation actions as vertically stacked text rows with underlines across full width', () => {
+    // Both theme and controls enforce flex column (vertically stacked)
+    expect(controlsCss).toMatch(
+      /\.file-create-actions\s*{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/s,
+    );
+    expect(themeCss).toMatch(
+      /\.file-create-actions\s*{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;/s,
+    );
+
+    // Enforce full width, underlines (border-bottom), and no square button appearance (border-radius: 0)
+    expect(controlsCss).toMatch(
+      /\.file-create-actions\s+\.import-btn\s*{[^}]*width:\s*100%;[^}]*border-bottom:\s*1px\s+solid\s+var\(--border-subtle\)[^}]*border-radius:\s*0/s,
+    );
+    expect(themeCss).toMatch(
+      /\.file-create-actions\s+\.import-btn\s*{[^}]*width:\s*100%;[^}]*border-bottom:\s*1px\s+solid[^}]*border-radius:\s*0/s,
+    );
+  });
+
+
 });

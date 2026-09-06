@@ -494,7 +494,9 @@ describe('FileRail Component', () => {
     const buttons = actions?.querySelectorAll('button');
     expect(buttons?.length).toBe(2);
     expect(buttons?.[0].textContent).toContain('New Score');
+    expect(buttons?.[0].classList.contains('file-action-row')).toBe(true);
     expect(buttons?.[1].textContent).toContain('Import score');
+    expect(buttons?.[1].classList.contains('file-action-row')).toBe(true);
 
     const searchInput = screen.getByRole('textbox', { name: 'Search scores' });
     expect(searchInput).toBeDefined();

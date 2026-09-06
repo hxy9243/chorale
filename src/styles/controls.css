@@ -550,39 +550,50 @@ button.btn-chorale:hover:not(:disabled) {
   margin: 0;
 }
 
-/* File Actions (New Score & Import) - Vertically stacked per user design */
+/* File Actions (New Score & Import) - Vertically stacked two rows of text with underlines */
 .file-create-actions {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
   margin-bottom: 12px;
+  width: 100%;
 }
 
 .file-create-actions .import-btn {
   width: 100%;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: flex-start;
+  text-align: left;
   gap: 8px;
-  padding: 7px 10px;
-  background: var(--surface-raised) !important;
-  border: 1px solid var(--border-subtle) !important;
-  border-radius: var(--radius-control) !important;
+  padding: 8px 10px;
+  margin: 0;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  border-radius: 0 !important;
   color: var(--text-primary) !important;
   font-family: var(--font-ui) !important;
   font-size: 0.8125rem !important;
   font-weight: 500;
   cursor: pointer;
-  transition: all var(--dur-micro) var(--ease-out);
+  box-sizing: border-box;
+  transition: background var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out);
 }
 
-.file-create-actions .import-btn:hover {
+.file-create-actions .import-btn:hover:not(:disabled) {
   background: var(--surface-hover) !important;
-  border-color: var(--border-selected) !important;
+  border-bottom-color: var(--border-selected) !important;
+  color: var(--text-primary) !important;
 }
 
-.file-create-actions .import-btn:active {
+.file-create-actions .import-btn:active:not(:disabled) {
   background: var(--surface-selected) !important;
+}
+
+.file-create-actions .import-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
 }
 
 /* File Search Bar below action buttons and before file list */

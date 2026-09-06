@@ -5795,11 +5795,8 @@ body,
   display: none;
 }
 
-.file-rail .import-btn {
-  width: min(9rem, 100%);
-  justify-content: center;
-  margin: 0 auto var(--space-sm);
-  text-align: center;
+.file-rail .file-create-actions .import-btn {
+  width: 100%;
 }
 
 .file-list {
@@ -8762,15 +8759,54 @@ body,
 }
 /* Score drafting dialogs and creation actions */
 .file-create-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: var(--space-sm);
+  width: 100%;
 }
 
+.file-rail .file-create-actions .import-btn,
 .file-create-actions .import-btn {
+  width: 100%;
   min-width: 0;
-  justify-content: center;
-  padding-inline: var(--space-xs);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: start;
+  gap: var(--space-xs);
+  padding: var(--space-2xs) var(--space-xs);
+  margin: 0;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--color-rule, var(--border-subtle, #dcd8ce)) !important;
+  border-radius: 0 !important;
+  color: var(--color-ink, var(--text-primary)) !important;
+  font-family: var(--font-ui, var(--font-sans)) !important;
+  font-size: var(--text-xs, 0.8125rem) !important;
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background var(--dur-micro, 120ms) var(--ease-out, ease), color var(--dur-micro, 120ms) var(--ease-out, ease), border-bottom-color var(--dur-micro, 120ms) var(--ease-out, ease);
+}
+
+.file-rail .file-create-actions .import-btn:hover:not(:disabled),
+.file-create-actions .import-btn:hover:not(:disabled) {
+  background: var(--surface-hover, var(--color-paper-highlight, rgba(0, 0, 0, 0.04))) !important;
+  border-bottom-color: var(--border-selected, var(--color-ink-2, #8b8579)) !important;
+  color: var(--color-ink, var(--text-primary)) !important;
+}
+
+.file-rail .file-create-actions .import-btn:active:not(:disabled),
+.file-create-actions .import-btn:active:not(:disabled) {
+  background: var(--surface-selected, var(--color-paper-muted, rgba(0, 0, 0, 0.07))) !important;
+}
+
+.file-rail .file-create-actions .import-btn:focus-visible,
+.file-create-actions .import-btn:focus-visible {
+  outline: 2px solid var(--color-focus, var(--focus-ring));
+  outline-offset: -2px;
 }
 
 .score-drafting-modal-overlay {
@@ -8978,8 +9014,7 @@ body,
 }
 
 @media (max-width: 680px) {
-  .new-score-form-grid,
-  .file-create-actions {
+  .new-score-form-grid {
     grid-template-columns: 1fr;
   }
 
