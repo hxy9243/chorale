@@ -3,7 +3,7 @@ title: "Score Surface Spec"
 description: "Specification for score rendering, continuous range selection, chord overlays, range annotation rail, line measure numbers, and auto-centering playback"
 category: "core-workspace"
 date: 2026-08-05
-updated: 2026-08-22
+updated: 2026-09-05
 status: "implemented"
 source_files:
   - src/components/SheetMusicView.tsx
@@ -20,6 +20,7 @@ source_files:
   - src/utils/autoScroll.ts
   - src/hooks/useInterfaceZoom.ts
   - tokens.css
+  - src/chorale-theme.css
 test_files:
   - src/components/__tests__/SheetMusicView.test.tsx
   - src/components/__tests__/ScoreMetadataHeader.test.tsx

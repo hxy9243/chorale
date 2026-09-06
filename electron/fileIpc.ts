@@ -192,7 +192,10 @@ export const registerFileIPC = (getWindow: () => BrowserWindow | null) => {
           printBackground: true,
           pageSize: 'A4',
           margins: {
-            marginType: 'none',
+            top: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
           },
         });
 

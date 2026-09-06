@@ -81,9 +81,9 @@ describe('App Integration', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
     fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
     fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
-    expect(screen.getByPlaceholderText(/Parsed ABC code will appear here/)).toBeDefined();
-    fireEvent.click(screen.getByRole('button', { name: 'Close ABC editor' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close ABC source pane' }));
     expect(screen.queryByPlaceholderText(/Parsed ABC code will appear here/)).toBeNull();
+
 
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(screen.getByRole('dialog', { name: 'Settings' })).toBeDefined();
@@ -304,12 +304,29 @@ describe('App Integration', () => {
     expect(screen.getByLabelText('Current sheet assistant')).toBeDefined();
   });
 
-  it('anchors the playback dock to the central workspace viewport', () => {
+  it('centers the playback dock across the workspace viewport', async () => {
+    await storageAdapter.saveDocuments([{
+      id: 'playback-pane-doc',
+      name: 'Playback pane.abc',
+      sourceType: 'abc',
+      abcSource: 'X:1\nT:Playback pane\nK:C\nCDEF|',
+      revision: 1,
+      annotations: [],
+      chats: [],
+      versions: [],
+      scoreInfo: { title: 'Playback pane' },
+      createdAt: '2026-09-05T00:00:00.000Z',
+      updatedAt: '2026-09-05T00:00:00.000Z',
+    }]);
+    localStorage.setItem('chorale.workspace.activeFileId', 'playback-pane-doc');
     render(<App />);
 
-    const workspace = document.querySelector('.central-workspace');
-    const playbackDock = document.querySelector('.playback-dock-container');
-    expect(playbackDock?.parentElement).toBe(workspace);
+    const playbackDock = await waitFor(() => {
+      const dock = document.querySelector('.playback-dock-container');
+      expect(dock).not.toBeNull();
+      return dock;
+    });
+    expect(playbackDock?.parentElement).toBe(document.querySelector('.central-workspace'));
   });
 
   it('uses the 25% file rail and the intended editor width when storage is empty', () => {
@@ -806,5 +823,70 @@ describe('App Integration', () => {
     expect(redoBtn.disabled).toBe(false);
 
     unmount();
+  });
+
+  it('controls pane visibility via pane tabs and the + popover menu', async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sheet-svg')).toBeDefined();
+    });
+
+    // Both sheet tab and close button are present
+    expect(screen.getByText('Sheet')).toBeDefined();
+    const closeSheetBtn = screen.getByRole('button', { name: 'Close Sheet pane' });
+    expect(closeSheetBtn).toBeDefined();
+
+    // Close the Sheet pane
+    fireEvent.click(closeSheetBtn);
+    expect(screen.queryByTestId('sheet-svg')).toBeNull();
+
+    // When both panes are closed, empty panes state is shown
+    expect(screen.getByText('No panes open')).toBeDefined();
+
+    // Open pane via '+' empty state button
+    const openPaneBtn = screen.getByRole('button', { name: 'Open Pane' });
+    fireEvent.click(openPaneBtn);
+
+    // Popover menu is shown listing Sheet and ABC source
+    const menu = screen.getByRole('menu', { name: 'Open pane options' });
+    expect(menu).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: /Sheet/ })).toBeDefined();
+    expect(screen.getByRole('menuitem', { name: /ABC source/ })).toBeDefined();
+
+    // Open ABC source by itself. It should occupy the entire work area rather
+    // than retaining the saved split width.
+    fireEvent.click(screen.getByRole('menuitem', { name: /ABC source/ }));
+    const shell = document.querySelector<HTMLElement>('.score-editor-shell')!;
+    const editorPane = document.querySelector<HTMLElement>('.workspace-pane.editor-pane')!;
+    const editorCard = document.querySelector<HTMLElement>('.editor-workspace-card')!;
+    expect(shell.classList.contains('sheet-hidden')).toBe(true);
+    expect(editorPane.style.width).toBe('100%');
+    expect(editorCard.style.width).toBe('100%');
+
+    // A new sheet opens to the right of the existing source pane.
+    fireEvent.click(screen.getByRole('button', { name: 'Open pane' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Sheet/ }));
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    expect(document.querySelector('.score-pane')?.classList.contains('sheet-pane-on-right')).toBe(true);
+    expect(document.querySelector('.editor-divider')?.classList.contains('sheet-pane-on-right')).toBe(true);
+
+    // The resize boundary owns the sheet when the sheet is on the right:
+    // moving it left makes that right-hand sheet wider, not narrower.
+    const widthBefore = Number.parseInt(editorPane.style.width, 10);
+    const divider = screen.getByRole('button', { name: 'Resize ABC editor' });
+    fireEvent.pointerDown(divider, { clientX: 600, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 500, pointerId: 1 });
+    await waitFor(() => {
+      expect(Number.parseInt(editorPane.style.width, 10)).toBeLessThan(widthBefore);
+    });
+    fireEvent.pointerUp(window, { clientX: 500, pointerId: 1 });
+
+    // When the source is newly created instead, it returns to the right and
+    // the existing sheet remains on the left.
+    fireEvent.click(screen.getByRole('button', { name: 'Close ABC source pane' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open pane' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /ABC source/ }));
+    expect(document.querySelector('.score-pane')?.classList.contains('sheet-pane-on-right')).toBe(false);
   });
 });

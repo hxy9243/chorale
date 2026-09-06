@@ -1,5 +1,16 @@
 /* Responsive workspace rules that depend on the sizing contract in
  * utils/workspaceSizing.ts. Keep these after the theme import. */
+.workspace-body > .right-panel {
+  min-height: 0;
+  height: 100%;
+}
+
+.workspace-body .chat-panel-stack {
+  min-height: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .workspace-body.side-panels-overlay,
 .workspace-body.side-panels-overlay.chat-open {
   grid-template-columns: minmax(0, 1fr) !important;

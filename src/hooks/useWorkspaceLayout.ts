@@ -137,6 +137,13 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
     direction: 'left',
   });
 
+  const { beginResize: beginEditorResizeFromRight } = useResizablePanel({
+    initialWidth: editorWidth,
+    clampWidth: clampEditorPanelWidth,
+    onWidthChange: setEditorWidth,
+    direction: 'right',
+  });
+
   const { beginResize: beginRailResize } = useResizablePanel({
     initialWidth: railWidth,
     clampWidth: clampFileRailWidth,
@@ -180,6 +187,7 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
     chatWidth,
     fittedPanelLayout,
     beginEditorResize,
+    beginEditorResizeFromRight,
     beginRailResize,
     beginChatResize,
   };

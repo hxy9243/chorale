@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import abcjs from 'abcjs';
+import { FileCode2, FileMusic, Plus, X } from 'lucide-react';
 import { Header } from './components/Header';
 import { FileRail } from './components/FileRail';
 import { RightRail } from './components/RightRail';
@@ -115,6 +116,7 @@ export const App: React.FC = () => {
     railActivePanel,
     setRailActivePanel,
     beginEditorResize,
+    beginEditorResizeFromRight,
     beginRailResize,
     beginChatResize,
   } = useWorkspaceLayout(interfaceZoom);
@@ -139,12 +141,39 @@ export const App: React.FC = () => {
   });
   const buildRequestRef = useRef(0);
 
+  const [sheetVisible, setSheetVisible] = useState(true);
+  const [sheetPaneOnRight, setSheetPaneOnRight] = useState(false);
+  const [paneMenuOpen, setPaneMenuOpen] = useState(false);
+  const paneMenuRef = useRef<HTMLDivElement>(null);
+
   const aiProviders = useAIProviders();
   const openSettings = useCallback(() => setSettingsOpen(true), []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const openHistoryModal = useCallback(() => setHistoryModalOpen(true), []);
   const closeHistoryModal = useCallback(() => setHistoryModalOpen(false), []);
   const closeNewScoreModal = useCallback(() => setNewScoreModalOpen(false), []);
+
+  useEffect(() => {
+    if (!paneMenuOpen) return undefined;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        paneMenuRef.current &&
+        !paneMenuRef.current.contains(event.target as Node) &&
+        !(event.target as HTMLElement).closest('.workspace-add-tab-btn')
+      ) {
+        setPaneMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPaneMenuOpen(false);
+    };
+    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [paneMenuOpen]);
 
   // Global Undo / Redo keyboard shortcuts
   useEffect(() => {
@@ -365,6 +394,53 @@ export const App: React.FC = () => {
 
   const chatColumnWidth = FILE_RAIL_BAR_WIDTH + (chatOpen ? fittedPanelLayout.chatPanelWidth : 0);
 
+  const renderPaneMenu = () => (
+    <div
+      ref={paneMenuRef}
+      className="workspace-pane-menu"
+      role="menu"
+      aria-label="Open pane options"
+    >
+      <div className="workspace-pane-menu-header">Panes</div>
+      <button
+        type="button"
+        role="menuitem"
+        className={`workspace-pane-menu-item ${sheetVisible ? 'is-active' : ''}`}
+        onClick={() => {
+          if (!sheetVisible) setSheetPaneOnRight(editorVisible);
+          setSheetVisible(true);
+          setPaneMenuOpen(false);
+        }}
+      >
+        <FileMusic size={15} aria-hidden="true" />
+        <span className="pane-menu-title">Sheet</span>
+        {sheetVisible ? (
+          <span className="pane-menu-badge">Open</span>
+        ) : (
+          <span className="pane-menu-action">Show</span>
+        )}
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        className={`workspace-pane-menu-item ${editorVisible ? 'is-active' : ''}`}
+        onClick={() => {
+          if (!editorVisible) setSheetPaneOnRight(false);
+          setEditorVisible(true);
+          setPaneMenuOpen(false);
+        }}
+      >
+        <FileCode2 size={15} aria-hidden="true" />
+        <span className="pane-menu-title">ABC source</span>
+        {editorVisible ? (
+          <span className="pane-menu-badge">Open</span>
+        ) : (
+          <span className="pane-menu-action">Show</span>
+        )}
+      </button>
+    </div>
+  );
+
   return (
     <div className="chorale-app-shell">
       <div
@@ -411,99 +487,174 @@ export const App: React.FC = () => {
             onRedo={handleRedo}
           />
           <main
-            className={`central-workspace ${editorVisible ? 'editor-open' : 'editor-hidden'}`}
+            className={`central-workspace ${sheetVisible ? 'sheet-open' : 'sheet-hidden'} ${editorVisible ? 'editor-open' : 'editor-hidden'}`}
             style={{ '--editor-panel-width': editorVisible ? `${fittedPanelLayout.editorPanelWidth}px` : '0px' } as React.CSSProperties}
           >
-          <div className="score-editor-shell">
-            <section className="score-workspace-card">
-              <ScoreCardHeader
-                title={scoreTitle}
-                zoom={zoom}
-                onZoomIn={() => setZoom((z) => clampSheetZoom(z + 10))}
-                onZoomOut={() => setZoom((z) => clampSheetZoom(z - 10))}
-                onResetZoom={() => setZoom(DEFAULT_SHEET_ZOOM)}
-              />
-
-              {!activeDocument && (
-                <section className="empty-sheet-placeholder" aria-labelledby="empty-score-heading">
-                  <h2 id="empty-score-heading">Start a score</h2>
-                  <span>Create a blank piano score or import an existing file.</span>
-                  <div className="empty-score-actions">
-                    <button type="button" onClick={() => setNewScoreModalOpen(true)}>New Score</button>
-                    <button type="button" onClick={() => document.querySelector<HTMLInputElement>('.file-rail input[type="file"]')?.click()}>Import Score</button>
+          <div className={`score-editor-shell ${!sheetVisible ? 'sheet-hidden' : ''} ${!editorVisible ? 'editor-hidden' : ''}`}>
+            {sheetVisible && (
+              <section className={`workspace-pane score-pane ${sheetPaneOnRight ? 'sheet-pane-on-right' : ''}`}>
+                <div className="pane-tab-strip">
+                  <div className="pane-tab active" role="tab" aria-selected="true">
+                    <span className="pane-tab-title">Sheet</span>
+                    <button
+                      type="button"
+                      className="pane-tab-close"
+                      onClick={() => setSheetVisible(false)}
+                      title="Close Sheet pane"
+                      aria-label="Close Sheet pane"
+                    >
+                      <X size={12} aria-hidden="true" />
+                    </button>
                   </div>
-                </section>
-              )}
-              {activeDocument && <>
-              {scorePreview && (
-                <div className="score-preview-banner" role="status">
-                  <span>Previewing {scorePreview.proposal.span.startMeasure === scorePreview.proposal.span.endMeasure
-                    ? `measure ${scorePreview.proposal.span.startMeasure}`
-                    : `measures ${scorePreview.proposal.span.startMeasure}–${scorePreview.proposal.span.endMeasure}`}</span>
-                  <button type="button" onClick={handleExitScorePreview}>Back to current</button>
+                  {!editorVisible && (
+                    <div className="pane-tab-actions">
+                      <button
+                        type="button"
+                        className="workspace-add-tab-btn"
+                        onClick={() => setPaneMenuOpen((prev) => !prev)}
+                        title="Open pane"
+                        aria-label="Open pane"
+                        aria-haspopup="menu"
+                        aria-expanded={paneMenuOpen}
+                      >
+                        <Plus size={14} aria-hidden="true" />
+                      </button>
+                      {paneMenuOpen && renderPaneMenu()}
+                    </div>
+                  )}
                 </div>
-              )}
 
-              <div className="score-canvas">
-                <div className="score-sheet">
-                  {buildStatus === 'invalid' && (
-                    <div className="workspace-status-row invalid" role="alert">
-                      <span className="workspace-status-indicator invalid">Invalid ABC</span>
-                      <span>{workspaceMessage}</span>
+                <div className="workspace-pane-card score-workspace-card">
+                  <ScoreCardHeader
+                    title={scoreTitle}
+                    zoom={zoom}
+                    onZoomIn={() => setZoom((z) => clampSheetZoom(z + 10))}
+                    onZoomOut={() => setZoom((z) => clampSheetZoom(z - 10))}
+                    onResetZoom={() => setZoom(DEFAULT_SHEET_ZOOM)}
+                  />
+
+                  {!activeDocument && (
+                    <section className="empty-sheet-placeholder" aria-labelledby="empty-score-heading">
+                      <h2 id="empty-score-heading">Start a score</h2>
+                      <span>Create a blank piano score or import an existing file.</span>
+                      <div className="empty-score-actions">
+                        <button type="button" onClick={() => setNewScoreModalOpen(true)}>New Score</button>
+                        <button type="button" onClick={() => document.querySelector<HTMLInputElement>('.file-rail input[type="file"]')?.click()}>Import Score</button>
+                      </div>
+                    </section>
+                  )}
+                  {activeDocument && <>
+                  {scorePreview && (
+                    <div className="score-preview-banner" role="status">
+                      <span>Previewing {scorePreview.proposal.span.startMeasure === scorePreview.proposal.span.endMeasure
+                        ? `measure ${scorePreview.proposal.span.startMeasure}`
+                        : `measures ${scorePreview.proposal.span.startMeasure}–${scorePreview.proposal.span.endMeasure}`}</span>
+                      <button type="button" onClick={handleExitScorePreview}>Back to current</button>
                     </div>
                   )}
 
-                  <div className="score-view-wrapper">
-                    <SheetMusicView
-                      header={(
-                        <ScoreMetadataHeader
-                          title={scoreTitle}
-                          subtitle={liveMetadata.subtitle}
-                          composer={scoreComposer}
-                          author={liveMetadata.author}
-                          rhythm={liveMetadata.rhythm}
-                          origin={liveMetadata.origin}
-                          keySignature={scoreKey}
-                          meter={scoreMeter}
-                          tempoText={scoreTempoText}
-                          tempoBpm={scoreTempoBpm}
-                          onUpdateMetadata={handleMetadataChange}
-                          disabled={Boolean(scorePreview)}
-                        />
+                  <div className="score-canvas">
+                    <div className="score-sheet">
+                      {buildStatus === 'invalid' && (
+                        <div className="workspace-status-row invalid" role="alert">
+                          <span className="workspace-status-indicator invalid">Invalid ABC</span>
+                          <span>{workspaceMessage}</span>
+                        </div>
                       )}
-                      abcCode={canRenderScore ? displayAbc : ''}
-                      annotations={activeDocument?.annotations || []}
-                      activeAnchor={activeAnchor}
-                      navigationAnchor={scoreNavigationAnchor}
-                      onSelectAnchor={handleSelectAnchor}
-                      onTuneRendered={handleTuneRendered}
-                      documentId={activeDocument.id}
-                      revision={abcRevision}
-                      getPlaybackPosition={getPlaybackPosition}
-                      zoom={zoom}
-                      interfaceZoom={interfaceZoom.zoom}
-                      onZoomChange={(newZoom) => setZoom(clampSheetZoom(newZoom))}
-                      meter={scoreMeter}
-                      onCreateAnnotation={handleAddAnnotation}
-                      onUpdateAnnotation={handleUpdateAnnotation}
-                      onDeleteAnnotation={handleDeleteAnnotation}
-                    />
+
+                      <div className="score-view-wrapper">
+                        <SheetMusicView
+                          header={(
+                            <ScoreMetadataHeader
+                              title={scoreTitle}
+                              subtitle={liveMetadata.subtitle}
+                              composer={scoreComposer}
+                              author={liveMetadata.author}
+                              rhythm={liveMetadata.rhythm}
+                              origin={liveMetadata.origin}
+                              keySignature={scoreKey}
+                              meter={scoreMeter}
+                              tempoText={scoreTempoText}
+                              tempoBpm={scoreTempoBpm}
+                              onUpdateMetadata={handleMetadataChange}
+                              disabled={Boolean(scorePreview)}
+                            />
+                          )}
+                          abcCode={canRenderScore ? displayAbc : ''}
+                          annotations={activeDocument?.annotations || []}
+                          activeAnchor={activeAnchor}
+                          navigationAnchor={scoreNavigationAnchor}
+                          onSelectAnchor={handleSelectAnchor}
+                          onTuneRendered={handleTuneRendered}
+                          documentId={activeDocument.id}
+                          revision={abcRevision}
+                          getPlaybackPosition={getPlaybackPosition}
+                          zoom={zoom}
+                          interfaceZoom={interfaceZoom.zoom}
+                          onZoomChange={(newZoom) => setZoom(clampSheetZoom(newZoom))}
+                          meter={scoreMeter}
+                          onCreateAnnotation={handleAddAnnotation}
+                          onUpdateAnnotation={handleUpdateAnnotation}
+                          onDeleteAnnotation={handleDeleteAnnotation}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  </>}
+                </div>
+              </section>
+            )}
+
+            {sheetVisible && editorVisible && (
+              <button
+                type="button"
+                className={`editor-divider ${sheetPaneOnRight ? 'sheet-pane-on-right' : ''}`}
+                aria-label="Resize ABC editor"
+                onPointerDown={sheetPaneOnRight ? beginEditorResizeFromRight : beginEditorResize}
+              />
+            )}
+
+            {editorVisible && (
+              <section
+                className="workspace-pane editor-pane"
+                style={{
+                  width: sheetVisible ? `${fittedPanelLayout.editorPanelWidth}px` : '100%',
+                  flex: sheetVisible ? 'none' : '1',
+                }}
+              >
+                <div className="pane-tab-strip">
+                  <div className="pane-tab active" role="tab" aria-selected="true">
+                    <span className="pane-tab-title">ABC code</span>
+                    <button
+                      type="button"
+                      className="pane-tab-close"
+                      onClick={() => setEditorVisible(false)}
+                      title="Close ABC source pane"
+                      aria-label="Close ABC source pane"
+                    >
+                      <X size={12} aria-hidden="true" />
+                    </button>
+                  </div>
+                  <div className="pane-tab-actions">
+                    <button
+                      type="button"
+                      className="workspace-add-tab-btn"
+                      onClick={() => setPaneMenuOpen((prev) => !prev)}
+                      title="Open pane"
+                      aria-label="Open pane"
+                      aria-haspopup="menu"
+                      aria-expanded={paneMenuOpen}
+                    >
+                      <Plus size={14} aria-hidden="true" />
+                    </button>
+                    {paneMenuOpen && renderPaneMenu()}
                   </div>
                 </div>
 
-              </div>
-              </>}
-            </section>
-
-            {editorVisible && (
-              <>
-                <button
-                  type="button"
-                  className="editor-divider"
-                  aria-label="Resize ABC editor"
-                  onPointerDown={beginEditorResize}
-                />
-                <div className="editor-workspace-card" style={{ width: `${fittedPanelLayout.editorPanelWidth}px` }}>
+                <div
+                  className="workspace-pane-card editor-workspace-card"
+                  style={{ width: sheetVisible ? `${fittedPanelLayout.editorPanelWidth}px` : '100%' }}
+                >
                   <AbcEditor
                     abcCode={abcCode}
                     onAbcChange={handleAbcChange}
@@ -517,21 +668,49 @@ export const App: React.FC = () => {
                     validationState={buildStatus}
                     validationMessage={workspaceMessage}
                     visible={editorVisible}
-                    onToggleVisibility={() => setEditorVisible(false)}
                   />
                 </div>
-              </>
+              </section>
+            )}
+
+            {!sheetVisible && !editorVisible && (
+              <div className="workspace-empty-panes" role="status">
+                <div className="workspace-empty-panes-card">
+                  <div className="workspace-empty-icon">
+                    <FileMusic size={32} aria-hidden="true" />
+                  </div>
+                  <h3>No panes open</h3>
+                  <p>Open Sheet music or ABC source to view and edit score content.</p>
+                  <div className="workspace-empty-actions">
+                    <button
+                      type="button"
+                      className="workspace-add-tab-btn empty-state-btn"
+                      onClick={() => setPaneMenuOpen((prev) => !prev)}
+                      aria-haspopup="menu"
+                      aria-expanded={paneMenuOpen}
+                    >
+                      <Plus size={15} aria-hidden="true" />
+                      <span>Open Pane</span>
+                    </button>
+                    {paneMenuOpen && renderPaneMenu()}
+                  </div>
+                </div>
+              </div>
             )}
           </div>
 
-          <div className="playback-dock-container">
-            <AudioPlayer
-              tunes={canRenderScore ? tunes : null}
-              activeAnchor={activeAnchor}
-              onPlaybackPositionChange={handlePlaybackPositionChange}
-              onPlaybackSourceRangesChange={setPlaybackSourceRanges}
-            />
-          </div>
+          {sheetVisible && activeDocument && (
+            <div className="playback-dock-container">
+              <AudioPlayer
+                tunes={canRenderScore ? tunes : null}
+                totalMeasures={totalMeasures}
+                activeAnchor={activeAnchor}
+                onPlaybackPositionChange={handlePlaybackPositionChange}
+                onPlaybackSourceRangesChange={setPlaybackSourceRanges}
+              />
+            </div>
+          )}
+
           </main>
         </div>
 

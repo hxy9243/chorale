@@ -54,4 +54,20 @@ describe('ScoreCardHeader Component', () => {
     expect(controls.className).toContain('is-scrolling');
     unmount();
   });
+
+  it('surfaces the translucent controls when receiving a scroll event', () => {
+    const { unmount } = render(
+      <section className="score-workspace-card">
+        <div className="sheet-viewport">
+          <ScoreCardHeader {...defaultProps} />
+        </div>
+      </section>,
+    );
+
+    const controls = screen.getByLabelText('Score display options');
+    expect(controls.className).not.toContain('is-scrolling');
+    fireEvent.scroll(controls);
+    expect(controls.className).toContain('is-scrolling');
+    unmount();
+  });
 });

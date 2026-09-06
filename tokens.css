@@ -1,128 +1,180 @@
-/* Hallmark · genre: editorial · macrostructure: Catalogue · theme: custom (Nordic Ledger)
- * paper: oklch(97% 0.006 78) · accent: oklch(35% 0.09 250) · display: IBM Plex Sans · body: IBM Plex Sans
- * axes: light / sans-plus-mono / cool-fjord · knobs: chalk-stone / tonal-panels / soft-radius
- * contrast: pass (40–41) · slop: pass (42–48) · mobile: pass (34, 49–57) · gates: all-pass
+/* Chorale Design Language Tokens
+ * Source of truth: DESIGN.md (2026-09-05)
+ * Desk: #e9e5dc · Paper: #f6f3ec · Raised: #fffdfa · Ink: #292824 · Rust: #ad503b
  */
-/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4 */
 :root {
-  --color-paper: oklch(97% 0.006 78);
-  --color-paper-2: oklch(94.5% 0.007 72);
-  --color-paper-3: oklch(91% 0.008 68);
-  --color-paper-raised: oklch(98.5% 0.004 78);
-  --color-ink: oklch(23% 0.014 245);
-  --color-ink-2: oklch(33% 0.013 245);
-  --color-neutral: oklch(47% 0.011 240);
-  --color-muted: oklch(40% 0.011 240);
-  --color-rule: oklch(80% 0.01 230);
-  --color-rule-2: oklch(67% 0.012 230);
+  color-scheme: light;
 
-  --color-accent: oklch(35% 0.09 250);
-  --color-accent-strong: oklch(28% 0.072 250);
-  --color-accent-soft: oklch(91% 0.018 250);
-  --color-accent-ink: oklch(98% 0.006 78);
-  --color-focus: oklch(44% 0.16 250);
+  /* Canonical DESIGN.md surfaces */
+  --surface-desk: #e9e5dc;
+  --surface-paper: #f6f3ec;
+  --surface-raised: #fffdfa;
+  --surface-chat: #f0ece4;
+  --surface-tabs: #eae5dc;
+  --surface-hover: #ece7dd;
+  --surface-selected: #e9e1d4;
+  --surface-file-active: #ebe4d8;
 
-  --color-file-paper: oklch(93% 0.008 65);
-  --color-file-rule: oklch(75% 0.011 230);
-  --color-score-paper: oklch(97% 0.006 78);
-  --color-score-paper-2: oklch(94% 0.008 72);
-  --color-score-ink: var(--color-ink);
-  --color-score-muted: var(--color-muted);
-  --color-assistant-paper: oklch(94% 0.007 52);
-  --color-assistant-rule: oklch(75% 0.011 230);
-  --color-citron: var(--color-accent-soft);
-  --color-citron-ink: var(--color-accent-strong);
-  --color-vermilion: var(--color-accent);
-  --color-vermilion-soft: var(--color-accent-soft);
-  --color-vermilion-ink: var(--color-accent-ink);
+  /* Canonical typography */
+  --text-primary: #292824;
+  --text-secondary: #716d65;
+  --font-ui: 'DM Sans', Arial, sans-serif;
+  --font-title: 'Instrument Serif', Georgia, serif;
+  --font-meta: 'DM Mono', ui-monospace, monospace;
 
-  --color-graphite: oklch(27% 0.018 245);
-  --color-graphite-2: oklch(31% 0.017 245);
-  --color-graphite-3: oklch(36% 0.016 245);
-  --color-graphite-rule: oklch(49% 0.014 240);
-  --color-on-graphite: oklch(94% 0.008 72);
-  --color-on-graphite-muted: oklch(81% 0.009 72);
-  --color-on-graphite-faint: oklch(70% 0.01 72);
+  /* Canonical borders & accents */
+  --border-subtle: #dcd8ce;
+  --border-selected: #b7aa96;
+  --accent-rust: #ad503b;
+  --context-blue: #dce5ef;
+  --status-sage: #d8e2d7;
+  --status-rose: #f1d8d0;
 
-  --color-success: oklch(43% 0.085 154);
-  --color-success-soft: oklch(88% 0.04 154);
-  --color-warning: oklch(43% 0.09 76);
-  --color-warning-soft: oklch(89% 0.045 76);
-  --color-error: oklch(47% 0.13 29);
-  --color-error-soft: oklch(90% 0.04 29);
-  --color-annotation-chord-surface: var(--color-accent-soft);
-  --color-annotation-chord-ink: var(--color-accent-strong);
-  --color-annotation-chord-selected: var(--color-accent);
-  --color-annotation-chord-selected-ink: var(--color-accent-ink);
-  --color-annotation-modulation-surface: var(--color-warning-soft);
-  --color-annotation-modulation-ink: var(--color-warning);
-  --color-annotation-modulation-selected: var(--color-warning);
-  --color-annotation-modulation-selected-ink: var(--color-paper);
-  --color-annotation-voice-surface: var(--color-success-soft);
-  --color-annotation-voice-ink: var(--color-success);
-  --color-annotation-voice-selected: var(--color-success);
-  --color-annotation-voice-selected-ink: var(--color-paper);
-  --color-annotation-explanation-surface: oklch(90.5% 0.028 305);
-  --color-annotation-explanation-ink: oklch(36% 0.082 305);
-  --color-annotation-explanation-selected: oklch(40% 0.095 305);
-  --color-annotation-explanation-selected-ink: var(--color-paper);
-  --color-chat-user-surface: oklch(92% 0.014 65);
-  --color-chat-user-ink: var(--color-ink);
-  --color-chat-user-muted: var(--color-muted);
-  --color-overlay: oklch(20% 0.014 245 / 0.48);
-  --color-shadow: oklch(20% 0.014 245 / 0.08);
-  --color-shadow-deep: oklch(20% 0.014 245 / 0.16);
-  --color-transparent: oklch(0% 0 0 / 0);
+  /* Geometry (DESIGN.md Section 2: 3px controls, 5px panels) */
+  --radius-control: 3px;
+  --radius-panel: 5px;
+  --radius-card: 5px;
+  --radius-small: 3px;
+  --radius-round: 999rem;
 
-  --font-display: "IBM Plex Sans Variable", "IBM Plex Sans", sans-serif;
-  --font-body: "IBM Plex Sans Variable", "IBM Plex Sans", sans-serif;
-  --font-serif: "Academico", "Century Schoolbook", "Newsreader", "Playfair Display", "Instrument Serif", "Iowan Old Style", "Apple Garamond", "Baskerville", "Times New Roman", "Georgia", serif;
-  --font-mono: "IBM Plex Mono", monospace;
+  /* Directional paper elevations (DESIGN.md Section 2 & 5) */
+  --shadow-sidebar:
+    1px 0 #ccc6bb,
+    5px 0 0 -1px #efebe2,
+    6px 0 0 -1px #d9d2c6,
+    12px 0 24px #55482d12;
+  --shadow-sheet: 0 1px 3px #42341e18, 0 9px 20px #42341e12;
+  --shadow-workspace: 0 10px 25px #4c402c0b;
+  --shadow-menu: 0 8px 24px #29282420;
 
-  --space-3xs: 0.125rem;
-  --space-2xs: 0.25rem;
-  --space-xs: 0.5rem;
-  --space-sm: 0.75rem;
-  --space-md: 1rem;
-  --space-lg: 1.5rem;
-  --space-xl: 2.5rem;
-  --space-2xl: 4rem;
-  --space-3xl: 6rem;
-  --space-4xl: 9rem;
+  /* Spacing Scale (DESIGN.md Section 3: 4, 8, 12, 16, 20, 24, 32, 40, 48px) */
+  --space-3xs: 0.125rem;  /* 2px */
+  --space-2xs: 0.25rem;   /* 4px */
+  --space-xs: 0.5rem;     /* 8px */
+  --space-sm: 0.75rem;    /* 12px */
+  --space-md: 1rem;       /* 16px */
+  --space-lg: 1.25rem;    /* 20px */
+  --space-xl: 1.5rem;     /* 24px */
+  --space-2xl: 2rem;      /* 32px */
+  --space-3xl: 2.5rem;    /* 40px */
+  --space-4xl: 3rem;      /* 48px */
 
-  --text-xs: 0.75rem;
-  --text-sm: 0.875rem;
-  --text-base: 1rem;
-  --text-md: 1.25rem;
-  --text-lg: 1.5625rem;
-  --text-xl: 1.9531rem;
-  --text-2xl: 2.4414rem;
-  --text-display: clamp(2.5rem, 4vw + 1rem, 4.5rem);
+  /* Font size scale */
+  --text-xs: 0.75rem;     /* 12px */
+  --text-sm: 0.875rem;    /* 14px */
+  --text-base: 1rem;      /* 16px */
+  --text-md: 1.125rem;    /* 18px */
+  --text-lg: 1.25rem;     /* 20px */
+  --text-xl: 1.5rem;      /* 24px */
+  --text-2xl: 1.875rem;   /* 30px */
+  --text-title: 2.5rem;   /* 40px */
 
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
-  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  /* Motion */
   --dur-micro: 90ms;
   --dur-short: 150ms;
   --dur-long: 260ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Shared stacking scale (DESIGN.md Section 5) */
+  --z-base: 1;
+  --z-content: 0;
+  --z-raised: 10;
+  --z-sidebar: 30;
+  --z-siderail: 40;
+  --z-popover: 100;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 200;
+  --z-toast: 300;
+  --z-tooltip: 400;
+
+  /* Backward compatibility mappings for existing codebase */
+  --color-paper: var(--surface-paper);
+  --color-paper-2: var(--surface-desk);
+  --color-paper-3: var(--surface-hover);
+  --color-paper-raised: var(--surface-raised);
+  --color-ink: var(--text-primary);
+  --color-ink-2: #3a3832;
+  --color-neutral: var(--text-secondary);
+  --color-muted: var(--text-secondary);
+  --color-rule: var(--border-subtle);
+  --color-rule-2: var(--border-selected);
+
+  --color-accent: var(--accent-rust);
+  --color-accent-strong: #8c3f2e;
+  --color-accent-soft: var(--status-rose);
+  --color-accent-ink: #ffffff;
+  --color-focus: var(--accent-rust);
+
+  --color-file-paper: var(--surface-paper);
+  --color-file-rule: var(--border-subtle);
+  --color-score-paper: var(--surface-raised);
+  --color-score-paper-2: var(--surface-paper);
+  --color-score-ink: var(--text-primary);
+  --color-score-muted: var(--text-secondary);
+  --color-assistant-paper: var(--surface-chat);
+  --color-assistant-rule: var(--border-subtle);
+
+  --color-citron: var(--context-blue);
+  --color-citron-ink: var(--text-primary);
+  --color-vermilion: var(--accent-rust);
+  --color-vermilion-soft: var(--status-rose);
+  --color-vermilion-ink: #ffffff;
+
+  /* Siderail dark ink colors */
+  --color-graphite: #292824;
+  --color-graphite-2: #383630;
+  --color-graphite-3: #4a4842;
+  --color-graphite-rule: #3d3b35;
+  --color-on-graphite: #f6f3ec;
+  --color-on-graphite-muted: #b6afa4;
+  --color-on-graphite-faint: #716d65;
+
+  --color-success: #436d41;
+  --color-success-soft: var(--status-sage);
+  --color-warning: #946019;
+  --color-warning-soft: #f4e8d3;
+  --color-error: #ad503b;
+  --color-error-soft: var(--status-rose);
+
+  /* Annotations */
+  --color-annotation-chord-surface: var(--context-blue);
+  --color-annotation-chord-ink: var(--text-primary);
+  --color-annotation-chord-selected: var(--border-selected);
+  --color-annotation-chord-selected-ink: var(--text-primary);
+  --color-annotation-modulation-surface: #f4e8d3;
+  --color-annotation-modulation-ink: #6d4b14;
+  --color-annotation-modulation-selected: #946019;
+  --color-annotation-modulation-selected-ink: #ffffff;
+  --color-annotation-voice-surface: var(--status-sage);
+  --color-annotation-voice-ink: #2b4d29;
+  --color-annotation-voice-selected: #436d41;
+  --color-annotation-voice-selected-ink: #ffffff;
+  --color-annotation-explanation-surface: #eae3f0;
+  --color-annotation-explanation-ink: #483454;
+  --color-annotation-explanation-selected: #674c77;
+  --color-annotation-explanation-selected-ink: #ffffff;
+
+  --color-chat-user-surface: #e4ded2;
+  --color-chat-user-ink: var(--text-primary);
+  --color-chat-user-muted: var(--text-secondary);
+  --color-overlay: rgba(41, 40, 36, 0.4);
+  --color-shadow: rgba(66, 52, 30, 0.08);
+  --color-shadow-deep: rgba(41, 40, 36, 0.16);
+  --color-transparent: transparent;
+
+  /* Font mapping */
+  --font-display: var(--font-ui);
+  --font-body: var(--font-ui);
+  --font-serif: var(--font-title);
+  --font-mono: var(--font-meta);
+  --font-main: var(--font-ui);
+  --font-code: var(--font-meta);
 
   --rule-thin: 1px;
   --rule-active: 2px;
-  --radius-card: 0.75rem;
-  --radius-control: 0.5rem;
-  --radius-small: 0.375rem;
-  --radius-round: 999rem;
-
-  --shadow-whisper: 0 1px 2px var(--color-shadow);
-  --shadow-offset-accent: 0 1px 2px var(--color-shadow);
-  --shadow-offset-red: 0 1px 2px var(--color-shadow);
-  --shadow-modal: 0 1rem 3rem var(--color-shadow-deep);
-
-  --z-base: 1;
-  --z-raised: 10;
-  --z-dropdown: 100;
-  --z-sticky: 200;
-  --z-modal: 400;
-  --z-toast: 500;
-  --z-tooltip: 600;
+  --shadow-whisper: 0 1px 2px rgba(66, 52, 30, 0.06);
+  --shadow-modal: var(--shadow-menu);
 }

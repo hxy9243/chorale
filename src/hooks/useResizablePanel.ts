@@ -21,7 +21,13 @@ export const useResizablePanel = ({
       startWidth: initialWidth,
     };
     const target = event.currentTarget;
-    target.setPointerCapture(event.pointerId);
+    try {
+      target.setPointerCapture(event.pointerId);
+    } catch {
+      // safe fallback if pointer capture is unsupported in test env
+    }
+
+    document.body.classList.add('is-resizing-col');
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       const dragState = dragStateRef.current;
@@ -31,14 +37,22 @@ export const useResizablePanel = ({
       onWidthChange(clampWidth(dragState.startWidth + delta));
     };
 
-    const handlePointerUp = () => {
+    const handlePointerUp = (upEvent: PointerEvent) => {
       dragStateRef.current = null;
+      try {
+        target.releasePointerCapture(upEvent.pointerId);
+      } catch {
+        // safe fallback
+      }
+      document.body.classList.remove('is-resizing-col');
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
     };
 
     window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp, { once: true });
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
   };
 
   return { beginResize };

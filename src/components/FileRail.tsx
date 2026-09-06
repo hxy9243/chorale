@@ -30,9 +30,11 @@ import {
   PanelLeft,
   PanelLeftClose,
   Plus,
+  Search,
   Settings,
   Trash2,
   Wrench,
+  X,
 } from 'lucide-react';
 import type { FileDocument } from '../types/document';
 import type { ScoreExportFormat } from '../hooks/useScoreExport';
@@ -202,7 +204,8 @@ const SortableFileItem: React.FC<SortableFileItemProps> = ({
     >
       <button
         type="button"
-        className="file-item-select"
+        className={`file-item-select file-row ${active ? 'active' : ''}`}
+        aria-current={active ? 'page' : undefined}
         onClick={() => onSelectDocument(document.id)}
         aria-label={`Open ${document.scoreInfo.title || document.name}`}
         aria-describedby={canReorder ? 'file-reorder-help' : undefined}
@@ -417,6 +420,7 @@ export const FileRail: React.FC<FileRailProps> = ({
   const [documentOrder, setDocumentOrder] = useState<string[]>(() => (
     documents.map((document) => document.id)
   ));
+  const [searchQuery, setSearchQuery] = useState('');
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FileDocument | null>(null);
   const reducedMotion = typeof window !== 'undefined'
@@ -451,6 +455,17 @@ export const FileRail: React.FC<FileRailProps> = ({
       ...documents.filter((document) => !orderedIds.has(document.id)),
     ];
   }, [documentOrder, documents]);
+
+  const filteredDocuments = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return orderedDocuments;
+    return orderedDocuments.filter((doc) => {
+      const title = (doc.scoreInfo.title || '').toLowerCase();
+      const name = (doc.name || '').toLowerCase();
+      const composer = (doc.scoreInfo.composer || '').toLowerCase();
+      return title.includes(query) || name.includes(query) || composer.includes(query);
+    });
+  }, [orderedDocuments, searchQuery]);
 
   const activeDragDocument = activeDragId
     ? orderedDocuments.find((document) => document.id === activeDragId)
@@ -583,7 +598,7 @@ export const FileRail: React.FC<FileRailProps> = ({
     setDeleteTarget(null);
   };
 
-  const canReorder = Boolean(onReorderDocument && documents.length > 1);
+  const canReorder = Boolean(onReorderDocument && documents.length > 1 && !searchQuery.trim());
 
   return (
     <aside className={`file-rail ${collapsed ? 'collapsed' : ''}`} aria-label="Workspace panels">
@@ -679,6 +694,34 @@ export const FileRail: React.FC<FileRailProps> = ({
               <span>Import score</span>
             </button>
           </div>
+          <div className="file-search-container">
+            <Search size={14} className="file-search-icon" aria-hidden="true" />
+            <input
+              type="text"
+              className="file-search-input"
+              placeholder="Search scores…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setSearchQuery('');
+                }
+              }}
+              aria-label="Search scores"
+              spellCheck={false}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="file-search-clear"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+                title="Clear search"
+              >
+                <X size={13} aria-hidden="true" />
+              </button>
+            )}
+          </div>
           <input
             type="file"
             ref={fileInputRef}
@@ -698,17 +741,17 @@ export const FileRail: React.FC<FileRailProps> = ({
             onDragEnd={handleDragEnd}
           >
             <SortableContext
-              items={documentOrder}
+              items={filteredDocuments.map((doc) => doc.id)}
               strategy={verticalListSortingStrategy}
             >
               <div className={`file-list ${activeDragId ? 'is-dragging' : ''}`}>
-                {orderedDocuments.map((document, index) => (
+                {filteredDocuments.map((document, index) => (
                   <SortableFileItem
                     key={document.id}
                     document={document}
                     active={document.id === activeFileId}
                     index={index}
-                    documentCount={orderedDocuments.length}
+                    documentCount={filteredDocuments.length}
                     canReorder={canReorder}
                     interfaceZoom={interfaceZoom}
                     reducedMotion={reducedMotion}
@@ -719,6 +762,11 @@ export const FileRail: React.FC<FileRailProps> = ({
                     }}
                   />
                 ))}
+                {filteredDocuments.length === 0 && searchQuery.trim() && (
+                  <div className="file-search-empty" role="status">
+                    <span>No scores match &ldquo;{searchQuery}&rdquo;</span>
+                  </div>
+                )}
               </div>
             </SortableContext>
             <DragOverlay

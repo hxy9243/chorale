@@ -57,6 +57,7 @@ const updatePlaybackCursor = (event: abcjs.NoteTimingEvent) => {
 
 interface AudioPlayerProps {
   tunes: abcjs.TuneObject[] | null;
+  totalMeasures?: number;
   activeAnchor?: ScoreAnchor | null;
   onPlaybackPositionChange?: (position: PlaybackPosition) => void;
   onPlaybackSourceRangesChange?: (ranges: PlaybackSourceRanges | null) => void;
@@ -64,6 +65,7 @@ interface AudioPlayerProps {
 
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   tunes,
+  totalMeasures,
   activeAnchor,
   onPlaybackPositionChange,
   onPlaybackSourceRangesChange,
@@ -78,6 +80,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [audioError, setAudioError] = useState<string | null>(null);
   const [playbackProgress, setPlaybackProgress] = useState(0);
   const [totalDurationMs, setTotalDurationMs] = useState(0);
+  const [currentMeasure, setCurrentMeasure] = useState<number | null>(null);
   const playbackProgressRef = useRef(0);
   const totalDurationMsRef = useRef(0);
   const isPlayingRef = useRef(false);
@@ -150,6 +153,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     onPlaybackSourceRangesChange?.(null);
     if (!currentTune) {
       setIsReady(false);
+      setCurrentMeasure(null);
       updatePlaybackPosition({ progress: 0, durationMs: 0, playing: false });
       lastInitTuneRef.current = null;
       return;
@@ -160,6 +164,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }
     lastInitTuneRef.current = currentTune;
     setIsReady(false);
+    setCurrentMeasure(null);
     updatePlaybackPosition({ progress: 0, durationMs: 0, playing: false });
 
     const synthApi = (abcjs as any).synth;
@@ -188,18 +193,26 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
               onEvent: (event: abcjs.NoteTimingEvent) => {
                 if (event) {
                   updatePlaybackCursor(event);
+                  if (isFiniteNumber(event.measureNumber)) {
+                    setCurrentMeasure(event.measureNumber + 1);
+                  }
                   const starts = event.startCharArray || (typeof event.startChar === 'number' ? [event.startChar] : []);
                   const ends = event.endCharArray || (typeof event.endChar === 'number' ? [event.endChar] : []);
                   onPlaybackSourceRangesChange?.(starts.length ? { starts, ends } : null);
                 }
               },
               onBeat: (beatNumber: number, totalBeats: number, totalTime: number) => {
+                const beatsPerMeasure = currentTune.getBeatsPerMeasure?.() || 0;
+                if (beatsPerMeasure > 0) {
+                  setCurrentMeasure(Math.max(1, Math.floor(beatNumber / beatsPerMeasure) + 1));
+                }
                 updatePlaybackPosition({
                   progress: totalBeats > 0 ? beatNumber / totalBeats : 0,
                   durationMs: totalTime,
                 });
               },
               onFinished: () => {
+                setCurrentMeasure(null);
                 updatePlaybackPosition({ progress: 0, playing: false });
                 if (synthControllerRef.current) {
                   synthControllerRef.current.isStarted = false;
@@ -364,6 +377,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     synthControllerRef.current.restart?.();
     synthControllerRef.current.isStarted = false;
     synthControllerRef.current.seek?.(0);
+    setCurrentMeasure(null);
     updatePlaybackPosition({ progress: 0, playing: false });
     removePlaybackCursor();
   };
@@ -387,6 +401,17 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
 
   const currentMs = playbackProgress * totalDurationMs;
+  const fallbackMeasureTotal = (() => {
+    const tune = tunes?.[0];
+    const totalBeats = tune?.getTotalBeats?.() || 0;
+    const beatsPerMeasure = tune?.getBeatsPerMeasure?.() || 0;
+    return totalBeats > 0 && beatsPerMeasure > 0
+      ? Math.ceil(totalBeats / beatsPerMeasure)
+      : 0;
+  })();
+  const displayedMeasureTotal = totalMeasures && totalMeasures > 0
+    ? totalMeasures
+    : fallbackMeasureTotal;
 
   return (
     <div className="audio-player-card glass-panel">
@@ -431,27 +456,40 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           >
             <Square className="w-4 h-4 fill-current" />
           </button>
+        </div>
 
-          <div className="playback-progress" aria-label="Playback position">
-            <div>
+        <div className="playback-progress" aria-label="Playback position">
+          <div className="playback-progress-meta">
+            <div className="playback-progress-time">
               <strong>{formatTime(currentMs)}</strong>
               <span>/ {totalDurationMs > 0 ? formatTime(totalDurationMs) : '--:--'}</span>
             </div>
-            <button
-              type="button"
-              className="playback-progress-track"
-              onClick={handleSeekTrackClick}
-              aria-label="Seek playback"
-              disabled={!isReady}
-            >
-              <span style={{ width: `${playbackProgress * 100}%` }} />
-            </button>
           </div>
-          {activeAnchor && (
-            <div className="playback-loop-pill">
-              <span>Selected {formatAnchorLabel(activeAnchor)}</span>
-            </div>
-          )}
+          <button
+            type="button"
+            className="playback-progress-track"
+            onClick={handleSeekTrackClick}
+            aria-label="Seek playback"
+            disabled={!isReady}
+          >
+            <span style={{ width: `${playbackProgress * 100}%` }} />
+          </button>
+        </div>
+
+        <div className="playback-status-stack">
+          <span className="playback-measure-pill" aria-label="Current measure">
+            {`m. ${currentMeasure ?? '—'} / ${displayedMeasureTotal || '—'}`}
+          </span>
+
+          <div className="playback-selection-slot" aria-label="Playback selection">
+            {activeAnchor ? (
+              <div className="playback-loop-pill">
+                <span>Selected {formatAnchorLabel(activeAnchor)}</span>
+              </div>
+            ) : (
+              <span className="playback-selection-empty">No selection</span>
+            )}
+          </div>
         </div>
 
         <div className="control-slider-group">

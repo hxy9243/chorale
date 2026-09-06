@@ -646,4 +646,160 @@ describe('AgentChatPanel assistant-ui features', () => {
       expect(screen.getByText('Queued durable question')).toBeTruthy();
     });
   });
+
+  describe('long chat messages and threads', () => {
+    it('renders and wraps an unusually long chat message with multiple paragraphs, code blocks, and lists', () => {
+      const longMessageContent = [
+        '### Deep Harmonic and Formal Analysis of Measures 1-32',
+        'Here is an extensive breakdown of the voice-leading patterns, cadential goals, and chromatic modulations observed in the opening exposition.',
+        ...Array.from({ length: 10 }, (_, i) => (
+          `Paragraph ${i + 1}: In measure ${i * 3 + 1}, the tenor voice ascends stepwise while the bass maintains an inverted pedal point. Notice the suspension resolving on beat 3 with a Picardy-like inflection that prepares the upcoming cadence in measure ${i * 3 + 3}.`
+        )),
+        'Key observations:',
+        '- Continuous counterpoint between soprano and bass voices across the entire span.',
+        '- Root-position tonic anchors at each primary phrase boundary.',
+        '- Deceptive cadence at measure 24 diverting the expected modulation to the dominant.',
+        '```abc\nX:1\nT:Exposition Extract\nK:G\nG2 B2 d2 g2 | f2 e2 d4 | c2 B2 A2 G2 | FGAF G4 ||\n```',
+        'Conclusion: The overall architecture follows a standard rounded binary design with tight thematic economy.',
+      ].join('\n\n');
+
+      localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
+        version: 4,
+        files: {
+          'doc-long-msg': {
+            activeThreadId: 't-long-msg',
+            threads: [{
+              id: 't-long-msg',
+              title: 'Long message thread',
+              updatedAt: '2026-09-02T12:00:00.000Z',
+              messages: [
+                {
+                  id: 'm-user-long',
+                  role: 'user',
+                  content: 'Please perform a detailed phrase and harmonic analysis of mm. 1-32.',
+                  createdAt: '2026-09-02T12:00:00.000Z',
+                  status: 'complete',
+                },
+                {
+                  id: 'm-asst-long',
+                  role: 'assistant',
+                  content: longMessageContent,
+                  createdAt: '2026-09-02T12:00:05.000Z',
+                  status: 'complete',
+                  parts: [
+                    {
+                      type: 'reasoning',
+                      text: 'Examining all 32 measures for voice leading, cadences, and phrase structures...',
+                      status: 'complete',
+                    },
+                    {
+                      type: 'tool',
+                      toolCallId: 'tc-long',
+                      toolName: 'read_measure_range',
+                      summary: 'Read mm. 1-32',
+                      status: 'success',
+                      durationMs: 78,
+                    },
+                    {
+                      type: 'text',
+                      text: longMessageContent,
+                    },
+                  ],
+                },
+              ],
+            }],
+          },
+        },
+      }));
+
+      render(
+        <AgentChatPanel
+          open
+          onClose={() => undefined}
+          fileId="doc-long-msg"
+          abcCode="X:1\nK:G\nG4|"
+          activeFileName="score.abc"
+          revision={1}
+          ai={ai}
+          onOpenSettings={() => undefined}
+        />,
+      );
+
+      // Verify header, tools, and message contents render accurately
+      expect(screen.getByText(/Deep Harmonic and Formal Analysis/i)).toBeTruthy();
+      expect(screen.getByText('Read mm. 1-32')).toBeTruthy();
+      expect(screen.getByText(/Paragraph 10: In measure 28/i)).toBeTruthy();
+      expect(screen.getByText(/Conclusion: The overall architecture/i)).toBeTruthy();
+
+      // Ensure message container has appropriate wrapper styling
+      const assistantMessage = screen.getByText(/Deep Harmonic and Formal Analysis/i).closest('article');
+      expect(assistantMessage).not.toBeNull();
+      expect(assistantMessage?.classList.contains('agent-message')).toBe(true);
+      expect(assistantMessage?.classList.contains('assistant')).toBe(true);
+    });
+
+    it('renders a long thread with 50 conversation turns without crashing', () => {
+      const messages = [];
+      const timestamp = '2026-09-02T12:00:00.000Z';
+
+      for (let i = 1; i <= 25; i++) {
+        messages.push({
+          id: `bench-user-${i}`,
+          role: 'user' as const,
+          content: `User query ${i}: What is happening in measure ${i}?`,
+          createdAt: timestamp,
+          status: 'complete' as const,
+        });
+        messages.push({
+          id: `bench-asst-${i}`,
+          role: 'assistant' as const,
+          content: `Assistant reply ${i}: Measure ${i} contains a functional harmonic resolution.`,
+          createdAt: timestamp,
+          status: 'complete' as const,
+          parts: [
+            { type: 'text' as const, text: `Assistant reply ${i}: Measure ${i} contains a functional harmonic resolution.` },
+          ],
+        });
+      }
+
+      localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
+        version: 4,
+        files: {
+          'doc-long-thread': {
+            activeThreadId: 't-long-thread',
+            threads: [{
+              id: 't-long-thread',
+              title: '50-Turn Thread',
+              updatedAt: timestamp,
+              messages,
+            }],
+          },
+        },
+      }));
+
+      const { container } = render(
+        <AgentChatPanel
+          open
+          onClose={() => undefined}
+          fileId="doc-long-thread"
+          abcCode="X:1\nK:C\nC4|"
+          activeFileName="score.abc"
+          revision={1}
+          ai={ai}
+          onOpenSettings={() => undefined}
+        />,
+      );
+
+      // Verify that transcript container is mounted with all 50 messages
+      const renderedMessages = container.querySelectorAll('.agent-message');
+      expect(renderedMessages.length).toBe(50);
+      expect(screen.getByText('User query 1: What is happening in measure 1?')).toBeTruthy();
+      expect(screen.getByText('Assistant reply 25: Measure 25 contains a functional harmonic resolution.')).toBeTruthy();
+
+      // Verify the transcript viewport exists and has scroll container role
+      const transcript = container.querySelector('.agent-transcript');
+      expect(transcript).not.toBeNull();
+      expect(transcript?.getAttribute('role')).toBe('log');
+    });
+  });
 });
