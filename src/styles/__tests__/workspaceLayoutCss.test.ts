@@ -50,4 +50,25 @@ describe('workspace layout CSS contract', () => {
       /\.workspace-pane\.score-pane\s+\.score-display-options\s*{[^}]*opacity:/s,
     );
   });
+
+  it('limits playback dock to 66% width and uses warm dark grey palette matching the display', () => {
+    // Dock card must be constrained to 66% width
+    expect(themeCss).toMatch(
+      /\.central-workspace\s*>\s*\.playback-dock-container\s+\.audio-player-card\s*{[^}]*width:\s*66%\s*!important;[^}]*max-width:\s*66%\s*!important;/s,
+    );
+
+    // Dock card must use warm dark grey rather than jet-black, white, flat gray, or blue
+    expect(themeCss).not.toMatch(
+      /\.central-workspace\s*>\s*\.playback-dock-container\s+\.audio-player-card\s*{[^}]*background:\s*#24221d/s,
+    );
+    expect(themeCss).not.toMatch(
+      /\.central-workspace\s*>\s*\.playback-dock-container\s+\.audio-player-card\s*{[^}]*background:\s*var\(--surface-raised,\s*#fffdfa\)/s,
+    );
+    expect(themeCss).not.toMatch(
+      /\.central-workspace\s*>\s*\.playback-dock-container\s+\.audio-player-card\s*{[^}]*background:\s*var\(--context-blue/s,
+    );
+    expect(themeCss).toMatch(
+      /\.central-workspace\s*>\s*\.playback-dock-container\s+\.audio-player-card\s*{[^}]*background:\s*#52504a\s*!important;/s,
+    );
+  });
 });

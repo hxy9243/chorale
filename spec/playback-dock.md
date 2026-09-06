@@ -35,7 +35,7 @@ Define playback as a shared workspace dock tied to the same musical anchor model
 
 ## 2. Dock composition
 
-The playback dock is positioned against the central workspace viewport and stays anchored to its visible bottom, independent of score/editor content height or interface zoom. It uses a `max-width: 800px` layout boundary for clean desktop presentation.
+The playback dock is positioned against the central workspace viewport and stays anchored to its visible bottom, independent of score/editor content height or interface zoom. It is limited to 66% of the central workspace viewport width, rendered as a warm dark grey capsule (`#52504a`, subtle border `#68655e`, soft light text `#f7f5f0`, and gentle elevation shadow) matching the warm neutral tone of the application to provide clear distinction from the desk surface without black contrast, pure gray washout, or unrelated tints.
 
 Expected elements:
 

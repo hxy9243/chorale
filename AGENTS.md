@@ -36,10 +36,16 @@ Welcome to **Chorale** (`hxy9243/chorale`). This document outlines engineering c
   # Creating a worktree
   git worktree add .agents/worktrees/<feature-name> -b <feature-branch>
 
+  # Linux Electron sandbox configuration (after installing node_modules)
+  sudo chown root .agents/worktrees/<feature-name>/node_modules/electron/dist/chrome-sandbox
+  sudo chmod 4755 .agents/worktrees/<feature-name>/node_modules/electron/dist/chrome-sandbox
+
   # Removing a worktree when finished
   git worktree remove .agents/worktrees/<feature-name>
   ```
 - **Rule:** Never create worktrees in the repository root (e.g. `worktrees/`). `.agents/` is gitignored.
+- **Linux Sandbox Requirement:** Whenever node_modules are installed in a new worktree on Linux, always configure the Electron SUID sandbox helper binary (`chrome-sandbox`) with `chown root` and `chmod 4755` so desktop Electron runs without sandbox aborts.
+
 
 ### 2.3 Quality Gates & Verification
 Before completing any task, execute the full verification suite:
