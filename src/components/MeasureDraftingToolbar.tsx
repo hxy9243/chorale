@@ -9,6 +9,7 @@ import {
 export type MeasureDraftingToolbarProps = {
   span: MeasureSpan;
   onMutate(mutation: MeasureMutation): MeasureMutationResult;
+  onError?(errors: readonly string[]): void;
 };
 
 const spanLabel = (span: MeasureSpan) => span.startMeasure === span.endMeasure
@@ -18,6 +19,7 @@ const spanLabel = (span: MeasureSpan) => span.startMeasure === span.endMeasure
 export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
   span,
   onMutate,
+  onError,
 }) => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [errors, setErrors] = useState<readonly string[]>([]);
@@ -28,7 +30,13 @@ export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
   useEffect(() => {
     setDeleteConfirmOpen(false);
     setErrors([]);
-  }, [span.endMeasure, span.startMeasure]);
+    onError?.([]);
+  }, [onError, span.endMeasure, span.startMeasure]);
+
+  const reportErrors = (next: readonly string[]) => {
+    setErrors(next);
+    onError?.(next);
+  };
 
   useEffect(() => {
     if (!deleteConfirmOpen) return undefined;
@@ -64,7 +72,7 @@ export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
   }, [deleteConfirmOpen]);
 
   const handleAdd = (position: 'before' | 'after') => {
-    setErrors([]);
+    reportErrors([]);
     const result = onMutate({
       kind: 'insert',
       span,
@@ -72,12 +80,12 @@ export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
       count: 1,
     });
     if (result.status !== 'valid') {
-      setErrors(result.errors);
+      reportErrors(result.errors);
     }
   };
 
   const openDeleteConfirm = () => {
-    setErrors([]);
+    reportErrors([]);
     setDeleteConfirmOpen(true);
   };
 
@@ -87,20 +95,20 @@ export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
     if (result.status === 'valid') {
       setDeleteConfirmOpen(false);
     } else {
-      setErrors(result.errors);
+      reportErrors(result.errors);
     }
   };
 
   return (
     <>
-      <div className="measure-drafting-toolbar" role="group" aria-label={`Edit ${spanLabel(span)}`}>
+      <div className="measure-drafting-toolbar abc-toolbelt-actions" role="group" aria-label={`Edit ${spanLabel(span)}`}>
         <span className="measure-drafting-toolbar-label">{spanLabel(span)}</span>
         <button type="button" onClick={() => handleAdd('before')}><ListPlus size={14} /> Add before</button>
         <button type="button" onClick={() => handleAdd('after')}><ListPlus size={14} /> Add after</button>
         <button type="button" className="danger" onClick={openDeleteConfirm}><ListMinus size={14} /> Delete</button>
       </div>
 
-      {errors.length > 0 && !deleteConfirmOpen && (
+      {errors.length > 0 && !deleteConfirmOpen && !onError && (
         <div className="editor-banner error abc-draft-error" role="alert">
           {errors.map((error) => <span key={error}>{error}</span>)}
         </div>

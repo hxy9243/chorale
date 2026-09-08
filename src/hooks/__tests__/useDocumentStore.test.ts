@@ -71,6 +71,21 @@ describe('useDocumentStore', () => {
     expect(result.current.activeAnchor).toBeNull();
   });
 
+  it('preserves the active range only for an explicitly selection-safe source update', async () => {
+    localStorage.setItem('chorale.workspace.activeFileId', sampleDoc.id);
+    vi.spyOn(storageAdapter, 'getDocuments').mockResolvedValue([sampleDoc]);
+    const { result } = renderHook(() => useDocumentStore());
+    await waitFor(() => expect(result.current.hydrationStatus).toBe('ready'));
+
+    const anchor = { startMeasure: 1, endMeasure: 1 };
+    act(() => result.current.setActiveAnchor(anchor));
+    act(() => result.current.handleAbcChange('X:1\nT:IDB Score\nK:C\nDEFG|', { preserveSelection: true }));
+    expect(result.current.activeAnchor).toEqual(anchor);
+
+    act(() => result.current.handleAbcChange('X:1\nT:IDB Score\nK:C\nEFGA|'));
+    expect(result.current.activeAnchor).toBeNull();
+  });
+
   it('duplicates only the current score state and preserves the copy title through undo', async () => {
     const source = updateDocumentAbc(
       createDocumentFromAbc('Song.abc', 'abc', 'X:1\nT:Song\nK:C\nC'),

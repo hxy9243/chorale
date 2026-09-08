@@ -10326,3 +10326,262 @@ body.is-resizing-col .editor-divider::before {
   margin: 0;
   gap: 0;
 }
+
+/* Measure Source owns a stable editor frame: tools, viewport, navigator, error well. */
+.abc-editor-card > .abc-toolbelt {
+  flex: 0 0 20.5rem;
+  min-height: 20.5rem;
+  max-height: 20.5rem;
+  box-sizing: border-box;
+  overflow: auto;
+  border-bottom: 1px solid #dcd8ce;
+  background: #f6f3ec;
+}
+
+.abc-editor-card > .abc-toolbelt:not(.is-open) {
+  flex: 0 0 auto;
+  min-height: auto;
+  max-height: none;
+}
+
+.abc-toolbelt-toggle,
+.abc-toolbelt-section-toggle {
+  border: 0;
+  background: transparent;
+  color: #292824;
+  cursor: pointer;
+  font: 600 11px/1.2 var(--font-sans);
+  text-align: left;
+}
+
+.abc-toolbelt-toggle {
+  width: 100%;
+  padding: 7px 10px;
+}
+
+.abc-toolbelt-sections {
+  display: grid;
+  gap: 3px;
+  padding: 0 8px 6px;
+}
+
+.abc-toolbelt-section {
+  border: 1px solid #dcd8ce;
+  border-radius: 4px;
+  background: #fffdfa;
+}
+
+.abc-toolbelt-section-toggle {
+  width: 100%;
+  padding: 6px 8px;
+}
+
+.abc-toolbelt-section-toggle::after {
+  float: right;
+  content: '+';
+}
+
+.abc-toolbelt-section-toggle[aria-expanded='true']::after {
+  content: '−';
+}
+
+.abc-toolbelt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 2px 8px 6px;
+}
+
+.abc-toolbelt-actions button,
+.abc-toolbelt-key input {
+  min-height: 26px;
+  border: 1px solid #dcd8ce;
+  border-radius: 3px;
+  background: #fffdfa;
+  color: #292824;
+  font: 500 11px/1 var(--font-sans);
+}
+
+.abc-toolbelt-actions button {
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.abc-toolbelt-actions button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.abc-toolbelt-section .measure-drafting-toolbar {
+  min-height: 32px;
+  box-sizing: border-box;
+  padding: 0 8px 8px;
+  border: 0;
+  background: transparent;
+}
+
+.abc-toolbelt-section .measure-drafting-toolbar-label {
+  color: #716d65;
+  font: 500 11px/1 var(--font-sans);
+}
+
+.abc-toolbelt-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #716d65;
+  font: 500 11px/1 var(--font-sans);
+}
+
+.abc-toolbelt-key input {
+  width: 3.25rem;
+  padding: 4px;
+}
+
+.abc-toolbelt-note-icon {
+  display: block;
+  min-width: 1.1rem;
+  font-family: 'Noto Music', 'Segoe UI Symbol', sans-serif;
+  font-size: 1.25rem;
+  line-height: .9;
+}
+
+.abc-toolbelt-sheet-info .abc-header-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px 8px;
+  padding: 0 8px 8px;
+}
+
+.abc-toolbelt-sheet-info .abc-header-line {
+  flex: 0 0 var(--abc-header-field-width, 18ch);
+  width: var(--abc-header-field-width, 18ch);
+  max-width: 100%;
+  margin: 0;
+}
+
+.abc-toolbelt-sheet-info .abc-header-line-button {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  overflow-wrap: anywhere;
+}
+
+.abc-toolbelt-sheet-info .abc-header-line-button code,
+.abc-toolbelt-sheet-info .abc-header-line-button span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.abc-toolbelt-sheet-info .abc-header-line-button span {
+  line-height: 1.25;
+}
+
+.abc-toolbelt-sheet-info .abc-header-edit-input {
+  width: 100%;
+}
+
+.abc-editor-card > .abc-editor-error-well {
+  display: block;
+  flex: 0 0 3.25rem;
+  min-height: 3.25rem;
+  max-height: 3.25rem;
+  box-sizing: border-box;
+  overflow: auto;
+  padding: 8px 10px;
+  border-top: 1px solid #dcd8ce;
+  background: #f6f3ec;
+  color: #716d65;
+  font: 500 11px/1.35 var(--font-sans);
+}
+
+.abc-editor-card > .abc-editor-error-well.has-error {
+  margin: 0;
+  border: 1px solid #e8aaa4;
+  border-radius: 6px;
+  background: #fff0ef;
+  color: #8d3029;
+}
+
+.workspace-pane.editor-pane .abc-editor-card > .abc-horizontal-scrollbar,
+.abc-editor-card > .abc-horizontal-scrollbar {
+  position: relative;
+  inset: auto;
+  top: auto;
+  z-index: auto;
+  width: auto;
+  height: auto;
+  min-height: 34px;
+  max-height: none;
+  padding: 6px 10px;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.workspace-pane.editor-pane .abc-editor-card > .abc-horizontal-scrollbar input {
+  width: 66%;
+  max-width: 66%;
+  pointer-events: auto;
+}
+
+.abc-timeline-voice {
+  height: 4rem;
+  min-height: 4rem;
+  max-height: 4rem;
+}
+
+.abc-measure-edit-input,
+.abc-source-beats {
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: pre;
+}
+
+/* The selected border is visual-only; the source viewport and navigator keep
+   their allocated rows while measure selection changes. */
+.workspace-pane.editor-pane .abc-editor-card .editor-body.is-measure-view,
+.abc-editor-card .editor-body.is-measure-view {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  flex: 1 1 0;
+  height: auto;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.workspace-pane.editor-pane .abc-editor-card .editor-body.is-measure-view::-webkit-scrollbar,
+.abc-editor-card .editor-body.is-measure-view::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.workspace-pane.editor-pane .editor-body.is-measure-view .abc-measure-view,
+.abc-editor-card .editor-body.is-measure-view .abc-measure-view {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 100%;
+  height: auto;
+  margin-top: auto;
+  padding: var(--space-md) 0 2rem;
+  box-sizing: border-box;
+}
+
+.workspace-pane.editor-pane .editor-body.is-measure-view .abc-measure-timeline,
+.abc-editor-card .editor-body.is-measure-view .abc-measure-timeline {
+  flex: none;
+  min-height: 0;
+  margin-top: auto;
+  box-sizing: border-box;
+}
+
+.workspace-pane.editor-pane .editor-body.is-measure-view .abc-timeline-measure,
+.abc-editor-card .editor-body.is-measure-view .abc-timeline-measure {
+  min-height: 0;
+}

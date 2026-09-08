@@ -97,8 +97,18 @@ K:C
   });
 
   it('keeps editor chrome separate from the scrolling source body', () => {
-    const { container } = render(<AbcEditor abcCode={formattedAbc} onAbcChange={() => undefined} />);
-    expect(container.querySelector('.abc-editor-chrome')?.nextElementSibling).toBe(container.querySelector('.editor-body'));
+    const { container, rerender } = render(<AbcEditor abcCode={formattedAbc} onAbcChange={() => undefined} />);
+    const chrome = container.querySelector('.abc-editor-chrome');
+    const toolbelt = container.querySelector('.abc-toolbelt');
+    const body = container.querySelector('.editor-body');
+    const navigator = container.querySelector('.abc-horizontal-scrollbar');
+    expect(chrome?.nextElementSibling).toBe(toolbelt);
+    expect(toolbelt?.nextElementSibling).toBe(body);
+    expect(body?.nextElementSibling).toBe(navigator);
+    expect(navigator?.nextElementSibling).toBe(container.querySelector('.abc-editor-error-well'));
+
+    rerender(<AbcEditor abcCode={formattedAbc} onAbcChange={() => undefined} activeAnchor={{ startMeasure: 1, endMeasure: 1 }} />);
+    expect(body?.nextElementSibling).toBe(navigator);
   });
 
   it('shows source rendered separately by beats and edits unified measures with underscore indicator', () => {
@@ -182,6 +192,7 @@ C D E F G A |
       <AbcEditor abcCode={formattedAbc} onAbcChange={() => undefined} validationState="valid" />,
     );
     expect(screen.queryByText(/Aligning formatted measures/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Sheet info' }));
     expect(screen.getByText('Composer: Bach')).toBeDefined();
     expect(screen.getAllByRole('button', { name: /Select measure/ })).toHaveLength(2);
     expect(container.querySelectorAll('.abc-timeline-voice')).toHaveLength(4);
@@ -320,7 +331,7 @@ C D E F G A |
     expect(onAbcChange).toHaveBeenCalledWith(expect.stringContaining('[V:upper] C D E F | A A B c |'));
   });
 
-  it('allows inline editing of sheet info headers in measure view', () => {
+  it('keeps sheet info in a collapsible tool belt section', () => {
     const onAbcChange = vi.fn();
     render(
       <AbcEditor
@@ -329,6 +340,8 @@ C D E F G A |
       />,
     );
 
+    expect(screen.queryByRole('button', { name: /Edit Title: T:Test Score/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Sheet info' }));
     const titleButton = screen.getByRole('button', { name: /Edit Title: T:Test Score/i });
     expect(titleButton).toBeDefined();
 
@@ -340,6 +353,15 @@ C D E F G A |
     fireEvent.keyDown(headerInput, { key: 'Enter' });
 
     expect(onAbcChange).toHaveBeenCalledWith(expect.stringContaining('T:New Score Title'));
+  });
+
+  it('sizes sheet-info fields from their ABC content length', () => {
+    const longTitle = 'A deliberately long score title that remains legible in the Tool Belt';
+    render(<AbcEditor abcCode={`X:1\nT:${longTitle}\nK:C\nC|`} onAbcChange={() => undefined} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Sheet info' }));
+    const title = screen.getByRole('button', { name: `Edit Title: T:${longTitle}` });
+    const field = title.closest('.abc-header-line') as HTMLElement;
+    expect(field.style.getPropertyValue('--abc-header-field-width')).toBe('42ch');
   });
 
   it('renders a streamlined toolbar header with view switcher, status pill, and copy button', () => {
@@ -355,8 +377,64 @@ C D E F G A |
     expect(screen.queryByRole('button', { name: 'Close ABC editor' })).toBeNull();
   });
 
+  it('provides collapsible top tool sections and a reserved error well', () => {
+    render(<AbcEditor abcCode={formattedAbc} onAbcChange={() => undefined} activeAnchor={{ startMeasure: 1, endMeasure: 1 }} />);
+    expect(screen.getByRole('region', { name: 'Measure Source tool belt' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Basics' }).getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Quarter note' }).getAttribute('title')).toBe('C');
+    expect(screen.getByRole('button', { name: 'Eighth note' }).textContent).toBe('♪');
+    fireEvent.click(screen.getByRole('button', { name: 'Transpose' }));
+    expect(screen.getByRole('button', { name: '+1 semitone' })).toBeDefined();
+    expect(document.querySelector('.abc-editor-error-well')).toBeDefined();
+  });
 
-  it('renders Measure Source toolbar belt only when a measure/range is selected in Measure Source', () => {
+  it('normalizes a tool insertion in the active draft before it is committed', () => {
+    const underfilled = `X:1\nM:4/4\nL:1/4\nK:C\nC D |\n`;
+    render(<AbcEditor abcCode={underfilled} onAbcChange={() => undefined} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit voice-1, measure 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Quarter note' }));
+    const input = screen.getByRole('textbox', { name: 'Edit voice-1, measure 1' }) as HTMLInputElement;
+    expect(input.value).toContain('z');
+  });
+
+  it('uses ABC’s meter-dependent default length for note icons when L is omitted', () => {
+    render(<AbcEditor abcCode={'X:1\nM:2/4\nK:C\nC4 |'} onAbcChange={() => undefined} />);
+    expect(screen.getByRole('button', { name: 'Quarter note' }).getAttribute('title')).toBe('C4');
+  });
+
+  it('keeps an active draft focused when using transpose controls', () => {
+    render(<AbcEditor abcCode={formattedAbc} onAbcChange={() => undefined} activeAnchor={{ startMeasure: 1, endMeasure: 1 }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    const input = screen.getByRole('textbox', { name: 'Edit upper, measure 1' });
+    fireEvent.click(screen.getByRole('button', { name: 'Transpose' }));
+    const transpose = screen.getByRole('button', { name: '+1 semitone' });
+    expect(fireEvent.mouseDown(transpose)).toBe(false);
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('transposes every editable voice in the selected measure range atomically without resetting selection', () => {
+    const onAbcChange = vi.fn();
+    const onSelectAnchor = vi.fn();
+    const onNavigateMeasure = vi.fn();
+    const selectedRange = { startMeasure: 1, endMeasure: 1 };
+    render(<AbcEditor abcCode={formattedAbc} onAbcChange={onAbcChange} activeAnchor={selectedRange} onSelectAnchor={onSelectAnchor} onNavigateMeasure={onNavigateMeasure} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Transpose' }));
+    fireEvent.click(screen.getByRole('button', { name: '+1 semitone' }));
+    expect(onAbcChange).toHaveBeenCalledTimes(1);
+    expect(onAbcChange).toHaveBeenCalledWith(
+      expect.stringContaining('[V:upper] ^C ^D F ^F |'),
+      { preserveSelection: true },
+    );
+    expect(onAbcChange).toHaveBeenCalledWith(
+      expect.stringContaining('[V:lower] ^C,4 |'),
+      { preserveSelection: true },
+    );
+    expect(onSelectAnchor).not.toHaveBeenCalled();
+    expect(onNavigateMeasure).not.toHaveBeenCalled();
+  });
+
+
+  it('keeps the Measure Source structure belt mounted across selection changes', () => {
     const onMeasureMutation = vi.fn(() => ({
       status: 'valid' as const,
       abcSource: 'new source',
@@ -373,7 +451,8 @@ C D E F G A |
     );
 
     // Visible in Measure Source with activeAnchor
-    expect(screen.getByRole('group', { name: 'Edit Measure 1' })).toBeDefined();
+    const structureTools = screen.getByRole('group', { name: 'Edit Measure 1' });
+    expect(structureTools.classList.contains('abc-toolbelt-actions')).toBe(true);
     expect(screen.getByRole('button', { name: /Add before/ })).toBeDefined();
     expect(screen.getByRole('button', { name: /Add after/ })).toBeDefined();
     expect(screen.getByRole('button', { name: /Delete/ })).toBeDefined();
@@ -389,7 +468,7 @@ C D E F G A |
     );
     expect(screen.getByRole('group', { name: 'Edit Measures 1–2' })).toBeDefined();
 
-    // Hidden when activeAnchor is null
+    // The same toolbar footprint stays mounted but disabled when selection clears.
     view.rerender(
       <AbcEditor
         abcCode={formattedAbc}
@@ -398,7 +477,8 @@ C D E F G A |
         onMeasureMutation={onMeasureMutation}
       />,
     );
-    expect(screen.queryByRole('group', { name: /Edit Measure/ })).toBeNull();
+    expect(screen.getByRole('group', { name: 'Measure structure unavailable' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Add before' }).hasAttribute('disabled')).toBe(true);
 
     // Unavailable in Raw Source view even if activeAnchor exists
     view.rerender(

@@ -1,6 +1,14 @@
 import abcjs from 'abcjs';
+import { parseKeySignature } from 'abc-utils';
 
 import { prepareAbcForPlayback } from '../utils/abcAudio';
+import { extractScore } from './scoreSnapshot';
+import {
+  addRationalDurations,
+  compareRationalDurations,
+  createRationalDuration,
+  type RationalDuration,
+} from './rational';
 
 export type AbcTextRange = Readonly<{ start: number; end: number }>;
 
@@ -356,49 +364,378 @@ export type AbcCellEditResult =
   | Readonly<{ ok: true; abc: string; presentation: AbcPresentation }>
   | Readonly<{ ok: false; error: string }>;
 
+export type AbcMeasureEdit = Readonly<{
+  cellId: string;
+  replacement: string;
+}>;
+
 const literalRanges = (abc: string, ranges: readonly AbcTextRange[]) => (
   ranges.map((range) => abc.slice(range.start, range.end))
 );
+
+const allCells = (presentation: AbcPresentation) => presentation.voices.flatMap(({ cells }) => cells);
+
+const cleanedReplacement = (target: AbcMeasureCell, replacement: string) => {
+  const leadingWhitespace = target.text.match(/^\s*/)?.[0] || '';
+  const trailingWhitespace = target.text.match(/\s*$/)?.[0] || '';
+  return `${leadingWhitespace}${replacement.trim()}${trailingWhitespace}`;
+};
+
+const validatePreservedPresentation = (
+  presentation: AbcPresentation,
+  candidate: string,
+  targetIds: ReadonlySet<string>,
+): AbcPresentation => {
+  const next = buildAbcPresentation(candidate);
+  if (literalRanges(next.abc, next.boundaryRanges).join('\0') !== literalRanges(presentation.abc, presentation.boundaryRanges).join('\0')) {
+    throw new Error('Measure or repeat boundaries must be edited in Raw Source.');
+  }
+  if (next.measureCount !== presentation.measureCount) throw new Error('Measure structure changed. Use Raw Source.');
+  if (next.voices.map(({ id }) => id).join('\0') !== presentation.voices.map(({ id }) => id).join('\0')) {
+    throw new Error('Voice order changed.');
+  }
+  if (next.headers.map(({ text }) => text).join('\0') !== presentation.headers.map(({ text }) => text).join('\0')) {
+    throw new Error('Header fields changed.');
+  }
+  const nextById = new Map(allCells(next).map((cell) => [cell.id, cell]));
+  for (const cell of allCells(presentation)) {
+    const replacement = nextById.get(cell.id);
+    if (!replacement || (!targetIds.has(cell.id) && replacement.text !== cell.text)) {
+      throw new Error('Measure structure changed. Use Raw Source.');
+    }
+  }
+  for (const id of targetIds) {
+    if (!nextById.get(id)?.editable) throw new Error('The edited measure no longer has safe source ownership.');
+  }
+  return next;
+};
+
+const parseMeterDuration = (meter: string): RationalDuration | null => {
+  if (meter === 'C' || meter === 'C|') return createRationalDuration(1, 1);
+  const match = meter.trim().match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (!match || Number(match[1]) <= 0 || Number(match[2]) <= 0) return null;
+  return createRationalDuration(Number(match[1]), Number(match[2]));
+};
+
+const gcd = (left: bigint, right: bigint): bigint => {
+  let a = left < 0n ? -left : left;
+  let b = right < 0n ? -right : right;
+  while (b !== 0n) [a, b] = [b, a % b];
+  return a;
+};
+
+const defaultLength = (abc: string, meter: string): RationalDuration => {
+  const declared = abc.match(/^L:\s*(\d+)\s*\/\s*(\d+)\s*$/m);
+  if (declared) return createRationalDuration(Number(declared[1]), Number(declared[2]));
+  const duration = parseMeterDuration(meter);
+  if (!duration) throw new Error('Measure completion requires a numeric meter. Use Raw Source.');
+  return compareRationalDurations(duration, createRationalDuration(3, 4)) < 0
+    ? createRationalDuration(1, 16)
+    : createRationalDuration(1, 8);
+};
+
+const restLengthSuffix = (remaining: RationalDuration, unit: RationalDuration) => {
+  let numerator = BigInt(remaining.numerator) * BigInt(unit.denominator);
+  let denominator = BigInt(remaining.denominator) * BigInt(unit.numerator);
+  const divisor = gcd(numerator, denominator);
+  numerator /= divisor;
+  denominator /= divisor;
+  if (numerator === 1n && denominator === 1n) return '';
+  if (denominator === 1n) return numerator.toString();
+  if (numerator === 1n) return `/${denominator}`;
+  return `${numerator}/${denominator}`;
+};
+
+const normalizeCellDuration = (
+  candidate: string,
+  cellId: string,
+): string => {
+  const next = buildAbcPresentation(candidate);
+  const target = allCells(next).find(({ id }) => id === cellId);
+  if (!target) throw new Error('The edited measure is no longer available.');
+  const score = extractScore(candidate);
+  const measure = score.measures.find(({ measureNumber }) => measureNumber === target.measureNumber);
+  if (!measure || measure.activeMeter === 'none') {
+    throw new Error('Measure completion requires a numeric meter. Use Raw Source.');
+  }
+  const expected = parseMeterDuration(measure.activeMeter);
+  if (!expected) throw new Error('Measure completion requires a numeric meter. Use Raw Source.');
+  const used = measure.events
+    .filter((event) => event.voiceId === target.voiceId)
+    .reduce<RationalDuration>((maximum, event) => {
+      const end = addRationalDurations(event.position.offset, event.duration);
+      return compareRationalDurations(end, maximum) > 0 ? end : maximum;
+    }, createRationalDuration(0, 1));
+  const comparison = compareRationalDurations(used, expected);
+  if (comparison > 0) {
+    throw new Error(`Measure ${target.measureNumber}, voice ${target.voiceId} exceeds ${measure.activeMeter}.`);
+  }
+  if (comparison === 0) return candidate;
+  const boundary = next.boundaryRanges
+    .filter((range) => range.start >= target.range.start && range.end <= target.range.end)
+    .at(-1);
+  if (!boundary) throw new Error('This measure must be edited in Raw Source.');
+  const remaining = createRationalDuration(
+    expected.numerator * used.denominator - used.numerator * expected.denominator,
+    expected.denominator * used.denominator,
+  );
+  const rest = `z${restLengthSuffix(remaining, defaultLength(candidate, measure.activeMeter))}`;
+  const before = candidate.slice(0, boundary.start);
+  const after = candidate.slice(boundary.start);
+  const separator = /\s$/.test(before) ? '' : ' ';
+  return `${before}${separator}${rest}${after}`;
+};
+
+export const applyAbcMeasureEdits = (
+  presentation: AbcPresentation,
+  edits: readonly AbcMeasureEdit[],
+  normalize = true,
+): AbcCellEditResult => {
+  if (!edits.length) return { ok: false, error: 'No measure edits were supplied.' };
+  const targets = new Map<string, AbcMeasureCell>();
+  for (const edit of edits) {
+    if (/\r|\n|%/.test(edit.replacement)) {
+      return { ok: false, error: 'Formatted measure edits must stay on one line and cannot add comments.' };
+    }
+    const target = allCells(presentation).find(({ id }) => id === edit.cellId);
+    if (!target?.editable) return { ok: false, error: 'This measure must be edited in Raw Source.' };
+    if (targets.has(edit.cellId)) return { ok: false, error: 'A measure can only be edited once per action.' };
+    targets.set(edit.cellId, target);
+  }
+  try {
+    let candidate = [...edits]
+      .sort((left, right) => targets.get(right.cellId)!.range.start - targets.get(left.cellId)!.range.start)
+      .reduce((source, edit) => {
+        const target = targets.get(edit.cellId)!;
+        const replacement = cleanedReplacement(target, edit.replacement);
+        return `${source.slice(0, target.range.start)}${replacement}${source.slice(target.range.end)}`;
+      }, presentation.abc);
+    validatePreservedPresentation(presentation, candidate, new Set(targets.keys()));
+    if (normalize) {
+      for (const cellId of targets.keys()) {
+        candidate = normalizeCellDuration(candidate, cellId);
+      }
+    }
+    const next = validatePreservedPresentation(presentation, candidate, new Set(targets.keys()));
+    return { ok: true, abc: candidate, presentation: next };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'ABC validation failed.' };
+  }
+};
 
 export const validateAbcMeasureEdit = (
   presentation: AbcPresentation,
   cellId: string,
   replacement: string,
-): AbcCellEditResult => {
-  if (/\r|\n|%/.test(replacement)) {
-    return { ok: false, error: 'Formatted measure edits must stay on one line and cannot add comments.' };
+): AbcCellEditResult => applyAbcMeasureEdits(presentation, [{ cellId, replacement }]);
+
+type PitchStep = 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B';
+
+const transposeNoteToken = (
+  acc: string | undefined,
+  step: string,
+  oct: string | undefined,
+  dur: string | undefined,
+  tie: string | undefined,
+  keyAlterations: Record<PitchStep, number>,
+  semitones: number,
+): string => {
+  const upperStep = step.toUpperCase() as PitchStep;
+  const isLower = step >= 'a' && step <= 'g';
+
+  let octave = isLower ? 5 : 4;
+  if (oct) {
+    for (const ch of oct) {
+      if (ch === ',') octave -= 1;
+      else if (ch === "'") octave += 1;
+    }
   }
-  const target = presentation.voices.flatMap(({ cells }) => cells).find(({ id }) => id === cellId);
-  if (!target?.editable) return { ok: false, error: 'This measure must be edited in Raw Source.' };
-  const leadingWhitespace = target.text.match(/^\s*/)?.[0] || '';
-  const trailingWhitespace = target.text.match(/\s*$/)?.[0] || '';
-  const replacementWithSpacing = `${leadingWhitespace}${replacement.trim()}${trailingWhitespace}`;
-  const candidate = `${presentation.abc.slice(0, target.range.start)}${replacementWithSpacing}${presentation.abc.slice(target.range.end)}`;
+
+  let alter = 0;
+  if (acc === '^^') alter = 2;
+  else if (acc === '^') alter = 1;
+  else if (acc === '=') alter = 0;
+  else if (acc === '_') alter = -1;
+  else if (acc === '__') alter = -2;
+  else {
+    alter = keyAlterations[upperStep] ?? 0;
+  }
+
+  let targetStep: PitchStep = upperStep;
+  let targetOctave = octave;
+  let targetAlter = alter;
+
+  if (semitones === 12 || semitones === -12) {
+    targetOctave = octave + semitones / 12;
+  } else if (semitones === 1) {
+    if (alter === 0) {
+      if (upperStep === 'E') {
+        targetStep = 'F';
+        targetAlter = 0;
+      } else if (upperStep === 'B') {
+        targetStep = 'C';
+        targetOctave = octave + 1;
+        targetAlter = 0;
+      } else {
+        targetAlter = 1;
+      }
+    } else if (alter === 1) {
+      if (upperStep === 'E') {
+        targetStep = 'F';
+        targetAlter = 1;
+      } else if (upperStep === 'B') {
+        targetStep = 'C';
+        targetOctave = octave + 1;
+        targetAlter = 1;
+      } else {
+        const nextStepMap: Record<PitchStep, PitchStep> = {
+          C: 'D', D: 'E', E: 'F', F: 'G', G: 'A', A: 'B', B: 'C',
+        };
+        targetStep = nextStepMap[upperStep];
+        targetAlter = 0;
+      }
+    } else if (alter === -1) {
+      targetAlter = 0;
+    } else if (alter === 2) {
+      if (upperStep === 'E') {
+        targetStep = 'F';
+        targetAlter = 2;
+      } else if (upperStep === 'B') {
+        targetStep = 'C';
+        targetOctave = octave + 1;
+        targetAlter = 2;
+      } else {
+        const nextStepMap: Record<PitchStep, PitchStep> = {
+          C: 'D', D: 'E', E: 'F', F: 'G', G: 'A', A: 'B', B: 'C',
+        };
+        targetStep = nextStepMap[upperStep];
+        targetAlter = 1;
+      }
+    } else if (alter === -2) {
+      targetAlter = -1;
+    }
+  } else if (semitones === -1) {
+    if (alter === 0) {
+      if (upperStep === 'C') {
+        targetStep = 'B';
+        targetOctave = octave - 1;
+        targetAlter = 0;
+      } else if (upperStep === 'F') {
+        targetStep = 'E';
+        targetAlter = 0;
+      } else {
+        targetAlter = -1;
+      }
+    } else if (alter === -1) {
+      if (upperStep === 'C') {
+        targetStep = 'B';
+        targetOctave = octave - 1;
+        targetAlter = -1;
+      } else if (upperStep === 'F') {
+        targetStep = 'E';
+        targetAlter = -1;
+      } else {
+        const prevStepMap: Record<PitchStep, PitchStep> = {
+          C: 'B', D: 'C', E: 'D', F: 'E', G: 'F', A: 'G', B: 'A',
+        };
+        targetStep = prevStepMap[upperStep];
+        targetAlter = 0;
+      }
+    } else if (alter === 1) {
+      targetAlter = 0;
+    } else if (alter === 2) {
+      targetAlter = 1;
+    } else if (alter === -2) {
+      if (upperStep === 'C') {
+        targetStep = 'B';
+        targetOctave = octave - 1;
+        targetAlter = -2;
+      } else if (upperStep === 'F') {
+        targetStep = 'E';
+        targetAlter = -2;
+      } else {
+        const prevStepMap: Record<PitchStep, PitchStep> = {
+          C: 'B', D: 'C', E: 'D', F: 'E', G: 'F', A: 'G', B: 'A',
+        };
+        targetStep = prevStepMap[upperStep];
+        targetAlter = -1;
+      }
+    }
+  }
+
+  const keyAlter = keyAlterations[targetStep] ?? 0;
+  let accStr = '';
+  if (targetAlter !== keyAlter) {
+    if (targetAlter === 2) accStr = '^^';
+    else if (targetAlter === 1) accStr = '^';
+    else if (targetAlter === 0) accStr = '=';
+    else if (targetAlter === -1) accStr = '_';
+    else if (targetAlter === -2) accStr = '__';
+  }
+
+  const letter = targetOctave >= 5 ? targetStep.toLowerCase() : targetStep;
+  let octMark = '';
+  if (targetOctave > 5) {
+    octMark = "'".repeat(targetOctave - 5);
+  } else if (targetOctave < 4) {
+    octMark = ','.repeat(4 - targetOctave);
+  }
+
+  return `${accStr}${letter}${octMark}${dur || ''}${tie || ''}`;
+};
+
+export const transposeAbcMeasureNotes = (
+  source: string,
+  keyAlterations: Record<PitchStep, number>,
+  semitones: number,
+): string => {
+  return source.replace(
+    /"[^"]*"|\[[A-Za-z]:[^\]]*\]|![^!]*!|[zZx]\d*(?:\/+\d*)?|(\^\^|\^|__|_|=)?([A-Ga-g])([,']*)(\d*(?:\/+\d*)?)(-?)/g,
+    (match, acc, step, oct, dur, tie) => {
+      if (!step) return match;
+      return transposeNoteToken(acc, step, oct, dur, tie, keyAlterations, semitones);
+    },
+  );
+};
+
+/** Transposes complete Measure Source text with its active musical context. */
+export const transposeAbcMeasureText = (
+  presentation: AbcPresentation,
+  cellId: string,
+  source: string,
+  semitones: number,
+) => {
+  if (![1, -1, 12, -12].includes(semitones)) {
+    throw new Error('Transpose must be one semitone or one octave.');
+  }
+  const target = allCells(presentation).find(({ id }) => id === cellId);
+  if (!target?.editable) throw new Error('This measure must be edited in Raw Source.');
+  const score = extractScore(presentation.abc);
+  const measure = score.measures.find(({ measureNumber }) => measureNumber === target.measureNumber);
+  if (!measure) {
+    throw new Error('Measure not found in score.');
+  }
+  const bar = source.match(/(\|[:|[\]]*\s*)$/);
+  const barText = bar?.[1] || '';
+  const body = bar ? source.slice(0, source.length - barText.length) : source;
+  if (!body.trim()) throw new Error('Select complete notes to transpose.');
+
+  let keyAlterations: Record<PitchStep, number> = {
+    C: 0, D: 0, E: 0, F: 0, G: 0, A: 0, B: 0,
+  };
   try {
-    const next = buildAbcPresentation(candidate);
-    if (literalRanges(next.abc, next.boundaryRanges).join('\0') !== literalRanges(presentation.abc, presentation.boundaryRanges).join('\0')) {
-      throw new Error('Measure or repeat boundaries must be edited in Raw Source.');
+    const rawKey = measure.activeKey && measure.activeKey !== 'none' ? measure.activeKey : 'C';
+    const info = parseKeySignature(rawKey);
+    if (info?.alterations) {
+      keyAlterations = info.alterations;
     }
-    if (next.measureCount !== presentation.measureCount) throw new Error('Measure structure changed. Use Raw Source.');
-    if (next.voices.map(({ id }) => id).join('\0') !== presentation.voices.map(({ id }) => id).join('\0')) {
-      throw new Error('Voice order changed.');
-    }
-    if (next.headers.map(({ text }) => text).join('\0') !== presentation.headers.map(({ text }) => text).join('\0')) {
-      throw new Error('Header fields changed.');
-    }
-    const oldCells = presentation.voices.flatMap(({ cells }) => cells).filter(({ id }) => id !== cellId);
-    const newCells = next.voices.flatMap(({ cells }) => cells).filter(({ id }) => id !== cellId);
-    if (oldCells.length !== newCells.length || oldCells.some((cell, index) => (
-      cell.id !== newCells[index]?.id || cell.text !== newCells[index]?.text
-    ))) {
-      throw new Error('Measure structure changed. Use Raw Source.');
-    }
-    const nextTarget = next.voices.flatMap(({ cells }) => cells).find(({ id }) => id === cellId);
-    if (!nextTarget?.editable) throw new Error('The edited measure no longer has safe source ownership.');
-    return { ok: true, abc: candidate, presentation: next };
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : 'ABC validation failed.' };
+  } catch {
+    // Fallback to C major
   }
+
+  const transformedBody = transposeAbcMeasureNotes(body, keyAlterations, semitones);
+  if (!transformedBody.trim()) throw new Error('Could not transpose the selected ABC source.');
+  return `${transformedBody}${barText}`;
 };
 
 export const validateAbcHeaderEdit = (

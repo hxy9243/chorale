@@ -51,6 +51,10 @@ const AUTOSAVE_DELAY_MS = 400;
 
 export type HydrationStatus = 'hydrating' | 'ready' | 'error';
 export type SaveStatus = 'saved' | 'saving' | 'error';
+export type AbcChangeOptions = {
+  preserveSelection?: boolean;
+  scoreInfoOverrides?: Partial<ScoreInfo>;
+};
 
 const readStoredActiveFileId = (): string => {
   if (typeof window === 'undefined') return '';
@@ -156,9 +160,10 @@ export const useDocumentStore = () => {
     }
   }, [activeFileId]);
 
-  const handleAbcChange = useCallback((newAbc: string, scoreInfoOverrides?: Partial<ScoreInfo>) => {
+  const handleAbcChange = useCallback((newAbc: string, options?: AbcChangeOptions) => {
     if (!activeFileId) return;
-    setActiveAnchor(null);
+    if (!options?.preserveSelection) setActiveAnchor(null);
+    const scoreInfoOverrides = options?.scoreInfoOverrides;
     const hasScoreInfoOverrides = scoreInfoOverrides !== undefined && Object.keys(scoreInfoOverrides).length > 0;
     setDocuments((docs) =>
       docs.map((doc) => {

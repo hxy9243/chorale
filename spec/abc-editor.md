@@ -3,7 +3,7 @@ title: "ABC Editor Spec"
 description: "Specification for the ABC code editor pane, split view, draggable divider, and score/playback synchronization"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-08-29
+updated: 2026-09-06
 status: "implemented"
 source_files:
   - src/components/AbcEditor.tsx
@@ -121,6 +121,50 @@ canonical ABC, score, revision history, autosave, or playback. A draft is cancel
 document identity or base revision becomes stale.
 
 ## 5. Selection, navigation, and playback
+
+### 5.1 Measure Source tool belt and duration safety
+
+Measure Source has a collapsible tool belt above its viewport. The belt and its
+**Basics**, **Sheet info**, **Transpose**, and **Measure structure** sections
+are independently collapsible. Sheet information lives in its collapsed Tool
+Belt section rather than above the source viewport. Basic notation commands use
+recognizable note glyphs and insert their literal, context-aware ABC at the
+active measure-input cursor; their tooltip exposes that same source. The key
+command inserts an inline `[K:<key>]` directive after validation.
+
+Each Sheet info field receives a content-aware width based on its ABC source or
+human-readable value, wraps inside its own field when needed, and never crowds
+adjacent metadata together.
+
+Tool Belt sections use one shared row/action style, including Measure structure.
+The belt reserves its own internally scrolling vertical slot with expanded vertical
+headroom (20.5rem), so expanding a section, opening sheet info, editing a measure, or
+changing selection never crowds tool controls or shifts the lower layout, avoiding
+vertical scrolling in the default layout. When collapsed, the tool belt folds to its
+toggle header height.
+
+The measure timeline is positioned lower in the remaining tab viewport, raised with
+comfortable breathing space above the horizontal navigator. Native browser scrollbars
+are hidden there; the single custom dotted navigator remains directly below the display,
+centered at 66% of the pane width.
+
+The source viewport, its horizontal progress control, and a reserved error well
+are fixed vertical rows. The error well follows the progress control, reserves
+its height even when empty, and uses a light-red bordered rounded presentation
+for errors so editing, selecting, and de-selecting measures never shifts the
+measure display or progress control.
+
+Every Measure Source commit and source-mutating tool action validates written
+duration with the parsed active meter. A short editable voice is completed by a
+trailing lowercase rest before its existing barline; an overfilled voice is
+rejected without changing canonical ABC. Unsupported meter/source ownership is
+reported in the error well and remains editable in Raw Source.
+
+Transpose applies `±1` or `±12` semitones to a complete text selection in the
+active measure input, or otherwise to all editable voices in the selected
+written-measure range. It is one atomic source revision and preserves headers,
+barlines, untargeted measures, measure structure, and the selected measure
+range without first clearing and then restoring the application selection.
 
 - Clicking or keyboard-activating an ABC measure selects that measure through the shared
   `ScoreAnchor`; Shift extends from the existing selection origin.
