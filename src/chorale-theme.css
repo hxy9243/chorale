@@ -3289,8 +3289,7 @@ textarea:disabled,
   .workspace-body.chat-open {
     grid-template-columns:
       var(--file-rail-width, 14.75rem)
-      minmax(0, 1fr)
-      var(--chat-rail-width, 0px) !important;
+      minmax(0, 1fr) !important;
   }
 
   .file-rail {
@@ -4267,9 +4266,8 @@ body {
   .workspace-body {
     display: grid !important;
     grid-template-columns:
-      var(--file-rail-width)
-      minmax(0, 1fr)
-      var(--chat-rail-width) !important;
+      var(--file-rail-width, 15rem)
+      minmax(0, 1fr) !important;
   }
 
   .file-rail {
@@ -8385,20 +8383,29 @@ body,
 }
 
 .header-center {
-  display: contents;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+  gap: var(--space-md);
 }
 
 .header-history-actions {
-  order: -1;
-  flex: none;
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
   border: 0;
   background: transparent;
 }
 
 .header-breadcrumb {
-  order: 0;
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
   display: flex;
-  flex: 1 1 0;
   min-width: 0;
   align-items: center;
   justify-content: center;
@@ -8416,8 +8423,12 @@ body,
 }
 
 .header-status-group {
-  order: 1;
-  flex: none;
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 @container (max-width: 56rem) {

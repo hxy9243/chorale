@@ -25,7 +25,48 @@ npm test
 
 ---
 
-## 2. OpenAI Codex Setup
+## 2. Quick Start: Starting the Plugin & Workspace UI
+
+Chorale consists of two complementary components that synchronize over a local loopback bridge:
+
+```
+┌─────────────────────────────────┐           ┌─────────────────────────────────┐
+│     Interactive Browser UI      │           │     Chorale Server & Bridge     │
+│   (Vite / Static Web Server)    │ ◄───────► │       (Node.js / stdio MCP)     │
+│  http://localhost:5173/         │   HTTP    │   http://127.0.0.1:43171/       │
+└─────────────────────────────────┘           └─────────────────────────────────┘
+                ▲                                              ▲
+                │ Live Measure Selection                       │ Tool Calls (edit_score,
+                │ & Instant Score Updates                      │ read_measure_selection, ...)
+                └──────────────────────┬───────────────────────┘
+                                       │
+                               ┌───────┴────────┐
+                               │ AI Agent Host  │
+                               │(Codex/Antigrav)│
+                               └────────────────┘
+```
+
+### Starting the Services
+
+1. **Start the MCP Server & View Bridge:**
+   ```bash
+   node server.mjs
+   ```
+   - Connects to AI hosts (Codex, Antigravity, Claude Code) over standard input/output (stdio).
+   - Listens on `http://127.0.0.1:43171` for view heartbeats and real-time score commands.
+   - If `dist/` is built (`npm run build`), it also serves the standalone score workspace directly at `http://127.0.0.1:43171/`.
+
+2. **Start the Interactive Web Workspace UI (Vite Dev Server):**
+   ```bash
+   npm run dev
+   ```
+   - Open **[http://localhost:5173/](http://localhost:5173/)** in your browser.
+   - For a compact, score-focused layout, open **[http://localhost:5173/?plugin=1](http://localhost:5173/?plugin=1)**.
+   - The UI automatically connects to `http://127.0.0.1:43171/` and publishes live measure selections. Any edits (`edit_score`) or notes (`add_annotations`) made by the agent apply immediately in the browser.
+
+---
+
+## 3. OpenAI Codex Setup
 
 Chorale includes a native Codex plugin declaration in [`.codex-plugin/plugin.json`](./.codex-plugin/plugin.json).
 
@@ -40,7 +81,7 @@ Codex automatically detects:
 
 ---
 
-## 3. Google Antigravity Setup
+## 4. Google Antigravity Setup
 
 ### Option A: Workspace Integration (Project-specific)
 If you open this repository (or symlink Chorale into your workspace):
@@ -64,17 +105,21 @@ To use Chorale in any workspace:
    mkdir -p ~/.gemini/config/skills/chorale-score
    cp /path/to/chorale/skills/chorale-score/SKILL.md ~/.gemini/config/skills/chorale-score/
    ```
-2. Add the MCP server entry to your global MCP settings (`~/.gemini/antigravity/mcp/chorale.json` or global config):
+2. Add the MCP server entry to your global MCP settings (`~/.gemini/antigravity/mcp/chorale.json` or `~/.gemini/config/mcp_config.json`):
    ```json
    {
-     "command": "node",
-     "args": ["/path/to/chorale/server.mjs"]
+     "mcpServers": {
+       "chorale": {
+         "command": "node",
+         "args": ["/path/to/chorale/server.mjs"]
+       }
+     }
    }
    ```
 
 ---
 
-## 4. Claude Code / Generic MCP Clients
+## 5. Claude Code / Generic MCP Clients
 
 Add the Chorale MCP server entry to your MCP configuration file (e.g. `claude_desktop_config.json` or `.mcp.json`):
 
@@ -92,7 +137,7 @@ Add the Chorale MCP server entry to your MCP configuration file (e.g. `claude_de
 
 ---
 
-## 5. Tool Reference
+## 6. Tool Reference
 
 | Tool | Description | Inputs |
 | :--- | :--- | :--- |
@@ -107,16 +152,3 @@ Add the Chorale MCP server entry to your MCP configuration file (e.g. `claude_de
 | `delete_annotations` | Remove one or more annotations by ID. | `documentId` (string), `expectedRevision` (number), `annotationIds` (array of strings) |
 | `render_score_workspace` | Render an interactive sheet music view in compatible MCP Apps hosts. | `documentId` (string) |
 
----
-
-## 6. Live Score Workspace
-
-When running `node server.mjs`, Chorale serves the built score workspace UI at:
-```
-http://127.0.0.1:43171/
-```
-You can also run the Vite live development server:
-```bash
-npm run dev
-```
-Open [http://localhost:5173](http://localhost:5173) in your browser. Any edits made by an agent via MCP will automatically synchronize to the live browser view.

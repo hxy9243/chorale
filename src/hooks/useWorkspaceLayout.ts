@@ -164,12 +164,12 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
   const fittedPanelLayout = useMemo(() => fitWorkspacePanelLayout({
     viewportWidth: layoutWidth,
     fileRailWidth: railWidth,
-    chatPanelWidth: chatWidth,
+    chatPanelWidth: 0,
     editorPanelWidth: editorWidth,
     fileRailVisible: !railCollapsed,
-    chatPanelVisible: chatOpen,
+    chatPanelVisible: false,
     editorPanelVisible: editorVisible,
-  }), [chatOpen, chatWidth, editorVisible, editorWidth, layoutWidth, railCollapsed, railWidth]);
+  }), [editorVisible, editorWidth, layoutWidth, railCollapsed, railWidth]);
 
   return {
     zoom,

@@ -44,8 +44,13 @@ export const scoreSummary = (document) => ({
 });
 
 export class LocalDocumentStore {
-  constructor(storePath = process.env.CHORALE_PLUGIN_STORE || defaultStorePath) {
+  constructor(storePath = process.env.CHORALE_PLUGIN_STORE || defaultStorePath, views = null) {
     this.storePath = resolve(storePath);
+    this.views = views;
+  }
+
+  setViews(views) {
+    this.views = views;
   }
 
   async read() {
@@ -73,8 +78,34 @@ export class LocalDocumentStore {
     return (await this.read()).documents;
   }
 
+  async upsertFromSnapshot(snap) {
+    const state = await this.read();
+    let doc = state.documents.find((d) => d.id === snap.documentId);
+    if (!doc) {
+      const now = new Date().toISOString();
+      doc = {
+        id: snap.documentId,
+        title: snap.title || 'Untitled score',
+        abcSource: snap.abcSource || snap.selectedAbc || 'X:1\nK:C\nC |',
+        revision: snap.revision || 1,
+        annotations: [],
+        createdAt: now,
+        updatedAt: now,
+      };
+      state.documents.push(doc);
+      await this.write(state);
+    }
+    return doc;
+  }
+
   async require(documentId) {
     const document = (await this.list()).find((candidate) => candidate.id === documentId);
+    if (!document && this.views) {
+      const snap = this.views.get('plugin-main')?.documentId === documentId
+        ? this.views.get('plugin-main')
+        : [...this.views.views.values()].find((v) => v.documentId === documentId);
+      if (snap) return this.upsertFromSnapshot(snap);
+    }
     if (!document) throw new PluginError('DOCUMENT_NOT_FOUND', `Score ${documentId} was not found.`);
     return document;
   }
@@ -110,7 +141,11 @@ export class LocalDocumentStore {
       throw new PluginError('INVALID_SCORE', 'ABC source does not contain a written measure.');
     }
     const state = await this.read();
-    const index = state.documents.findIndex((doc) => doc.id === documentId);
+    let index = state.documents.findIndex((doc) => doc.id === documentId);
+    if (index === -1 && this.views) {
+      await this.require(documentId);
+      return this.editScore({ documentId, expectedRevision, replacementAbc, summary });
+    }
     if (index === -1) throw new PluginError('DOCUMENT_NOT_FOUND', `Score ${documentId} was not found.`);
     const document = state.documents[index];
     if (document.revision !== expectedRevision) {
@@ -126,7 +161,11 @@ export class LocalDocumentStore {
 
   async addAnnotations({ documentId, expectedRevision, annotations }) {
     const state = await this.read();
-    const index = state.documents.findIndex((doc) => doc.id === documentId);
+    let index = state.documents.findIndex((doc) => doc.id === documentId);
+    if (index === -1 && this.views) {
+      await this.require(documentId);
+      return this.addAnnotations({ documentId, expectedRevision, annotations });
+    }
     if (index === -1) throw new PluginError('DOCUMENT_NOT_FOUND', `Score ${documentId} was not found.`);
     const document = state.documents[index];
     if (document.revision !== expectedRevision) {
@@ -141,12 +180,19 @@ export class LocalDocumentStore {
       if (!Number.isInteger(startMeasure) || !Number.isInteger(endMeasure) || startMeasure < 1 || endMeasure < startMeasure || endMeasure > measureCount) {
         throw new PluginError('INVALID_RANGE', `Choose measures within 1–${measureCount}.`);
       }
+      const kind = ann.kind || (ann.chordSymbol ? 'chord' : 'explanation');
       const item = {
         id: `annotation-${randomUUID()}`,
         span: { startMeasure, endMeasure },
-        label: (ann.label || '').trim(),
+        label: (ann.label || ann.chordSymbol || '').trim(),
         body: (ann.body || ann.text || '').trim(),
         source: 'assistant',
+        kind,
+        ...(kind === 'chord' ? {
+          position: ann.position || { measure: startMeasure, offset: { numerator: 0, denominator: 1 } },
+          chordSymbol: (ann.chordSymbol || ann.label || '').trim(),
+          ...(ann.romanNumeral ? { romanNumeral: ann.romanNumeral.trim() } : {}),
+        } : {}),
         createdAt: now,
         updatedAt: now,
       };
@@ -259,6 +305,7 @@ export class ViewSnapshotStore {
         ...(typeof selection.voiceId === 'string' ? { voiceId: selection.voiceId } : {}),
       }) : null,
       selectedAbc: typeof snapshot.selectedAbc === 'string' ? snapshot.selectedAbc : undefined,
+      abcSource: typeof snapshot.abcSource === 'string' ? snapshot.abcSource : undefined,
       updatedAt: typeof snapshot.updatedAt === 'string' ? snapshot.updatedAt : new Date().toISOString(),
     });
     this.views.set(viewId, stored);
@@ -369,10 +416,47 @@ export const createViewBridge = (views = new ViewSnapshotStore(), store = new Lo
     return;
   }
 
+  // REST API: Direct MCP tool invocation
+  const toolMatch = request.url?.match(/^\/v1\/tools\/([A-Za-z0-9_-]{1,80})$/);
+  if (request.method === 'POST' && toolMatch) {
+    const [, toolName] = toolMatch;
+    const handlers = createToolHandlers(store, views);
+    const handler = handlers[toolName];
+    if (!handler) {
+      response.setHeader('content-type', 'application/json');
+      response.writeHead(404).end(JSON.stringify({ isError: true, errorCode: 'TOOL_NOT_FOUND' }));
+      return;
+    }
+    let bodyText = '';
+    request.on('data', (chunk) => { bodyText += chunk; });
+    request.on('end', async () => {
+      try {
+        const input = bodyText ? JSON.parse(bodyText) : {};
+        const res = await handler(input);
+        response.setHeader('content-type', 'application/json');
+        response.writeHead(res.isError ? 400 : 200).end(JSON.stringify(res));
+      } catch (err) {
+        response.setHeader('content-type', 'application/json');
+        response.writeHead(500).end(JSON.stringify({ isError: true, content: [{ type: 'text', text: err.message }] }));
+      }
+    });
+    return;
+  }
+
   // REST API: View bridge
   const match = request.url?.match(/^\/v1\/views\/([A-Za-z0-9._-]{1,120})(?:\/commands(?:\/(command-[A-Za-z0-9-]+)\/ack)?)?$/);
   if (match) {
     const [, viewId, commandId] = match;
+    if (request.method === 'GET' && !request.url?.includes('/commands')) {
+      try {
+        const snapshot = views.require(viewId);
+        response.setHeader('content-type', 'application/json');
+        response.writeHead(200).end(JSON.stringify(snapshot));
+      } catch (error) {
+        if (!response.headersSent) response.writeHead(404).end(JSON.stringify({ errorCode: error.code || 'VIEW_NOT_CONNECTED' }));
+      }
+      return;
+    }
     if (request.method === 'GET' && request.url?.endsWith('/commands')) {
       try {
         const body = JSON.stringify({ commands: views.pending(viewId) });
@@ -463,70 +547,32 @@ const failure = (error) => ({
 
 const workspaceHtml = `<!doctype html><html><body style="margin:0;background:#f6f0e6;color:#2e2925;font:14px system-ui"><main style="padding:16px"><h1 style="font-family:Georgia,serif;margin-top:0">Chorale</h1><div id="score">Loading score…</div></main><script>window.addEventListener('message',(event)=>{if(event.source!==parent)return;const data=event.data;if(data?.method!=='ui/notifications/tool-result')return;const score=data.params?.structuredContent;document.querySelector('#score').textContent=score?score.title+' · '+score.measureCount+' measures · revision '+score.revision:'No score selected.'},{passive:true});</script></body></html>`;
 
-export const createServer = (store = new LocalDocumentStore(), views = new ViewSnapshotStore()) => {
-  const server = new McpServer({ name: 'Chorale', version: '0.1.0' });
-
-  server.registerResource('chorale-workspace', WORKSPACE_URI, {}, async () => ({
-    contents: [{ uri: WORKSPACE_URI, mimeType: 'text/html;profile=mcp-app', text: workspaceHtml, _meta: { ui: { prefersBorder: false } } }],
-  }));
-
-  // Tool 1: create_score
-  server.registerTool('create_score', {
-    title: 'Create Chorale score',
-    description: 'Create a durable local score from valid ABC source notation.',
-    inputSchema: {
-      title: z.string().max(160).describe('Title of the score'),
-      abcSource: z.string().min(1).max(MAX_ABC_BYTES).describe('Complete, valid ABC music source'),
-    },
-  }, async (input) => {
+export const createToolHandlers = (store, views) => ({
+  create_score: async (input) => {
     try {
       const document = await store.create(input);
       return result(scoreSummary(document), `Created score "${document.title}" (revision 1, ${document.id}).`);
     } catch (error) {
       return failure(error);
     }
-  });
-
-  // Tool 2: list_scores
-  server.registerTool('list_scores', {
-    title: 'List Chorale scores',
-    description: 'List locally saved Chorale scores with title, revision, measure count, and annotation count.',
-  }, async () => {
+  },
+  list_scores: async () => {
     try {
       const documents = await store.list();
       return result({ scores: documents.map(scoreSummary) }, `${documents.length} score(s) available.`);
     } catch (error) {
       return failure(error);
     }
-  });
-
-  // Tool 3: get_score_summary
-  server.registerTool('get_score_summary', {
-    title: 'Get score summary',
-    description: 'Read the current revision, title, measure count, and annotations summary for a score.',
-    inputSchema: {
-      documentId: z.string().min(1).describe('The unique score document ID'),
-    },
-  }, async ({ documentId }) => {
+  },
+  get_score_summary: async ({ documentId }) => {
     try {
       const document = await store.require(documentId);
       return result(scoreSummary(document), `Score "${document.title}", revision ${document.revision}, ${document.annotations.length} annotation(s).`);
     } catch (error) {
       return failure(error);
     }
-  });
-
-  // Tool 4: read_measure_range
-  server.registerTool('read_measure_range', {
-    title: 'Read written measures',
-    description: 'Read an exact inclusive range of written measures from a score or connected view.',
-    inputSchema: {
-      documentId: z.string().min(1).optional().describe('Score ID (optional if viewId is provided)'),
-      startMeasure: z.number().int().min(1).describe('Starting 1-indexed written measure number (inclusive)'),
-      endMeasure: z.number().int().min(1).describe('Ending 1-indexed written measure number (inclusive)'),
-      viewId: z.string().min(1).optional().describe('Optional connected view ID (e.g. "plugin-main")'),
-    },
-  }, async ({ documentId, startMeasure, endMeasure, viewId }) => {
+  },
+  read_measure_range: async ({ documentId, startMeasure, endMeasure, viewId }) => {
     try {
       if (viewId) {
         const snapshot = views.require(viewId);
@@ -558,16 +604,8 @@ export const createServer = (store = new LocalDocumentStore(), views = new ViewS
     } catch (error) {
       return failure(error);
     }
-  });
-
-  // Tool 5: read_measure_selection
-  server.registerTool('read_measure_selection', {
-    title: 'Read selected measures',
-    description: 'Read the currently selected written-measure range and ABC excerpt from a connected Chorale score view.',
-    inputSchema: {
-      viewId: z.string().min(1).default('plugin-main').describe('Connected view ID (default: "plugin-main")'),
-    },
-  }, async ({ viewId }) => {
+  },
+  read_measure_selection: async ({ viewId = 'plugin-main' } = {}) => {
     try {
       const snapshot = views.require(viewId);
       if (!snapshot.selection) {
@@ -584,7 +622,119 @@ export const createServer = (store = new LocalDocumentStore(), views = new ViewS
     } catch (error) {
       return failure(error);
     }
-  });
+  },
+  edit_score: async ({ documentId, expectedRevision, replacementAbc, summary, viewId }) => {
+    try {
+      const { document } = await store.editScore({ documentId, expectedRevision, replacementAbc, summary });
+      views.notifyViews(documentId, { kind: 'replace-score', documentId, expectedRevision, replacementAbc, summary });
+      return result({
+        ...scoreSummary(document),
+        summary,
+      }, `Updated score "${document.title}" to revision ${document.revision}: ${summary}`);
+    } catch (error) {
+      return failure(error);
+    }
+  },
+  add_annotations: async ({ documentId, expectedRevision, annotations }) => {
+    try {
+      const { document, annotations: added } = await store.addAnnotations({ documentId, expectedRevision, annotations });
+      views.notifyViews(documentId, { kind: 'annotations', documentId, expectedRevision, annotations: added });
+      return result({
+        ...scoreSummary(document),
+        addedAnnotations: added,
+      }, `Added ${added.length} annotation(s) to "${document.title}" (now revision ${document.revision}).`);
+    } catch (error) {
+      return failure(error);
+    }
+  },
+  edit_annotations: async ({ documentId, expectedRevision, annotationId, updates }) => {
+    try {
+      const { document, annotation } = await store.editAnnotations({ documentId, expectedRevision, annotationId, updates });
+      views.notifyViews(documentId, { kind: 'update-annotation', documentId, expectedRevision, annotation });
+      return result({
+        ...scoreSummary(document),
+        updatedAnnotation: annotation,
+      }, `Updated annotation "${annotation.label || annotation.id}" on "${document.title}".`);
+    } catch (error) {
+      return failure(error);
+    }
+  },
+  delete_annotations: async ({ documentId, expectedRevision, annotationIds }) => {
+    try {
+      const { document, deletedCount } = await store.deleteAnnotations({ documentId, expectedRevision, annotationIds });
+      views.notifyViews(documentId, { kind: 'delete-annotations', documentId, expectedRevision, annotationIds });
+      return result({
+        ...scoreSummary(document),
+        deletedCount,
+      }, `Deleted ${deletedCount} annotation(s) from "${document.title}".`);
+    } catch (error) {
+      return failure(error);
+    }
+  },
+  render_score_workspace: async ({ documentId }) => {
+    try {
+      const document = await store.require(documentId);
+      const summary = scoreSummary(document);
+      return result(summary, `Opening "${document.title}".`);
+    } catch (error) {
+      return failure(error);
+    }
+  },
+});
+
+export const createServer = (store = new LocalDocumentStore(), views = new ViewSnapshotStore()) => {
+  const server = new McpServer({ name: 'Chorale', version: '0.1.0' });
+  const handlers = createToolHandlers(store, views);
+
+  server.registerResource('chorale-workspace', WORKSPACE_URI, {}, async () => ({
+    contents: [{ uri: WORKSPACE_URI, mimeType: 'text/html;profile=mcp-app', text: workspaceHtml, _meta: { ui: { prefersBorder: false } } }],
+  }));
+
+  // Tool 1: create_score
+  server.registerTool('create_score', {
+    title: 'Create Chorale score',
+    description: 'Create a durable local score from valid ABC source notation.',
+    inputSchema: {
+      title: z.string().max(160).describe('Title of the score'),
+      abcSource: z.string().min(1).max(MAX_ABC_BYTES).describe('Complete, valid ABC music source'),
+    },
+  }, handlers.create_score);
+
+  // Tool 2: list_scores
+  server.registerTool('list_scores', {
+    title: 'List Chorale scores',
+    description: 'List locally saved Chorale scores with title, revision, measure count, and annotation count.',
+  }, handlers.list_scores);
+
+  // Tool 3: get_score_summary
+  server.registerTool('get_score_summary', {
+    title: 'Get score summary',
+    description: 'Read the current revision, title, measure count, and annotations summary for a score.',
+    inputSchema: {
+      documentId: z.string().min(1).describe('The unique score document ID'),
+    },
+  }, handlers.get_score_summary);
+
+  // Tool 4: read_measure_range
+  server.registerTool('read_measure_range', {
+    title: 'Read written measures',
+    description: 'Read an exact inclusive range of written measures from a score or connected view.',
+    inputSchema: {
+      documentId: z.string().min(1).optional().describe('Score ID (optional if viewId is provided)'),
+      startMeasure: z.number().int().min(1).describe('Starting 1-indexed written measure number (inclusive)'),
+      endMeasure: z.number().int().min(1).describe('Ending 1-indexed written measure number (inclusive)'),
+      viewId: z.string().min(1).optional().describe('Optional connected view ID (e.g. "plugin-main")'),
+    },
+  }, handlers.read_measure_range);
+
+  // Tool 5: read_measure_selection
+  server.registerTool('read_measure_selection', {
+    title: 'Read selected measures',
+    description: 'Read the currently selected written-measure range and ABC excerpt from a connected Chorale score view.',
+    inputSchema: {
+      viewId: z.string().min(1).default('plugin-main').describe('Connected view ID (default: "plugin-main")'),
+    },
+  }, handlers.read_measure_selection);
 
   // Tool 6: edit_score
   server.registerTool('edit_score', {
@@ -597,19 +747,7 @@ export const createServer = (store = new LocalDocumentStore(), views = new ViewS
       summary: z.string().min(1).max(500).describe('Brief explanation of what musical changes were made'),
       viewId: z.string().min(1).optional().describe('Optional connected view ID to notify'),
     },
-  }, async ({ documentId, expectedRevision, replacementAbc, summary, viewId }) => {
-    try {
-      const { document } = await store.editScore({ documentId, expectedRevision, replacementAbc, summary });
-      // Notify active views if connected
-      views.notifyViews(documentId, { kind: 'replace-score', documentId, expectedRevision: document.revision, replacementAbc, summary });
-      return result({
-        ...scoreSummary(document),
-        summary,
-      }, `Updated score "${document.title}" to revision ${document.revision}: ${summary}`);
-    } catch (error) {
-      return failure(error);
-    }
-  });
+  }, handlers.edit_score);
 
   // Tool 7: add_annotations
   server.registerTool('add_annotations', {
@@ -623,20 +761,12 @@ export const createServer = (store = new LocalDocumentStore(), views = new ViewS
         endMeasure: z.number().int().min(1).describe('End measure (1-indexed, inclusive)'),
         label: z.string().max(100).describe('Short label or title for the annotation'),
         body: z.string().max(2000).describe('Detailed note, analysis, or explanation'),
+        kind: z.enum(['chord', 'modulation', 'voice-leading', 'explanation']).optional().describe('Kind of annotation'),
+        chordSymbol: z.string().max(40).optional().describe('Chord symbol (e.g. "E", "G#m", "B7")'),
+        romanNumeral: z.string().max(40).optional().describe('Roman numeral analysis (e.g. "I", "V7", "vi")'),
       })).min(1).describe('List of annotations to add'),
     },
-  }, async ({ documentId, expectedRevision, annotations }) => {
-    try {
-      const { document, annotations: added } = await store.addAnnotations({ documentId, expectedRevision, annotations });
-      views.notifyViews(documentId, { kind: 'annotations', documentId, expectedRevision: document.revision, annotations: added });
-      return result({
-        ...scoreSummary(document),
-        addedAnnotations: added,
-      }, `Added ${added.length} annotation(s) to "${document.title}" (now revision ${document.revision}).`);
-    } catch (error) {
-      return failure(error);
-    }
-  });
+  }, handlers.add_annotations);
 
   // Tool 8: edit_annotations
   server.registerTool('edit_annotations', {
@@ -653,18 +783,7 @@ export const createServer = (store = new LocalDocumentStore(), views = new ViewS
         body: z.string().max(2000).optional(),
       }).describe('Fields to update on the annotation'),
     },
-  }, async ({ documentId, expectedRevision, annotationId, updates }) => {
-    try {
-      const { document, annotation } = await store.editAnnotations({ documentId, expectedRevision, annotationId, updates });
-      views.notifyViews(documentId, { kind: 'update-annotation', documentId, expectedRevision: document.revision, annotation });
-      return result({
-        ...scoreSummary(document),
-        updatedAnnotation: annotation,
-      }, `Updated annotation "${annotation.label || annotation.id}" on "${document.title}".`);
-    } catch (error) {
-      return failure(error);
-    }
-  });
+  }, handlers.edit_annotations);
 
   // Tool 9: delete_annotations
   server.registerTool('delete_annotations', {
@@ -675,18 +794,7 @@ export const createServer = (store = new LocalDocumentStore(), views = new ViewS
       expectedRevision: z.number().int().positive().describe('Expected current revision of the score'),
       annotationIds: z.array(z.string().min(1)).min(1).describe('List of annotation IDs to delete'),
     },
-  }, async ({ documentId, expectedRevision, annotationIds }) => {
-    try {
-      const { document, deletedCount } = await store.deleteAnnotations({ documentId, expectedRevision, annotationIds });
-      views.notifyViews(documentId, { kind: 'delete-annotations', documentId, expectedRevision: document.revision, annotationIds });
-      return result({
-        ...scoreSummary(document),
-        deletedCount,
-      }, `Deleted ${deletedCount} annotation(s) from "${document.title}".`);
-    } catch (error) {
-      return failure(error);
-    }
-  });
+  }, handlers.delete_annotations);
 
   // Tool 10: render_score_workspace
   server.registerTool('render_score_workspace', {
@@ -708,22 +816,14 @@ export const createServer = (store = new LocalDocumentStore(), views = new ViewS
       'openai/toolInvocation/invoking': 'Opening score…',
       'openai/toolInvocation/invoked': 'Score opened.',
     },
-  }, async ({ documentId }) => {
-    try {
-      const document = await store.require(documentId);
-      const summary = scoreSummary(document);
-      return result(summary, `Opening "${document.title}".`);
-    } catch (error) {
-      return failure(error);
-    }
-  });
+  }, handlers.render_score_workspace);
 
   return server;
 };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const store = new LocalDocumentStore();
   const views = new ViewSnapshotStore();
+  const store = new LocalDocumentStore(process.env.CHORALE_PLUGIN_STORE || defaultStorePath, views);
   await listenForPluginViews(views, store);
   const server = createServer(store, views);
   await server.connect(new StdioServerTransport());

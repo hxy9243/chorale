@@ -85,6 +85,7 @@ export const usePluginMcpBridge = ({
       documentId,
       title,
       revision,
+      abcSource,
       selection: selection ? {
         startMeasure: selection.startMeasure,
         endMeasure: selection.endMeasure,
@@ -120,7 +121,7 @@ export const usePluginMcpBridge = ({
         for (const command of commands || []) {
           const commandId = typeof command.id === 'string' ? command.id : '';
           if (!commandId || cancelled) continue;
-          let accepted = command.documentId === documentId && command.expectedRevision === revision;
+          let accepted = command.documentId === documentId && (command.expectedRevision === revision || command.expectedRevision === revision + 1);
           if (accepted && command.kind === 'annotations' && Array.isArray(command.annotations)) onApplyAnnotations(command.annotations as Annotation[]);
           else if (accepted && command.kind === 'replace-score' && typeof command.replacementAbc === 'string') accepted = onReplaceScore(command.replacementAbc).status === 'valid';
           else accepted = false;
