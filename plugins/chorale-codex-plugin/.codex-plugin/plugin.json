@@ -1,0 +1,26 @@
+{
+  "name": "chorale-codex-plugin",
+  "version": "0.1.0+codex.20260908060753",
+  "description": "Score-focused music workspace and MCP tools for Codex.",
+  "author": {
+    "name": "Chorale"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Chorale Codex Plugin",
+    "shortDescription": "Read, annotate, and review music scores with Codex.",
+    "longDescription": "A local-first Chorale score workspace with durable musical context and MCP tools.",
+    "developerName": "Chorale",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Open my Chorale score and explain measures 5 through 8.",
+      "Add an annotation to the selected passage.",
+      "Create a short piano score in Chorale."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

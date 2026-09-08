@@ -77,6 +77,12 @@ describe('workspace layout CSS contract', () => {
     );
   });
 
+  it('keeps the playback controls in a named grid at narrow widths', () => {
+    expect(themeCss).toMatch(
+      /@media\s*\(max-width:\s*44rem\)\s*{[\s\S]*?\.central-workspace\s*>\s*\.playback-dock-container\s+\.player-controls-bar\s*{[^}]*grid-template-areas:[^}]*transport\s+progress\s+status[^}]*volume\s+volume/s,
+    );
+  });
+
   it('renders score creation actions as vertically stacked text rows with underlines across full width', () => {
     // Both theme and controls enforce flex column (vertically stacked)
     expect(controlsCss).toMatch(

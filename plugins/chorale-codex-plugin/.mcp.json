@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "chorale": {
+      "command": "node",
+      "args": ["./server.mjs"],
+      "cwd": "."
+    }
+  }
+}
