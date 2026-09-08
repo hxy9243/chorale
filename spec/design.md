@@ -35,6 +35,7 @@ test_files:
   - src/utils/__tests__/fileHistory.test.ts
   - src/components/__tests__/passageAnalysisJourney.integration.test.tsx
 related_specs:
+  - spec/codex-plugin.md
   - spec/workspace-layout.md
   - spec/score-surface.md
   - spec/interaction-model.md
@@ -69,6 +70,7 @@ This directory splits the design into category-specific specs instead of keeping
 - [file-workspace-architecture.md](./file-workspace-architecture.md): runtime architecture, debounced persistence boundaries, editing history timeline, shared music & ABC metadata libraries, contracts, and invariants
 - [score-drafting.md](./score-drafting.md): blank piano-score creation, fail-closed measure mutations, and reviewable score-change proposals
 - [score-export.md](./score-export.md): MusicXML export conversion, desktop save flow, browser fallback, and file-rail context menu
+- [codex-plugin.md](./codex-plugin.md): local Codex plugin prototype, authoritative document-service boundary, MCP contracts, and staged extraction plan
 
 ## Supporting specs
 

@@ -31,6 +31,7 @@ import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { useWorkspacePanes } from './hooks/useWorkspacePanes';
 import { useScorePreview } from './hooks/useScorePreview';
 import { useScoreBuild, type BuildStatus } from './hooks/useScoreBuild';
+import { isPluginView, usePluginMcpBridge } from './hooks/usePluginMcpBridge';
 import type { ScoreAnchor } from './types/document';
 import { parseAbcHeaderMetadata, type ScoreMetadata } from './utils/abcMetadata';
 import type { PlaybackPosition } from './utils/repeatPlayback';
@@ -90,6 +91,7 @@ export const App: React.FC = () => {
   } = useDocumentStore();
 
   const interfaceZoom = useInterfaceZoom();
+  const pluginView = useMemo(() => isPluginView(), []);
 
   const {
     zoom,
@@ -248,15 +250,29 @@ export const App: React.FC = () => {
   }, [exportStatus.status, dismissExportStatus]);
 
   const chatColumnWidth = FILE_RAIL_BAR_WIDTH + (chatOpen ? fittedPanelLayout.chatPanelWidth : 0);
+  const effectiveChatColumnWidth = pluginView ? 0 : chatColumnWidth;
+
+  usePluginMcpBridge({
+    enabled: true,
+    documentId: activeDocument?.id,
+    title: scoreTitle,
+    revision: abcRevision,
+    abcSource: displayAbc,
+    selection: activeAnchor,
+    onApplyAnnotations: handleAddAnnotations,
+    onReplaceScore: handleWholeScoreReplacement,
+  });
 
   return (
-    <div className="chorale-app-shell">
+    <div className={`chorale-app-shell ${pluginView ? 'chorale-plugin-view' : ''}`}>
       <div
-        className={`workspace-body ${chatOpen ? 'chat-open' : ''} ${railCollapsed ? 'rail-collapsed' : ''} ${fittedPanelLayout.overlaySidePanels ? 'side-panels-overlay' : ''}`}
+        className={`workspace-body ${!pluginView && chatOpen ? 'chat-open' : ''} ${pluginView ? 'plugin-view' : ''} ${railCollapsed ? 'rail-collapsed' : ''} ${fittedPanelLayout.overlaySidePanels ? 'side-panels-overlay' : ''}`}
         style={{
-          gridTemplateColumns: `${fittedPanelLayout.fileRailWidth}px minmax(0, 1fr) ${chatColumnWidth}px`,
+          gridTemplateColumns: pluginView
+            ? `${fittedPanelLayout.fileRailWidth}px minmax(0, 1fr)`
+            : `${fittedPanelLayout.fileRailWidth}px minmax(0, 1fr) ${effectiveChatColumnWidth}px`,
           '--file-rail-width': `${fittedPanelLayout.fileRailWidth}px`,
-          '--chat-rail-width': `${chatColumnWidth}px`,
+          '--chat-rail-width': `${effectiveChatColumnWidth}px`,
         } as React.CSSProperties}
       >
         <FileRail
@@ -546,7 +562,7 @@ export const App: React.FC = () => {
           </main>
         </div>
 
-        <div id="current-sheet-agent" className="right-panel">
+        {!pluginView && <div id="current-sheet-agent" className="right-panel">
           <div id="chat-panel" className="chat-panel-stack">
             {chatOpen && (
               <button
@@ -585,7 +601,7 @@ export const App: React.FC = () => {
             chatOpen={chatOpen}
             onToggleChat={() => setChatOpen((open) => !open)}
           />
-        </div>
+        </div>}
       </div>
       <WorkspaceModals
         settingsOpen={settingsOpen}

@@ -42,6 +42,7 @@ describe('App Integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    window.history.replaceState({}, '', '/');
     storageAdapter.clearMemoryStore();
 
     vi.spyOn(xmlParser, 'extractMusicXml').mockResolvedValue(`<?xml version="1.0" encoding="UTF-8"?>
@@ -88,6 +89,18 @@ describe('App Integration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(screen.getByRole('dialog', { name: 'Settings' })).toBeDefined();
   }, 10000);
+
+  it('omits the standalone agent sidebar in plugin view', async () => {
+    window.history.replaceState({}, '', '/?plugin=1');
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sheet-svg')).toBeDefined();
+    }, { timeout: 4000 });
+
+    expect(document.querySelector('#current-sheet-agent')).toBeNull();
+    expect(document.querySelector('.workspace-body')?.classList.contains('chat-open')).toBe(false);
+  });
 
   it('persists files reordered through the rail contract', async () => {
     await storageAdapter.saveDocuments([
