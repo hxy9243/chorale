@@ -6,8 +6,11 @@ Welcome to **Chorale** (`hxy9243/chorale`). This document outlines engineering c
 
 ## 1. Project Overview & Vision
 
-> **MVP Promise:**  
-> Chorale lets a musician create or import a short score, ask grounded questions about it, request a musical change, hear the proposed result, and safely preserve the work.
+> **Plugin & Skill First Architecture:**  
+> Chorale is a score-focused music workspace, agent skill, and MCP server for AI coding agents (Codex, Claude Code, Antigravity). It provides deterministic score inspection, bounded measure reads, annotation proposals, safe musical mutations, and an interactive MCP Apps workspace view.
+>
+> **Note on Electron Implementation:**  
+> The original standalone desktop Electron application has been preserved intact on the `electron` branch (and archived at tag `v0.1-electron-archive`).
 
 ### Roadmap Stages (from [Issue #18](https://github.com/hxy9243/chorale/issues/18))
 - **Stage 1: Durable Foundation** — Multi-file session model, document store, autosave, revision history, and editing history ([#13](https://github.com/hxy9243/chorale/issues/13)).
@@ -17,7 +20,7 @@ Welcome to **Chorale** (`hxy9243/chorale`). This document outlines engineering c
 
 ### Explicit Non-Goals (Out of Scope for MVP)
 - Cloud accounts, synchronization, and multi-user collaboration.
-- Mobile-first score editing (Chorale is desktop-first Electron + Web).
+- Mobile-first score editing.
 - Full DAW or complex engraving suite functionality.
 - Unconstrained orchestral generation.
 
@@ -36,15 +39,11 @@ Welcome to **Chorale** (`hxy9243/chorale`). This document outlines engineering c
   # Creating a worktree
   git worktree add .agents/worktrees/<feature-name> -b <feature-branch>
 
-  # Linux Electron sandbox configuration (after installing node_modules)
-  sudo chown root .agents/worktrees/<feature-name>/node_modules/electron/dist/chrome-sandbox
-  sudo chmod 4755 .agents/worktrees/<feature-name>/node_modules/electron/dist/chrome-sandbox
-
   # Removing a worktree when finished
   git worktree remove .agents/worktrees/<feature-name>
   ```
 - **Rule:** Never create worktrees in the repository root (e.g. `worktrees/`). `.agents/` is gitignored.
-- **Linux Sandbox Requirement:** Whenever node_modules are installed in a new worktree on Linux, always configure the Electron SUID sandbox helper binary (`chrome-sandbox`) with `chown root` and `chmod 4755` so desktop Electron runs without sandbox aborts.
+- **Electron Branch Worktree:** The archived desktop Electron application lives in `.agents/worktrees/electron` on the `electron` branch. On Linux, node_modules in that worktree must configure the Electron SUID sandbox helper binary (`chrome-sandbox`) with `sudo chown root` and `sudo chmod 4755`.
 
 
 ### 2.3 Quality Gates & Verification

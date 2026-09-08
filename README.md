@@ -14,18 +14,20 @@ Chorale is a Proof of Concept (PoC) web application that imports MusicXML files 
 - **WebAudio Piano Synthesizer**: Audio player with Play/Pause/Stop, tempo percentage slider (50% to 180%), volume control, and active note cursor highlighting (`#e11d48`) on the SVG score during audio playback.
 - **ABC Code Editor**: View & edit ABC notation in real-time with instant score re-rendering and copy to clipboard button.
 - **Score Drafting**: Create a blank two-staff piano score, select measures, and make revision-tracked insert, replace, or delete edits.
-- **Desktop Music Tutor**: Ask grounded questions, review annotations, and preview agent-proposed measure or whole-score changes before applying them.
-- **Durable Tutor Conversations**: Inspect structured reasoning and tool progress, queue follow-up prompts while a run is busy, steer urgent corrections with `Ctrl/Cmd+Shift+Enter`, and review per-round token usage.
+- **Codex & Agent Skill + MCP**: Run Chorale as an MCP server with skills (`skills/chorale-score/SKILL.md`) for AI coding agents (Codex, Claude Code, Antigravity) to inspect scores, read measure ranges, propose edits, and queue annotations.
+- **Score Workspace MCP Apps UI**: Optional interactive score view embedded directly inside compatible agent hosts.
+- **Desktop Electron Archive**: The original standalone Electron desktop shell is preserved on branch `electron` (tag `v0.1-electron-archive`).
 
 ---
 
 ## 🛠 Tech Stack
 
-- **Framework**: React 19 + Vite + TypeScript
+- **MCP & Plugin**: `@modelcontextprotocol/sdk` + `zod`
 - **Notation & Audio**: `abcjs` + `@educandu/abc-tools`
+- **Framework**: React 19 + Vite + TypeScript
 - **Archive Unzipping**: `jszip`
-- **UI & Icons**: Custom CSS Glassmorphism + `lucide-react`
-- **Testing**: Vitest + `@testing-library/react` + `jsdom`
+- **UI & Icons**: Custom CSS Paper/Glassmorphism + `lucide-react`
+- **Testing**: Node Test Runner + Vitest + `@testing-library/react` + `jsdom`
 
 ---
 
@@ -36,68 +38,42 @@ Chorale is a Proof of Concept (PoC) web application that imports MusicXML files 
 npm install
 ```
 
-### Start Development Server
+### Run MCP Plugin Server
+```bash
+npm start
+# Launches the stdio MCP server exposing Chorale score tools and UI resource
+```
+
+### Start Web Workspace (Dev)
 ```bash
 npm run dev
 ```
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-The browser build supports score editing but intentionally disables AI provider setup.
-
-### Start the Electron desktop app
-
+### Run Verification & Tests
 ```bash
-npm run dev:electron
-```
-
-Electron is required for AI provider credentials, model discovery, OpenAI Codex login, and provider-backed chat.
-
-### Debug agent conversations
-
-Every desktop chat request writes one local `.jsonl` trace beneath Chorale's OS user-data directory. Open **Settings → Agent traces → Open agent trace folder** to locate the files. Each line is a timestamped event with a stable `schemaVersion`, `sequence`, and `requestId`.
-
-The trace covers:
-
-- `run-start`: the system prompt, Pi agent identity, selected provider/model, thinking level, profile modules, tool schemas, rebuilt history, current prompt, and immutable music context;
-- `provider-request` / `provider-response`: the exact payload sent on every model turn and response status metadata;
-- `agent-event`: complete messages plus tool arguments/results and profile-tool output (streaming text deltas are intentionally omitted because `message_end` and `run-end` contain the completed messages);
-- `run-end`: completion/error state, selected profiles, and the full final agent transcript.
-
-For example:
-
-```bash
-jq 'select(.event == "run-start") | .data | {agent, model, systemPrompt, currentPrompt}' <trace>.jsonl
-jq 'select(.event == "provider-request") | .data.payload' <trace>.jsonl
-jq 'select(.event == "run-end") | .data.messages' <trace>.jsonl
-```
-
-Trace files contain score and conversation content verbatim and are not encrypted. Stored provider credentials and sensitive response headers are redacted. Renderer conversation persistence remains separate from traces: IndexedDB stores the full conversation, while local storage provides a compact synchronous mirror. Neither store is a full model trace.
-
-### Run Unit Test Suite
-```bash
+# Run both MCP tests and unit tests
 npm test
+
+# Run MCP server tests only
+npm run test:mcp
+
+# Run unit tests only
+npm run test:unit
 ```
-
-### Check chat performance
-
-```bash
-npm run benchmark:chat
-```
-
-This builds the app and checks composer responsiveness against a large conversation fixture.
 
 ### Build for Production
 ```bash
 npm run build
 ```
 
-Launch the production build locally with:
-
+### Electron Desktop App
+The standalone Electron desktop shell is preserved on the `electron` branch:
 ```bash
-npm run start:electron
+git checkout electron
+npm install
+npm run dev:electron
 ```
-
-Installers, signing, publishing, and auto-update are not part of this development shell.
 
 ## Project Documentation
 
