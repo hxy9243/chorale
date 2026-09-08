@@ -1,12 +1,17 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
 import { createServer as createHttpServer } from 'node:http';
 import { homedir } from 'node:os';
-import { dirname, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { dirname, extname, join, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const DIST_DIR = resolve(__dirname, 'dist');
 
 const WORKSPACE_URI = 'ui://chorale/workspace-v1.html';
 const MAX_ABC_BYTES = 2_000_000;
@@ -97,33 +102,119 @@ export class LocalDocumentStore {
     return document;
   }
 
-  async addAnnotation({ documentId, expectedRevision, startMeasure, endMeasure, label, body }) {
+  async editScore({ documentId, expectedRevision, replacementAbc, summary = '' }) {
+    if (new TextEncoder().encode(replacementAbc).byteLength > MAX_ABC_BYTES) {
+      throw new PluginError('INVALID_SCORE', 'ABC source exceeds the 2 MB prototype limit.');
+    }
+    if (measureBodies(replacementAbc).length === 0) {
+      throw new PluginError('INVALID_SCORE', 'ABC source does not contain a written measure.');
+    }
     const state = await this.read();
-    const index = state.documents.findIndex((candidate) => candidate.id === documentId);
+    const index = state.documents.findIndex((doc) => doc.id === documentId);
+    if (index === -1) throw new PluginError('DOCUMENT_NOT_FOUND', `Score ${documentId} was not found.`);
+    const document = state.documents[index];
+    if (document.revision !== expectedRevision) {
+      throw new PluginError('REVISION_CONFLICT', `Score is at revision ${document.revision}, not ${expectedRevision}.`);
+    }
+    const now = new Date().toISOString();
+    document.abcSource = replacementAbc;
+    document.revision += 1;
+    document.updatedAt = now;
+    await this.write(state);
+    return { document, summary };
+  }
+
+  async addAnnotations({ documentId, expectedRevision, annotations }) {
+    const state = await this.read();
+    const index = state.documents.findIndex((doc) => doc.id === documentId);
     if (index === -1) throw new PluginError('DOCUMENT_NOT_FOUND', `Score ${documentId} was not found.`);
     const document = state.documents[index];
     if (document.revision !== expectedRevision) {
       throw new PluginError('REVISION_CONFLICT', `Score is at revision ${document.revision}, not ${expectedRevision}.`);
     }
     const measureCount = measureBodies(document.abcSource).length;
-    if (startMeasure < 1 || endMeasure < startMeasure || endMeasure > measureCount) {
-      throw new PluginError('INVALID_RANGE', `Choose measures within 1–${measureCount}.`);
-    }
     const now = new Date().toISOString();
-    const annotation = {
-      id: `annotation-${randomUUID()}`,
-      span: { startMeasure, endMeasure },
-      label: label.trim(),
-      body: body.trim(),
-      source: 'assistant',
-      createdAt: now,
-      updatedAt: now,
-    };
-    document.annotations.push(annotation);
+    const added = [];
+    for (const ann of annotations) {
+      const startMeasure = ann.startMeasure ?? ann.span?.startMeasure;
+      const endMeasure = ann.endMeasure ?? ann.span?.endMeasure;
+      if (!Number.isInteger(startMeasure) || !Number.isInteger(endMeasure) || startMeasure < 1 || endMeasure < startMeasure || endMeasure > measureCount) {
+        throw new PluginError('INVALID_RANGE', `Choose measures within 1–${measureCount}.`);
+      }
+      const item = {
+        id: `annotation-${randomUUID()}`,
+        span: { startMeasure, endMeasure },
+        label: (ann.label || '').trim(),
+        body: (ann.body || ann.text || '').trim(),
+        source: 'assistant',
+        createdAt: now,
+        updatedAt: now,
+      };
+      document.annotations.push(item);
+      added.push(item);
+    }
     document.revision += 1;
     document.updatedAt = now;
     await this.write(state);
-    return { document, annotation };
+    return { document, annotations: added };
+  }
+
+  async addAnnotation({ documentId, expectedRevision, startMeasure, endMeasure, label, body }) {
+    const { document, annotations } = await this.addAnnotations({
+      documentId,
+      expectedRevision,
+      annotations: [{ startMeasure, endMeasure, label, body }],
+    });
+    return { document, annotation: annotations[0] };
+  }
+
+  async editAnnotations({ documentId, expectedRevision, annotationId, updates }) {
+    const state = await this.read();
+    const index = state.documents.findIndex((doc) => doc.id === documentId);
+    if (index === -1) throw new PluginError('DOCUMENT_NOT_FOUND', `Score ${documentId} was not found.`);
+    const document = state.documents[index];
+    if (document.revision !== expectedRevision) {
+      throw new PluginError('REVISION_CONFLICT', `Score is at revision ${document.revision}, not ${expectedRevision}.`);
+    }
+    const target = document.annotations.find((a) => a.id === annotationId);
+    if (!target) throw new PluginError('ANNOTATION_NOT_FOUND', `Annotation ${annotationId} was not found.`);
+    const measureCount = measureBodies(document.abcSource).length;
+    if (updates.startMeasure !== undefined || updates.endMeasure !== undefined) {
+      const start = updates.startMeasure ?? target.span.startMeasure;
+      const end = updates.endMeasure ?? target.span.endMeasure;
+      if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < start || end > measureCount) {
+        throw new PluginError('INVALID_RANGE', `Choose measures within 1–${measureCount}.`);
+      }
+      target.span = { startMeasure: start, endMeasure: end };
+    }
+    if (updates.label !== undefined) target.label = updates.label.trim();
+    if (updates.body !== undefined) target.body = updates.body.trim();
+    if (updates.text !== undefined) target.body = updates.text.trim();
+    const now = new Date().toISOString();
+    target.updatedAt = now;
+    document.revision += 1;
+    document.updatedAt = now;
+    await this.write(state);
+    return { document, annotation: target };
+  }
+
+  async deleteAnnotations({ documentId, expectedRevision, annotationIds }) {
+    const state = await this.read();
+    const index = state.documents.findIndex((doc) => doc.id === documentId);
+    if (index === -1) throw new PluginError('DOCUMENT_NOT_FOUND', `Score ${documentId} was not found.`);
+    const document = state.documents[index];
+    if (document.revision !== expectedRevision) {
+      throw new PluginError('REVISION_CONFLICT', `Score is at revision ${document.revision}, not ${expectedRevision}.`);
+    }
+    const idSet = new Set(annotationIds);
+    const initialLen = document.annotations.length;
+    document.annotations = document.annotations.filter((a) => !idSet.has(a.id));
+    const deletedCount = initialLen - document.annotations.length;
+    const now = new Date().toISOString();
+    document.revision += 1;
+    document.updatedAt = now;
+    await this.write(state);
+    return { document, deletedCount };
   }
 }
 
@@ -143,10 +234,10 @@ export class ViewSnapshotStore {
       throw new PluginError('INVALID_VIEW', 'View IDs may contain only letters, numbers, dots, underscores, and hyphens.');
     }
     if (!snapshot || typeof snapshot !== 'object' || typeof snapshot.documentId !== 'string' || !snapshot.documentId) {
-      throw new PluginError('INVALID_VIEW', 'A view snapshot must identify its document.');
+      throw new PluginError('INVALID_VIEW', 'A valid view snapshot requires a document ID.');
     }
     if (!Number.isInteger(snapshot.revision) || snapshot.revision < 1) {
-      throw new PluginError('INVALID_VIEW', 'A view snapshot must include a positive revision.');
+      throw new PluginError('INVALID_VIEW', 'A valid view snapshot requires a positive integer revision.');
     }
     const selection = snapshot.selection;
     if (selection !== null && selection !== undefined) {
@@ -180,12 +271,32 @@ export class ViewSnapshotStore {
     return snapshot;
   }
 
+  get(viewId) {
+    return this.views.get(viewId);
+  }
+
+  findViewsForDocument(documentId) {
+    const matched = [];
+    for (const [viewId, snapshot] of this.views.entries()) {
+      if (snapshot.documentId === documentId) matched.push(viewId);
+    }
+    return matched;
+  }
+
   enqueue(viewId, command) {
     this.require(viewId);
     const queued = Object.freeze({ id: `command-${randomUUID()}`, ...command });
     this.commands.set(viewId, [...(this.commands.get(viewId) || []), queued]);
     this.commandAcks.set(queued.id, Promise.withResolvers());
     return queued;
+  }
+
+  notifyViews(documentId, command) {
+    const viewIds = this.findViewsForDocument(documentId);
+    for (const viewId of viewIds) {
+      const queued = Object.freeze({ id: `command-${randomUUID()}`, ...command });
+      this.commands.set(viewId, [...(this.commands.get(viewId) || []), queued]);
+    }
   }
 
   async waitForAcknowledgement(commandId, timeoutMs = 8_000) {
@@ -206,9 +317,20 @@ export class ViewSnapshotStore {
   }
 }
 
-const allowedOrigins = new Set(['http://127.0.0.1:5173', 'http://localhost:5173']);
+const MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+};
 
-export const createViewBridge = (views = new ViewSnapshotStore()) => createHttpServer((request, response) => {
+const allowedOrigins = new Set(['http://127.0.0.1:5173', 'http://localhost:5173', 'http://127.0.0.1:43171', 'http://localhost:43171']);
+
+export const createViewBridge = (views = new ViewSnapshotStore(), store = new LocalDocumentStore()) => createHttpServer(async (request, response) => {
   const origin = request.headers.origin;
   if (origin && !allowedOrigins.has(origin)) {
     response.writeHead(403).end('Origin is not allowed.');
@@ -222,49 +344,105 @@ export const createViewBridge = (views = new ViewSnapshotStore()) => createHttpS
     response.writeHead(204).end();
     return;
   }
+
+  // REST API: Scores
+  if (request.method === 'GET' && request.url === '/v1/scores') {
+    try {
+      const documents = await store.list();
+      response.setHeader('content-type', 'application/json');
+      response.writeHead(200).end(JSON.stringify({ scores: documents.map(scoreSummary) }));
+    } catch (error) {
+      response.writeHead(500).end(JSON.stringify({ errorCode: 'PERSISTENCE_FAILED' }));
+    }
+    return;
+  }
+
+  const scoreMatch = request.url?.match(/^\/v1\/scores\/([A-Za-z0-9._-]{1,120})$/);
+  if (request.method === 'GET' && scoreMatch) {
+    try {
+      const document = await store.require(scoreMatch[1]);
+      response.setHeader('content-type', 'application/json');
+      response.writeHead(200).end(JSON.stringify(document));
+    } catch (error) {
+      response.writeHead(404).end(JSON.stringify({ errorCode: error.code || 'DOCUMENT_NOT_FOUND' }));
+    }
+    return;
+  }
+
+  // REST API: View bridge
   const match = request.url?.match(/^\/v1\/views\/([A-Za-z0-9._-]{1,120})(?:\/commands(?:\/(command-[A-Za-z0-9-]+)\/ack)?)?$/);
-  if (!match) {
-    response.writeHead(404).end('Not found.');
-    return;
-  }
-  const [, viewId, commandId] = match;
-  if (request.method === 'GET' && request.url?.endsWith('/commands')) {
-    try {
-      const body = JSON.stringify({ commands: views.pending(viewId) });
-      response.setHeader('content-type', 'application/json');
-      response.writeHead(200).end(body);
-    } catch (error) {
-      if (!response.headersSent) response.writeHead(404).end(JSON.stringify({ errorCode: error.code || 'VIEW_NOT_CONNECTED' }));
+  if (match) {
+    const [, viewId, commandId] = match;
+    if (request.method === 'GET' && request.url?.endsWith('/commands')) {
+      try {
+        const body = JSON.stringify({ commands: views.pending(viewId) });
+        response.setHeader('content-type', 'application/json');
+        response.writeHead(200).end(body);
+      } catch (error) {
+        if (!response.headersSent) response.writeHead(404).end(JSON.stringify({ errorCode: error.code || 'VIEW_NOT_CONNECTED' }));
+      }
+      return;
     }
-    return;
-  }
-  if (request.method === 'POST' && commandId) {
-    request.resume(); request.on('end', () => { try { views.acknowledge(viewId, commandId); response.writeHead(204).end(); } catch (error) { response.writeHead(404).end(JSON.stringify({ errorCode: error.code || 'COMMAND_NOT_FOUND' })); } });
-    return;
-  }
-  if (request.method !== 'PUT') { response.writeHead(404).end('Not found.'); return; }
-  let size = 0;
-  const chunks = [];
-  request.on('data', (chunk) => {
-    size += chunk.length;
-    if (size > MAX_VIEW_SNAPSHOT_BYTES) request.destroy();
-    else chunks.push(chunk);
-  });
-  request.on('end', () => {
-    try {
-      if (size > MAX_VIEW_SNAPSHOT_BYTES) throw new PluginError('INVALID_VIEW', 'View snapshot exceeds the 2 MB limit.');
-      const snapshot = views.update(viewId, JSON.parse(Buffer.concat(chunks).toString('utf8')));
-      response.setHeader('content-type', 'application/json');
-      response.writeHead(200).end(JSON.stringify({ viewId, revision: snapshot.revision }));
-    } catch (error) {
-      response.setHeader('content-type', 'application/json');
-      response.writeHead(400).end(JSON.stringify({ errorCode: error instanceof PluginError ? error.code : 'INVALID_VIEW' }));
+    if (request.method === 'POST' && commandId) {
+      request.resume();
+      request.on('end', () => {
+        try {
+          views.acknowledge(viewId, commandId);
+          response.writeHead(204).end();
+        } catch (error) {
+          response.writeHead(404).end(JSON.stringify({ errorCode: error.code || 'COMMAND_NOT_FOUND' }));
+        }
+      });
+      return;
     }
-  });
+    if (request.method === 'PUT') {
+      let size = 0;
+      const chunks = [];
+      request.on('data', (chunk) => {
+        size += chunk.length;
+        if (size > MAX_VIEW_SNAPSHOT_BYTES) request.destroy();
+        else chunks.push(chunk);
+      });
+      request.on('end', () => {
+        try {
+          if (size > MAX_VIEW_SNAPSHOT_BYTES) throw new PluginError('INVALID_VIEW', 'View snapshot exceeds the 2 MB limit.');
+          const snapshot = views.update(viewId, JSON.parse(Buffer.concat(chunks).toString('utf8')));
+          response.setHeader('content-type', 'application/json');
+          response.writeHead(200).end(JSON.stringify({ viewId, revision: snapshot.revision }));
+        } catch (error) {
+          response.setHeader('content-type', 'application/json');
+          response.writeHead(400).end(JSON.stringify({ errorCode: error instanceof PluginError ? error.code : 'INVALID_VIEW' }));
+        }
+      });
+      return;
+    }
+  }
+
+  // Static web server fallback (serving dist/ if present)
+  if (request.method === 'GET') {
+    const parsedPath = request.url?.split('?')[0] || '/';
+    const candidatePath = parsedPath === '/' ? join(DIST_DIR, 'index.html') : join(DIST_DIR, parsedPath.replace(/^\//, ''));
+    if (existsSync(candidatePath)) {
+      try {
+        const fileStat = await stat(candidatePath);
+        if (fileStat.isFile()) {
+          const content = await readFile(candidatePath);
+          const ext = extname(candidatePath);
+          response.setHeader('content-type', MIME_TYPES[ext] || 'application/octet-stream');
+          response.writeHead(200).end(content);
+          return;
+        }
+      } catch {
+        // Fall through to 404
+      }
+    }
+  }
+
+  response.writeHead(404).end('Not found.');
 });
 
-export const listenForPluginViews = (views, port = Number(process.env.CHORALE_PLUGIN_BRIDGE_PORT || DEFAULT_BRIDGE_PORT)) => new Promise((resolveListen, rejectListen) => {
-  const bridge = createViewBridge(views);
+export const listenForPluginViews = (views, store, port = Number(process.env.CHORALE_PLUGIN_BRIDGE_PORT || DEFAULT_BRIDGE_PORT)) => new Promise((resolveListen, rejectListen) => {
+  const bridge = createViewBridge(views, store);
   bridge.once('error', rejectListen);
   bridge.listen(port, '127.0.0.1', () => {
     bridge.off('error', rejectListen);
@@ -287,83 +465,266 @@ const workspaceHtml = `<!doctype html><html><body style="margin:0;background:#f6
 
 export const createServer = (store = new LocalDocumentStore(), views = new ViewSnapshotStore()) => {
   const server = new McpServer({ name: 'Chorale', version: '0.1.0' });
+
   server.registerResource('chorale-workspace', WORKSPACE_URI, {}, async () => ({
     contents: [{ uri: WORKSPACE_URI, mimeType: 'text/html;profile=mcp-app', text: workspaceHtml, _meta: { ui: { prefersBorder: false } } }],
   }));
 
+  // Tool 1: create_score
   server.registerTool('create_score', {
-    title: 'Create Chorale score', description: 'Create a durable local score from valid ABC source.',
-    inputSchema: { title: z.string().max(160), abcSource: z.string().min(1).max(MAX_ABC_BYTES) },
-  }, async (input) => { try { const document = await store.create(input); return result(scoreSummary(document), `Created ${document.title}.`); } catch (error) { return failure(error); } });
-
-  server.registerTool('list_scores', {
-    title: 'List Chorale scores', description: 'List locally saved Chorale scores without opening the score UI.',
-  }, async () => { try { const documents = await store.list(); return result({ scores: documents.map(scoreSummary) }, `${documents.length} score(s) available.`); } catch (error) { return failure(error); } });
-
-  server.registerTool('get_score_summary', {
-    title: 'Get score summary', description: 'Read the current revision and summary for a score.', inputSchema: { documentId: z.string().min(1) },
-  }, async ({ documentId }) => { try { const document = await store.require(documentId); return result(scoreSummary(document), `${document.title}, revision ${document.revision}.`); } catch (error) { return failure(error); } });
-
-  server.registerTool('read_measure_range', {
-    title: 'Read written measures', description: 'Read an exact inclusive range of written measures from a saved score or a connected plugin view.',
-    inputSchema: { documentId: z.string().min(1).optional(), startMeasure: z.number().int().min(1).optional(), endMeasure: z.number().int().min(1).optional(), viewId: z.string().min(1).optional() },
-  }, async ({ documentId, startMeasure, endMeasure, viewId }) => { try {
-    if (viewId) {
-      const snapshot = views.require(viewId);
-      const range = startMeasure && endMeasure ? { startMeasure, endMeasure } : snapshot.selection;
-      if (!range) throw new PluginError('INVALID_RANGE', 'Select written measures in the Chorale page before reading the current view.');
-      if (range.startMeasure !== snapshot.selection?.startMeasure || range.endMeasure !== snapshot.selection?.endMeasure || !snapshot.selectedAbc) {
-        throw new PluginError('INVALID_RANGE', 'This prototype can read the current captured selection only; select the requested range in Chorale first.');
-      }
-      return result({ documentId: snapshot.documentId, title: snapshot.title, revision: snapshot.revision, viewId, range, abcSource: snapshot.selectedAbc }, `Read the captured measures ${range.startMeasure}–${range.endMeasure} of ${snapshot.title}.`);
+    title: 'Create Chorale score',
+    description: 'Create a durable local score from valid ABC source notation.',
+    inputSchema: {
+      title: z.string().max(160).describe('Title of the score'),
+      abcSource: z.string().min(1).max(MAX_ABC_BYTES).describe('Complete, valid ABC music source'),
+    },
+  }, async (input) => {
+    try {
+      const document = await store.create(input);
+      return result(scoreSummary(document), `Created score "${document.title}" (revision 1, ${document.id}).`);
+    } catch (error) {
+      return failure(error);
     }
-    if (!documentId || !startMeasure || !endMeasure) throw new PluginError('INVALID_RANGE', 'Provide a document and inclusive measure range, or a connected view ID.');
-    const document = await store.require(documentId); const measures = measureBodies(document.abcSource); if (endMeasure < startMeasure || endMeasure > measures.length) throw new PluginError('INVALID_RANGE', `Choose measures within 1–${measures.length}.`); const source = measures.slice(startMeasure - 1, endMeasure); return result({ ...scoreSummary(document), range: { startMeasure, endMeasure }, measures: source }, `Read measures ${startMeasure}–${endMeasure} of ${document.title}.`);
-  } catch (error) { return failure(error); } });
+  });
 
-  server.registerTool('get_selection', {
-    title: 'Get selected written measures', description: 'Read the immutable current written-measure selection from a particular connected Chorale plugin view.',
-    inputSchema: { viewId: z.string().min(1).default('plugin-main') },
-  }, async ({ viewId }) => { try {
-    const snapshot = views.require(viewId);
-    if (!snapshot.selection) throw new PluginError('INVALID_RANGE', 'No written measures are selected in this Chorale view.');
-    return result({ documentId: snapshot.documentId, title: snapshot.title, revision: snapshot.revision, viewId, selection: snapshot.selection, abcSource: snapshot.selectedAbc }, `Selected measures ${snapshot.selection.startMeasure}–${snapshot.selection.endMeasure} of ${snapshot.title}.`);
-  } catch (error) { return failure(error); } });
+  // Tool 2: list_scores
+  server.registerTool('list_scores', {
+    title: 'List Chorale scores',
+    description: 'List locally saved Chorale scores with title, revision, measure count, and annotation count.',
+  }, async () => {
+    try {
+      const documents = await store.list();
+      return result({ scores: documents.map(scoreSummary) }, `${documents.length} score(s) available.`);
+    } catch (error) {
+      return failure(error);
+    }
+  });
 
-  server.registerTool('propose_annotations', {
-    title: 'Propose annotations', description: 'Write assistant-origin annotations through to the connected Chorale document after checking its revision.',
-    inputSchema: { viewId: z.string().min(1).default('plugin-main'), expectedRevision: z.number().int().positive(), annotations: z.array(z.object({}).passthrough()).min(1) },
-  }, async ({ viewId, expectedRevision, annotations }) => { try {
-    const view = views.require(viewId);
-    if (view.revision !== expectedRevision) throw new PluginError('REVISION_CONFLICT', `Chorale view is at revision ${view.revision}, not ${expectedRevision}.`);
-    const command = views.enqueue(viewId, { kind: 'annotations', documentId: view.documentId, expectedRevision, annotations });
-    const acknowledgement = await views.waitForAcknowledgement(command.id);
-    if (!acknowledgement.accepted) throw new PluginError('COMMAND_REJECTED', acknowledgement.timeout ? 'Chorale did not acknowledge the annotation command.' : 'Chorale rejected the annotation command.');
-    return result({ documentId: view.documentId, revision: view.revision, commandId: command.id }, `Queued ${annotations.length} annotation(s) for ${view.title}.`);
-  } catch (error) { return failure(error); } });
+  // Tool 3: get_score_summary
+  server.registerTool('get_score_summary', {
+    title: 'Get score summary',
+    description: 'Read the current revision, title, measure count, and annotations summary for a score.',
+    inputSchema: {
+      documentId: z.string().min(1).describe('The unique score document ID'),
+    },
+  }, async ({ documentId }) => {
+    try {
+      const document = await store.require(documentId);
+      return result(scoreSummary(document), `Score "${document.title}", revision ${document.revision}, ${document.annotations.length} annotation(s).`);
+    } catch (error) {
+      return failure(error);
+    }
+  });
 
-  server.registerTool('propose_score_edit', {
-    title: 'Propose score edit', description: 'Write a complete ABC replacement through to the connected Chorale document after checking its revision.',
-    inputSchema: { viewId: z.string().min(1).default('plugin-main'), expectedRevision: z.number().int().positive(), replacementAbc: z.string().min(1).max(MAX_ABC_BYTES), summary: z.string().min(1).max(500) },
-  }, async ({ viewId, expectedRevision, replacementAbc, summary }) => { try {
-    const view = views.require(viewId);
-    if (view.revision !== expectedRevision) throw new PluginError('REVISION_CONFLICT', `Chorale view is at revision ${view.revision}, not ${expectedRevision}.`);
-    const command = views.enqueue(viewId, { kind: 'replace-score', documentId: view.documentId, expectedRevision, replacementAbc, summary });
-    const acknowledgement = await views.waitForAcknowledgement(command.id);
-    if (!acknowledgement.accepted) throw new PluginError('COMMAND_REJECTED', acknowledgement.timeout ? 'Chorale did not acknowledge the score edit.' : 'Chorale rejected the score edit.');
-    return result({ documentId: view.documentId, revision: view.revision, commandId: command.id }, `Queued score edit for ${view.title}.`);
-  } catch (error) { return failure(error); } });
+  // Tool 4: read_measure_range
+  server.registerTool('read_measure_range', {
+    title: 'Read written measures',
+    description: 'Read an exact inclusive range of written measures from a score or connected view.',
+    inputSchema: {
+      documentId: z.string().min(1).optional().describe('Score ID (optional if viewId is provided)'),
+      startMeasure: z.number().int().min(1).describe('Starting 1-indexed written measure number (inclusive)'),
+      endMeasure: z.number().int().min(1).describe('Ending 1-indexed written measure number (inclusive)'),
+      viewId: z.string().min(1).optional().describe('Optional connected view ID (e.g. "plugin-main")'),
+    },
+  }, async ({ documentId, startMeasure, endMeasure, viewId }) => {
+    try {
+      if (viewId) {
+        const snapshot = views.require(viewId);
+        const range = { startMeasure, endMeasure };
+        if (range.startMeasure !== snapshot.selection?.startMeasure || range.endMeasure !== snapshot.selection?.endMeasure || !snapshot.selectedAbc) {
+          throw new PluginError('INVALID_RANGE', 'The connected view does not currently have measures ' + startMeasure + '–' + endMeasure + ' selected.');
+        }
+        return result({
+          documentId: snapshot.documentId,
+          title: snapshot.title,
+          revision: snapshot.revision,
+          viewId,
+          range,
+          abcSource: snapshot.selectedAbc,
+        }, `Read captured measures ${startMeasure}–${endMeasure} of ${snapshot.title}.`);
+      }
+      if (!documentId) throw new PluginError('INVALID_RANGE', 'Provide documentId and inclusive measure range, or viewId.');
+      const document = await store.require(documentId);
+      const measures = measureBodies(document.abcSource);
+      if (endMeasure < startMeasure || endMeasure > measures.length) {
+        throw new PluginError('INVALID_RANGE', `Choose measures within 1–${measures.length}.`);
+      }
+      const source = measures.slice(startMeasure - 1, endMeasure);
+      return result({
+        ...scoreSummary(document),
+        range: { startMeasure, endMeasure },
+        measures: source,
+      }, `Read measures ${startMeasure}–${endMeasure} of "${document.title}".`);
+    } catch (error) {
+      return failure(error);
+    }
+  });
 
+  // Tool 5: read_measure_selection
+  server.registerTool('read_measure_selection', {
+    title: 'Read selected measures',
+    description: 'Read the currently selected written-measure range and ABC excerpt from a connected Chorale score view.',
+    inputSchema: {
+      viewId: z.string().min(1).default('plugin-main').describe('Connected view ID (default: "plugin-main")'),
+    },
+  }, async ({ viewId }) => {
+    try {
+      const snapshot = views.require(viewId);
+      if (!snapshot.selection) {
+        throw new PluginError('INVALID_RANGE', 'No written measures are currently selected in this view.');
+      }
+      return result({
+        documentId: snapshot.documentId,
+        title: snapshot.title,
+        revision: snapshot.revision,
+        viewId,
+        selection: snapshot.selection,
+        abcSource: snapshot.selectedAbc,
+      }, `Selected measures ${snapshot.selection.startMeasure}–${snapshot.selection.endMeasure} of "${snapshot.title}".`);
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  // Tool 6: edit_score
+  server.registerTool('edit_score', {
+    title: 'Edit score',
+    description: 'Authoritatively replace and update the ABC source of a score. Directly mutates the server store and synchronizes with any active view.',
+    inputSchema: {
+      documentId: z.string().min(1).describe('The unique score document ID'),
+      expectedRevision: z.number().int().positive().describe('Expected current revision of the score for concurrency control'),
+      replacementAbc: z.string().min(1).max(MAX_ABC_BYTES).describe('New ABC source notation for the complete score'),
+      summary: z.string().min(1).max(500).describe('Brief explanation of what musical changes were made'),
+      viewId: z.string().min(1).optional().describe('Optional connected view ID to notify'),
+    },
+  }, async ({ documentId, expectedRevision, replacementAbc, summary, viewId }) => {
+    try {
+      const { document } = await store.editScore({ documentId, expectedRevision, replacementAbc, summary });
+      // Notify active views if connected
+      views.notifyViews(documentId, { kind: 'replace-score', documentId, expectedRevision: document.revision, replacementAbc, summary });
+      return result({
+        ...scoreSummary(document),
+        summary,
+      }, `Updated score "${document.title}" to revision ${document.revision}: ${summary}`);
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  // Tool 7: add_annotations
+  server.registerTool('add_annotations', {
+    title: 'Add annotations',
+    description: 'Add one or more musical annotations to specific measure ranges in the score.',
+    inputSchema: {
+      documentId: z.string().min(1).describe('The unique score document ID'),
+      expectedRevision: z.number().int().positive().describe('Expected current revision of the score'),
+      annotations: z.array(z.object({
+        startMeasure: z.number().int().min(1).describe('Start measure (1-indexed, inclusive)'),
+        endMeasure: z.number().int().min(1).describe('End measure (1-indexed, inclusive)'),
+        label: z.string().max(100).describe('Short label or title for the annotation'),
+        body: z.string().max(2000).describe('Detailed note, analysis, or explanation'),
+      })).min(1).describe('List of annotations to add'),
+    },
+  }, async ({ documentId, expectedRevision, annotations }) => {
+    try {
+      const { document, annotations: added } = await store.addAnnotations({ documentId, expectedRevision, annotations });
+      views.notifyViews(documentId, { kind: 'annotations', documentId, expectedRevision: document.revision, annotations: added });
+      return result({
+        ...scoreSummary(document),
+        addedAnnotations: added,
+      }, `Added ${added.length} annotation(s) to "${document.title}" (now revision ${document.revision}).`);
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  // Tool 8: edit_annotations
+  server.registerTool('edit_annotations', {
+    title: 'Edit annotation',
+    description: 'Update the label, text, or measure range of an existing annotation.',
+    inputSchema: {
+      documentId: z.string().min(1).describe('The unique score document ID'),
+      expectedRevision: z.number().int().positive().describe('Expected current revision of the score'),
+      annotationId: z.string().min(1).describe('The unique annotation ID to edit'),
+      updates: z.object({
+        startMeasure: z.number().int().min(1).optional(),
+        endMeasure: z.number().int().min(1).optional(),
+        label: z.string().max(100).optional(),
+        body: z.string().max(2000).optional(),
+      }).describe('Fields to update on the annotation'),
+    },
+  }, async ({ documentId, expectedRevision, annotationId, updates }) => {
+    try {
+      const { document, annotation } = await store.editAnnotations({ documentId, expectedRevision, annotationId, updates });
+      views.notifyViews(documentId, { kind: 'update-annotation', documentId, expectedRevision: document.revision, annotation });
+      return result({
+        ...scoreSummary(document),
+        updatedAnnotation: annotation,
+      }, `Updated annotation "${annotation.label || annotation.id}" on "${document.title}".`);
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  // Tool 9: delete_annotations
+  server.registerTool('delete_annotations', {
+    title: 'Delete annotations',
+    description: 'Remove one or more annotations from a score document by their IDs.',
+    inputSchema: {
+      documentId: z.string().min(1).describe('The unique score document ID'),
+      expectedRevision: z.number().int().positive().describe('Expected current revision of the score'),
+      annotationIds: z.array(z.string().min(1)).min(1).describe('List of annotation IDs to delete'),
+    },
+  }, async ({ documentId, expectedRevision, annotationIds }) => {
+    try {
+      const { document, deletedCount } = await store.deleteAnnotations({ documentId, expectedRevision, annotationIds });
+      views.notifyViews(documentId, { kind: 'delete-annotations', documentId, expectedRevision: document.revision, annotationIds });
+      return result({
+        ...scoreSummary(document),
+        deletedCount,
+      }, `Deleted ${deletedCount} annotation(s) from "${document.title}".`);
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
+  // Tool 10: render_score_workspace
   server.registerTool('render_score_workspace', {
-    title: 'Open Chorale workspace', description: 'Render the selected score in an optional MCP Apps workspace view.', inputSchema: { documentId: z.string().min(1) }, outputSchema: { documentId: z.string(), title: z.string(), revision: z.number(), measureCount: z.number(), annotationCount: z.number(), updatedAt: z.string() },
-    _meta: { ui: { resourceUri: WORKSPACE_URI }, 'openai/toolInvocation/invoking': 'Opening score…', 'openai/toolInvocation/invoked': 'Score opened.' },
-  }, async ({ documentId }) => { try { const document = await store.require(documentId); const summary = scoreSummary(document); return result(summary, `Opening ${document.title}.`); } catch (error) { return failure(error); } });
+    title: 'Open Chorale workspace',
+    description: 'Render the selected score in an optional interactive MCP Apps workspace view.',
+    inputSchema: {
+      documentId: z.string().min(1).describe('The unique score document ID to render'),
+    },
+    outputSchema: {
+      documentId: z.string(),
+      title: z.string(),
+      revision: z.number(),
+      measureCount: z.number(),
+      annotationCount: z.number(),
+      updatedAt: z.string(),
+    },
+    _meta: {
+      ui: { resourceUri: WORKSPACE_URI },
+      'openai/toolInvocation/invoking': 'Opening score…',
+      'openai/toolInvocation/invoked': 'Score opened.',
+    },
+  }, async ({ documentId }) => {
+    try {
+      const document = await store.require(documentId);
+      const summary = scoreSummary(document);
+      return result(summary, `Opening "${document.title}".`);
+    } catch (error) {
+      return failure(error);
+    }
+  });
+
   return server;
 };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const store = new LocalDocumentStore();
   const views = new ViewSnapshotStore();
-  await listenForPluginViews(views);
-  const server = createServer(new LocalDocumentStore(), views);
+  await listenForPluginViews(views, store);
+  const server = createServer(store, views);
   await server.connect(new StdioServerTransport());
 }

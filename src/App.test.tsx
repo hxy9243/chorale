@@ -1,9 +1,7 @@
-import { act, render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import abcjs from 'abcjs';
 import App, {
-  CHAT_OPEN_KEY,
-  CHAT_WIDTH_KEY,
   EDITOR_WIDTH_KEY,
   FILE_RAIL_WIDTH_KEY,
   FILE_RAIL_COLLAPSED_KEY,
@@ -84,10 +82,6 @@ describe('App Integration', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
     fireEvent.click(screen.getByRole('button', { name: 'Close ABC source pane' }));
     expect(screen.queryByPlaceholderText(/Parsed ABC code will appear here/)).toBeNull();
-
-
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
-    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeDefined();
   }, 10000);
 
   it('omits the standalone agent sidebar in plugin view', async () => {
@@ -99,7 +93,6 @@ describe('App Integration', () => {
     }, { timeout: 4000 });
 
     expect(document.querySelector('#current-sheet-agent')).toBeNull();
-    expect(document.querySelector('.workspace-body')?.classList.contains('chat-open')).toBe(false);
   });
 
   it('persists files reordered through the rail contract', async () => {
@@ -291,32 +284,6 @@ describe('App Integration', () => {
     expect(localStorage.getItem('chorale.workspace.activeFileId')).toBeNull();
   });
 
-  it('keeps a persistent control for reopening chat after it is closed', async () => {
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('sheet-svg')).toBeDefined();
-    }, { timeout: 3000 });
-
-    const renderOptions = vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[2] as any;
-    act(() => {
-      renderOptions.clickListener(
-        { startChar: 20 },
-        0,
-        'abcjs-note abcjs-mm0',
-        { measure: 0 },
-      );
-    });
-    expect(screen.getByText('m. 1')).toBeDefined();
-
-    fireEvent.click(screen.getByTitle('Close assistant'));
-    expect(screen.queryByLabelText('Current sheet assistant')).toBeNull();
-    expect(screen.getByText('m. 1')).toBeDefined();
-
-    fireEvent.click(screen.getByRole('tab', { name: 'Chat' }));
-    expect(screen.getByLabelText('Current sheet assistant')).toBeDefined();
-  });
-
   it('centers the playback dock across the workspace viewport', async () => {
     await storageAdapter.saveDocuments([{
       id: 'playback-pane-doc',
@@ -356,13 +323,11 @@ describe('App Integration', () => {
   it('restores every panel width and sheet zoom across a refresh', async () => {
     localStorage.setItem(FILE_RAIL_WIDTH_KEY, '360');
     localStorage.setItem(EDITOR_WIDTH_KEY, '520');
-    localStorage.setItem(CHAT_WIDTH_KEY, '320');
     localStorage.setItem(SHEET_ZOOM_KEY, '130');
     const { unmount } = render(<App />);
 
     const workspace = document.querySelector<HTMLElement>('.workspace-body')!;
     expect(workspace.style.gridTemplateColumns).toContain('360px');
-    expect(workspace.style.gridTemplateColumns).toContain('376px');
     expect(document.querySelector('.zoom-level-text')?.textContent).toBe('130%');
 
     fireEvent.click(screen.getByTitle('Zoom in'));
@@ -379,40 +344,6 @@ describe('App Integration', () => {
     expect(document.querySelector<HTMLElement>('.editor-workspace-card')?.style.width)
       .toBe('456px');
     expect(localStorage.getItem(EDITOR_WIDTH_KEY)).toBe('520');
-  });
-
-  it('restores the chat open state and width across refreshes and reopens', async () => {
-    localStorage.setItem('chorale.workspace.documents', JSON.stringify([{
-      id: 'chat-state-doc',
-      name: 'Chat state.abc',
-      sourceType: 'abc',
-      abcSource: 'X:1\nT:Chat state\nK:C\nCDEF|',
-      revision: 1,
-      versions: [],
-      scoreInfo: { title: 'Chat state' },
-    }]));
-    localStorage.setItem('chorale.workspace.activeFileId', 'chat-state-doc');
-    localStorage.setItem(CHAT_OPEN_KEY, 'false');
-    localStorage.setItem(CHAT_WIDTH_KEY, '320');
-    const { unmount } = render(<App />);
-
-    expect(screen.queryByLabelText('Current sheet assistant')).toBeNull();
-    fireEvent.click(screen.getByRole('tab', { name: 'Chat' }));
-    expect(screen.getByLabelText('Current sheet assistant')).toBeDefined();
-    const workspace = document.querySelector<HTMLElement>('.workspace-body')!;
-    expect(workspace.style.gridTemplateColumns).toContain('376px');
-    await waitFor(() => expect(localStorage.getItem(CHAT_OPEN_KEY)).toBe('true'));
-
-    fireEvent.click(screen.getByTitle('Close assistant'));
-    await waitFor(() => expect(localStorage.getItem(CHAT_OPEN_KEY)).toBe('false'));
-    expect(localStorage.getItem(CHAT_WIDTH_KEY)).toBe('320');
-    unmount();
-
-    render(<App />);
-    expect(screen.queryByLabelText('Current sheet assistant')).toBeNull();
-    fireEvent.click(screen.getByRole('tab', { name: 'Chat' }));
-    expect(document.querySelector<HTMLElement>('.workspace-body')!.style.gridTemplateColumns)
-      .toContain('376px');
   });
 
   it('allows deleting files from the file rail', async () => {

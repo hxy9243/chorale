@@ -2,24 +2,19 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FileMusic, Plus, X } from 'lucide-react';
 import { Header } from './components/Header';
 import { FileRail } from './components/FileRail';
-import { RightRail } from './components/RightRail';
 import { ScoreCardHeader } from './components/ScoreCardHeader';
 import { ScoreMetadataHeader } from './components/ScoreMetadataHeader';
 import { SheetMusicView } from './components/SheetMusicView';
 import { AudioPlayer } from './components/AudioPlayer';
 import { AbcEditor } from './components/AbcEditor';
-import { AgentChatPanel } from './components/AgentChatPanel';
 import { WorkspacePaneMenu } from './components/workspace/WorkspacePaneMenu';
 import { WorkspaceModals } from './components/workspace/WorkspaceModals';
-import { useAIProviders } from './agent/useAIProviders';
 import { useInterfaceZoom } from './hooks/useInterfaceZoom';
 import {
   clampSheetZoom,
   useWorkspaceLayout,
   EDITOR_VISIBLE_KEY,
   EDITOR_WIDTH_KEY,
-  CHAT_OPEN_KEY,
-  CHAT_WIDTH_KEY,
   FILE_RAIL_WIDTH_KEY,
   FILE_RAIL_COLLAPSED_KEY,
   FILE_RAIL_ACTIVE_PANEL_KEY,
@@ -31,20 +26,17 @@ import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { useWorkspacePanes } from './hooks/useWorkspacePanes';
 import { useScorePreview } from './hooks/useScorePreview';
 import { useScoreBuild, type BuildStatus } from './hooks/useScoreBuild';
-import { isPluginView, usePluginMcpBridge } from './hooks/usePluginMcpBridge';
+import { usePluginMcpBridge } from './hooks/usePluginMcpBridge';
 import type { ScoreAnchor } from './types/document';
 import { parseAbcHeaderMetadata, type ScoreMetadata } from './utils/abcMetadata';
 import type { PlaybackPosition } from './utils/repeatPlayback';
 import { prepareAbcForPlayback } from './utils/abcAudio';
 import { extractScore } from './music/scoreSnapshot';
-import { FILE_RAIL_BAR_WIDTH } from './utils/workspaceSizing';
 import type { PlaybackSourceRanges } from './music/abcPresentation';
 
 export {
   EDITOR_VISIBLE_KEY,
   EDITOR_WIDTH_KEY,
-  CHAT_OPEN_KEY,
-  CHAT_WIDTH_KEY,
   FILE_RAIL_WIDTH_KEY,
   FILE_RAIL_COLLAPSED_KEY,
   FILE_RAIL_ACTIVE_PANEL_KEY,
@@ -91,13 +83,10 @@ export const App: React.FC = () => {
   } = useDocumentStore();
 
   const interfaceZoom = useInterfaceZoom();
-  const pluginView = useMemo(() => isPluginView(), []);
 
   const {
     zoom,
     setZoom,
-    chatOpen,
-    setChatOpen,
     editorVisible,
     setEditorVisible,
     fittedPanelLayout,
@@ -108,10 +97,8 @@ export const App: React.FC = () => {
     beginEditorResize,
     beginEditorResizeFromRight,
     beginRailResize,
-    beginChatResize,
   } = useWorkspaceLayout(interfaceZoom);
 
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [newScoreModalOpen, setNewScoreModalOpen] = useState(false);
   const [scoreNavigationAnchor, setScoreNavigationAnchor] = useState<ScoreAnchor | null>(null);
@@ -122,9 +109,6 @@ export const App: React.FC = () => {
     isPlaying: false,
   });
 
-  const aiProviders = useAIProviders();
-  const openSettings = useCallback(() => setSettingsOpen(true), []);
-  const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const openHistoryModal = useCallback(() => setHistoryModalOpen(true), []);
   const closeHistoryModal = useCallback(() => setHistoryModalOpen(false), []);
   const closeNewScoreModal = useCallback(() => setNewScoreModalOpen(false), []);
@@ -141,9 +125,6 @@ export const App: React.FC = () => {
   const {
     scorePreview,
     displayAbc,
-    handlePreviewScoreProposal,
-    handleApplyScoreProposal,
-    handleDiscardScoreProposal,
     handleExitScorePreview,
   } = useScorePreview({
     activeFileId,
@@ -249,9 +230,6 @@ export const App: React.FC = () => {
     return () => window.clearTimeout(timeout);
   }, [exportStatus.status, dismissExportStatus]);
 
-  const chatColumnWidth = FILE_RAIL_BAR_WIDTH + (chatOpen ? fittedPanelLayout.chatPanelWidth : 0);
-  const effectiveChatColumnWidth = pluginView ? 0 : chatColumnWidth;
-
   usePluginMcpBridge({
     enabled: true,
     documentId: activeDocument?.id,
@@ -264,15 +242,12 @@ export const App: React.FC = () => {
   });
 
   return (
-    <div className={`chorale-app-shell ${pluginView ? 'chorale-plugin-view' : ''}`}>
+    <div className="chorale-app-shell">
       <div
-        className={`workspace-body ${!pluginView && chatOpen ? 'chat-open' : ''} ${pluginView ? 'plugin-view' : ''} ${railCollapsed ? 'rail-collapsed' : ''} ${fittedPanelLayout.overlaySidePanels ? 'side-panels-overlay' : ''}`}
+        className={`workspace-body ${railCollapsed ? 'rail-collapsed' : ''} ${fittedPanelLayout.overlaySidePanels ? 'side-panels-overlay' : ''}`}
         style={{
-          gridTemplateColumns: pluginView
-            ? `${fittedPanelLayout.fileRailWidth}px minmax(0, 1fr)`
-            : `${fittedPanelLayout.fileRailWidth}px minmax(0, 1fr) ${effectiveChatColumnWidth}px`,
+          gridTemplateColumns: `${fittedPanelLayout.fileRailWidth}px minmax(0, 1fr)`,
           '--file-rail-width': `${fittedPanelLayout.fileRailWidth}px`,
-          '--chat-rail-width': `${effectiveChatColumnWidth}px`,
         } as React.CSSProperties}
       >
         <FileRail
@@ -294,7 +269,6 @@ export const App: React.FC = () => {
           onBeginResize={beginRailResize}
           editorVisible={editorVisible}
           onToggleEditor={() => setEditorVisible((visible) => !visible)}
-          onOpenSettings={openSettings}
           onOpenHistory={openHistoryModal}
           historyCount={editingHistory.length}
         />
@@ -562,53 +536,8 @@ export const App: React.FC = () => {
           </main>
         </div>
 
-        {!pluginView && <div id="current-sheet-agent" className="right-panel">
-          <div id="chat-panel" className="chat-panel-stack">
-            {chatOpen && (
-              <button
-                type="button"
-                className="chat-rail-resize-handle"
-                onPointerDown={beginChatResize}
-                title="Drag to resize chat sidebar width"
-                aria-label="Resize chat sidebar"
-              />
-            )}
-            <AgentChatPanel
-              open={chatOpen}
-              onClose={() => {
-                setChatOpen(false);
-                handleExitScorePreview();
-              }}
-              fileId={activeFileId}
-              abcCode={abcCode}
-              activeFileName={scoreTitle}
-              revision={abcRevision}
-              annotations={activeDocument?.annotations || []}
-              activeAnchor={activeAnchor}
-              onClearAnchor={() => handleSelectAnchor(null)}
-              totalMeasures={totalMeasures}
-              scoreMeter={scoreMeter}
-              ai={aiProviders}
-              onOpenSettings={openSettings}
-              onNavigateMeasure={handleNavigateMeasure}
-              onApplyAnnotations={handleAddAnnotations}
-              onPreviewScoreProposal={handlePreviewScoreProposal}
-              onApplyScoreProposal={handleApplyScoreProposal}
-              onDiscardScoreProposal={handleDiscardScoreProposal}
-            />
-          </div>
-          <RightRail
-            chatOpen={chatOpen}
-            onToggleChat={() => setChatOpen((open) => !open)}
-          />
-        </div>}
       </div>
       <WorkspaceModals
-        settingsOpen={settingsOpen}
-        onCloseSettings={closeSettings}
-        aiProviders={aiProviders}
-        interfaceZoom={interfaceZoom.zoom}
-        onInterfaceZoomChange={interfaceZoom.setZoom}
         historyModalOpen={historyModalOpen}
         onCloseHistoryModal={closeHistoryModal}
         scoreTitle={scoreTitle}

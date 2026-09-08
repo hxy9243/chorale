@@ -75,8 +75,13 @@ npm install
 npm run dev:electron
 ```
 
+### Installation & Skill Setup
+For complete setup guides for OpenAI Codex, Google Antigravity, Claude Code, and generic MCP clients, see:
+👉 **[INSTALL.md](./INSTALL.md)**
+
 ## Project Documentation
 
+- [Installation & Agent Setup Guide](./INSTALL.md)
 - [Design and specification index](./spec/design.md)
 - [Engineering conventions](./AGENTS.md)
 

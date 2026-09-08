@@ -1,18 +1,10 @@
 import React from 'react';
-import { AISettingsModal } from '../AISettingsModal';
 import { EditingHistoryModal } from '../EditingHistoryModal';
 import { NewScoreModal } from '../NewScoreModal';
-import type { AIProviderState } from '../../agent/useAIProviders';
 import type { EditHistoryEntry } from '../../types/document';
 import type { ScoreExportState } from '../../hooks/useScoreExport';
 
 export interface WorkspaceModalsProps {
-  settingsOpen: boolean;
-  onCloseSettings: () => void;
-  aiProviders: AIProviderState;
-  interfaceZoom: number;
-  onInterfaceZoomChange: (zoom: number) => void;
-
   historyModalOpen: boolean;
   onCloseHistoryModal: () => void;
   scoreTitle: string;
@@ -32,11 +24,6 @@ export interface WorkspaceModalsProps {
 }
 
 export const WorkspaceModals: React.FC<WorkspaceModalsProps> = ({
-  settingsOpen,
-  onCloseSettings,
-  aiProviders,
-  interfaceZoom,
-  onInterfaceZoomChange,
   historyModalOpen,
   onCloseHistoryModal,
   scoreTitle,
@@ -54,13 +41,6 @@ export const WorkspaceModals: React.FC<WorkspaceModalsProps> = ({
 }) => {
   return (
     <>
-      <AISettingsModal
-        open={settingsOpen}
-        onClose={onCloseSettings}
-        ai={aiProviders}
-        interfaceZoom={interfaceZoom}
-        onInterfaceZoomChange={onInterfaceZoomChange}
-      />
       <EditingHistoryModal
         open={historyModalOpen}
         onClose={onCloseHistoryModal}
