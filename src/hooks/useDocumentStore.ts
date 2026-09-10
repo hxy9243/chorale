@@ -142,8 +142,12 @@ export const useDocumentStore = () => {
       try {
         const remote = await storageAdapter.getDocuments();
         setDocuments((current) => JSON.stringify(current) === JSON.stringify(remote) ? current : remote);
-        const active = await storageAdapter.getSharedActiveFileId();
-        if (active !== null) setActiveFileId(active);
+        setActiveFileId((currentActive) => {
+          if (currentActive && !remote.some((d) => d.id === currentActive)) {
+            return remote[0]?.id || '';
+          }
+          return currentActive;
+        });
       } catch { /* optional bridge unavailable in local development */ }
     };
     const interval = window.setInterval(() => void refresh(), 2_000);
