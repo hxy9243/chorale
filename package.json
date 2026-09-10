@@ -3,11 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "bin": {
+    "chorale": "./bin/chorale.mjs"
+  },
   "scripts": {
-    "start": "node server.mjs",
+    "start": "node bin/chorale.mjs",
+    "mcp": "node bin/chorale.mjs mcp",
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "package:codex": "node scripts/package-codex-plugin.mjs",
     "lint": "oxlint",
     "test": "node --test test/*.node.mjs && vitest run",
     "test:mcp": "node --test test/*.node.mjs",

@@ -2,7 +2,7 @@
   "mcpServers": {
     "chorale": {
       "command": "node",
-      "args": ["../../server.mjs"]
+      "args": ["../../bin/chorale.mjs", "mcp"]
     }
   }
 }
