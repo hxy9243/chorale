@@ -85,10 +85,17 @@ try {
     'add_annotations',
     'edit_annotations',
     'delete_annotations',
+    'open_chorale_ui',
+    'get_active_view',
+    'get_workspace_state',
   ];
   for (const req of requiredTools) {
     if (!toolNames.includes(req)) throw new Error(`Missing expected tool: ${req}`);
   }
+
+  console.log('\n2b. Checking workspace state via get_workspace_state...');
+  const wsState = await sendRequest('tools/call', { name: 'get_workspace_state' });
+  console.log('   Workspace state:', wsState.structuredContent);
 
   // Step 3: Create score
   console.log('\n3. Creating score via create_score...');

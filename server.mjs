@@ -22,7 +22,7 @@ const VIEW_HEARTBEAT_TTL_MS = 6_000;
 const VIEW_OPEN_WAIT_MS = 5_000;
 // Bump whenever the packaged daemon protocol changes so a reinstall never
 // attaches adapters to an older long-lived service.
-const DAEMON_VERSION = '4';
+const DAEMON_VERSION = '5';
 const defaultStorePath = resolve(homedir(), '.chorale', 'codex-plugin-store.json');
 const runtimeDirectory = resolve(homedir(), '.chorale');
 const runtimeRecordPath = join(runtimeDirectory, 'mcp-runtime.json');
@@ -375,6 +375,9 @@ export class ViewSnapshotStore {
       annotationCount: Number.isInteger(snapshot.annotationCount) ? snapshot.annotationCount : undefined,
       focused,
       visibilityState: snapshot.visibilityState === 'hidden' ? 'hidden' : 'visible',
+      activeTab: snapshot.activeTab === 'abc-editor' ? 'abc-editor' : 'sheet',
+      isEditorVisible: snapshot.isEditorVisible === true,
+      sheetVisible: snapshot.sheetVisible !== false,
       focusedAt: focused ? (previous?.focused ? previous.focusedAt : receivedAt) : previous?.focusedAt,
       lastSeenAt: receivedAt,
       updatedAt: typeof snapshot.updatedAt === 'string' ? snapshot.updatedAt : new Date().toISOString(),
@@ -850,7 +853,10 @@ export const startSharedDaemon = async () => {
     bridge = await listenForPluginViews(views, store, 0);
   }
   const port = bridge.address().port;
-  views.setOpenUi(() => openBrowser(`http://127.0.0.1:${port}/`));
+  views.setOpenUi((docId) => {
+    const query = docId ? `?file=${encodeURIComponent(docId)}` : '';
+    return openBrowser(`http://127.0.0.1:${port}/${query}`);
+  });
   await writeRuntimeRecord(port);
   return bridge;
 };
@@ -881,8 +887,9 @@ const failure = (error) => ({
 
 const workspaceHtml = `<!doctype html><html><body style="margin:0;background:#f6f0e6;color:#2e2925;font:14px system-ui"><main style="padding:16px"><h1 style="font-family:Georgia,serif;margin-top:0">Chorale</h1><div id="score">Loading score…</div></main><script>window.addEventListener('message',(event)=>{if(event.source!==parent)return;const data=event.data;if(data?.method!=='ui/notifications/tool-result')return;const score=data.params?.structuredContent;document.querySelector('#score').textContent=score?score.title+' · '+score.measureCount+' measures · revision '+score.revision:'No score selected.'},{passive:true});</script></body></html>`;
 
-export const createToolHandlers = (store, views) => ({
-  create_score: async (input) => {
+export const createToolHandlers = (store, views) => {
+  const handlers = {
+    create_score: async (input) => {
     try {
       const document = await store.create(input);
       return result(scoreSummary(document), `Created score "${document.title}" (revision 1, ${document.id}).`);
@@ -912,7 +919,7 @@ export const createToolHandlers = (store, views) => ({
         const snapshot = views.require(viewId);
         const range = { startMeasure, endMeasure };
         if (range.startMeasure !== snapshot.selection?.startMeasure || range.endMeasure !== snapshot.selection?.endMeasure || !snapshot.selectedAbc) {
-          throw new PluginError('INVALID_RANGE', 'The connected view does not currently have measures ' + startMeasure + '–' + endMeasure + ' selected.');
+          throw new PluginError('SELECTION_MISMATCH', 'The connected view does not currently have measures ' + startMeasure + '–' + endMeasure + ' selected.');
         }
         return result({
           documentId: snapshot.documentId,
@@ -941,10 +948,19 @@ export const createToolHandlers = (store, views) => ({
   },
   read_measure_selection: async ({ viewId } = {}) => {
     try {
-      const resolved = await views.resolveOrOpen(viewId);
+      const resolved = views.resolve(viewId);
       const { snapshot, warning } = resolved;
       if (!snapshot.selection) {
-        throw new PluginError('INVALID_RANGE', 'No written measures are currently selected in this view.');
+        return result({
+          documentId: snapshot.documentId,
+          title: snapshot.title,
+          revision: snapshot.revision,
+          viewId: resolved.viewId,
+          selection: null,
+          selectedAbc: null,
+          message: `Connected to '${snapshot.title}'; no measures are currently selected.`,
+          ...(warning ? { warning } : {}),
+        }, `${warning ? `Warning: ${warning} ` : ''}Connected to '${snapshot.title}'; no measures are currently selected.`);
       }
       return result({
         documentId: snapshot.documentId,
@@ -1016,7 +1032,89 @@ export const createToolHandlers = (store, views) => ({
       return failure(error);
     }
   },
-});
+  open_chorale_ui: async ({ documentId } = {}) => {
+    try {
+      let targetDoc = null;
+      if (documentId) {
+        targetDoc = await store.require(documentId);
+        await store.patchWorkspace({ kind: 'active', value: documentId });
+      } else {
+        const workspace = await store.getWorkspace();
+        if (workspace.activeFileId) {
+          targetDoc = workspace.documents.find((d) => d.id === workspace.activeFileId) || null;
+        }
+      }
+      if (views.openUi) {
+        await views.openUi(targetDoc?.id);
+      }
+      const title = targetDoc?.title || 'Chorale';
+      return result({
+        opened: true,
+        documentId: targetDoc?.id || null,
+        title,
+      }, `Opened Chorale UI in browser${targetDoc ? ` with "${title}" (${targetDoc.id})` : ''}.`);
+    } catch (error) {
+      return failure(error);
+    }
+  },
+  get_active_view: async ({ viewId } = {}) => {
+    try {
+      const resolved = views.resolve(viewId);
+      const { snapshot, warning } = resolved;
+      const data = {
+        documentId: snapshot.documentId,
+        title: snapshot.title,
+        revision: snapshot.revision,
+        viewId: resolved.viewId,
+        activeTab: snapshot.activeTab || (snapshot.isEditorVisible && !snapshot.sheetVisible ? 'abc-editor' : 'sheet'),
+        selection: snapshot.selection ? { startMeasure: snapshot.selection.startMeasure, endMeasure: snapshot.selection.endMeasure } : null,
+        isEditorVisible: Boolean(snapshot.isEditorVisible),
+        annotationCount: snapshot.annotationCount ?? 0,
+        ...(warning ? { warning } : {}),
+      };
+      const selectionDesc = data.selection ? `measures ${data.selection.startMeasure}–${data.selection.endMeasure} selected` : 'no measures selected';
+      return result(data, `${warning ? `Warning: ${warning} ` : ''}Active view "${snapshot.title}" (rev ${snapshot.revision}, tab: ${data.activeTab}, ${selectionDesc}).`);
+    } catch (error) {
+      return failure(error);
+    }
+  },
+  get_workspace_state: async () => {
+    try {
+      const workspace = await store.getWorkspace();
+      const connected = views.connectedViews();
+      let activeView = null;
+      if (connected.length > 0) {
+        try {
+          const resolved = views.resolve();
+          activeView = {
+            viewId: resolved.viewId,
+            documentId: resolved.snapshot.documentId,
+            title: resolved.snapshot.title,
+            revision: resolved.snapshot.revision,
+            activeTab: resolved.snapshot.activeTab || 'sheet',
+            selection: resolved.snapshot.selection ? { startMeasure: resolved.snapshot.selection.startMeasure, endMeasure: resolved.snapshot.selection.endMeasure } : null,
+            isEditorVisible: Boolean(resolved.snapshot.isEditorVisible),
+          };
+        } catch {
+          // Ignore resolution errors when inspecting workspace
+        }
+      }
+      const activeDoc = workspace.documents.find((d) => d.id === workspace.activeFileId) || workspace.documents[0] || null;
+      return result({
+        activeFileId: workspace.activeFileId || null,
+        activeScore: activeDoc ? scoreSummary(activeDoc) : null,
+        documentCount: workspace.documents.length,
+        connectedViewsCount: connected.length,
+        activeView,
+      }, `Workspace has ${workspace.documents.length} score(s), active score: "${activeDoc?.title || 'None'}".`);
+    } catch (error) {
+      return failure(error);
+    }
+  },
+};
+handlers.open_ui = handlers.open_chorale_ui;
+return handlers;
+};
 
 export const createServer = (store = new LocalDocumentStore(), views = new ViewSnapshotStore(), handlersOverride = null) => {
   const server = new McpServer({ name: 'Chorale', version: '0.1.0' });
@@ -1160,6 +1258,30 @@ export const createServer = (store = new LocalDocumentStore(), views = new ViewS
       'openai/toolInvocation/invoked': 'Score opened.',
     },
   }, handlers.render_score_workspace);
+
+  // Tool 11: open_chorale_ui
+  server.registerTool('open_chorale_ui', {
+    title: 'Open Chorale UI',
+    description: 'Launch the Chorale interactive score workspace in the user’s default browser, optionally activating a specific score.',
+    inputSchema: {
+      documentId: z.string().min(1).optional().describe('Optional score document ID to open and activate in the workspace'),
+    },
+  }, handlers.open_chorale_ui);
+
+  // Tool 12: get_active_view
+  server.registerTool('get_active_view', {
+    title: 'Get active view',
+    description: 'Query the currently focused score view, returning active document ID, title, revision, active tab (sheet vs abc-editor), measure selection, and editor visibility.',
+    inputSchema: {
+      viewId: z.string().min(1).optional().describe('Optional connected view ID; omitted resolves the currently focused Chorale view'),
+    },
+  }, handlers.get_active_view);
+
+  // Tool 13: get_workspace_state
+  server.registerTool('get_workspace_state', {
+    title: 'Get workspace state',
+    description: 'Query the overall Chorale workspace state, including active document ID, document count, connected views count, and active view summary.',
+  }, handlers.get_workspace_state);
 
   return server;
 };

@@ -58,6 +58,8 @@ export type AbcChangeOptions = {
 
 const readStoredActiveFileId = (): string => {
   if (typeof window === 'undefined') return '';
+  const searchFile = new URLSearchParams(window.location.search).get('file');
+  if (searchFile) return searchFile;
   return window.localStorage.getItem(ACTIVE_FILE_KEY) || '';
 };
 
@@ -109,7 +111,12 @@ export const useDocumentStore = () => {
         ]);
         if (!cancelled) {
           setDocuments(docs);
-          if (sharedActiveFileId !== null) setActiveFileId(sharedActiveFileId);
+          const searchFile = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('file') : null;
+          if (searchFile && docs.some((d) => d.id === searchFile)) {
+            setActiveFileId(searchFile);
+          } else if (sharedActiveFileId !== null) {
+            setActiveFileId(sharedActiveFileId);
+          }
           setHydrationStatus('ready');
         }
       } catch (err) {

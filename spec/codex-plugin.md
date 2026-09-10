@@ -80,16 +80,17 @@ several pages are connected. If several candidates remain, the tool chooses
 the most recently focused candidate and returns a structured ambiguity warning
 instead of silently pretending that a hard-coded view is authoritative.
 
-When a view-dependent tool has no live page to query, the local daemon opens
-its own loopback Chorale URL in the user's browser and briefly waits for that
-page to register before completing the request. Durable document tools remain
-headless and never require a connected page. A page can still be absent after
-an open attempt, so callers receive an accurate `VIEW_NOT_CONNECTED` response
-rather than a generic daemon failure.
+When inspecting active views, callers invoke `get_active_view` to query what the user
+is viewing (document, revision, active tab, editor visibility, and selection) or
+`get_workspace_state` to inspect the full workspace inventory headlessly. Read tools
+such as `read_measure_selection` execute strictly as fast reads without side-effecting
+browser launches, returning `VIEW_NOT_CONNECTED` when no view is open, or a clean
+success response with `selection: null` when connected with no highlighted measures.
+Opening the browser workspace is explicitly controlled via `open_chorale_ui({ documentId? })`.
 
 The stdio adapter must preserve structured tool failures returned by the daemon
-(`VIEW_NOT_CONNECTED`, `INVALID_RANGE`, and similar codes). Only transport or
-health-check failures may be translated to `DAEMON_UNAVAILABLE`.
+(`VIEW_NOT_CONNECTED`, `SELECTION_MISMATCH`, `INVALID_RANGE`, and similar codes).
+Only transport or health-check failures may be translated to `DAEMON_UNAVAILABLE`.
 
 ## Authoritative-state rule
 
@@ -103,11 +104,18 @@ separate UI and MCP copies of a document.
 
 | Tool | Contract |
 | --- | --- |
+| `open_chorale_ui` | Launch the interactive workspace in default browser (optional `documentId`). |
+| `get_active_view` | Query focused view: active document, revision, active tab, selection, editor visibility. |
+| `get_workspace_state` | Query overall workspace headlessly: active document, document count, view count. |
 | `create_score` | Persist ABC as revision 1 and return a document summary. |
 | `list_scores` | Return bounded summaries without mounting UI. |
 | `get_score_summary` | Return title, revision, measure count, and annotation count. |
-| `read_measure_range` | Return exactly the requested inclusive written-measure range. |
-| `propose_annotations` | Validate the base revision and append an assistant-origin annotation. |
+| `read_measure_range` | Return exactly the requested inclusive written-measure range (`SELECTION_MISMATCH` on view mismatch). |
+| `read_measure_selection` | Fast read of user-selected measures; returns `selection: null` if unselected. |
+| `edit_score` | Authoritatively replace ABC source with revision concurrency guard. |
+| `add_annotations` | Append structured analytical annotations with optimistic revision guard. |
+| `edit_annotations` | Update label, body, or measure bounds of an existing annotation. |
+| `delete_annotations` | Remove annotations by ID with revision guard. |
 | `render_score_workspace` | Return the optional MCP Apps resource for a chosen document. |
 
 Every mutation includes the expected revision and creates a receipt. M0 uses

@@ -16,6 +16,9 @@ type PluginMcpBridgeInput = Readonly<{
   abcSource: string;
   annotations?: readonly Annotation[];
   selection: ScoreAnchor | null;
+  activeTab?: 'sheet' | 'abc-editor';
+  isEditorVisible?: boolean;
+  sheetVisible?: boolean;
   onApplyAnnotations: (annotations: readonly Annotation[]) => void;
   onReplaceScore: (replacementAbc: string) => { status: string };
   onSetAnnotations?: (annotations: readonly Annotation[]) => void;
@@ -82,6 +85,9 @@ export const usePluginMcpBridge = ({
   abcSource,
   annotations,
   selection,
+  activeTab,
+  isEditorVisible,
+  sheetVisible,
   onApplyAnnotations,
   onReplaceScore,
   onSetAnnotations,
@@ -114,6 +120,9 @@ export const usePluginMcpBridge = ({
           ...(selection.voiceId ? { voiceId: selection.voiceId } : {}),
         } : null,
         selectedAbc,
+        activeTab: activeTab || (isEditorVisible && !sheetVisible ? 'abc-editor' : 'sheet'),
+        isEditorVisible: Boolean(isEditorVisible),
+        sheetVisible: sheetVisible !== false,
         focused: document.hasFocus(),
         visibilityState: document.visibilityState,
         updatedAt: new Date().toISOString(),
@@ -139,7 +148,7 @@ export const usePluginMcpBridge = ({
       window.removeEventListener('blur', publish);
       document.removeEventListener('visibilitychange', publish);
     };
-  }, [abcSource, annotations?.length, config, documentId, enabled, revision, selectedAbc, selection, title]);
+  }, [abcSource, activeTab, annotations?.length, config, documentId, enabled, isEditorVisible, revision, selectedAbc, selection, sheetVisible, title]);
 
   useEffect(() => {
     if (!enabled || !documentId) return undefined;

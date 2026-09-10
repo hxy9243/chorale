@@ -51,31 +51,106 @@ test('resolves the focused live view and warns when multiple views are connected
   assert.throws(() => views.resolve(), (error) => error instanceof PluginError && error.code === 'VIEW_NOT_CONNECTED');
 });
 
-test('opens Chorale and waits for a view when selection is requested without a connected page', async () => {
+test('read_measure_selection is a fast read and fails immediately when no view is connected', async () => {
   let openCount = 0;
-  let views;
-  views = new ViewSnapshotStore({
-    openWaitMs: 500,
+  const views = new ViewSnapshotStore({
     openUi: async () => {
       openCount += 1;
-      setTimeout(() => views.update('auto-opened', {
-        documentId: 'fugue',
-        title: 'Fugue',
-        revision: 2,
-        selection: { startMeasure: 3, endMeasure: 4 },
-        selectedAbc: 'X:1\nK:C\nG A | B c |',
-        focused: true,
-        visibilityState: 'visible',
-      }), 20);
       return true;
     },
   });
   const result = await createToolHandlers(new LocalDocumentStore(), views).read_measure_selection({});
+  assert.equal(openCount, 0);
+  assert.equal(result.isError, true);
+  assert.equal(result.structuredContent.errorCode, 'VIEW_NOT_CONNECTED');
+});
 
-  assert.equal(openCount, 1);
+test('read_measure_selection returns success with null selection when view has empty selection', async () => {
+  const views = new ViewSnapshotStore();
+  views.update('view-empty', {
+    documentId: 'fugue',
+    title: 'Fugue in C Major',
+    revision: 2,
+    selection: null,
+    focused: true,
+    visibilityState: 'visible',
+  });
+  const result = await createToolHandlers(new LocalDocumentStore(), views).read_measure_selection({ viewId: 'view-empty' });
   assert.equal(result.isError, undefined);
-  assert.equal(result.structuredContent.viewId, 'auto-opened');
-  assert.deepEqual(result.structuredContent.selection, { startMeasure: 3, endMeasure: 4 });
+  assert.equal(result.structuredContent.documentId, 'fugue');
+  assert.equal(result.structuredContent.title, 'Fugue in C Major');
+  assert.equal(result.structuredContent.selection, null);
+  assert.equal(result.structuredContent.selectedAbc, null);
+  assert.match(result.structuredContent.message, /no measures are currently selected/);
+});
+
+test('read_measure_range returns SELECTION_MISMATCH when view selection differs from requested range', async () => {
+  const views = new ViewSnapshotStore();
+  views.update('view-mismatch', {
+    documentId: 'fugue',
+    title: 'Fugue',
+    revision: 1,
+    selection: { startMeasure: 1, endMeasure: 2 },
+    selectedAbc: 'C D | E F |',
+  });
+  const handlers = createToolHandlers(new LocalDocumentStore(), views);
+  const result = await handlers.read_measure_range({ viewId: 'view-mismatch', startMeasure: 3, endMeasure: 4 });
+  assert.equal(result.isError, true);
+  assert.equal(result.structuredContent.errorCode, 'SELECTION_MISMATCH');
+});
+
+test('open_chorale_ui launches UI and sets active document', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'chorale-open-'));
+  const store = new LocalDocumentStore(join(directory, 'scores.json'));
+  const doc = await store.create({ title: 'Toccata', abcSource: 'X:1\nK:C\nC |' });
+  let openedDocId = null;
+  const views = new ViewSnapshotStore({
+    openUi: async (docId) => {
+      openedDocId = docId;
+      return true;
+    },
+  });
+  const handlers = createToolHandlers(store, views);
+  const result = await handlers.open_chorale_ui({ documentId: doc.id });
+  assert.equal(result.isError, undefined);
+  assert.equal(result.structuredContent.opened, true);
+  assert.equal(result.structuredContent.documentId, doc.id);
+  assert.equal(openedDocId, doc.id);
+  const ws = await store.getWorkspace();
+  assert.equal(ws.activeFileId, doc.id);
+});
+
+test('get_active_view and get_workspace_state report current UI and workspace status', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'chorale-active-'));
+  const store = new LocalDocumentStore(join(directory, 'scores.json'));
+  const doc = await store.create({ title: 'Invention', abcSource: 'X:1\nK:C\nC D |' });
+  await store.patchWorkspace({ kind: 'active', value: doc.id });
+  const views = new ViewSnapshotStore();
+  views.update('view-main', {
+    documentId: doc.id,
+    title: 'Invention',
+    revision: 1,
+    activeTab: 'abc-editor',
+    isEditorVisible: true,
+    selection: { startMeasure: 1, endMeasure: 1 },
+    selectedAbc: 'C D |',
+    focused: true,
+    visibilityState: 'visible',
+  });
+  const handlers = createToolHandlers(store, views);
+  const activeViewResult = await handlers.get_active_view({ viewId: 'view-main' });
+  assert.equal(activeViewResult.isError, undefined);
+  assert.equal(activeViewResult.structuredContent.documentId, doc.id);
+  assert.equal(activeViewResult.structuredContent.activeTab, 'abc-editor');
+  assert.equal(activeViewResult.structuredContent.isEditorVisible, true);
+  assert.deepEqual(activeViewResult.structuredContent.selection, { startMeasure: 1, endMeasure: 1 });
+
+  const wsResult = await handlers.get_workspace_state();
+  assert.equal(wsResult.isError, undefined);
+  assert.equal(wsResult.structuredContent.activeFileId, doc.id);
+  assert.equal(wsResult.structuredContent.documentCount, 1);
+  assert.equal(wsResult.structuredContent.connectedViewsCount, 1);
+  assert.equal(wsResult.structuredContent.activeView.documentId, doc.id);
 });
 
 test('queues bridge commands and notifies views', () => {
