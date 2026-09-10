@@ -7,7 +7,6 @@ import {
   defaultFileRailWidth,
   fitWorkspacePanelLayout,
 } from '../utils/workspaceSizing';
-import { storageAdapter } from '../utils/storageAdapter';
 
 export const EDITOR_VISIBLE_KEY = 'chorale.workspace.editorVisible';
 export const EDITOR_WIDTH_KEY = 'chorale.workspace.editorWidth';
@@ -87,79 +86,37 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
       (width) => clampChatPanelWidth(width, layoutViewportWidth()),
     )
   ));
-  const [globalPreferencesReady, setGlobalPreferencesReady] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const hydrate = async () => {
-      const values = await Promise.all([
-        storageAdapter.getGlobalPreference<boolean>(EDITOR_VISIBLE_KEY), storageAdapter.getGlobalPreference<number>(EDITOR_WIDTH_KEY),
-        storageAdapter.getGlobalPreference<number>(SHEET_ZOOM_KEY), storageAdapter.getGlobalPreference<number>(FILE_RAIL_WIDTH_KEY),
-        storageAdapter.getGlobalPreference<boolean>(FILE_RAIL_COLLAPSED_KEY), storageAdapter.getGlobalPreference<RailPanelId>(FILE_RAIL_ACTIVE_PANEL_KEY),
-        storageAdapter.getGlobalPreference<boolean>(CHAT_OPEN_KEY), storageAdapter.getGlobalPreference<number>(CHAT_WIDTH_KEY),
-      ]);
-      const entries = [
-        [EDITOR_VISIBLE_KEY, values[0]], [EDITOR_WIDTH_KEY, values[1]], [SHEET_ZOOM_KEY, values[2]], [FILE_RAIL_WIDTH_KEY, values[3]],
-        [FILE_RAIL_COLLAPSED_KEY, values[4]], [FILE_RAIL_ACTIVE_PANEL_KEY, values[5]], [CHAT_OPEN_KEY, values[6]], [CHAT_WIDTH_KEY, values[7]],
-      ] as const;
-      if (cancelled) return;
-      for (const [key, value] of entries) {
-        const preference = value as unknown;
-        if (preference === null) continue;
-        if (key === EDITOR_VISIBLE_KEY) setEditorVisible(Boolean(preference));
-        if (key === EDITOR_WIDTH_KEY && typeof preference === 'number') setEditorWidth(clampEditorPanelWidth(preference));
-        if (key === SHEET_ZOOM_KEY && typeof preference === 'number') setZoom(clampSheetZoom(preference));
-        if (key === FILE_RAIL_WIDTH_KEY && typeof preference === 'number') setRailWidth(clampFileRailWidth(preference));
-        if (key === FILE_RAIL_COLLAPSED_KEY) setRailCollapsed(Boolean(preference));
-        if (key === FILE_RAIL_ACTIVE_PANEL_KEY && (preference === 'files' || preference === 'tools')) setRailActivePanel(preference);
-        if (key === CHAT_OPEN_KEY) setChatOpen(Boolean(preference));
-        if (key === CHAT_WIDTH_KEY && typeof preference === 'number') setChatWidth(clampChatPanelWidth(preference, layoutViewportWidth()));
-      }
-      setGlobalPreferencesReady(true);
-    };
-    void hydrate().catch(() => setGlobalPreferencesReady(true));
-    return () => { cancelled = true; };
-  }, [layoutViewportWidth]);
-
   useEffect(() => {
     window.localStorage.setItem(EDITOR_VISIBLE_KEY, String(editorVisible));
-    if (globalPreferencesReady) void storageAdapter.setGlobalPreference(EDITOR_VISIBLE_KEY, editorVisible);
-  }, [editorVisible, globalPreferencesReady]);
+  }, [editorVisible]);
 
   useEffect(() => {
     window.localStorage.setItem(EDITOR_WIDTH_KEY, String(editorWidth));
-    if (globalPreferencesReady) void storageAdapter.setGlobalPreference(EDITOR_WIDTH_KEY, editorWidth);
-  }, [editorWidth, globalPreferencesReady]);
+  }, [editorWidth]);
 
   useEffect(() => {
     window.localStorage.setItem(SHEET_ZOOM_KEY, String(zoom));
-    if (globalPreferencesReady) void storageAdapter.setGlobalPreference(SHEET_ZOOM_KEY, zoom);
-  }, [zoom, globalPreferencesReady]);
+  }, [zoom]);
 
   useEffect(() => {
     window.localStorage.setItem(FILE_RAIL_WIDTH_KEY, String(Math.round(railWidth)));
-    if (globalPreferencesReady) void storageAdapter.setGlobalPreference(FILE_RAIL_WIDTH_KEY, Math.round(railWidth));
-  }, [railWidth, globalPreferencesReady]);
+  }, [railWidth]);
 
   useEffect(() => {
     window.localStorage.setItem(FILE_RAIL_COLLAPSED_KEY, String(railCollapsed));
-    if (globalPreferencesReady) void storageAdapter.setGlobalPreference(FILE_RAIL_COLLAPSED_KEY, railCollapsed);
-  }, [railCollapsed, globalPreferencesReady]);
+  }, [railCollapsed]);
 
   useEffect(() => {
     window.localStorage.setItem(FILE_RAIL_ACTIVE_PANEL_KEY, railActivePanel);
-    if (globalPreferencesReady) void storageAdapter.setGlobalPreference(FILE_RAIL_ACTIVE_PANEL_KEY, railActivePanel);
-  }, [railActivePanel, globalPreferencesReady]);
+  }, [railActivePanel]);
 
   useEffect(() => {
     window.localStorage.setItem(CHAT_OPEN_KEY, String(chatOpen));
-    if (globalPreferencesReady) void storageAdapter.setGlobalPreference(CHAT_OPEN_KEY, chatOpen);
-  }, [chatOpen, globalPreferencesReady]);
+  }, [chatOpen]);
 
   useEffect(() => {
     window.localStorage.setItem(CHAT_WIDTH_KEY, String(Math.round(chatWidth)));
-    if (globalPreferencesReady) void storageAdapter.setGlobalPreference(CHAT_WIDTH_KEY, Math.round(chatWidth));
-  }, [chatWidth, globalPreferencesReady]);
+  }, [chatWidth]);
 
   useEffect(() => {
     const handleResize = () => {

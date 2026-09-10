@@ -87,37 +87,19 @@ export const storageAdapter = {
   },
 
   async getSharedActiveFileId(): Promise<string | null> {
-    if (!usesSharedWorkspace()) return null;
-    const workspace = await sharedWorkspace<{ revision: number; activeFileId?: string }>('/v1/workspace');
-    workspaceRevision = workspace.revision;
-    return workspace.activeFileId || '';
+    return null;
   },
 
-  async setSharedActiveFileId(activeFileId: string): Promise<void> {
-    if (!usesSharedWorkspace()) return;
-    const workspace = await sharedWorkspace<{ revision: number }>('/v1/workspace');
-    const updated = await sharedWorkspace<{ revision: number }>('/v1/workspace/active-document', {
-      method: 'PUT', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ activeFileId, expectedRevision: workspace.revision }),
-    });
-    workspaceRevision = updated.revision;
+  async setSharedActiveFileId(_activeFileId: string): Promise<void> {
+    // View state is intentionally browser/tab-local.
   },
 
-  async getGlobalPreference<T>(key: string): Promise<T | null> {
-    if (!usesSharedWorkspace()) return null;
-    const workspace = await sharedWorkspace<{ revision: number; preferences?: Record<string, unknown> }>('/v1/workspace');
-    workspaceRevision = workspace.revision;
-    return (workspace.preferences?.[key] as T | undefined) ?? null;
+  async getGlobalPreference<T>(_key: string): Promise<T | null> {
+    return null;
   },
 
-  async setGlobalPreference(key: string, value: unknown): Promise<void> {
-    if (!usesSharedWorkspace()) return;
-    const workspace = await sharedWorkspace<{ revision: number }>('/v1/workspace');
-    const updated = await sharedWorkspace<{ revision: number }>(`/v1/workspace/preferences/${encodeURIComponent(key)}`, {
-      method: 'PUT', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ value, expectedRevision: workspace.revision }),
-    });
-    workspaceRevision = updated.revision;
+  async setGlobalPreference(_key: string, _value: unknown): Promise<void> {
+    // View state is intentionally browser/tab-local.
   },
 
   async getDocuments(): Promise<FileDocument[]> {
