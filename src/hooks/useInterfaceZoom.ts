@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { storageAdapter } from '../utils/storageAdapter';
 
 export const INTERFACE_ZOOM_KEY = 'chorale.workspace.interfaceZoom';
 export const MIN_INTERFACE_ZOOM = 80;
@@ -31,7 +32,14 @@ export const useInterfaceZoom = () => {
   useEffect(() => {
     document.documentElement.style.setProperty('--ui-zoom', String(zoom / 100));
     window.localStorage.setItem(INTERFACE_ZOOM_KEY, String(zoom));
+    void storageAdapter.setGlobalPreference(INTERFACE_ZOOM_KEY, zoom);
   }, [zoom]);
+
+  useEffect(() => {
+    void storageAdapter.getGlobalPreference<number>(INTERFACE_ZOOM_KEY).then((saved) => {
+      if (saved !== null) setZoomState(clampInterfaceZoom(saved));
+    });
+  }, []);
 
   useEffect(() => {
     const changeZoom = (direction: number) => {

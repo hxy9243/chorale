@@ -6,10 +6,8 @@ describe('plugin MCP bridge configuration', () => {
   it('publishes to the local bridge from the normal workspace', () => {
     window.history.replaceState({}, '', '/');
 
-    expect(getPluginViewConfig()).toEqual({
-      viewId: 'plugin-main',
-      bridgeUrl: 'http://127.0.0.1:43171',
-    });
+    expect(getPluginViewConfig()).toMatchObject({ bridgeUrl: window.location.origin });
+    expect(getPluginViewConfig().viewId).toMatch(/^view-/);
     expect(isPluginView()).toBe(false);
   });
 

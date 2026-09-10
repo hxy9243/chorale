@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { createServer as createHttpServer } from 'node:http';
+import { spawn } from 'node:child_process';
 import { homedir } from 'node:os';
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -17,7 +18,15 @@ const WORKSPACE_URI = 'ui://chorale/workspace-v1.html';
 const MAX_ABC_BYTES = 2_000_000;
 const MAX_VIEW_SNAPSHOT_BYTES = 2_000_000;
 const DEFAULT_BRIDGE_PORT = 43171;
+const VIEW_HEARTBEAT_TTL_MS = 6_000;
+const VIEW_OPEN_WAIT_MS = 5_000;
+// Bump whenever the packaged daemon protocol changes so a reinstall never
+// attaches adapters to an older long-lived service.
+const DAEMON_VERSION = '4';
 const defaultStorePath = resolve(homedir(), '.chorale', 'codex-plugin-store.json');
+const runtimeDirectory = resolve(homedir(), '.chorale');
+const runtimeRecordPath = join(runtimeDirectory, 'mcp-runtime.json');
+const startupLockPath = join(runtimeDirectory, 'mcp-runtime.lock');
 
 export class PluginError extends Error {
   constructor(code, message) {
@@ -36,7 +45,7 @@ export const measureBodies = (abcSource) => {
 
 export const scoreSummary = (document) => ({
   documentId: document.id,
-  title: document.title,
+  title: document.title || document.scoreInfo?.title || document.name || 'Untitled score',
   revision: document.revision,
   measureCount: measureBodies(document.abcSource).length,
   annotationCount: document.annotations.length,
@@ -47,6 +56,7 @@ export class LocalDocumentStore {
   constructor(storePath = process.env.CHORALE_PLUGIN_STORE || defaultStorePath, views = null) {
     this.storePath = resolve(storePath);
     this.views = views;
+    this.mutationTail = Promise.resolve();
   }
 
   setViews(views) {
@@ -59,9 +69,11 @@ export class LocalDocumentStore {
       if (!parsed || parsed.schemaVersion !== 1 || !Array.isArray(parsed.documents)) {
         throw new PluginError('PERSISTENCE_FAILED', 'The local Chorale store has an unsupported format.');
       }
-      return parsed;
+      const workspace = parsed.workspace || { documents: [], activeFileId: '', preferences: {} };
+      const documents = Array.isArray(workspace.documents) && workspace.documents.length > 0 ? workspace.documents : parsed.documents;
+      return { ...parsed, documents, workspaceRevision: parsed.workspaceRevision || 0, workspace: { ...workspace, documents } };
     } catch (error) {
-      if (error && error.code === 'ENOENT') return { schemaVersion: 1, documents: [] };
+      if (error && error.code === 'ENOENT') return { schemaVersion: 1, documents: [], workspaceRevision: 0, workspace: { documents: [], activeFileId: '', preferences: {} } };
       if (error instanceof PluginError) throw error;
       throw new PluginError('PERSISTENCE_FAILED', 'The local Chorale store could not be read.');
     }
@@ -69,6 +81,7 @@ export class LocalDocumentStore {
 
   async write(state) {
     await mkdir(dirname(this.storePath), { recursive: true });
+    state.workspace = { ...(state.workspace || {}), documents: state.documents || [] };
     const temporaryPath = `${this.storePath}.${process.pid}.${randomUUID()}.tmp`;
     await writeFile(temporaryPath, JSON.stringify(state, null, 2), 'utf8');
     await rename(temporaryPath, this.storePath);
@@ -76,6 +89,48 @@ export class LocalDocumentStore {
 
   async list() {
     return (await this.read()).documents;
+  }
+
+  async getWorkspace() {
+    const state = await this.read();
+    return { revision: state.workspaceRevision || 0, ...state.workspace };
+  }
+
+  async putWorkspace({ documents, activeFileId, preferences, expectedRevision }) {
+    if (!Array.isArray(documents) || !documents.every((document) => document && typeof document.id === 'string' && typeof document.abcSource === 'string' && Number.isInteger(document.revision))) {
+      throw new PluginError('INVALID_WORKSPACE', 'Workspace documents must contain an ID, ABC source, and revision.');
+    }
+    const state = await this.read();
+    if (expectedRevision !== undefined && expectedRevision !== state.workspaceRevision) {
+      throw new PluginError('REVISION_CONFLICT', `Workspace is at revision ${state.workspaceRevision}, not ${expectedRevision}.`);
+    }
+    state.workspace = {
+      documents,
+      activeFileId: typeof activeFileId === 'string' ? activeFileId : state.workspace.activeFileId || '',
+      preferences: preferences && typeof preferences === 'object' ? preferences : state.workspace.preferences || {},
+    };
+    state.documents = documents;
+    state.workspaceRevision = (state.workspaceRevision || 0) + 1;
+    await this.write(state);
+    return { revision: state.workspaceRevision, ...state.workspace };
+  }
+
+  async patchWorkspace({ kind, key, value, expectedRevision }) {
+    const run = async () => {
+      const current = await this.getWorkspace();
+      if (kind === 'documents' && expectedRevision !== undefined && expectedRevision !== current.revision) {
+        throw new PluginError('REVISION_CONFLICT', `Workspace is at revision ${current.revision}, not ${expectedRevision}.`);
+      }
+      return this.putWorkspace({
+        documents: kind === 'documents' ? value : current.documents,
+        activeFileId: kind === 'active' ? value : current.activeFileId,
+        preferences: kind === 'preference' ? { ...current.preferences, [key]: value } : current.preferences,
+        expectedRevision: current.revision,
+      });
+    };
+    const result = this.mutationTail.then(run, run);
+    this.mutationTail = result.catch(() => undefined);
+    return result;
   }
 
   async upsertFromSnapshot(snap) {
@@ -269,10 +324,18 @@ export class LocalDocumentStore {
  * view/context bridge: durable score mutations remain in the document store.
  */
 export class ViewSnapshotStore {
-  constructor() {
+  constructor({ now = () => Date.now(), openUi = null, viewTtlMs = VIEW_HEARTBEAT_TTL_MS, openWaitMs = VIEW_OPEN_WAIT_MS } = {}) {
     this.views = new Map();
     this.commands = new Map();
     this.commandAcks = new Map();
+    this.now = now;
+    this.openUi = openUi;
+    this.viewTtlMs = viewTtlMs;
+    this.openWaitMs = openWaitMs;
+  }
+
+  setOpenUi(openUi) {
+    this.openUi = openUi;
   }
 
   update(viewId, snapshot) {
@@ -295,6 +358,9 @@ export class ViewSnapshotStore {
     if (snapshot.selectedAbc !== undefined && typeof snapshot.selectedAbc !== 'string') {
       throw new PluginError('INVALID_VIEW', 'Selected ABC must be text.');
     }
+    const previous = this.views.get(viewId);
+    const receivedAt = this.now();
+    const focused = snapshot.focused === true;
     const stored = Object.freeze({
       documentId: snapshot.documentId,
       title: typeof snapshot.title === 'string' ? snapshot.title : 'Untitled score',
@@ -306,6 +372,11 @@ export class ViewSnapshotStore {
       }) : null,
       selectedAbc: typeof snapshot.selectedAbc === 'string' ? snapshot.selectedAbc : undefined,
       abcSource: typeof snapshot.abcSource === 'string' ? snapshot.abcSource : undefined,
+      annotationCount: Number.isInteger(snapshot.annotationCount) ? snapshot.annotationCount : undefined,
+      focused,
+      visibilityState: snapshot.visibilityState === 'hidden' ? 'hidden' : 'visible',
+      focusedAt: focused ? (previous?.focused ? previous.focusedAt : receivedAt) : previous?.focusedAt,
+      lastSeenAt: receivedAt,
       updatedAt: typeof snapshot.updatedAt === 'string' ? snapshot.updatedAt : new Date().toISOString(),
     });
     this.views.set(viewId, stored);
@@ -314,7 +385,11 @@ export class ViewSnapshotStore {
 
   require(viewId) {
     const snapshot = this.views.get(viewId);
-    if (!snapshot) throw new PluginError('VIEW_NOT_CONNECTED', `Chorale view ${viewId} is not connected.`);
+    if (!snapshot || this.now() - snapshot.lastSeenAt > this.viewTtlMs) {
+      this.views.delete(viewId);
+      this.commands.delete(viewId);
+      throw new PluginError('VIEW_NOT_CONNECTED', `Chorale view ${viewId} is not connected.`);
+    }
     return snapshot;
   }
 
@@ -322,12 +397,64 @@ export class ViewSnapshotStore {
     return this.views.get(viewId);
   }
 
-  findViewsForDocument(documentId) {
-    const matched = [];
-    for (const [viewId, snapshot] of this.views.entries()) {
-      if (snapshot.documentId === documentId) matched.push(viewId);
+  connectedViews() {
+    const connected = [];
+    for (const [viewId] of this.views.entries()) {
+      try {
+        connected.push({ viewId, snapshot: this.require(viewId) });
+      } catch {
+        // require() prunes expired heartbeats.
+      }
     }
-    return matched;
+    return connected;
+  }
+
+  resolve(viewId) {
+    if (viewId) return { viewId, snapshot: this.require(viewId), warning: undefined };
+    const connected = this.connectedViews();
+    if (connected.length === 0) throw new PluginError('VIEW_NOT_CONNECTED', 'No Chorale score view is connected.');
+
+    const focused = connected.filter(({ snapshot }) => snapshot.focused && snapshot.visibilityState === 'visible');
+    const candidates = focused.length > 0 ? focused : connected;
+    const chosen = candidates.toSorted((left, right) =>
+      (right.snapshot.focusedAt || right.snapshot.lastSeenAt) - (left.snapshot.focusedAt || left.snapshot.lastSeenAt))[0];
+    const warning = connected.length > 1
+      ? focused.length === 1
+        ? `Multiple Chorale views are connected; using the focused view ${chosen.viewId}.`
+        : `Multiple Chorale views are connected without a unique focused view; using the most recently active view ${chosen.viewId}.`
+      : undefined;
+    return { ...chosen, warning };
+  }
+
+  async resolveOrOpen(viewId) {
+    try {
+      return this.resolve(viewId);
+    } catch (error) {
+      if (viewId || !(error instanceof PluginError) || error.code !== 'VIEW_NOT_CONNECTED' || !this.openUi) throw error;
+    }
+
+    const opened = await this.openUi();
+    const deadline = this.now() + this.openWaitMs;
+    while (this.now() < deadline) {
+      await new Promise((resolveWait) => setTimeout(resolveWait, 100));
+      try {
+        return this.resolve();
+      } catch (error) {
+        if (!(error instanceof PluginError) || error.code !== 'VIEW_NOT_CONNECTED') throw error;
+      }
+    }
+    throw new PluginError(
+      'VIEW_NOT_CONNECTED',
+      opened
+        ? 'Chorale opened in the browser, but no score view connected before the request timed out.'
+        : 'No Chorale score view is connected, and the browser could not be opened automatically.',
+    );
+  }
+
+  findViewsForDocument(documentId) {
+    return this.connectedViews()
+      .filter(({ snapshot }) => snapshot.documentId === documentId)
+      .map(({ viewId }) => viewId);
   }
 
   enqueue(viewId, command) {
@@ -375,20 +502,78 @@ const MIME_TYPES = {
   '.woff': 'font/woff',
 };
 
-const allowedOrigins = new Set(['http://127.0.0.1:5173', 'http://localhost:5173', 'http://127.0.0.1:43171', 'http://localhost:43171']);
+const developmentOrigins = new Set(['http://127.0.0.1:5173', 'http://localhost:5173']);
+
+const requestBody = async (request, limit = MAX_VIEW_SNAPSHOT_BYTES) => {
+  let size = 0;
+  const chunks = [];
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > limit) throw new PluginError('PAYLOAD_TOO_LARGE', 'Request exceeds the 2 MB limit.');
+    chunks.push(chunk);
+  }
+  try { return chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}; } catch { throw new PluginError('INVALID_JSON', 'Request body must be JSON.'); }
+};
 
 export const createViewBridge = (views = new ViewSnapshotStore(), store = new LocalDocumentStore()) => createHttpServer(async (request, response) => {
   const origin = request.headers.origin;
-  if (origin && !allowedOrigins.has(origin)) {
+  const sameOrigin = origin === `http://${request.headers.host}` || origin === `https://${request.headers.host}`;
+  if (origin && !sameOrigin && !developmentOrigins.has(origin)) {
     response.writeHead(403).end('Origin is not allowed.');
     return;
   }
-  if (origin) response.setHeader('access-control-allow-origin', origin);
+  if (origin && (sameOrigin || developmentOrigins.has(origin))) response.setHeader('access-control-allow-origin', origin);
   response.setHeader('vary', 'Origin');
   response.setHeader('access-control-allow-methods', 'GET, POST, PUT, OPTIONS');
   response.setHeader('access-control-allow-headers', 'content-type');
   if (request.method === 'OPTIONS') {
     response.writeHead(204).end();
+    return;
+  }
+
+  if (request.method === 'GET' && request.url === '/v1/health') {
+    response.setHeader('content-type', 'application/json');
+    response.writeHead(200).end(JSON.stringify({ service: 'chorale-mcp-daemon', version: DAEMON_VERSION }));
+    return;
+  }
+
+  if (request.method === 'GET' && request.url === '/v1/workspace') {
+    try {
+      response.setHeader('content-type', 'application/json');
+      response.writeHead(200).end(JSON.stringify(await store.getWorkspace()));
+    } catch (error) {
+      response.writeHead(500).end(JSON.stringify({ errorCode: error.code || 'PERSISTENCE_FAILED' }));
+    }
+    return;
+  }
+
+  const preferenceMatch = request.url?.match(/^\/v1\/workspace\/preferences\/([A-Za-z0-9._-]{1,160})$/);
+  if (request.method === 'PUT' && (request.url === '/v1/workspace/documents' || request.url === '/v1/workspace/active-document' || preferenceMatch)) {
+    try {
+      const patch = await requestBody(request);
+      const kind = request.url === '/v1/workspace/documents' ? 'documents' : request.url === '/v1/workspace/active-document' ? 'active' : 'preference';
+      const next = await store.patchWorkspace({ kind, key: preferenceMatch && decodeURIComponent(preferenceMatch[1]), value: kind === 'documents' ? patch.documents : kind === 'active' ? patch.activeFileId : patch.value, expectedRevision: patch.expectedRevision });
+      response.setHeader('content-type', 'application/json');
+      response.writeHead(200).end(JSON.stringify(next));
+    } catch (error) {
+      response.setHeader('content-type', 'application/json');
+      response.writeHead(error instanceof PluginError && error.code === 'REVISION_CONFLICT' ? 409 : 400).end(JSON.stringify({ errorCode: error.code || 'INVALID_WORKSPACE' }));
+    }
+    return;
+  }
+
+  if (request.method === 'PUT' && request.url === '/v1/workspace') {
+    try {
+      const workspace = await requestBody(request);
+      response.setHeader('content-type', 'application/json');
+      response.writeHead(200).end(JSON.stringify(await store.putWorkspace(workspace)));
+    } catch (error) {
+      if (!response.headersSent) {
+        response.statusCode = error instanceof PluginError && error.code === 'REVISION_CONFLICT' ? 409 : 400;
+        response.setHeader('content-type', 'application/json');
+        response.end(JSON.stringify({ errorCode: error.code || 'INVALID_WORKSPACE', message: error.message }));
+      }
+    }
     return;
   }
 
@@ -534,6 +719,155 @@ export const listenForPluginViews = (views, store, port = Number(process.env.CHO
   });
 });
 
+const fetchJson = async (url, options) => {
+  const response = await fetch(url, options);
+  const payload = await response.json();
+  if (!response.ok) {
+    const error = new Error(`HTTP ${response.status}`);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+  return payload;
+};
+
+const readRuntimeRecord = async () => {
+  try {
+    const record = JSON.parse(await readFile(runtimeRecordPath, 'utf8'));
+    if (!Number.isInteger(record.port) || record.version !== DAEMON_VERSION) return null;
+    return record;
+  } catch { return null; }
+};
+
+const reusableDaemon = async () => {
+  const record = await readRuntimeRecord();
+  if (!record) return null;
+  try {
+    const health = await fetchJson(`http://127.0.0.1:${record.port}/v1/health`);
+    return health.service === 'chorale-mcp-daemon' && health.version === DAEMON_VERSION ? record : null;
+  } catch { return null; }
+};
+
+const delay = (milliseconds) => new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
+
+const launchBrowserCommand = (command, args) => new Promise((resolveOpen) => {
+  let child;
+  try {
+    child = spawn(command, args, { detached: true, stdio: 'ignore' });
+  } catch {
+    resolveOpen(false);
+    return;
+  }
+  child.once('error', () => resolveOpen(false));
+  child.once('spawn', () => {
+    child.unref();
+    resolveOpen(true);
+  });
+});
+
+const openBrowser = async (url) => {
+  const candidates = process.platform === 'darwin'
+    ? [['open', [url]]]
+    : process.platform === 'win32'
+      ? [['cmd', ['/c', 'start', '', url]]]
+      : [
+          ['google-chrome', [url]],
+          ['chromium', [url]],
+          ['chromium-browser', [url]],
+          ['xdg-open', [url]],
+        ];
+  for (const [command, args] of candidates) {
+    if (await launchBrowserCommand(command, args)) return true;
+  }
+  return false;
+};
+
+/**
+ * Returns one machine-wide daemon. The small stdio processes never bind a
+ * port; a lock elects a single detached daemon, which publishes an atomic
+ * record only after its health endpoint is live.
+ */
+export const ensureSharedDaemon = async () => {
+  const existing = await reusableDaemon();
+  if (existing) return existing;
+  await mkdir(runtimeDirectory, { recursive: true });
+  let lockOwner = false;
+  try {
+    await mkdir(startupLockPath);
+    await writeFile(join(startupLockPath, 'owner.json'), JSON.stringify({ pid: process.pid, createdAt: Date.now() }), 'utf8');
+    lockOwner = true;
+  } catch (error) {
+    if (error?.code !== 'EEXIST') throw error;
+    // A launcher can be interrupted between mkdir and daemon spawn. Locks
+    // older than the short startup window are safe to reclaim after a health
+    // check has already found no daemon.
+    try {
+      const lockStat = await stat(startupLockPath);
+      if (Date.now() - lockStat.mtimeMs > 10_000) {
+        await rm(startupLockPath, { recursive: true, force: true });
+        return ensureSharedDaemon();
+      }
+    } catch { /* another launcher released it */ }
+  }
+  if (lockOwner) {
+    try {
+      const again = await reusableDaemon();
+      if (again) return again;
+      const child = spawn(process.execPath, [__filename, '--daemon'], {
+        detached: true,
+        stdio: 'ignore',
+        env: { ...process.env, CHORALE_PLUGIN_BRIDGE_PORT: process.env.CHORALE_PLUGIN_BRIDGE_PORT || String(DEFAULT_BRIDGE_PORT) },
+      });
+      child.unref();
+    } finally {
+      await rm(startupLockPath, { recursive: true, force: true });
+    }
+  }
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    const daemon = await reusableDaemon();
+    if (daemon) return daemon;
+    await delay(50);
+  }
+  throw new PluginError('DAEMON_UNAVAILABLE', 'Chorale’s shared local service did not become ready.');
+};
+
+const writeRuntimeRecord = async (port) => {
+  await mkdir(runtimeDirectory, { recursive: true });
+  const temporaryPath = `${runtimeRecordPath}.${process.pid}.${randomUUID()}.tmp`;
+  await writeFile(temporaryPath, JSON.stringify({ service: 'chorale-mcp-daemon', version: DAEMON_VERSION, port, pid: process.pid, startedAt: new Date().toISOString() }), 'utf8');
+  await rename(temporaryPath, runtimeRecordPath);
+};
+
+export const startSharedDaemon = async () => {
+  const views = new ViewSnapshotStore();
+  const store = new LocalDocumentStore(process.env.CHORALE_PLUGIN_STORE || defaultStorePath, views);
+  const preferredPort = Number(process.env.CHORALE_PLUGIN_BRIDGE_PORT || DEFAULT_BRIDGE_PORT);
+  let bridge;
+  try {
+    bridge = await listenForPluginViews(views, store, preferredPort);
+  } catch (error) {
+    if (error?.code !== 'EADDRINUSE') throw error;
+    bridge = await listenForPluginViews(views, store, 0);
+  }
+  const port = bridge.address().port;
+  views.setOpenUi(() => openBrowser(`http://127.0.0.1:${port}/`));
+  await writeRuntimeRecord(port);
+  return bridge;
+};
+
+export const remoteToolHandlers = (baseUrl) => new Proxy({}, {
+  get: (_target, toolName) => async (input = {}) => {
+    try {
+      return await fetchJson(`${baseUrl}/v1/tools/${String(toolName)}`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(input),
+      });
+    } catch (error) {
+      if (error?.payload?.isError) return error.payload;
+      return failure(new PluginError('DAEMON_UNAVAILABLE', 'Chorale’s shared local service is unavailable.'));
+    }
+  },
+});
+
 const result = (structuredContent, text) => ({
   structuredContent,
   content: [{ type: 'text', text }],
@@ -605,9 +939,10 @@ export const createToolHandlers = (store, views) => ({
       return failure(error);
     }
   },
-  read_measure_selection: async ({ viewId = 'plugin-main' } = {}) => {
+  read_measure_selection: async ({ viewId } = {}) => {
     try {
-      const snapshot = views.require(viewId);
+      const resolved = await views.resolveOrOpen(viewId);
+      const { snapshot, warning } = resolved;
       if (!snapshot.selection) {
         throw new PluginError('INVALID_RANGE', 'No written measures are currently selected in this view.');
       }
@@ -615,10 +950,11 @@ export const createToolHandlers = (store, views) => ({
         documentId: snapshot.documentId,
         title: snapshot.title,
         revision: snapshot.revision,
-        viewId,
+        viewId: resolved.viewId,
         selection: snapshot.selection,
         abcSource: snapshot.selectedAbc,
-      }, `Selected measures ${snapshot.selection.startMeasure}–${snapshot.selection.endMeasure} of "${snapshot.title}".`);
+        ...(warning ? { warning } : {}),
+      }, `${warning ? `Warning: ${warning} ` : ''}Selected measures ${snapshot.selection.startMeasure}–${snapshot.selection.endMeasure} of "${snapshot.title}".`);
     } catch (error) {
       return failure(error);
     }
@@ -682,9 +1018,9 @@ export const createToolHandlers = (store, views) => ({
   },
 });
 
-export const createServer = (store = new LocalDocumentStore(), views = new ViewSnapshotStore()) => {
+export const createServer = (store = new LocalDocumentStore(), views = new ViewSnapshotStore(), handlersOverride = null) => {
   const server = new McpServer({ name: 'Chorale', version: '0.1.0' });
-  const handlers = createToolHandlers(store, views);
+  const handlers = handlersOverride || createToolHandlers(store, views);
 
   server.registerResource('chorale-workspace', WORKSPACE_URI, {}, async () => ({
     contents: [{ uri: WORKSPACE_URI, mimeType: 'text/html;profile=mcp-app', text: workspaceHtml, _meta: { ui: { prefersBorder: false } } }],
@@ -732,7 +1068,7 @@ export const createServer = (store = new LocalDocumentStore(), views = new ViewS
     title: 'Read selected measures',
     description: 'Read the currently selected written-measure range and ABC excerpt from a connected Chorale score view.',
     inputSchema: {
-      viewId: z.string().min(1).default('plugin-main').describe('Connected view ID (default: "plugin-main")'),
+      viewId: z.string().min(1).optional().describe('Optional connected view ID; omitted resolves the currently focused Chorale view'),
     },
   }, handlers.read_measure_selection);
 
@@ -764,6 +1100,13 @@ export const createServer = (store = new LocalDocumentStore(), views = new ViewS
         kind: z.enum(['chord', 'modulation', 'voice-leading', 'explanation']).optional().describe('Kind of annotation'),
         chordSymbol: z.string().max(40).optional().describe('Chord symbol (e.g. "E", "G#m", "B7")'),
         romanNumeral: z.string().max(40).optional().describe('Roman numeral analysis (e.g. "I", "V7", "vi")'),
+        position: z.object({
+          measure: z.number().int().min(1).optional(),
+          offset: z.object({
+            numerator: z.number().int().min(0),
+            denominator: z.number().int().min(1),
+          }),
+        }).optional().describe('Intra-measure placement position for chord annotations'),
       })).min(1).describe('List of annotations to add'),
     },
   }, handlers.add_annotations);
@@ -822,9 +1165,11 @@ export const createServer = (store = new LocalDocumentStore(), views = new ViewS
 };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const views = new ViewSnapshotStore();
-  const store = new LocalDocumentStore(process.env.CHORALE_PLUGIN_STORE || defaultStorePath, views);
-  await listenForPluginViews(views, store);
-  const server = createServer(store, views);
-  await server.connect(new StdioServerTransport());
+  if (process.argv.includes('--daemon')) {
+    await startSharedDaemon();
+  } else {
+    const daemon = await ensureSharedDaemon();
+    const server = createServer(undefined, undefined, remoteToolHandlers(`http://127.0.0.1:${daemon.port}`));
+    await server.connect(new StdioServerTransport());
+  }
 }

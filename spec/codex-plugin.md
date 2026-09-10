@@ -5,14 +5,24 @@ category: "architecture"
 date: 2026-09-08
 status: "in-progress"
 source_files:
-  - plugins/chorale-codex-plugin/server.mjs
+  - server.mjs
+  - .mcp.json
+  - .codex-plugin/plugin.json
+  - .agents/plugins/marketplace.json
+  - skills/chorale-score/SKILL.md
   - plugins/chorale-codex-plugin/.mcp.json
+  - plugins/chorale-codex-plugin/.codex-plugin/plugin.json
+  - plugins/chorale-codex-plugin/server.mjs
   - plugins/chorale-codex-plugin/skills/chorale-score/SKILL.md
+  - scripts/package-codex-plugin.mjs
   - src/hooks/useDocumentStore.ts
+  - src/hooks/usePluginMcpBridge.ts
   - src/music/scoreSnapshot.ts
   - src/music/annotationMutations.ts
 test_files:
-  - plugins/chorale-codex-plugin/test/server.node.mjs
+  - test/package.node.mjs
+  - test/server.node.mjs
+  - src/hooks/usePluginMcpBridge.test.ts
 related_specs:
   - spec/design.md
   - spec/score-surface.md
@@ -35,14 +45,51 @@ The first implementation is deliberately limited to a local stdio MCP server.
 It provides durable ABC documents, bounded measure reads, annotation proposals,
 and a render tool with an MCP Apps UI resource. The component is optional: all
 data tools remain useful in a host that cannot render an MCP Apps iframe.
-The packaged MCP declaration launches `./server.mjs` with `cwd` set to the
-plugin root, so the same bundle works from both a source checkout and Codex's
-installed plugin cache.
+The packaged MCP declaration launches the executable plugin-local wrapper at
+`./scripts/launch_chorale_mcp`. The wrapper resolves `server.mjs` from its own
+installed location and selects a Node runtime supplied by Codex before falling
+back to `PATH`. This keeps startup independent of both the task workspace and
+the host's shell environment.
+
+The repository is also the durable `chorale-local` marketplace root. Its
+marketplace manifest points at the bounded runtime package under
+`plugins/chorale-codex-plugin`. Codex installations must register this main
+checkout, not an ephemeral feature worktree, so removing a completed worktree
+cannot make the MCP tools disappear from newly created tasks. The runtime
+package contains a bundled server plus mirrored MCP declaration, manifest,
+skill, and built UI. `npm run package:codex` regenerates it without copying Git
+metadata, `.agents` worktrees, or repository dependencies into Codex's cache.
 
 The prototype store is a local JSON file selected by `CHORALE_PLUGIN_STORE`.
 This is not the long-term document service. It makes startup, persistence, and
 MCP contracts testable without sharing the standalone application's IndexedDB
 state or creating two hidden writers to that state.
+
+## Automatic view connection and routing
+
+Opening the normal Chorale URL is sufficient to connect a score view. Query
+parameters such as `plugin=1` may alter presentation, and explicit `viewId` or
+`choraleBridge` values remain diagnostic overrides, but none is required for
+ordinary MCP connectivity.
+
+Every page publishes a unique, ephemeral view identity plus its focus and
+visibility state. View heartbeats expire, so closed or suspended pages do not
+remain routing candidates. A selection tool without an explicit `viewId`
+resolves the only live view, or prefers the uniquely focused visible view when
+several pages are connected. If several candidates remain, the tool chooses
+the most recently focused candidate and returns a structured ambiguity warning
+instead of silently pretending that a hard-coded view is authoritative.
+
+When a view-dependent tool has no live page to query, the local daemon opens
+its own loopback Chorale URL in the user's browser and briefly waits for that
+page to register before completing the request. Durable document tools remain
+headless and never require a connected page. A page can still be absent after
+an open attempt, so callers receive an accurate `VIEW_NOT_CONNECTED` response
+rather than a generic daemon failure.
+
+The stdio adapter must preserve structured tool failures returned by the daemon
+(`VIEW_NOT_CONNECTED`, `INVALID_RANGE`, and similar codes). Only transport or
+health-check failures may be translated to `DAEMON_UNAVAILABLE`.
 
 ## Authoritative-state rule
 

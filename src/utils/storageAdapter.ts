@@ -14,6 +14,34 @@ type IndexedDBRecord = {
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 const memoryStore = new Map<string, unknown>();
+let workspaceRevision = 0;
+
+// The packaged workspace is served by the Chorale daemon. Vite remains an
+// intentionally local development fallback; it never becomes production
+// authority and no browser-profile migration is attempted.
+const sharedServiceBase = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  const configured = new URLSearchParams(window.location.search).get('choraleBridge');
+  if (configured) return configured;
+  if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+    // Vite (5173) and JSDOM's conventional 3000 origin are development/test
+    // fallbacks. Packaged daemon ports, including an alternate ephemeral port,
+    // remain same-origin shared workspaces.
+    if (window.location.port === '3000') return null;
+    return window.location.port === '5173' ? 'http://127.0.0.1:43171' : window.location.origin;
+  }
+  // Electron/file callers can opt in with ?choraleBridge=…; the legacy
+  // loopback default remains available for existing local launches.
+  return 'http://127.0.0.1:43171';
+};
+
+const usesSharedWorkspace = (): boolean => sharedServiceBase() !== null;
+
+const sharedWorkspace = async <T>(path: string, options?: RequestInit): Promise<T> => {
+  const response = await fetch(`${sharedServiceBase()}${path}`, options);
+  if (!response.ok) throw new Error(response.status === 409 ? 'Workspace changed in another view. Refreshing.' : 'Shared Chorale service is unavailable.');
+  return response.json() as Promise<T>;
+};
 
 const hasIndexedDB = (): boolean => (
   typeof window !== 'undefined' && typeof window.indexedDB !== 'undefined'
@@ -58,7 +86,46 @@ export const storageAdapter = {
     memoryStore.clear();
   },
 
+  async getSharedActiveFileId(): Promise<string | null> {
+    if (!usesSharedWorkspace()) return null;
+    const workspace = await sharedWorkspace<{ revision: number; activeFileId?: string }>('/v1/workspace');
+    workspaceRevision = workspace.revision;
+    return workspace.activeFileId || '';
+  },
+
+  async setSharedActiveFileId(activeFileId: string): Promise<void> {
+    if (!usesSharedWorkspace()) return;
+    const workspace = await sharedWorkspace<{ revision: number }>('/v1/workspace');
+    const updated = await sharedWorkspace<{ revision: number }>('/v1/workspace/active-document', {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ activeFileId, expectedRevision: workspace.revision }),
+    });
+    workspaceRevision = updated.revision;
+  },
+
+  async getGlobalPreference<T>(key: string): Promise<T | null> {
+    if (!usesSharedWorkspace()) return null;
+    const workspace = await sharedWorkspace<{ revision: number; preferences?: Record<string, unknown> }>('/v1/workspace');
+    workspaceRevision = workspace.revision;
+    return (workspace.preferences?.[key] as T | undefined) ?? null;
+  },
+
+  async setGlobalPreference(key: string, value: unknown): Promise<void> {
+    if (!usesSharedWorkspace()) return;
+    const workspace = await sharedWorkspace<{ revision: number }>('/v1/workspace');
+    const updated = await sharedWorkspace<{ revision: number }>(`/v1/workspace/preferences/${encodeURIComponent(key)}`, {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ value, expectedRevision: workspace.revision }),
+    });
+    workspaceRevision = updated.revision;
+  },
+
   async getDocuments(): Promise<FileDocument[]> {
+    if (usesSharedWorkspace()) {
+      const workspace = await sharedWorkspace<{ revision: number; documents: unknown[] }>('/v1/workspace');
+      workspaceRevision = workspace.revision;
+      return normalizeDocuments(workspace.documents || []);
+    }
     if (!hasIndexedDB()) {
       const memoryDocuments = memoryStore.get(DOCUMENTS_STORAGE_KEY);
       return Array.isArray(memoryDocuments)
@@ -85,6 +152,15 @@ export const storageAdapter = {
   },
 
   async saveDocuments(documents: FileDocument[]): Promise<boolean> {
+    if (usesSharedWorkspace()) {
+      const workspace = await sharedWorkspace<{ revision: number }>('/v1/workspace/documents', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ documents, expectedRevision: workspaceRevision }),
+      });
+      workspaceRevision = workspace.revision;
+      return true;
+    }
     if (!hasIndexedDB()) {
       // Non-browser test environments have no durable storage. Keep this fallback
       // isolated from the production IndexedDB path so failures cannot be masked.

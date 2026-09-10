@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { buildAbcPresentation } from '../music/abcPresentation';
 import type { Annotation, ScoreAnchor } from '../types/document';
@@ -14,21 +14,32 @@ type PluginMcpBridgeInput = Readonly<{
   title: string;
   revision: number;
   abcSource: string;
+  annotations?: readonly Annotation[];
   selection: ScoreAnchor | null;
   onApplyAnnotations: (annotations: readonly Annotation[]) => void;
   onReplaceScore: (replacementAbc: string) => { status: string };
+  onSetAnnotations?: (annotations: readonly Annotation[]) => void;
+  onDeleteAnnotations?: (annotationIds: readonly string[]) => void;
 }>;
 
 const defaultBridgeUrl = 'http://127.0.0.1:43171';
+
+// Module state is deliberately per loaded page. sessionStorage is cloned by
+// duplicated tabs, which made two independent views publish under one ID.
+let pageViewId: string | null = null;
+const viewIdentity = (): string => (pageViewId ||= `view-${crypto.randomUUID()}`);
 
 export const getPluginViewConfig = (): PluginViewConfig => {
   if (typeof window === 'undefined') {
     return { viewId: 'plugin-main', bridgeUrl: defaultBridgeUrl };
   }
   const parameters = new URLSearchParams(window.location.search);
+  const servedByChorale = window.location.port !== '5173';
   return {
-    viewId: parameters.get('viewId') || 'plugin-main',
-    bridgeUrl: parameters.get('choraleBridge') || defaultBridgeUrl,
+    viewId: parameters.get('viewId') || viewIdentity(),
+    // The packaged UI is served by the daemon. Same-origin requests work from
+    // every browser profile without broad mutation CORS permissions.
+    bridgeUrl: parameters.get('choraleBridge') || (servedByChorale ? window.location.origin : defaultBridgeUrl),
   };
 };
 
@@ -69,11 +80,20 @@ export const usePluginMcpBridge = ({
   title,
   revision,
   abcSource,
+  annotations,
   selection,
   onApplyAnnotations,
   onReplaceScore,
+  onSetAnnotations,
+  onDeleteAnnotations,
 }: PluginMcpBridgeInput) => {
   const config = useMemo(() => getPluginViewConfig(), []);
+  const annotationsRef = useRef(annotations);
+  annotationsRef.current = annotations;
+
+  const onSetAnnotationsRef = useRef(onSetAnnotations);
+  onSetAnnotationsRef.current = onSetAnnotations;
+
   const selectedAbc = useMemo(
     () => selection ? extractSelectedAbc(abcSource, selection) : undefined,
     [abcSource, selection],
@@ -81,20 +101,23 @@ export const usePluginMcpBridge = ({
 
   useEffect(() => {
     if (!enabled || !documentId) return undefined;
-    const snapshot = {
-      documentId,
-      title,
-      revision,
-      abcSource,
-      selection: selection ? {
-        startMeasure: selection.startMeasure,
-        endMeasure: selection.endMeasure,
-        ...(selection.voiceId ? { voiceId: selection.voiceId } : {}),
-      } : null,
-      selectedAbc,
-      updatedAt: new Date().toISOString(),
-    };
     const publish = () => {
+      const snapshot = {
+        documentId,
+        title,
+        revision,
+        abcSource,
+        annotationCount: annotations?.length ?? 0,
+        selection: selection ? {
+          startMeasure: selection.startMeasure,
+          endMeasure: selection.endMeasure,
+          ...(selection.voiceId ? { voiceId: selection.voiceId } : {}),
+        } : null,
+        selectedAbc,
+        focused: document.hasFocus(),
+        visibilityState: document.visibilityState,
+        updatedAt: new Date().toISOString(),
+      };
       void fetch(`${config.bridgeUrl}/v1/views/${encodeURIComponent(config.viewId)}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
@@ -107,30 +130,77 @@ export const usePluginMcpBridge = ({
 
     publish();
     const refresh = window.setInterval(publish, 1500);
-    return () => window.clearInterval(refresh);
-  }, [abcSource, config, documentId, enabled, revision, selectedAbc, selection, title]);
+    window.addEventListener('focus', publish);
+    window.addEventListener('blur', publish);
+    document.addEventListener('visibilitychange', publish);
+    return () => {
+      window.clearInterval(refresh);
+      window.removeEventListener('focus', publish);
+      window.removeEventListener('blur', publish);
+      document.removeEventListener('visibilitychange', publish);
+    };
+  }, [abcSource, annotations?.length, config, documentId, enabled, revision, selectedAbc, selection, title]);
 
   useEffect(() => {
     if (!enabled || !documentId) return undefined;
     let cancelled = false;
+
+    const syncFromStore = async () => {
+      try {
+        const response = await fetch(`${config.bridgeUrl}/v1/scores/${encodeURIComponent(documentId)}`);
+        if (!response.ok || cancelled) return;
+        const score = await response.json() as { annotations?: Annotation[]; revision?: number };
+        if (Array.isArray(score.annotations) && onSetAnnotationsRef.current) {
+          const currentAnns = annotationsRef.current || [];
+          const currentIds = new Set(currentAnns.map((a) => a.id));
+          const serverIds = new Set(score.annotations.map((a) => a.id));
+          const hasDiff = currentIds.size !== serverIds.size || score.annotations.some((a) => !currentIds.has(a.id));
+          if (hasDiff) {
+            onSetAnnotationsRef.current(score.annotations);
+          }
+        }
+      } catch {
+        // The optional local bridge may be offline.
+      }
+    };
+
     const poll = async () => {
       try {
         const response = await fetch(`${config.bridgeUrl}/v1/views/${encodeURIComponent(config.viewId)}/commands`);
-        if (!response.ok) return;
+        if (!response.ok || cancelled) return;
         const { commands } = await response.json() as { commands?: Array<Record<string, unknown>> };
         for (const command of commands || []) {
           const commandId = typeof command.id === 'string' ? command.id : '';
           if (!commandId || cancelled) continue;
-          let accepted = command.documentId === documentId && (command.expectedRevision === revision || command.expectedRevision === revision + 1);
-          if (accepted && command.kind === 'annotations' && Array.isArray(command.annotations)) onApplyAnnotations(command.annotations as Annotation[]);
-          else if (accepted && command.kind === 'replace-score' && typeof command.replacementAbc === 'string') accepted = onReplaceScore(command.replacementAbc).status === 'valid';
-          else accepted = false;
-          await fetch(`${config.bridgeUrl}/v1/views/${encodeURIComponent(config.viewId)}/commands/${encodeURIComponent(commandId)}/ack`, { method: 'POST', keepalive: true, body: JSON.stringify({ accepted }) });
+          let accepted = command.documentId === documentId;
+          if (accepted && command.kind === 'annotations' && Array.isArray(command.annotations)) {
+            onApplyAnnotations(command.annotations as Annotation[]);
+          } else if (accepted && command.kind === 'delete-annotations' && Array.isArray(command.annotationIds)) {
+            onDeleteAnnotations?.(command.annotationIds as string[]);
+          } else if (accepted && command.kind === 'replace-score' && typeof command.replacementAbc === 'string') {
+            accepted = onReplaceScore(command.replacementAbc).status === 'valid';
+          } else {
+            accepted = false;
+          }
+          await fetch(`${config.bridgeUrl}/v1/views/${encodeURIComponent(config.viewId)}/commands/${encodeURIComponent(commandId)}/ack`, {
+            method: 'POST',
+            keepalive: true,
+            body: JSON.stringify({ accepted }),
+          });
         }
-      } catch { /* The optional local bridge may be offline. */ }
+      } catch {
+        // The optional local bridge may be offline.
+      }
     };
+
+    void syncFromStore();
     void poll();
-    const refresh = window.setInterval(() => void poll(), 500);
-    return () => { cancelled = true; window.clearInterval(refresh); };
-  }, [config, documentId, enabled, onApplyAnnotations, onReplaceScore, revision]);
+    const pollInterval = window.setInterval(() => void poll(), 500);
+    const syncInterval = window.setInterval(() => void syncFromStore(), 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(pollInterval);
+      window.clearInterval(syncInterval);
+    };
+  }, [config, documentId, enabled, onApplyAnnotations, onDeleteAnnotations, onReplaceScore]);
 };

@@ -70,14 +70,25 @@ Chorale consists of two complementary components that synchronize over a local l
 
 Chorale includes a native Codex plugin declaration in [`.codex-plugin/plugin.json`](./.codex-plugin/plugin.json).
 
-### Option A: Local Plugin Directory
-In your Codex environment or project:
+### Local Marketplace Installation
+Register the repository itself as a local marketplace, then install the plugin:
 ```bash
-codex plugin install /path/to/chorale
+npm run build
+npm run package:codex
+codex plugin marketplace add /path/to/chorale
+codex plugin add chorale-codex-plugin@chorale-local
 ```
 Codex automatically detects:
 - **MCP Server:** [`.mcp.json`](./.mcp.json) (`node ./server.mjs`)
 - **Agent Skill:** [`skills/chorale-score/SKILL.md`](./skills/chorale-score/SKILL.md)
+
+After changing the plugin locally, update the cache-buster in
+`.codex-plugin/plugin.json`, rebuild and package it with the first two commands,
+reinstall it with the final command, and open a fresh Codex task so the updated
+MCP tools are attached. The marketplace deliberately installs the bounded
+runtime package under `plugins/chorale-codex-plugin`; it does not copy the
+repository's Git metadata, worktrees, or development dependencies into Codex's
+plugin cache.
 
 ---
 
@@ -151,4 +162,3 @@ Add the Chorale MCP server entry to your MCP configuration file (e.g. `claude_de
 | `edit_annotations` | Modify an existing annotation's text, label, or measure span. | `documentId` (string), `expectedRevision` (number), `annotationId` (string), `updates` (object) |
 | `delete_annotations` | Remove one or more annotations by ID. | `documentId` (string), `expectedRevision` (number), `annotationIds` (array of strings) |
 | `render_score_workspace` | Render an interactive sheet music view in compatible MCP Apps hosts. | `documentId` (string) |
-

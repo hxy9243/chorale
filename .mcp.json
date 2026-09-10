@@ -1,9 +1,20 @@
 {
   "mcpServers": {
     "chorale": {
-      "command": "node",
-      "args": ["./server.mjs"],
-      "cwd": "."
+      "command": "./scripts/launch_chorale_mcp",
+      "args": [],
+      "cwd": ".",
+      "env_vars": [
+        "CODEX_MCP_NODE_PATH",
+        "CODEX_BROWSER_USE_NODE_PATH",
+        "CODEX_ELECTRON_RESOURCES_PATH",
+        "CODEX_CLI_PATH",
+        "XDG_CACHE_HOME",
+        "HOME",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "PATH"
+      ]
     }
   }
 }

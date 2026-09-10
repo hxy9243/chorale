@@ -1,6 +1,6 @@
 {
   "name": "chorale-codex-plugin",
-  "version": "0.1.0+codex.20260908060753",
+  "version": "0.1.0+codex.20260909010119",
   "description": "Score-focused music workspace and MCP tools for Codex.",
   "author": {
     "name": "Chorale"

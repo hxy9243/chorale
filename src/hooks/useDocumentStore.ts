@@ -103,9 +103,13 @@ export const useDocumentStore = () => {
     let cancelled = false;
     async function hydrate() {
       try {
-        const docs = await storageAdapter.getDocuments();
+        const [docs, sharedActiveFileId] = await Promise.all([
+          storageAdapter.getDocuments(),
+          storageAdapter.getSharedActiveFileId(),
+        ]);
         if (!cancelled) {
           setDocuments(docs);
+          if (sharedActiveFileId !== null) setActiveFileId(sharedActiveFileId);
           setHydrationStatus('ready');
         }
       } catch (err) {
@@ -120,6 +124,24 @@ export const useDocumentStore = () => {
       cancelled = true;
     };
   }, []);
+
+  // The shared daemon is authoritative. Polling is deliberately bounded and
+  // never replaces a locally pending autosave; another browser's committed
+  // revision becomes visible without a manual reload.
+  useEffect(() => {
+    if (hydrationStatus !== 'ready') return undefined;
+    const refresh = async () => {
+      if (saveStatus === 'saving') return;
+      try {
+        const remote = await storageAdapter.getDocuments();
+        setDocuments((current) => JSON.stringify(current) === JSON.stringify(remote) ? current : remote);
+        const active = await storageAdapter.getSharedActiveFileId();
+        if (active !== null) setActiveFileId(active);
+      } catch { /* optional bridge unavailable in local development */ }
+    };
+    const interval = window.setInterval(() => void refresh(), 2_000);
+    return () => window.clearInterval(interval);
+  }, [hydrationStatus, saveStatus]);
 
   // Auto-save effect: ONLY run after hydration is ready
   useEffect(() => {
@@ -150,6 +172,9 @@ export const useDocumentStore = () => {
     } else {
       window.localStorage.removeItem(ACTIVE_FILE_KEY);
     }
+    void storageAdapter.setSharedActiveFileId(activeFileId).catch(() => {
+      // The development fallback intentionally remains browser-local.
+    });
   }, [activeFileId]);
 
   const handleSelectFile = useCallback((fileId: string) => {
@@ -568,6 +593,31 @@ export const useDocumentStore = () => {
     }));
   }, [activeFileId]);
 
+  const handleSetAnnotations = useCallback((annotations: readonly Annotation[]) => {
+    if (!activeFileId) return;
+    setDocuments((current) => current.map((document) => {
+      if (document.id !== activeFileId) return document;
+      return {
+        ...document,
+        annotations: [...annotations],
+        updatedAt: new Date().toISOString(),
+      };
+    }));
+  }, [activeFileId]);
+
+  const handleDeleteAnnotations = useCallback((annotationIds: readonly string[]) => {
+    if (!activeFileId || annotationIds.length === 0) return;
+    const toDelete = new Set(annotationIds);
+    setDocuments((current) => current.map((document) => {
+      if (document.id !== activeFileId) return document;
+      return {
+        ...document,
+        annotations: document.annotations.filter((a) => !toDelete.has(a.id)),
+        updatedAt: new Date().toISOString(),
+      };
+    }));
+  }, [activeFileId]);
+
   const handleRevertTo = useCallback((target: string | number) => {
     if (!activeFileId || editingHistory.length === 0) return;
 
@@ -641,5 +691,7 @@ export const useDocumentStore = () => {
     handleAddAnnotations,
     handleUpdateAnnotation,
     handleDeleteAnnotation,
+    handleSetAnnotations,
+    handleDeleteAnnotations,
   };
 };
