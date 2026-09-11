@@ -33,16 +33,38 @@ export const splitHeadersAndBody = (abcSource) => {
   };
 };
 
+const isVoicePropertyString = (rest) => {
+  if (!rest) return true;
+  if (rest.includes('|')) return false;
+  const knownClefs = new Set(['treble', 'bass', 'alto', 'tenor', 'perc', 'none', 'baritone', 'mezzo', 'soprano']);
+  const tokens = rest.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
+  return tokens.every((tok) => {
+    if (knownClefs.has(tok.toLowerCase())) return true;
+    if (/^[a-zA-Z]+=(?:"[^"]*"|\S+)$/.test(tok)) return true;
+    return false;
+  });
+};
+
 /**
  * Returns an array of measure text strings across the tune.
  */
 export const measureBodies = (abcSource) => {
-  const { body } = splitHeadersAndBody(abcSource);
-  // Split on bar lines '|' that are not inside inline fields or quotes
-  return body
-    .split('|')
-    .map((part) => part.replace(/[[\]]/g, '').trim())
-    .filter(Boolean);
+  const { voices } = parseVoicesAndMeasures(abcSource);
+  let maxMeasures = 0;
+  for (const measures of voices.values()) {
+    if (measures.length > maxMeasures) {
+      maxMeasures = measures.length;
+    }
+  }
+  // Fallback to legacy split if no measures were detected
+  if (maxMeasures === 0) {
+    const { body } = splitHeadersAndBody(abcSource);
+    return body
+      .split('|')
+      .map((part) => part.replace(/[[\]]/g, '').trim())
+      .filter(Boolean);
+  }
+  return Array.from({ length: maxMeasures }, (_, i) => `Measure ${i + 1}`);
 };
 
 /**
@@ -53,41 +75,57 @@ export const parseVoicesAndMeasures = (abcSource) => {
   const lines = abcSource.split(/\r?\n/);
   const headers = [];
   const voices = new Map(); // voiceId -> array of measures
-  let currentVoiceId = '1';
+  let currentVoiceId = null;
   let inHeader = true;
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (inHeader && /^[A-Za-z]:/.test(trimmed)) {
-      headers.push(line);
-      if (trimmed.startsWith('K:')) {
-        inHeader = false;
+  for (const rawLine of lines) {
+    let line = rawLine.trim();
+    if (!line) continue;
+
+    if (inHeader) {
+      if (/^[A-Za-z]:/.test(line)) {
+        headers.push(rawLine);
+        if (line.startsWith('K:')) {
+          inHeader = false;
+        }
+        continue;
       }
-      continue;
+      if (line.startsWith('%%')) {
+        headers.push(rawLine);
+        continue;
+      }
+      inHeader = false;
     }
 
     // Voice switch inline or line
-    const voiceMatch = trimmed.match(/^V:\s*([^\s\]]+)/) || trimmed.match(/\[V:\s*([^\]\s]+)\]/);
+    const voiceMatch = line.match(/^V:\s*([^\s\]]+)(.*)$/) || line.match(/^\[V:\s*([^\s\]]+)\](.*)$/);
     if (voiceMatch) {
       currentVoiceId = voiceMatch[1];
       if (!voices.has(currentVoiceId)) {
         voices.set(currentVoiceId, []);
       }
-      // If line contains more after voice declaration, parse it
-      const remainder = trimmed.replace(/^V:\s*[^\s\]]+/, '').replace(/\[V:\s*[^\]\s]+\]/, '').trim();
-      if (remainder) {
-        appendLineMeasures(voices.get(currentVoiceId), remainder);
+      const rest = voiceMatch[2].trim();
+      if (rest && !isVoicePropertyString(rest)) {
+        appendLineMeasures(voices.get(currentVoiceId), rest);
       }
       continue;
     }
 
-    if (!voices.has(currentVoiceId)) {
-      voices.set(currentVoiceId, []);
+    if (!currentVoiceId) {
+      currentVoiceId = '1';
+      if (!voices.has(currentVoiceId)) {
+        voices.set(currentVoiceId, []);
+      }
     }
 
-    if (trimmed && !trimmed.startsWith('%')) {
-      appendLineMeasures(voices.get(currentVoiceId), line);
+    // Strip comments if not directive
+    const commentIdx = line.indexOf('%');
+    if (commentIdx !== -1 && !line.startsWith('%%')) {
+      line = line.slice(0, commentIdx).trim();
     }
+    if (!line) continue;
+
+    appendLineMeasures(voices.get(currentVoiceId), line);
   }
 
   if (voices.size === 0) {
@@ -101,18 +139,20 @@ export const parseVoicesAndMeasures = (abcSource) => {
 };
 
 const appendLineMeasures = (measureList, text) => {
-  // Split on bar lines '|', keeping track of non-empty bars
-  const rawBars = text.split(/(?<=\|)/);
-  for (const rawBar of rawBars) {
-    const trimmed = rawBar.trim();
-    if (!trimmed) continue;
-    if (trimmed === '|' || trimmed === '||' || trimmed === '|]' || trimmed === ':|') {
-      if (measureList.length > 0) {
-        measureList[measureList.length - 1] += ` ${trimmed}`;
+  const tokens = text.split(/(\[?\|[\|\]:]*|:\|)/).filter(Boolean);
+  let curBar = '';
+  for (const tok of tokens) {
+    curBar += tok;
+    if (/(\[?\|[\|\]:]*|:\|)$/.test(tok)) {
+      const trimmed = curBar.trim();
+      if (trimmed && !/^(\|+|\:\||\|\]|\[\|)$/.test(trimmed)) {
+        measureList.push(trimmed);
+        curBar = '';
       }
-    } else {
-      measureList.push(rawBar);
     }
+  }
+  if (curBar.trim() && !/^(\|+|\:\||\|\]|\[\|)$/.test(curBar.trim())) {
+    measureList.push(curBar.trim());
   }
 };
 

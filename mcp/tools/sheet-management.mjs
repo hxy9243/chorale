@@ -65,14 +65,15 @@ export const createSheetManagementTools = (store, views) => {
         const end = endMeasure || start;
         const sliced = sliceMeasureRange(doc.abcSource, start, end, voiceId);
 
+        const scoreTitle = doc.title || doc.scoreInfo?.title || doc.name || 'Untitled score';
         return result({
           documentId: doc.id,
-          title: doc.title,
+          title: scoreTitle,
           revision: doc.revision,
           range: { startMeasure: start, endMeasure: end, voiceId: voiceId || null },
           abcSource: sliced.selectedAbc,
           measureCount: sliced.measureCount,
-        }, `Read measures ${start}–${end} of "${doc.title}".`);
+        }, `Read measures ${start}–${end} of "${scoreTitle}".`);
       } catch (error) {
         return failure(error);
       }
