@@ -116,12 +116,21 @@ export class LocalDocumentStore {
     const documentId = `score-${randomUUID().slice(0, 8)}`;
     const source = abcSource.trim() || defaultPianoTemplate(title, composer, meter, key);
     const now = new Date().toISOString();
+    const safeTitle = title || 'Untitled score';
+    const name = safeTitle.endsWith('.abc') ? safeTitle : `${safeTitle}.abc`;
     const document = {
       id: documentId,
-      title,
+      name,
+      title: safeTitle,
+      sourceType: 'abc',
+      scoreInfo: { title: safeTitle, composer, meter, key },
       revision: 1,
       abcSource: source,
       annotations: [],
+      chats: [],
+      versions: [{ revision: 1, abcSource: source, createdAt: now, reason: 'import' }],
+      history: [{ id: `hist-${randomUUID().slice(0, 8)}`, revision: 1, timestamp: now, category: 'origin', actionType: 'initial', summary: `Initial score: ${safeTitle}`, abcSource: source, scoreInfo: { title: safeTitle, composer, meter, key }, annotations: [] }],
+      historyIndex: 0,
       createdAt: now,
       updatedAt: now,
     };

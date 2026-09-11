@@ -319,19 +319,19 @@ const normalizeEditHistoryEntry = (value: unknown): EditHistoryEntry | null => {
 export const normalizeFileDocument = (value: unknown): FileDocument | null => {
   if (!isRecord(value)) return null;
   const id = nonEmptyString(value.id);
-  const name = nonEmptyString(value.name);
+  const rawName = nonEmptyString(value.name) || nonEmptyString(value.title) || (isRecord(value.scoreInfo) ? nonEmptyString(value.scoreInfo.title) : null);
+  const name = rawName ? (rawName.endsWith('.abc') || rawName.endsWith('.xml') || rawName.endsWith('.mxl') || rawName.endsWith('.musicxml') ? rawName : `${rawName}.abc`) : null;
+  const rawSourceType = typeof value.sourceType === 'string' ? value.sourceType : 'abc';
+  const sourceType = ['musicxml', 'mxl', 'xml', 'abc'].includes(rawSourceType) ? rawSourceType : 'abc';
   const abcSource = typeof value.abcSource === 'string' ? value.abcSource : null;
-  const createdAt = nonEmptyString(value.createdAt);
-  const updatedAt = nonEmptyString(value.updatedAt);
+  const createdAt = nonEmptyString(value.createdAt) || new Date().toISOString();
+  const updatedAt = nonEmptyString(value.updatedAt) || createdAt;
   if (
     !id
     || !name
-    || !['musicxml', 'mxl', 'xml', 'abc'].includes(value.sourceType as string)
     || abcSource === null
     || !Number.isInteger(value.revision)
     || (value.revision as number) <= 0
-    || !createdAt
-    || !updatedAt
   ) {
     return null;
   }
@@ -378,10 +378,10 @@ export const normalizeFileDocument = (value: unknown): FileDocument | null => {
   return {
     id,
     name,
-    sourceType: value.sourceType as FileDocument['sourceType'],
+    sourceType: sourceType as FileDocument['sourceType'],
     abcSource,
     revision: value.revision as number,
-    scoreInfo: normalizeScoreInfo(value.scoreInfo),
+    scoreInfo: normalizeScoreInfo(value.scoreInfo || (value.title ? { title: value.title } : {})),
     annotations,
     chats,
     versions,

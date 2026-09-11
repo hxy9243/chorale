@@ -28,11 +28,11 @@ const sharedServiceBase = (): string | null => {
     // fallbacks. Packaged daemon ports, including an alternate ephemeral port,
     // remain same-origin shared workspaces.
     if (window.location.port === '3000') return null;
-    return window.location.port === '5173' ? 'http://127.0.0.1:43171' : window.location.origin;
+    return window.location.port === '5173' ? 'http://127.0.0.1:1685' : window.location.origin;
   }
   // Electron/file callers can opt in with ?choraleBridge=…; the legacy
   // loopback default remains available for existing local launches.
-  return 'http://127.0.0.1:43171';
+  return 'http://127.0.0.1:1685';
 };
 
 const usesSharedWorkspace = (): boolean => sharedServiceBase() !== null;
