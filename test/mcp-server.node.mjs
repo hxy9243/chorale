@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { createMcpServer } from '../mcp/index.mjs';
+import { proxyDocumentMutations } from '../mcp/daemon-mutations.mjs';
 import { startServer } from '../mcp/server.mjs';
 import { LocalDocumentStore, PluginError } from '../mcp/store.mjs';
 import { createFileManagementTools } from '../mcp/tools/file-management.mjs';
@@ -66,6 +67,22 @@ test('measure-ops: deleteMeasures removes target range', () => {
   assert.equal(afterCount < beforeCount, true);
 });
 
+test('measure-ops: preserves voice declarations, directives, and inline comments', () => {
+  const annotated = `X:1
+T:Preservation
+M:4/4
+L:1/4
+K:C
+%%score ( 1 )
+V:1 clef=treble nm="Piano"
+C D E F | % keep this comment
+G A B c |`;
+  const inserted = insertMeasures(annotated, 1, 'after', 1, 'z4 |');
+  assert.match(inserted, /%%score \( 1 \)/);
+  assert.match(inserted, /V:1 clef=treble nm="Piano"/);
+  assert.match(inserted, /% keep this comment/);
+});
+
 test('store: LocalDocumentStore file operations in custom directory', async () => {
   const tempDir = await mkdtemp(join(tmpdir(), 'chorale-test-store-'));
   try {
@@ -98,6 +115,28 @@ test('store: LocalDocumentStore file operations in custom directory', async () =
     const deleted = await store.delete(doc.id);
     assert.equal(deleted.deleted, true);
     assert.equal(deleted.remainingCount, 0);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('store: serializes concurrent document mutations', async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), 'chorale-test-store-race-'));
+  try {
+    const store = new LocalDocumentStore({ baseDir: tempDir });
+    await Promise.all([
+      store.create({ title: 'First' }),
+      store.create({ title: 'Second' }),
+    ]);
+    assert.equal((await store.list()).length, 2);
+
+    const [doc] = await store.list();
+    const updates = await Promise.allSettled([
+      store.update(doc.id, { title: 'Winner A', expectedRevision: 1 }),
+      store.update(doc.id, { title: 'Winner B', expectedRevision: 1 }),
+    ]);
+    assert.equal(updates.filter((result) => result.status === 'fulfilled').length, 1);
+    assert.equal((await store.require(doc.id)).revision, 2);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
@@ -153,6 +192,37 @@ test('file tools: create_new_file, list_files, delete_file, export_file', async 
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
+});
+
+test('MCP server exposes only the current tool format and unbounded measure replacement ABC', () => {
+  const { server } = createMcpServer();
+  assert.equal(server._registeredTools.edit_score, undefined);
+  assert.equal(server._registeredTools.add_annotations, undefined);
+  assert.equal(server._registeredTools.list_scores, undefined);
+
+  const schema = server._registeredTools.edit_measure.inputSchema;
+  const parsed = schema.safeParse({
+    documentId: 'score-1',
+    startMeasure: 1,
+    endMeasure: 1,
+    replacementAbc: 'C '.repeat(20_000),
+    expectedRevision: 1,
+  });
+  assert.equal(parsed.success, true);
+});
+
+test('stdio mutation proxy routes score writes to the daemon without proxying view reads', async () => {
+  const localRead = async () => ({ structuredContent: { source: 'local' } });
+  const handlers = { create_new_file: async () => ({ isError: true }), read_measure: localRead };
+  let request;
+  const proxied = proxyDocumentMutations(handlers, 1985, async (url, options) => {
+    request = { url, options };
+    return new Response(JSON.stringify({ structuredContent: { source: 'daemon' } }), { status: 200 });
+  });
+
+  assert.equal(proxied.read_measure, localRead);
+  assert.deepEqual(await proxied.create_new_file({ title: 'Daemon score' }), { structuredContent: { source: 'daemon' } });
+  assert.equal(request.url, 'http://127.0.0.1:1985/v1/tools/create_new_file');
 });
 
 test('sheet tools: read, insert, edit, delete measures and notations', async () => {
@@ -260,18 +330,41 @@ test('server: starts HTTP server, serves /v1/health, REST tools, and files', asy
     const createToolJson = await createToolRes.json();
     assert.equal(createToolJson.structuredContent.title, 'HTTP Created Score');
 
-    // 2b. Direct REST tool call: edit_score
-    const editScoreRes = await fetch(`${baseUrl}/v1/tools/edit_score`, {
+    // 2b. Direct REST tool call: edit_measure accepts large ABC source.
+    const editScoreRes = await fetch(`${baseUrl}/v1/tools/edit_measure`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         documentId: createToolJson.structuredContent.documentId,
-        replacementAbc: sampleAbc.replace('Minuet in G', 'Expanded Minuet'),
+        startMeasure: 1,
+        endMeasure: 1,
+        replacementAbc: 'c2 d2 e2 f2 |'.repeat(500),
+        expectedRevision: 1,
       }),
     });
     assert.equal(editScoreRes.status, 200);
 
-    // 2c. View commands endpoint
+    // 2c. Browser requests are restricted to the local UI and Vite dev origin.
+    const blocked = await fetch(`${baseUrl}/v1/files`, {
+      headers: { Origin: 'https://untrusted.example' },
+    });
+    assert.equal(blocked.status, 403);
+    const preflight = await fetch(`${baseUrl}/v1/files`, {
+      method: 'OPTIONS',
+      headers: { Origin: 'http://127.0.0.1:5173' },
+    });
+    assert.equal(preflight.status, 204);
+    assert.equal(preflight.headers.get('access-control-allow-origin'), 'http://127.0.0.1:5173');
+
+    // 2d. Every SSE client owns a separate MCP protocol session.
+    const firstSse = await fetch(`${baseUrl}/sse`);
+    const secondSse = await fetch(`${baseUrl}/sse`);
+    assert.equal(firstSse.status, 200);
+    assert.equal(secondSse.status, 200);
+    await firstSse.body.cancel();
+    await secondSse.body.cancel();
+
+    // 2e. View commands endpoint
     views.update('view-test-1', { documentId: createToolJson.structuredContent.documentId });
     const postCmdRes = await fetch(`${baseUrl}/v1/views/view-test-1/commands`, {
       method: 'POST',

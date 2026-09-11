@@ -75,6 +75,9 @@ export const parseVoicesAndMeasures = (abcSource) => {
   const lines = abcSource.split(/\r?\n/);
   const headers = [];
   const voices = new Map(); // voiceId -> array of measures
+  const voiceDeclarations = new Map();
+  const directives = [];
+  const standaloneComments = [];
   let currentVoiceId = null;
   let inHeader = true;
 
@@ -97,16 +100,31 @@ export const parseVoicesAndMeasures = (abcSource) => {
       inHeader = false;
     }
 
+    if (line.startsWith('%%')) {
+      directives.push(rawLine);
+      continue;
+    }
+
+    const commentIdx = line.indexOf('%');
+    const inlineComment = commentIdx === -1 ? '' : line.slice(commentIdx).trim();
+    const notation = commentIdx === -1 ? line : line.slice(0, commentIdx).trim();
+    if (!notation) {
+      if (inlineComment) standaloneComments.push(inlineComment);
+      continue;
+    }
+
     // Voice switch inline or line
-    const voiceMatch = line.match(/^V:\s*([^\s\]]+)(.*)$/) || line.match(/^\[V:\s*([^\s\]]+)\](.*)$/);
+    const voiceMatch = notation.match(/^V:\s*([^\s\]]+)(.*)$/) || notation.match(/^\[V:\s*([^\s\]]+)\](.*)$/);
     if (voiceMatch) {
       currentVoiceId = voiceMatch[1];
       if (!voices.has(currentVoiceId)) {
         voices.set(currentVoiceId, []);
       }
       const rest = voiceMatch[2].trim();
-      if (rest && !isVoicePropertyString(rest)) {
-        appendLineMeasures(voices.get(currentVoiceId), rest);
+      if (!rest || isVoicePropertyString(rest)) {
+        voiceDeclarations.set(currentVoiceId, inlineComment ? `${notation} ${inlineComment}` : notation);
+      } else {
+        appendLineMeasures(voices.get(currentVoiceId), rest, inlineComment);
       }
       continue;
     }
@@ -118,14 +136,7 @@ export const parseVoicesAndMeasures = (abcSource) => {
       }
     }
 
-    // Strip comments if not directive
-    const commentIdx = line.indexOf('%');
-    if (commentIdx !== -1 && !line.startsWith('%%')) {
-      line = line.slice(0, commentIdx).trim();
-    }
-    if (!line) continue;
-
-    appendLineMeasures(voices.get(currentVoiceId), line);
+    appendLineMeasures(voices.get(currentVoiceId), notation, inlineComment);
   }
 
   if (voices.size === 0) {
@@ -135,10 +146,14 @@ export const parseVoicesAndMeasures = (abcSource) => {
   return {
     headers: headers.join('\n'),
     voices,
+    voiceDeclarations,
+    directives,
+    standaloneComments,
   };
 };
 
-const appendLineMeasures = (measureList, text) => {
+const appendLineMeasures = (measureList, text, inlineComment = '') => {
+  const initialLength = measureList.length;
   const tokens = text.split(/(\[?\|[\|\]:]*|:\|)/).filter(Boolean);
   let curBar = '';
   for (const tok of tokens) {
@@ -153,6 +168,13 @@ const appendLineMeasures = (measureList, text) => {
   }
   if (curBar.trim() && !/^(\|+|\:\||\|\]|\[\|)$/.test(curBar.trim())) {
     measureList.push(curBar.trim());
+  }
+  if (inlineComment) {
+    if (measureList.length > initialLength) {
+      measureList[measureList.length - 1] = `${measureList[measureList.length - 1]} ${inlineComment}`;
+    } else {
+      measureList.push(inlineComment);
+    }
   }
 };
 
@@ -194,7 +216,8 @@ export const sliceMeasureRange = (abcSource, startMeasure, endMeasure, voiceId =
  * Inserts count measures before or after targetMeasure (1-indexed).
  */
 export const insertMeasures = (abcSource, targetMeasure, position = 'after', count = 1, abcContent = '') => {
-  const { headers, voices } = parseVoicesAndMeasures(abcSource);
+  const parsed = parseVoicesAndMeasures(abcSource);
+  const { headers, voices } = parsed;
   const defaultBar = abcContent || ' z4 |';
 
   for (const [, measures] of voices.entries()) {
@@ -205,14 +228,15 @@ export const insertMeasures = (abcSource, targetMeasure, position = 'after', cou
     measures.splice(insertIndex, 0, ...newMeasures);
   }
 
-  return assembleAbc(headers, voices);
+  return assembleAbc(headers, voices, parsed);
 };
 
 /**
  * Deletes measures between startMeasure and endMeasure (inclusive, 1-indexed).
  */
 export const deleteMeasures = (abcSource, startMeasure, endMeasure) => {
-  const { headers, voices } = parseVoicesAndMeasures(abcSource);
+  const parsed = parseVoicesAndMeasures(abcSource);
+  const { headers, voices } = parsed;
   const startIndex = Math.max(0, startMeasure - 1);
   const deleteCount = Math.max(0, endMeasure - startMeasure + 1);
 
@@ -220,14 +244,15 @@ export const deleteMeasures = (abcSource, startMeasure, endMeasure) => {
     measures.splice(startIndex, deleteCount);
   }
 
-  return assembleAbc(headers, voices);
+  return assembleAbc(headers, voices, parsed);
 };
 
 /**
  * Replaces measures between startMeasure and endMeasure with replacement ABC.
  */
 export const replaceMeasures = (abcSource, startMeasure, endMeasure, replacementAbc) => {
-  const { headers, voices } = parseVoicesAndMeasures(abcSource);
+  const parsed = parseVoicesAndMeasures(abcSource);
+  const { headers, voices } = parsed;
   const { voices: replacementVoices } = parseVoicesAndMeasures(replacementAbc);
   const startIndex = Math.max(0, startMeasure - 1);
   const deleteCount = Math.max(0, endMeasure - startMeasure + 1);
@@ -237,21 +262,31 @@ export const replaceMeasures = (abcSource, startMeasure, endMeasure, replacement
     measures.splice(startIndex, deleteCount, ...repMeasures);
   }
 
-  return assembleAbc(headers, voices);
+  return assembleAbc(headers, voices, parsed);
 };
 
-const assembleAbc = (headers, voices) => {
+const assembleAbc = (headers, voices, metadata = {}) => {
   const parts = [headers];
   const entries = Array.from(voices.entries());
+  const voiceDeclarations = metadata.voiceDeclarations || new Map();
 
-  if (entries.length === 1 && entries[0][0] === '1') {
+  if (metadata.directives?.length) {
+    parts.push(metadata.directives.join('\n'));
+  }
+
+  if (entries.length === 1 && entries[0][0] === '1' && !voiceDeclarations.has('1')) {
     const body = entries[0][1].map((m) => m.trim()).filter(Boolean).join(' ');
     parts.push(body.endsWith('|') ? body : `${body} |`);
   } else {
     for (const [id, measures] of entries) {
       const body = measures.map((m) => m.trim()).filter(Boolean).join(' ');
-      parts.push(`V:${id}\n${body.endsWith('|') ? body : `${body} |`}`);
+      const declaration = voiceDeclarations.get(id) || `V:${id}`;
+      parts.push(`${declaration}\n${body.endsWith('|') ? body : `${body} |`}`);
     }
+  }
+
+  if (metadata.standaloneComments?.length) {
+    parts.push(metadata.standaloneComments.join('\n'));
   }
 
   return parts.filter(Boolean).join('\n\n');

@@ -4,6 +4,7 @@ import { createServer as createHttpServer } from 'node:http';
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { z } from 'zod';
 import { createMcpServer } from './index.mjs';
 import { LocalDocumentStore, PluginError, scoreSummary } from './store.mjs';
 import { ViewSnapshotStore } from './views.mjs';
@@ -26,6 +27,13 @@ const MIME_TYPES = {
 
 const MAX_PAYLOAD_BYTES = 2_000_000;
 
+const configuredOrigins = () => (
+  (process.env.CHORALE_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+);
+
 const requestBody = async (request, limit = MAX_PAYLOAD_BYTES) => {
   let size = 0;
   const chunks = [];
@@ -45,16 +53,34 @@ export const startServer = async (options = {}) => {
   const port = typeof options.port === 'number' ? options.port : (Number(process.env.CHORALE_PORT) || 1685);
   const store = options.store || new LocalDocumentStore();
   const views = options.views || new ViewSnapshotStore();
-  const { server: mcpServer, handlers } = createMcpServer(store, views, port);
+  let boundPort = port;
+  const { server: mcpServer, handlers, schemas } = createMcpServer(store, views, () => boundPort);
 
   const sseTransports = new Map();
 
   const httpServer = createHttpServer(async (req, res) => {
     const origin = req.headers.origin;
-    res.setHeader('access-control-allow-origin', origin || '*');
-    res.setHeader('access-control-allow-methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('access-control-allow-headers', 'content-type, authorization');
-    res.setHeader('vary', 'Origin');
+    const trustedOrigins = new Set([
+      `http://127.0.0.1:${boundPort}`,
+      `http://localhost:${boundPort}`,
+      'http://127.0.0.1:5173',
+      'http://localhost:5173',
+      ...configuredOrigins(),
+    ]);
+    const hasOrigin = typeof origin === 'string' && origin.length > 0;
+    const trustedOrigin = !hasOrigin || trustedOrigins.has(origin);
+
+    if (!trustedOrigin) {
+      res.writeHead(403).end('Cross-origin requests are not allowed.');
+      return;
+    }
+
+    if (hasOrigin) {
+      res.setHeader('access-control-allow-origin', origin);
+      res.setHeader('access-control-allow-methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.setHeader('access-control-allow-headers', 'content-type');
+      res.setHeader('vary', 'Origin');
+    }
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204).end();
@@ -79,17 +105,23 @@ export const startServer = async (options = {}) => {
     if (req.method === 'GET' && url.pathname === '/sse') {
       const transport = new SSEServerTransport('/messages', res);
       sseTransports.set(transport.sessionId, transport);
+      const { server: sessionServer } = createMcpServer(store, views, () => boundPort);
       transport.onclose = () => {
         sseTransports.delete(transport.sessionId);
       };
-      await mcpServer.connect(transport);
+      try {
+        await sessionServer.connect(transport);
+      } catch (error) {
+        sseTransports.delete(transport.sessionId);
+        res.writeHead(500).end('Unable to start MCP session.');
+      }
       return;
     }
 
     // MCP SSE Messages receiver
     if (req.method === 'POST' && url.pathname === '/messages') {
       const sessionId = url.searchParams.get('sessionId');
-      const transport = sseTransports.get(sessionId) || sseTransports.values().next().value;
+      const transport = sseTransports.get(sessionId);
       if (!transport) {
         res.setHeader('content-type', 'application/json');
         res.writeHead(404).end(JSON.stringify({ error: 'SSE session not found' }));
@@ -111,7 +143,18 @@ export const startServer = async (options = {}) => {
       }
       try {
         const body = await requestBody(req);
-        const result = await handler(body);
+        const inputSchema = schemas[toolName]?.inputSchema;
+        const parsed = inputSchema ? z.object(inputSchema).safeParse(body) : z.object({}).safeParse(body);
+        if (!parsed.success) {
+          res.setHeader('content-type', 'application/json');
+          res.writeHead(400).end(JSON.stringify({
+            isError: true,
+            errorCode: 'INVALID_TOOL_INPUT',
+            content: [{ type: 'text', text: 'Tool input did not match its schema.' }],
+          }));
+          return;
+        }
+        const result = await handler(parsed.data);
         res.setHeader('content-type', 'application/json');
         res.writeHead(result.isError ? 400 : 200).end(JSON.stringify(result));
       } catch (err) {
@@ -316,7 +359,7 @@ export const startServer = async (options = {}) => {
     httpServer.once('error', rejectListen);
     httpServer.listen(port, '127.0.0.1', () => {
       httpServer.off('error', rejectListen);
-      const boundPort = httpServer.address().port;
+      boundPort = httpServer.address().port;
       resolveListen({
         httpServer,
         port: boundPort,

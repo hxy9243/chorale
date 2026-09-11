@@ -5,6 +5,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createMcpServer } from '../mcp/index.mjs';
+import { proxyDocumentMutations } from '../mcp/daemon-mutations.mjs';
 import { startServer } from '../mcp/server.mjs';
 import { LocalDocumentStore } from '../mcp/store.mjs';
 import { openBrowser } from '../mcp/tools/workspace.mjs';
@@ -55,7 +56,13 @@ const main = async () => {
     }
     const store = new LocalDocumentStore();
     const views = new ViewSnapshotStore();
-    const { server } = createMcpServer(store, views, PORT);
+    const local = createMcpServer(store, views, PORT);
+    const { server } = createMcpServer(
+      store,
+      views,
+      PORT,
+      proxyDocumentMutations(local.handlers, PORT),
+    );
     await server.connect(new StdioServerTransport());
     return;
   }

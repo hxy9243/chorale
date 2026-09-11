@@ -58,11 +58,12 @@ export const openBrowser = async (url) => {
 };
 
 export const createWorkspaceTools = (store, views, port = 1685) => {
+  const resolvedPort = () => typeof port === 'function' ? port() : port;
   const handlers = {
     open_ui: async ({ documentId } = {}) => {
       try {
         const query = documentId ? `?file=${encodeURIComponent(documentId)}` : '';
-        const url = `http://127.0.0.1:${port}/${query}`;
+        const url = `http://127.0.0.1:${resolvedPort()}/${query}`;
         const opened = await openBrowser(url);
 
         return result({

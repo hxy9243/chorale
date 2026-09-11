@@ -47,6 +47,12 @@ export class LocalDocumentStore {
     this.views = views;
   }
 
+  serializeMutation(operation) {
+    const next = this.mutationTail.then(operation, operation);
+    this.mutationTail = next.catch(() => {});
+    return next;
+  }
+
   async read() {
     try {
       const content = await readFile(this.storePath, 'utf8');
@@ -112,7 +118,11 @@ export class LocalDocumentStore {
     return found;
   }
 
-  async create({ title = 'Untitled score', abcSource = '', composer = 'Anonymous', meter = '4/4', key = 'C' }) {
+  async create(input) {
+    return this.serializeMutation(() => this.createUnsafe(input));
+  }
+
+  async createUnsafe({ title = 'Untitled score', abcSource = '', composer = 'Anonymous', meter = '4/4', key = 'C' }) {
     const documentId = `score-${randomUUID().slice(0, 8)}`;
     const source = abcSource.trim() || defaultPianoTemplate(title, composer, meter, key);
     const now = new Date().toISOString();
@@ -153,6 +163,10 @@ export class LocalDocumentStore {
   }
 
   async update(documentId, updates = {}) {
+    return this.serializeMutation(() => this.updateUnsafe(documentId, updates));
+  }
+
+  async updateUnsafe(documentId, updates = {}) {
     const state = await this.read();
     const index = state.documents.findIndex((doc) => doc.id === documentId);
     if (index === -1) {
@@ -208,6 +222,10 @@ export class LocalDocumentStore {
   }
 
   async delete(documentId) {
+    return this.serializeMutation(() => this.deleteUnsafe(documentId));
+  }
+
+  async deleteUnsafe(documentId) {
     const state = await this.read();
     const initialLen = state.documents.length;
     state.documents = state.documents.filter((doc) => doc.id !== documentId);
@@ -240,7 +258,11 @@ export class LocalDocumentStore {
     return { revision: state.workspaceRevision || 0, ...state.workspace };
   }
 
-  async putWorkspace({ documents, preferences, expectedRevision }) {
+  async putWorkspace(input) {
+    return this.serializeMutation(() => this.putWorkspaceUnsafe(input));
+  }
+
+  async putWorkspaceUnsafe({ documents, preferences, expectedRevision }) {
     if (!Array.isArray(documents) || !documents.every((d) => d && typeof d.id === 'string' && typeof d.abcSource === 'string')) {
       throw new PluginError('INVALID_WORKSPACE', 'Workspace documents must contain an ID and ABC source.');
     }
@@ -259,13 +281,13 @@ export class LocalDocumentStore {
   }
 
   async patchWorkspace({ kind, key, value, expectedRevision }) {
-    const run = async () => {
+    return this.serializeMutation(async () => {
       const current = await this.getWorkspace();
       if (expectedRevision !== undefined && expectedRevision !== current.revision) {
         throw new PluginError('REVISION_CONFLICT', `Workspace revision conflict: expected ${expectedRevision}, found ${current.revision}`);
       }
       if (kind === 'documents') {
-        return this.putWorkspace({ ...current, documents: value, expectedRevision });
+        return this.putWorkspaceUnsafe({ ...current, documents: value, expectedRevision });
       }
       if (kind === 'active') {
         // Active file is browser/tab-local; no-op for backward compatibility
@@ -273,13 +295,9 @@ export class LocalDocumentStore {
       }
       if (kind === 'preference' && key) {
         const preferences = { ...(current.preferences || {}), [key]: value };
-        return this.putWorkspace({ ...current, preferences, expectedRevision });
+        return this.putWorkspaceUnsafe({ ...current, preferences, expectedRevision });
       }
       throw new PluginError('INVALID_WORKSPACE', `Unknown patch kind: ${kind}`);
-    };
-
-    const nextTail = this.mutationTail.then(run, run);
-    this.mutationTail = nextTail.catch(() => {});
-    return nextTail;
+    });
   }
 }
