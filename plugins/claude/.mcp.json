@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "chorale": {
+      "command": "node",
+      "args": ["./bin/chorale.mjs", "mcp"],
+      "cwd": ".",
+      "env": {
+        "CHORALE_PORT": "1685"
+      }
+    }
+  }
+}

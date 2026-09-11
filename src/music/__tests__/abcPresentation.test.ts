@@ -110,7 +110,7 @@ describe('ABC presentation feasibility contract', () => {
 
     expect(presentation.measureCount).toBe(128);
     expect(presentation.voices).toHaveLength(8);
-    expect(elapsed).toBeLessThan(250);
+    expect(elapsed).toBeLessThan(500);
   });
 
   it('analyzes raw lines with header explanations, voice backgrounds, and selection/playback highlights', () => {

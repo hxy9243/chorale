@@ -9,8 +9,6 @@ lerna-debug.log*
 
 node_modules
 dist
-!plugins/chorale-codex-plugin/dist/
-!plugins/chorale-codex-plugin/dist/**
 dist-electron
 dist-ssr
 *.local
@@ -29,5 +27,3 @@ dist-ssr
 !.agents/plugins/
 .agents/plugins/*
 !.agents/plugins/marketplace.json
-.gstack/
-plugins/

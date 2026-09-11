@@ -60,6 +60,8 @@ const readStoredActiveFileId = (): string => {
   if (typeof window === 'undefined') return '';
   const searchFile = new URLSearchParams(window.location.search).get('file');
   if (searchFile) return searchFile;
+  const sessionFile = window.sessionStorage ? window.sessionStorage.getItem(ACTIVE_FILE_KEY) : null;
+  if (sessionFile) return sessionFile;
   return window.localStorage.getItem(ACTIVE_FILE_KEY) || '';
 };
 
@@ -105,17 +107,20 @@ export const useDocumentStore = () => {
     let cancelled = false;
     async function hydrate() {
       try {
-        const [docs, sharedActiveFileId] = await Promise.all([
-          storageAdapter.getDocuments(),
-          storageAdapter.getSharedActiveFileId(),
-        ]);
+        const docs = await storageAdapter.getDocuments();
         if (!cancelled) {
           setDocuments(docs);
           const searchFile = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('file') : null;
+          const sessionFile = typeof window !== 'undefined' && window.sessionStorage ? window.sessionStorage.getItem(ACTIVE_FILE_KEY) : null;
+          const localActiveFile = typeof window !== 'undefined' ? window.localStorage.getItem(ACTIVE_FILE_KEY) : null;
           if (searchFile && docs.some((d) => d.id === searchFile)) {
             setActiveFileId(searchFile);
-          } else if (sharedActiveFileId !== null) {
-            setActiveFileId(sharedActiveFileId);
+          } else if (sessionFile && docs.some((d) => d.id === sessionFile)) {
+            setActiveFileId(sessionFile);
+          } else if (localActiveFile && docs.some((d) => d.id === localActiveFile)) {
+            setActiveFileId(localActiveFile);
+          } else if (docs.length > 0 && !docs.some((d) => d.id === activeFileId)) {
+            setActiveFileId(docs[0].id);
           }
           setHydrationStatus('ready');
         }
@@ -142,8 +147,12 @@ export const useDocumentStore = () => {
       try {
         const remote = await storageAdapter.getDocuments();
         setDocuments((current) => JSON.stringify(current) === JSON.stringify(remote) ? current : remote);
-        const active = await storageAdapter.getSharedActiveFileId();
-        if (active !== null) setActiveFileId(active);
+        setActiveFileId((currentActive) => {
+          if (currentActive && !remote.some((d) => d.id === currentActive)) {
+            return remote[0]?.id || '';
+          }
+          return currentActive;
+        });
       } catch { /* optional bridge unavailable in local development */ }
     };
     const interval = window.setInterval(() => void refresh(), 2_000);
@@ -175,13 +184,34 @@ export const useDocumentStore = () => {
 
   useEffect(() => {
     if (activeFileId) {
+      try {
+        window.sessionStorage?.setItem(ACTIVE_FILE_KEY, activeFileId);
+      } catch { /* ignore */ }
       window.localStorage.setItem(ACTIVE_FILE_KEY, activeFileId);
+      if (typeof window !== 'undefined' && window.location && window.history?.replaceState) {
+        try {
+          const url = new URL(window.location.href);
+          if (url.searchParams.get('file') !== activeFileId) {
+            url.searchParams.set('file', activeFileId);
+            window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}`);
+          }
+        } catch { /* ignore invalid url environments */ }
+      }
     } else {
+      try {
+        window.sessionStorage?.removeItem(ACTIVE_FILE_KEY);
+      } catch { /* ignore */ }
       window.localStorage.removeItem(ACTIVE_FILE_KEY);
+      if (typeof window !== 'undefined' && window.location && window.history?.replaceState) {
+        try {
+          const url = new URL(window.location.href);
+          if (url.searchParams.has('file')) {
+            url.searchParams.delete('file');
+            window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}`);
+          }
+        } catch { /* ignore invalid url environments */ }
+      }
     }
-    void storageAdapter.setSharedActiveFileId(activeFileId).catch(() => {
-      // The development fallback intentionally remains browser-local.
-    });
   }, [activeFileId]);
 
   const handleSelectFile = useCallback((fileId: string) => {

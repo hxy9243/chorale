@@ -25,7 +25,7 @@ type PluginMcpBridgeInput = Readonly<{
   onDeleteAnnotations?: (annotationIds: readonly string[]) => void;
 }>;
 
-const defaultBridgeUrl = 'http://127.0.0.1:43171';
+const defaultBridgeUrl = 'http://127.0.0.1:1685';
 
 // Module state is deliberately per loaded page. sessionStorage is cloned by
 // duplicated tabs, which made two independent views publish under one ID.

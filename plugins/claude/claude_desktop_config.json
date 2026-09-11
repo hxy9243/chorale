@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "chorale": {
+      "command": "chorale",
+      "args": ["mcp"]
+    },
+    "chorale-sse": {
+      "url": "http://127.0.0.1:1685/sse"
+    }
+  }
+}
