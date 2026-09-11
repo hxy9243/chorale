@@ -42,7 +42,7 @@ const requestBody = async (request, limit = MAX_PAYLOAD_BYTES) => {
 };
 
 export const startServer = async (options = {}) => {
-  const port = options.port || 1685;
+  const port = typeof options.port === 'number' ? options.port : (Number(process.env.CHORALE_PORT) || 1685);
   const store = options.store || new LocalDocumentStore();
   const views = options.views || new ViewSnapshotStore();
   const { server: mcpServer, handlers } = createMcpServer(store, views, port);
@@ -304,9 +304,10 @@ export const startServer = async (options = {}) => {
     httpServer.once('error', rejectListen);
     httpServer.listen(port, '127.0.0.1', () => {
       httpServer.off('error', rejectListen);
+      const boundPort = httpServer.address().port;
       resolveListen({
         httpServer,
-        port,
+        port: boundPort,
         store,
         views,
         mcpServer,
