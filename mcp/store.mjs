@@ -54,7 +54,7 @@ export class LocalDocumentStore {
       if (!parsed || parsed.schemaVersion !== 1 || !Array.isArray(parsed.documents)) {
         throw new PluginError('PERSISTENCE_FAILED', 'The local Chorale store has an unsupported format.');
       }
-      const workspace = parsed.workspace || { documents: [], activeFileId: '', preferences: {} };
+      const workspace = parsed.workspace || { documents: [], preferences: {} };
       const documents = Array.isArray(workspace.documents) && workspace.documents.length > 0 ? workspace.documents : parsed.documents;
       return {
         ...parsed,
@@ -68,7 +68,7 @@ export class LocalDocumentStore {
           schemaVersion: 1,
           documents: [],
           workspaceRevision: 0,
-          workspace: { documents: [], activeFileId: '', preferences: {} },
+          workspace: { documents: [], preferences: {} },
         };
         await this.write(initial);
         return initial;
@@ -138,9 +138,6 @@ export class LocalDocumentStore {
     const state = await this.read();
     state.documents.push(document);
     state.workspace.documents = state.documents;
-    if (!state.workspace.activeFileId) {
-      state.workspace.activeFileId = documentId;
-    }
     state.workspaceRevision = (state.workspaceRevision || 0) + 1;
     await this.write(state);
 
@@ -184,6 +181,22 @@ export class LocalDocumentStore {
     await this.write(state);
 
     if (this.views) {
+      if (updates.abcSource !== undefined) {
+        this.views.broadcastCommand({
+          kind: 'replace-score',
+          documentId,
+          replacementAbc: updatedDoc.abcSource,
+          revision: updatedDoc.revision,
+        });
+      }
+      if (updates.annotations !== undefined) {
+        this.views.broadcastCommand({
+          kind: 'annotations',
+          documentId,
+          annotations: updatedDoc.annotations,
+          revision: updatedDoc.revision,
+        });
+      }
       this.views.broadcastCommand({
         type: 'SCORE_UPDATED',
         documentId,
@@ -202,9 +215,6 @@ export class LocalDocumentStore {
       throw new PluginError('DOCUMENT_NOT_FOUND', `Score document "${documentId}" was not found.`);
     }
 
-    if (state.workspace.activeFileId === documentId) {
-      state.workspace.activeFileId = state.documents[0]?.id || '';
-    }
     state.workspace.documents = state.documents;
     state.workspaceRevision = (state.workspaceRevision || 0) + 1;
     await this.write(state);
@@ -230,7 +240,7 @@ export class LocalDocumentStore {
     return { revision: state.workspaceRevision || 0, ...state.workspace };
   }
 
-  async putWorkspace({ documents, activeFileId, preferences, expectedRevision }) {
+  async putWorkspace({ documents, preferences, expectedRevision }) {
     if (!Array.isArray(documents) || !documents.every((d) => d && typeof d.id === 'string' && typeof d.abcSource === 'string')) {
       throw new PluginError('INVALID_WORKSPACE', 'Workspace documents must contain an ID and ABC source.');
     }
@@ -240,7 +250,6 @@ export class LocalDocumentStore {
     }
     state.workspace = {
       documents,
-      activeFileId: typeof activeFileId === 'string' ? activeFileId : state.workspace.activeFileId || '',
       preferences: preferences && typeof preferences === 'object' ? preferences : state.workspace.preferences || {},
     };
     state.documents = documents;
@@ -259,7 +268,8 @@ export class LocalDocumentStore {
         return this.putWorkspace({ ...current, documents: value, expectedRevision });
       }
       if (kind === 'active') {
-        return this.putWorkspace({ ...current, activeFileId: value, expectedRevision });
+        // Active file is browser/tab-local; no-op for backward compatibility
+        return current;
       }
       if (kind === 'preference' && key) {
         const preferences = { ...(current.preferences || {}), [key]: value };

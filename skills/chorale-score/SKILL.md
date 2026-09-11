@@ -13,7 +13,7 @@ Use the local Chorale MCP server tools (`chorale`) as the primary interface for 
 
 ### A. "start chorale" (Open UI in default browser)
 1. Call `open_ui` to ensure the server on port 1685 is active and launch the workspace in the user's browser.
-2. Call `get_workspace_state` to verify the connection and retrieve active scores and views.
+2. Call `get_workspace_state` to verify the connection and retrieve connected views.
 
 ### B. "start chorale and compose a new sheet"
 1. Call `open_ui` to ensure the workspace is launched in the browser.
@@ -36,7 +36,7 @@ Use the local Chorale MCP server tools (`chorale`) as the primary interface for 
 - **List Scores:** Call `list_files` to retrieve all scores in `~/.chorale/` with measure counts, annotations, and revisions.
 - **Delete Score:** Call `delete_file` with `{ documentId }` to remove an unwanted score.
 - **Export Score:** Call `export_file` with `{ documentId, format: 'abc' | 'json', outputPath? }` to export.
-- **Workspace State:** Call `get_workspace_state` to inspect active document and connected views headlessly.
+- **Workspace State:** Call `get_workspace_state` to inspect score count and connected views headlessly.
 
 ---
 

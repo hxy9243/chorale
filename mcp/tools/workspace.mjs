@@ -65,14 +65,6 @@ export const createWorkspaceTools = (store, views, port = 1685) => {
         const url = `http://127.0.0.1:${port}/${query}`;
         const opened = await openBrowser(url);
 
-        if (documentId) {
-          try {
-            await store.patchWorkspace({ kind: 'active', value: documentId });
-          } catch {
-            // Best-effort
-          }
-        }
-
         return result({
           url,
           opened,
@@ -94,14 +86,11 @@ export const createWorkspaceTools = (store, views, port = 1685) => {
           // No view connected
         }
 
-        const activeDoc = workspace.documents.find((d) => d.id === workspace.activeFileId) || workspace.documents[0] || null;
         return result({
-          activeFileId: workspace.activeFileId || null,
-          activeScore: activeDoc ? scoreSummary(activeDoc) : null,
           documentCount: workspace.documents.length,
           connectedViewsCount: connected.length,
           activeView,
-        }, `Workspace has ${workspace.documents.length} score(s), active: "${activeDoc?.title || 'None'}".`);
+        }, `Workspace has ${workspace.documents.length} score(s)${activeView ? `, focused view: "${activeView.title}"` : ''}.`);
       } catch (error) {
         return failure(error);
       }
@@ -134,7 +123,7 @@ export const createWorkspaceTools = (store, views, port = 1685) => {
 
     get_workspace_state: {
       title: 'Get workspace state',
-      description: 'Query overall workspace state: active document ID, total score count, and connected view summary.',
+      description: 'Query overall workspace state: score count, connected views count, and focused view summary.',
     },
 
     render_score_workspace: {

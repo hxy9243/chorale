@@ -38,7 +38,7 @@ export const createSheetManagementTools = (store, views) => {
             documentId = view.documentId;
           } catch {
             const ws = await store.getWorkspace();
-            documentId = ws.activeFileId || ws.documents[0]?.id;
+            documentId = ws.documents[0]?.id;
           }
         }
 

@@ -108,6 +108,16 @@ export const createMcpServer = (store = new LocalDocumentStore(), views = new Vi
       notations: input.annotations || input.notations || [],
     }),
     open_chorale_ui: workspaceTools.handlers.open_ui,
+    edit_score: async (input) => {
+      const doc = await store.update(input.documentId, {
+        abcSource: input.replacementAbc,
+        expectedRevision: typeof input.expectedRevision === 'number' ? input.expectedRevision : undefined,
+      });
+      return {
+        structuredContent: { documentId: doc.id, revision: doc.revision },
+        content: [{ type: 'text', text: `Updated score "${doc.title}".` }],
+      };
+    },
   };
 
   return { server, store, views, handlers: aggregatedHandlers };

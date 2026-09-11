@@ -260,6 +260,28 @@ test('server: starts HTTP server, serves /v1/health, REST tools, and files', asy
     const createToolJson = await createToolRes.json();
     assert.equal(createToolJson.structuredContent.title, 'HTTP Created Score');
 
+    // 2b. Direct REST tool call: edit_score
+    const editScoreRes = await fetch(`${baseUrl}/v1/tools/edit_score`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        documentId: createToolJson.structuredContent.documentId,
+        replacementAbc: sampleAbc.replace('Minuet in G', 'Expanded Minuet'),
+      }),
+    });
+    assert.equal(editScoreRes.status, 200);
+
+    // 2c. View commands endpoint
+    views.update('view-test-1', { documentId: createToolJson.structuredContent.documentId });
+    const postCmdRes = await fetch(`${baseUrl}/v1/views/view-test-1/commands`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'replace-score', replacementAbc: sampleAbc }),
+    });
+    assert.equal(postCmdRes.status, 200);
+    const pendingCmds = views.pending('view-test-1');
+    assert.equal(pendingCmds.length >= 1, true);
+
     // 3. Workspace API
     const wsRes = await fetch(`${baseUrl}/v1/workspace`);
     assert.equal(wsRes.status, 200);

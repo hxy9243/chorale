@@ -215,6 +215,18 @@ export const startServer = async (options = {}) => {
         }
         return;
       }
+      if (req.method === 'POST' && !commandId && url.pathname.endsWith('/commands')) {
+        try {
+          const body = await requestBody(req);
+          const cmd = views.queueCommand(viewId, body);
+          res.setHeader('content-type', 'application/json');
+          res.writeHead(200).end(JSON.stringify(cmd));
+        } catch (error) {
+          res.setHeader('content-type', 'application/json');
+          res.writeHead(400).end(JSON.stringify({ errorCode: error.code || 'INVALID_COMMAND' }));
+        }
+        return;
+      }
       if (req.method === 'POST' && commandId) {
         views.acknowledge(viewId, commandId);
         res.writeHead(204).end();
