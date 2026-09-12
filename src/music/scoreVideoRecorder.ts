@@ -669,15 +669,58 @@ export async function recordScoreVideo(
     }, frameIntervalMs);
   });
 }
+/**
+ * Computes the number of decoded audio samples in an Opus packet according to RFC 6716.
+ * At 48kHz, this is usually 2880 samples (60ms) for Chrome's MediaRecorder frames.
+ */
+export function getOpusPacketSampleCount(packet: Uint8Array): number {
+  if (!packet || packet.length === 0) return 2880;
+  const toc = packet[0];
+  const config = toc >> 3;
+  const c = toc & 3;
+
+  let frameDurMs: number;
+  if (config < 12) {
+    frameDurMs = [10, 20, 40, 60][config % 4];
+  } else if (config < 16) {
+    frameDurMs = [10, 20][config % 2];
+  } else {
+    frameDurMs = [2.5, 5, 10, 20][config % 4];
+  }
+
+  let frames = 1;
+  if (c === 0) {
+    frames = 1;
+  } else if (c === 1 || c === 2) {
+    frames = 2;
+  } else if (c === 3) {
+    frames = packet.length > 1 ? (packet[1] & 0x3f) : 1;
+  }
+
+  return Math.round(frameDurMs * frames * 48);
+}
+
+interface MoovAudioTrackInfo {
+  audioTrackId: number;
+  audioTimescale: number;
+  audioCodec: string;
+  mvhdTimescale: number;
+  mvhdDurationMs: number;
+  mvhdPos: number;
+  audioMdhdDurPos: number;
+  audioTkhdDurPos: number;
+  isAudioMdhdVer1: boolean;
+  isAudioTkhdVer1: boolean;
+}
 
 /**
  * Repairs ISO BMFF (MP4) container metadata produced by Chromium's MediaRecorder.
- * Chromium has a known bug where track media header (mdhd) boxes have their duration
- * values written in milliseconds instead of being scaled by the track timescale
- * (e.g. 50,000 instead of 50,000 * 48 for a 48kHz audio track).
- * This causes media players (VLC, GStreamer, Totem, QuickTime, Windows Media Player)
- * to report a ~1-second duration on the audio track and fail with garbled/stuttering sound
- * or immediate EOS.
+ * 1. Rescales unscaled millisecond durations in mdhd boxes to track timescale.
+ * 2. Normalizes fragmented moof sequence numbers (mfhd) to 0-based sequential order.
+ * 3. Overwrites jittery wall-clock sample durations in audio trun boxes with the exact
+ *    Opus frame PCM sample count (2880 samples at 48kHz) and enforces monotonic tfdt timestamps,
+ *    preventing compliant media players (VLC, libopus) from truncating frames and garbling audio.
+ * 4. Resynchronizes the exact cumulative audio duration into audio mdhd and tkhd boxes.
  */
 export async function repairMp4BoxDurations(blob: Blob): Promise<Blob> {
   try {
@@ -686,6 +729,9 @@ export async function repairMp4BoxDurations(blob: Blob): Promise<Blob> {
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 
     let pos = 0;
+    let audioInfo: MoovAudioTrackInfo | null = null;
+
+    // Pass 1: Parse and repair header boxes in 'moov'
     while (pos + 8 <= bytes.length) {
       const size = view.getUint32(pos);
       const type = String.fromCharCode(
@@ -694,20 +740,159 @@ export async function repairMp4BoxDurations(blob: Blob): Promise<Blob> {
         bytes[pos + 6],
         bytes[pos + 7],
       );
+      const boxEnd = (size === 1 && pos + 16 <= bytes.length)
+        ? (view.getUint32(pos + 8) * 4294967296 + view.getUint32(pos + 12))
+        : (size === 0 ? bytes.length : pos + size);
 
       if (type === 'moov') {
-        repairMoovBox(view, bytes, pos, size);
-        break;
+        audioInfo = repairMoovBox(view, bytes, pos, boxEnd - pos);
       }
 
-      if (size === 1 && pos + 16 <= bytes.length) {
-        const hi = view.getUint32(pos + 8);
-        const lo = view.getUint32(pos + 12);
-        pos += hi * 2 ** 32 + lo;
-      } else if (size === 0 || size > bytes.length - pos) {
-        break;
-      } else {
-        pos += size;
+      if (boxEnd <= pos || boxEnd > bytes.length) break;
+      pos = boxEnd;
+    }
+
+    // Pass 2: Repair fragmented moof / traf / trun / tfdt boxes
+    pos = 0;
+    let audioCumTime = 0;
+    let moofSeq = 0;
+
+    while (pos + 8 <= bytes.length) {
+      const size = view.getUint32(pos);
+      const type = String.fromCharCode(
+        bytes[pos + 4],
+        bytes[pos + 5],
+        bytes[pos + 6],
+        bytes[pos + 7],
+      );
+      const boxEnd = (size === 1 && pos + 16 <= bytes.length)
+        ? (view.getUint32(pos + 8) * 4294967296 + view.getUint32(pos + 12))
+        : (size === 0 ? bytes.length : pos + size);
+
+      if (type === 'moof') {
+        const moofPos = pos;
+        let mPos = pos + 8;
+        while (mPos + 8 <= boxEnd) {
+          const bSize = view.getUint32(mPos);
+          const bType = String.fromCharCode(
+            bytes[mPos + 4],
+            bytes[mPos + 5],
+            bytes[mPos + 6],
+            bytes[mPos + 7],
+          );
+          const bEnd = mPos + bSize;
+
+          if (bType === 'mfhd' && mPos + 16 <= bEnd) {
+            // Set 0-based sequential sequence number to eliminate discontinuity warnings
+            view.setUint32(mPos + 12, moofSeq++);
+          } else if (bType === 'traf') {
+            let tPos = mPos + 8;
+            let isAudioTraf = false;
+            let tfdtPos = -1;
+            let trunPos = -1;
+
+            while (tPos + 8 <= bEnd) {
+              const tSize = view.getUint32(tPos);
+              const tType = String.fromCharCode(
+                bytes[tPos + 4],
+                bytes[tPos + 5],
+                bytes[tPos + 6],
+                bytes[tPos + 7],
+              );
+              if (tType === 'tfhd' && tPos + 16 <= bEnd) {
+                const tid = view.getUint32(tPos + 12);
+                if (audioInfo ? tid === audioInfo.audioTrackId : tid === 2) {
+                  isAudioTraf = true;
+                }
+              } else if (tType === 'tfdt') {
+                tfdtPos = tPos;
+              } else if (tType === 'trun') {
+                trunPos = tPos;
+              }
+              if (tSize <= 0 || tPos + tSize > bEnd) break;
+              tPos += tSize;
+            }
+
+            if (isAudioTraf && trunPos >= 0) {
+              if (tfdtPos >= 0 && tfdtPos + 16 <= bEnd) {
+                const ver = bytes[tfdtPos + 8];
+                if (ver === 0) {
+                  view.setUint32(tfdtPos + 12, audioCumTime);
+                } else if (tfdtPos + 20 <= bEnd) {
+                  view.setUint32(tfdtPos + 12, Math.floor(audioCumTime / 4294967296));
+                  view.setUint32(tfdtPos + 16, audioCumTime >>> 0);
+                }
+              }
+
+              const flags = (bytes[trunPos + 9] << 16) | (bytes[trunPos + 10] << 8) | bytes[trunPos + 11];
+              const sampleCount = view.getUint32(trunPos + 12);
+              let p = trunPos + 16;
+              let dataOffset = 0;
+              if ((flags & 0x01) && p + 4 <= bEnd) {
+                dataOffset = view.getInt32(p);
+                p += 4;
+              }
+              if (flags & 0x04) p += 4;
+
+              let packetDataPos = moofPos + dataOffset;
+              for (let i = 0; i < sampleCount; i++) {
+                let durPos = -1;
+                if (flags & 0x100) {
+                  durPos = p;
+                  p += 4;
+                }
+                let sampleSize = 0;
+                if (flags & 0x200) {
+                  sampleSize = view.getUint32(p);
+                  p += 4;
+                }
+                if (flags & 0x400) p += 4;
+                if (flags & 0x800) p += 4;
+
+                let exactSamples = 2880;
+                if (sampleSize > 0 && packetDataPos + sampleSize <= bytes.length) {
+                  const pkt = bytes.subarray(packetDataPos, packetDataPos + sampleSize);
+                  exactSamples = getOpusPacketSampleCount(pkt);
+                } else if (audioInfo?.audioCodec?.toLowerCase().includes('mp4a')) {
+                  exactSamples = 1024;
+                }
+
+                if (durPos >= 0 && durPos + 4 <= bEnd) {
+                  view.setUint32(durPos, exactSamples);
+                }
+                audioCumTime += exactSamples;
+                packetDataPos += sampleSize;
+              }
+            }
+          }
+
+          if (bSize <= 0 || mPos + bSize > boxEnd) break;
+          mPos += bSize;
+        }
+      }
+
+      if (boxEnd <= pos || boxEnd > bytes.length) break;
+      pos = boxEnd;
+    }
+
+    // Pass 3: Re-align audio header duration in moov if audio samples were processed
+    if (audioInfo && audioCumTime > 0 && audioInfo.audioTimescale > 0) {
+      if (audioInfo.audioMdhdDurPos >= 0) {
+        if (audioInfo.isAudioMdhdVer1) {
+          view.setUint32(audioInfo.audioMdhdDurPos, Math.floor(audioCumTime / 4294967296));
+          view.setUint32(audioInfo.audioMdhdDurPos + 4, audioCumTime >>> 0);
+        } else {
+          view.setUint32(audioInfo.audioMdhdDurPos, audioCumTime >>> 0);
+        }
+      }
+      if (audioInfo.audioTkhdDurPos >= 0) {
+        const durMvhdUnits = Math.round((audioCumTime / audioInfo.audioTimescale) * audioInfo.mvhdTimescale);
+        if (audioInfo.isAudioTkhdVer1) {
+          view.setUint32(audioInfo.audioTkhdDurPos, Math.floor(durMvhdUnits / 4294967296));
+          view.setUint32(audioInfo.audioTkhdDurPos + 4, durMvhdUnits >>> 0);
+        } else {
+          view.setUint32(audioInfo.audioTkhdDurPos, durMvhdUnits >>> 0);
+        }
       }
     }
 
@@ -718,14 +903,20 @@ export async function repairMp4BoxDurations(blob: Blob): Promise<Blob> {
   }
 }
 
-function repairMoovBox(view: DataView, bytes: Uint8Array, moovPos: number, moovSize: number): void {
+function repairMoovBox(
+  view: DataView,
+  bytes: Uint8Array,
+  moovPos: number,
+  moovSize: number,
+): MoovAudioTrackInfo | null {
   let mvhdTimescale = 1000;
   let mvhdDurationMs = 0;
+  let mvhdBoxPos = -1;
 
   const pos = moovPos + 8;
   const end = Math.min(bytes.length, moovPos + moovSize);
 
-  // 1. Scan for mvhd to get the authoritative duration in milliseconds
+  // 1. Scan for mvhd to get authoritative duration in milliseconds
   let scanPos = pos;
   while (scanPos + 8 <= end) {
     const bSize = view.getUint32(scanPos);
@@ -737,6 +928,7 @@ function repairMoovBox(view: DataView, bytes: Uint8Array, moovPos: number, moovS
     );
 
     if (bType === 'mvhd') {
+      mvhdBoxPos = scanPos;
       const ver = bytes[scanPos + 8];
       if (ver === 0 && scanPos + 28 <= end) {
         mvhdTimescale = view.getUint32(scanPos + 20) || 1000;
@@ -746,7 +938,7 @@ function repairMoovBox(view: DataView, bytes: Uint8Array, moovPos: number, moovS
         mvhdTimescale = view.getUint32(scanPos + 28) || 1000;
         const durHi = view.getUint32(scanPos + 32);
         const durLo = view.getUint32(scanPos + 36);
-        const dur = durHi * 2 ** 32 + durLo;
+        const dur = durHi * 4294967296 + durLo;
         mvhdDurationMs = (dur / mvhdTimescale) * 1000;
       }
       break;
@@ -756,7 +948,15 @@ function repairMoovBox(view: DataView, bytes: Uint8Array, moovPos: number, moovS
     scanPos += bSize;
   }
 
-  if (mvhdDurationMs <= 0) return;
+  if (mvhdDurationMs <= 0) return null;
+
+  let audioTrackId = 2;
+  let audioTimescale = 48000;
+  let audioCodec = 'opus';
+  let audioMdhdDurPos = -1;
+  let audioTkhdDurPos = -1;
+  let isAudioMdhdVer1 = false;
+  let isAudioTkhdVer1 = false;
 
   // 2. Scan all trak boxes and repair their tkhd and mdhd durations
   scanPos = pos;
@@ -770,12 +970,45 @@ function repairMoovBox(view: DataView, bytes: Uint8Array, moovPos: number, moovS
     );
 
     if (bType === 'trak') {
-      repairTrakBox(view, bytes, scanPos, bSize, mvhdDurationMs);
+      const trakInfo = repairTrakBox(view, bytes, scanPos, bSize, mvhdDurationMs);
+      if (trakInfo?.isAudio) {
+        audioTrackId = trakInfo.trackId;
+        audioTimescale = trakInfo.timescale;
+        audioCodec = trakInfo.codec;
+        audioMdhdDurPos = trakInfo.mdhdDurPos;
+        audioTkhdDurPos = trakInfo.tkhdDurPos;
+        isAudioMdhdVer1 = trakInfo.isMdhdVer1;
+        isAudioTkhdVer1 = trakInfo.isTkhdVer1;
+      }
     }
 
     if (bSize <= 0 || scanPos + bSize > end) break;
     scanPos += bSize;
   }
+
+  return {
+    audioTrackId,
+    audioTimescale,
+    audioCodec,
+    mvhdTimescale,
+    mvhdDurationMs,
+    mvhdPos: mvhdBoxPos,
+    audioMdhdDurPos,
+    audioTkhdDurPos,
+    isAudioMdhdVer1,
+    isAudioTkhdVer1,
+  };
+}
+
+interface TrakRepairResult {
+  trackId: number;
+  isAudio: boolean;
+  timescale: number;
+  codec: string;
+  mdhdDurPos: number;
+  tkhdDurPos: number;
+  isMdhdVer1: boolean;
+  isTkhdVer1: boolean;
 }
 
 function repairTrakBox(
@@ -784,9 +1017,13 @@ function repairTrakBox(
   trakPos: number,
   trakSize: number,
   mvhdDurationMs: number,
-): void {
+): TrakRepairResult | null {
   const end = Math.min(bytes.length, trakPos + trakSize);
   let pos = trakPos + 8;
+  let trackId = 0;
+  let tkhdDurPos = -1;
+  let isTkhdVer1 = false;
+  let mdiaResult: { isAudio: boolean; timescale: number; codec: string; mdhdDurPos: number; isMdhdVer1: boolean } | null = null;
 
   while (pos + 8 <= end) {
     const bSize = view.getUint32(pos);
@@ -799,20 +1036,36 @@ function repairTrakBox(
 
     if (bType === 'tkhd') {
       const ver = bytes[pos + 8];
+      isTkhdVer1 = (ver === 1);
       if (ver === 0 && pos + 32 <= end) {
+        trackId = view.getUint32(pos + 20);
+        tkhdDurPos = pos + 28;
         view.setUint32(pos + 28, Math.round(mvhdDurationMs));
       } else if (ver === 1 && pos + 44 <= end) {
+        trackId = view.getUint32(pos + 28);
+        tkhdDurPos = pos + 36;
         const dur = Math.round(mvhdDurationMs);
-        view.setUint32(pos + 36, Math.floor(dur / 2 ** 32));
+        view.setUint32(pos + 36, Math.floor(dur / 4294967296));
         view.setUint32(pos + 40, dur >>> 0);
       }
     } else if (bType === 'mdia') {
-      repairMdiaBox(view, bytes, pos, bSize, mvhdDurationMs);
+      mdiaResult = repairMdiaBox(view, bytes, pos, bSize, mvhdDurationMs);
     }
 
     if (bSize <= 0 || pos + bSize > end) break;
     pos += bSize;
   }
+
+  return {
+    trackId,
+    isAudio: mdiaResult?.isAudio ?? false,
+    timescale: mdiaResult?.timescale ?? 48000,
+    codec: mdiaResult?.codec ?? '',
+    mdhdDurPos: mdiaResult?.mdhdDurPos ?? -1,
+    tkhdDurPos,
+    isMdhdVer1: mdiaResult?.isMdhdVer1 ?? false,
+    isTkhdVer1,
+  };
 }
 
 function repairMdiaBox(
@@ -821,9 +1074,14 @@ function repairMdiaBox(
   mdiaPos: number,
   mdiaSize: number,
   mvhdDurationMs: number,
-): void {
+): { isAudio: boolean; timescale: number; codec: string; mdhdDurPos: number; isMdhdVer1: boolean } {
   const end = Math.min(bytes.length, mdiaPos + mdiaSize);
   let pos = mdiaPos + 8;
+  let isAudio = false;
+  let timescale = 1000;
+  let codec = '';
+  let mdhdDurPos = -1;
+  let isMdhdVer1 = false;
 
   while (pos + 8 <= end) {
     const bSize = view.getUint32(pos);
@@ -834,29 +1092,64 @@ function repairMdiaBox(
       bytes[pos + 7],
     );
 
-    if (bType === 'mdhd') {
+    if (bType === 'hdlr' && pos + 20 <= end) {
+      const hdlrType = String.fromCharCode(
+        bytes[pos + 16],
+        bytes[pos + 17],
+        bytes[pos + 18],
+        bytes[pos + 19],
+      );
+      if (hdlrType === 'soun') {
+        isAudio = true;
+      }
+    } else if (bType === 'mdhd') {
       const ver = bytes[pos + 8];
+      isMdhdVer1 = (ver === 1);
       if (ver === 0 && pos + 28 <= end) {
-        const timescale = view.getUint32(pos + 20) || 1000;
+        timescale = view.getUint32(pos + 20) || 1000;
+        mdhdDurPos = pos + 24;
         const currentDur = view.getUint32(pos + 24);
         if (timescale > 1000 && currentDur <= mvhdDurationMs * 1.5) {
           const scaledDur = Math.round((mvhdDurationMs / 1000) * timescale);
           view.setUint32(pos + 24, scaledDur);
         }
       } else if (ver === 1 && pos + 40 <= end) {
-        const timescale = view.getUint32(pos + 28) || 1000;
+        timescale = view.getUint32(pos + 28) || 1000;
+        mdhdDurPos = pos + 32;
         const currentDurHi = view.getUint32(pos + 32);
         const currentDurLo = view.getUint32(pos + 36);
-        const currentDur = currentDurHi * 2 ** 32 + currentDurLo;
+        const currentDur = currentDurHi * 4294967296 + currentDurLo;
         if (timescale > 1000 && currentDur <= mvhdDurationMs * 1.5) {
           const scaledDur = Math.round((mvhdDurationMs / 1000) * timescale);
-          view.setUint32(pos + 32, Math.floor(scaledDur / 2 ** 32));
+          view.setUint32(pos + 32, Math.floor(scaledDur / 4294967296));
           view.setUint32(pos + 36, scaledDur >>> 0);
         }
+      }
+    } else if (bType === 'minf') {
+      let iPos = pos + 8;
+      while (iPos + 8 <= pos + bSize) {
+        const iSize = view.getUint32(iPos);
+        const iType = String.fromCharCode(bytes[iPos + 4], bytes[iPos + 5], bytes[iPos + 6], bytes[iPos + 7]);
+        if (iType === 'stbl') {
+          let sPos = iPos + 8;
+          while (sPos + 8 <= iPos + iSize) {
+            const sSize = view.getUint32(sPos);
+            const sType = String.fromCharCode(bytes[sPos + 4], bytes[sPos + 5], bytes[sPos + 6], bytes[sPos + 7]);
+            if (sType === 'stsd' && sSize >= 24 && sPos + 24 <= sPos + sSize) {
+              codec = String.fromCharCode(bytes[sPos + 20], bytes[sPos + 21], bytes[sPos + 22], bytes[sPos + 23]);
+            }
+            if (sSize <= 0 || sPos + sSize > iPos + iSize) break;
+            sPos += sSize;
+          }
+        }
+        if (iSize <= 0 || iPos + iSize > pos + bSize) break;
+        iPos += iSize;
       }
     }
 
     if (bSize <= 0 || pos + bSize > end) break;
     pos += bSize;
   }
+
+  return { isAudio, timescale, codec, mdhdDurPos, isMdhdVer1 };
 }
