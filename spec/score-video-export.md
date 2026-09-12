@@ -14,6 +14,7 @@ source_files:
 test_files:
   - src/music/__tests__/scoreVideoTimeline.test.ts
   - src/music/__tests__/scoreVideoRenderer.test.ts
+  - src/music/__tests__/scoreVideoRecorder.test.ts
   - src/components/__tests__/ScoreVideoExportModal.test.tsx
 related_specs:
   - spec/score-export.md
