@@ -41,9 +41,11 @@ export function isMp4RecordingSupported(): boolean {
     return false;
   }
   return (
-    MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,opus') ||
+    MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,mp4a.40.2') ||
+    MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,aac') ||
     MediaRecorder.isTypeSupported('video/mp4;codecs=avc1') ||
-    MediaRecorder.isTypeSupported('video/mp4')
+    MediaRecorder.isTypeSupported('video/mp4') ||
+    MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,opus')
   );
 }
 
@@ -55,9 +57,8 @@ export interface ExtractedScoreData {
   audioBuffer?: AudioBuffer | null;
 }
 
-function mixAudioBuffers(audioCtx: AudioContext, buffers: AudioBuffer[]): AudioBuffer | null {
+export function mixAudioBuffers(audioCtx: AudioContext, buffers: AudioBuffer[]): AudioBuffer | null {
   if (!buffers || buffers.length === 0) return null;
-  if (buffers.length === 1) return buffers[0];
   const sampleRate = buffers[0].sampleRate;
   const numberOfChannels = Math.max(...buffers.map((b) => b.numberOfChannels));
   const length = Math.max(...buffers.map((b) => b.length));
@@ -72,6 +73,30 @@ function mixAudioBuffers(audioCtx: AudioContext, buffers: AudioBuffer[]): AudioB
       }
     }
   }
+
+  // Peak detection & normalization across channels to prevent clipping distortion
+  let maxPeak = 0;
+  for (let ch = 0; ch < numberOfChannels; ch++) {
+    const data = mixed.getChannelData(ch);
+    for (let i = 0; i < data.length; i++) {
+      const abs = Math.abs(data[i]);
+      if (abs > maxPeak) {
+        maxPeak = abs;
+      }
+    }
+  }
+
+  // If peak exceeds 0.92, scale down smoothly to preserve pristine audio fidelity
+  if (maxPeak > 0.92) {
+    const scale = 0.92 / maxPeak;
+    for (let ch = 0; ch < numberOfChannels; ch++) {
+      const data = mixed.getChannelData(ch);
+      for (let i = 0; i < data.length; i++) {
+        data[i] *= scale;
+      }
+    }
+  }
+
   return mixed;
 }
 
@@ -502,12 +527,18 @@ export async function recordScoreVideo(
     }
   }
 
-  // Play Score Music Audio starting at introDurationSec
+  // Play Score Music Audio starting at introDurationSec with clean gain staging
   let musicSource: AudioBufferSourceNode | null = null;
+  let masterGain: GainNode | null = null;
   if (activeAudioCtx && destNode && extracted.audioBuffer) {
     musicSource = activeAudioCtx.createBufferSource();
     musicSource.buffer = extracted.audioBuffer;
-    musicSource.connect(destNode);
+
+    masterGain = activeAudioCtx.createGain();
+    masterGain.gain.setValueAtTime(0.95, activeAudioCtx.currentTime);
+    musicSource.connect(masterGain);
+    masterGain.connect(destNode);
+
     musicSource.start(activeAudioCtx.currentTime + introDurationSec);
   }
 
@@ -523,15 +554,18 @@ export async function recordScoreVideo(
 
   const requestedFormat = options.format ?? 'mp4';
   const requestedQuality = options.quality ?? 'compressed';
-  const bitrate = options.videoBitrate ?? (requestedQuality === 'compressed' ? 2_000_000 : 6_000_000);
+  const videoBitrate = options.videoBitrate ?? (requestedQuality === 'compressed' ? 2_000_000 : 6_000_000);
+  const audioBitrate = requestedQuality === 'compressed' ? 192_000 : 320_000;
 
   // Determine optimal MIME type supported by browser based on requested format
   let mimeType = '';
   if (requestedFormat === 'mp4' && typeof MediaRecorder !== 'undefined') {
     const mp4Types = [
-      'video/mp4;codecs=avc1,opus',
+      'video/mp4;codecs=avc1,mp4a.40.2',
+      'video/mp4;codecs=avc1,aac',
       'video/mp4;codecs=avc1',
       'video/mp4',
+      'video/mp4;codecs=avc1,opus',
     ];
     mimeType = mp4Types.find((t) => MediaRecorder.isTypeSupported(t)) || '';
   }
@@ -552,7 +586,8 @@ export async function recordScoreVideo(
 
   const recorder = new MediaRecorder(combinedStream, {
     mimeType: (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(mimeType)) ? mimeType : undefined,
-    videoBitsPerSecond: bitrate,
+    videoBitsPerSecond: videoBitrate,
+    audioBitsPerSecond: audioBitrate,
   });
 
   const recordedChunks: Blob[] = [];
@@ -583,7 +618,7 @@ export async function recordScoreVideo(
       resolve(blob);
     };
 
-    recorder.start(100);
+    recorder.start();
 
     // Frame rendering loop driven by wall-clock time to remain 100% in sync with audio
     const frameIntervalMs = 1000 / fps;

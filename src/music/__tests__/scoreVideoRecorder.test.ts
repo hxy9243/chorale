@@ -28,7 +28,7 @@ describe('scoreVideoRecorder', () => {
       } as any;
 
       expect(isMp4RecordingSupported()).toBe(true);
-      expect(globalThis.MediaRecorder.isTypeSupported).toHaveBeenCalledWith('video/mp4;codecs=avc1,opus');
+      expect(globalThis.MediaRecorder.isTypeSupported).toHaveBeenCalledWith('video/mp4;codecs=avc1,mp4a.40.2');
     });
 
     it('returns false when MediaRecorder only supports video/webm', () => {
@@ -69,7 +69,7 @@ describe('scoreVideoRecorder', () => {
       totalScoreTimeSec: 10,
     };
 
-    it('configures MediaRecorder with MP4 and compressed 2Mbps bitrate by default', async () => {
+    it('configures MediaRecorder with MP4, compressed 2Mbps video bitrate, and 192kbps audio bitrate by default', async () => {
       let createdOptions: any = null;
 
       class MockMediaStream {
@@ -115,11 +115,12 @@ describe('scoreVideoRecorder', () => {
 
       const blob = await recordScoreVideo(mockCanvas, mockExtracted, exportOptions);
       expect(createdOptions.videoBitsPerSecond).toBe(2_000_000);
-      expect(createdOptions.mimeType).toBe('video/mp4;codecs=avc1,opus');
-      expect(blob.type).toBe('video/mp4;codecs=avc1,opus');
+      expect(createdOptions.audioBitsPerSecond).toBe(192_000);
+      expect(createdOptions.mimeType).toBe('video/mp4;codecs=avc1,mp4a.40.2');
+      expect(blob.type).toBe('video/mp4;codecs=avc1,mp4a.40.2');
     });
 
-    it('configures MediaRecorder with 6Mbps for high quality and WebM format', async () => {
+    it('configures MediaRecorder with 6Mbps video and 320kbps audio for high quality and WebM format', async () => {
       let createdOptions: any = null;
 
       class MockMediaStream {
@@ -165,6 +166,7 @@ describe('scoreVideoRecorder', () => {
 
       const blob = await recordScoreVideo(mockCanvas, mockExtracted, exportOptions);
       expect(createdOptions.videoBitsPerSecond).toBe(6_000_000);
+      expect(createdOptions.audioBitsPerSecond).toBe(320_000);
       expect(createdOptions.mimeType).toBe('video/webm;codecs=vp9,opus');
       expect(blob.type).toBe('video/webm;codecs=vp9,opus');
     });
@@ -214,8 +216,54 @@ describe('scoreVideoRecorder', () => {
       };
 
       const blob = await recordScoreVideo(mockCanvas, mockExtracted, exportOptions);
+      expect(createdOptions.audioBitsPerSecond).toBe(192_000);
       expect(createdOptions.mimeType).toBe('video/webm;codecs=vp9,opus');
       expect(blob.type).toBe('video/webm;codecs=vp9,opus');
+    });
+  });
+
+  describe('mixAudioBuffers headroom & normalization', () => {
+    it('normalizes multi-voice summed buffers that exceed peak threshold to prevent clipping', async () => {
+      const { mixAudioBuffers } = await import('../scoreVideoRecorder');
+
+      const mockAudioCtx = {
+        createBuffer: (channels: number, length: number, sampleRate: number) => {
+          const channelData = Array.from({ length: channels }, () => new Float32Array(length));
+          return {
+            numberOfChannels: channels,
+            length,
+            sampleRate,
+            getChannelData: (ch: number) => channelData[ch],
+          } as AudioBuffer;
+        },
+      } as unknown as AudioContext;
+
+      // Create two buffers with overlapping loud peaks that sum to 1.6 (> 0.92)
+      const buf1 = {
+        numberOfChannels: 1,
+        length: 4,
+        sampleRate: 44100,
+        getChannelData: () => new Float32Array([0.8, 0.5, -0.7, 0.1]),
+      } as unknown as AudioBuffer;
+
+      const buf2 = {
+        numberOfChannels: 1,
+        length: 4,
+        sampleRate: 44100,
+        getChannelData: () => new Float32Array([0.8, -0.2, -0.6, 0.2]),
+      } as unknown as AudioBuffer;
+
+      const mixed = mixAudioBuffers(mockAudioCtx, [buf1, buf2]);
+      expect(mixed).not.toBeNull();
+      const data = mixed!.getChannelData(0);
+
+      // Raw sum at index 0 would be 1.6; with normalization to 0.92, max peak must be <= 0.92
+      let maxPeak = 0;
+      for (let i = 0; i < data.length; i++) {
+        maxPeak = Math.max(maxPeak, Math.abs(data[i]));
+      }
+      expect(maxPeak).toBeCloseTo(0.92, 5);
+      expect(data[0]).toBeCloseTo(0.92, 5);
     });
   });
 
