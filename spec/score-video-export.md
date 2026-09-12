@@ -94,12 +94,16 @@ Pure rendering module for HTML5 Canvas (`OffscreenCanvas` or `HTMLCanvasElement`
 - **Themes**:
   - `Dark`: Dark slate background (`#161618`), white/silver staves, vibrant cyan/gold playhead.
   - `Warm Paper`: Cream/urtext parchment (`#f8f6f0`), dark charcoal staves (`#2a2825`), amber playhead.
-- **Frame Composition**:
+- **Frame Composition & Responsive Layouts**:
   1. Background fill & ambient gradient.
-  2. Intro card / Outro card overlay when in respective phases.
+  2. Header & Measure Indicator:
+     - *Landscape (16:9)*: Single top row with Title (left), Measure indicator (center), and Composer (right).
+     - *Portrait (9:16)*: Two-row collision-free hierarchy: Row 1 hosts Title (left) and Composer (right); Row 2 hosts a centered, dedicated `Measure X` pill badge with subtle card backing and accent text.
   3. Two-line staff rendering:
      - Slices SVG elements of System $k$ and System $k+1$.
-     - Draws to top half and bottom half of the score viewport.
+     - Both staves share uniform scale, identical width, and identical horizontal offset.
+     - *Landscape (16:9)*: Staves occupy proportional upper and lower halves of the wide score sheet.
+     - *Portrait (9:16)*: Staves are spaced with a tight, natural musical gap (`staffGap` ~ 40% staff height), and the sheet card frames the staves with proportional vertical margins centered in the viewport, avoiding large empty voids.
   4. Playhead cursor: vertical glow line at $x(t)$ bounded between the top and bottom of the active staff.
   5. Measure highlight: rounded rectangle over active measure.
 

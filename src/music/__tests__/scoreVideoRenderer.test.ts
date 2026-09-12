@@ -28,6 +28,7 @@ describe('ScoreVideoRenderer', () => {
       save: vi.fn(),
       restore: vi.fn(),
       drawImage: vi.fn(),
+      measureText: vi.fn((text: string) => ({ width: text.length * 8 })),
       set fillStyle(_val: any) {},
       set strokeStyle(_val: any) {},
       set lineWidth(_val: any) {},
@@ -161,6 +162,89 @@ describe('ScoreVideoRenderer', () => {
     renderer.renderFrame(ctx, frameState);
     expect(ctx.fillText).toHaveBeenCalledWith(
       'Chorale in G Major',
+      expect.any(Number),
+      expect.any(Number),
+    );
+  });
+
+  it('renders portrait mode with compact musical staff gap and separated measure badge', () => {
+    const portraitRenderer = new ScoreVideoRenderer({
+      ...defaultOptions,
+      width: 1080,
+      height: 1920,
+      aspectRatio: '9:16',
+    });
+    const ctx = createMockContext();
+
+    const mockSystems: RenderableSystem[] = [
+      {
+        systemIndex: 0,
+        bbox: {
+          systemIndex: 0,
+          lineClass: 'abcjs-l0',
+          minMeasure: 1,
+          maxMeasure: 2,
+          top: 10,
+          bottom: 110,
+          height: 100,
+          left: 0,
+          width: 800,
+        },
+        image: {} as any,
+      },
+      {
+        systemIndex: 1,
+        bbox: {
+          systemIndex: 1,
+          lineClass: 'abcjs-l1',
+          minMeasure: 3,
+          maxMeasure: 4,
+          top: 120,
+          bottom: 220,
+          height: 100,
+          left: 0,
+          width: 800,
+        },
+        image: {} as any,
+      },
+    ];
+
+    const frameState: ScoreVideoFrameState = {
+      timestampSec: 4.0,
+      totalDurationSec: 10,
+      phase: 'score',
+      progress: 0.4,
+      scoreState: {
+        scoreTimeSec: 1.0,
+        activeSystemIndex: 0,
+        topLineSystemIndex: 0,
+        bottomLineSystemIndex: 1,
+        nextSystemIndex: 1,
+        cursorX: 150,
+        cursorY: 0,
+        cursorHeight: 100,
+        measureNumber: 2,
+      },
+    };
+
+    portraitRenderer.renderFrame(ctx, frameState, mockSystems);
+    const drawCalls = vi.mocked(ctx.drawImage).mock.calls;
+    expect(drawCalls).toHaveLength(2);
+
+    // Identical alignment and width
+    expect(drawCalls[0][1]).toBe(drawCalls[1][1]);
+    expect(drawCalls[0][3]).toBe(drawCalls[1][3]);
+
+    // In portrait mode, the gap between the bottom of Line 1 and the top of Line 2 is compact (~40-60px), not a 500+px void
+    const line1Bottom = Number(drawCalls[0][2]) + Number(drawCalls[0][4]);
+    const line2Top = Number(drawCalls[1][2]);
+    const gap = line2Top - line1Bottom;
+    expect(gap).toBeGreaterThan(20);
+    expect(gap).toBeLessThan(100);
+
+    // Measure tag is rendered via fillText with Measure 2
+    expect(ctx.fillText).toHaveBeenCalledWith(
+      'Measure 2',
       expect.any(Number),
       expect.any(Number),
     );

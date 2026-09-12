@@ -142,34 +142,88 @@ export class ScoreVideoRenderer {
   }
 
   private drawHeader(ctx: CanvasRenderingContext2D, frameState: ScoreVideoFrameState): void {
-    const { width } = this.options;
-    const { metadata } = this.options;
+    const { width, height, metadata, aspectRatio } = this.options;
+    const isPortrait = aspectRatio === '9:16';
     const paddingX = Math.round(width * 0.05);
-    const topY = Math.round(this.options.height * 0.05);
+    const topY = Math.round(height * (isPortrait ? 0.038 : 0.05));
 
     ctx.save();
-    // Title
-    ctx.fillStyle = this.palette.textSecondary;
-    ctx.font = `600 ${Math.max(16, Math.round(width * 0.016))}px system-ui, -apple-system, sans-serif`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillText(metadata.title, paddingX, topY);
+
+    const getTextWidth = (text: string): number => {
+      if (typeof ctx.measureText === 'function') {
+        const measured = ctx.measureText(text);
+        if (measured && typeof measured.width === 'number') {
+          return measured.width;
+        }
+      }
+      return text.length * 8;
+    };
+
+    // Determine font sizes
+    const titleFontSize = Math.max(16, Math.round(width * (isPortrait ? 0.026 : 0.016)));
+    const titleFont = `600 ${titleFontSize}px system-ui, -apple-system, sans-serif`;
+    ctx.font = titleFont;
 
     // Subtitle / Composer right-aligned
+    let composerWidth = 0;
     if (metadata.composer) {
+      const composerFontSize = Math.max(13, Math.round(width * (isPortrait ? 0.022 : 0.013)));
+      ctx.font = `400 ${composerFontSize}px system-ui, -apple-system, sans-serif`;
+      composerWidth = getTextWidth(metadata.composer);
       ctx.fillStyle = this.palette.textMuted;
-      ctx.font = `400 ${Math.max(14, Math.round(width * 0.013))}px system-ui, -apple-system, sans-serif`;
       ctx.textAlign = 'right';
+      ctx.textBaseline = 'top';
       ctx.fillText(metadata.composer, width - paddingX, topY);
     }
+
+    // Title (left-aligned, truncated if necessary to avoid colliding with composer)
+    ctx.font = titleFont;
+    const availableTitleWidth = width - paddingX * 2 - (composerWidth > 0 ? composerWidth + 24 : 0);
+    let displayTitle = metadata.title;
+    if (getTextWidth(displayTitle) > availableTitleWidth) {
+      while (displayTitle.length > 3 && getTextWidth(displayTitle + '…') > availableTitleWidth) {
+        displayTitle = displayTitle.slice(0, -1);
+      }
+      displayTitle += '…';
+    }
+    ctx.fillStyle = this.palette.textSecondary;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(displayTitle, paddingX, topY);
 
     // Active Measure Tag (if in score phase)
     if (frameState.scoreState) {
       const measureText = `Measure ${frameState.scoreState.measureNumber}`;
-      ctx.fillStyle = this.palette.accent;
-      ctx.font = `500 ${Math.max(14, Math.round(width * 0.013))}px monospace`;
-      ctx.textAlign = 'center';
-      ctx.fillText(measureText, width / 2, topY);
+      const measureFontSize = Math.max(12, Math.round(width * (isPortrait ? 0.022 : 0.013)));
+      ctx.font = `500 ${measureFontSize}px monospace`;
+
+      if (isPortrait) {
+        // In portrait mode: dedicate a second line with a clean pill badge to avoid horizontal conflict
+        const textWidth = getTextWidth(measureText);
+        const badgeW = textWidth + 24;
+        const badgeH = measureFontSize + 10;
+        const badgeX = (width - badgeW) / 2;
+        const badgeY = topY + titleFontSize + 12;
+
+        ctx.fillStyle = this.palette.cardBg;
+        ctx.strokeStyle = this.palette.border;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(badgeX, badgeY, badgeW, badgeH, badgeH / 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = this.palette.accent;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(measureText, width / 2, badgeY + badgeH / 2);
+      } else {
+        // In landscape mode: center-aligned on header row
+        ctx.fillStyle = this.palette.accent;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(measureText, width / 2, topY);
+      }
     }
 
     ctx.restore();
@@ -304,29 +358,10 @@ export class ScoreVideoRenderer {
     const scoreState = frameState.scoreState;
     if (!scoreState || systems.length === 0) return;
 
-    const { width, height } = this.options;
+    const { width, height, aspectRatio } = this.options;
+    const isPortrait = aspectRatio === '9:16';
     const sheetPaddingX = Math.round(width * 0.05);
-    const sheetTop = Math.round(height * 0.11);
-    const sheetBottom = Math.round(height * 0.89);
     const sheetWidth = width - sheetPaddingX * 2;
-    const sheetHeight = sheetBottom - sheetTop;
-
-    ctx.save();
-
-    // Unified Sheet Card
-    ctx.fillStyle = this.palette.cardBg;
-    ctx.strokeStyle = this.palette.border;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.roundRect(sheetPaddingX, sheetTop, sheetWidth, sheetHeight, 20);
-    ctx.fill();
-    ctx.stroke();
-
-    // Two lines inside the same sheet, equal width and aligned together
-    const innerPadding = Math.round(sheetHeight * 0.035);
-    const usableWidth = sheetWidth - innerPadding * 2;
-    const usableHeight = sheetHeight - innerPadding * 2;
-    const lineHeight = usableHeight / 2;
 
     const topLineIndex = typeof scoreState.topLineSystemIndex === 'number'
       ? scoreState.topLineSystemIndex
@@ -355,22 +390,82 @@ export class ScoreVideoRenderer {
       1,
     );
 
-    // Compute identical scale and identical width for both lines so they align perfectly
-    const sharedScale = Math.min(
-      usableWidth / systemWidth,
-      (lineHeight - 12) / maxBboxHeight,
-    );
-    const drawW = systemWidth * sharedScale;
-    const drawX = sheetPaddingX + innerPadding + (usableWidth - drawW) / 2;
+    let sheetTop: number;
+    let sheetHeight: number;
+    let topSlotY: number;
+    let topSlotHeight: number;
+    let bottomSlotY: number;
+    let bottomSlotHeight: number;
+    let sharedScale: number;
+    let drawW: number;
+    let drawX: number;
+
+    if (isPortrait) {
+      // In portrait mode, staves are placed close together with a natural musical system gap,
+      // and the sheet card frames them with balanced vertical padding centered in the screen.
+      const innerPaddingX = Math.max(16, Math.round(sheetWidth * 0.035));
+      const usableWidth = sheetWidth - innerPaddingX * 2;
+      sharedScale = usableWidth / systemWidth;
+      drawW = systemWidth * sharedScale;
+      drawX = sheetPaddingX + innerPaddingX + (usableWidth - drawW) / 2;
+
+      const topH = topSys.bbox.height * sharedScale;
+      const bottomH = bottomSys ? bottomSys.bbox.height * sharedScale : topH;
+      const staffGap = Math.max(24, Math.round(Math.max(topH, bottomH) * 0.38));
+      const innerPaddingY = Math.max(28, Math.round(sheetWidth * 0.055));
+      const totalContentHeight = topH + (bottomSys ? staffGap + bottomH : 0);
+      sheetHeight = Math.round(totalContentHeight + innerPaddingY * 2);
+
+      const centerY = Math.round((height * 0.12 + height * 0.91) / 2);
+      sheetTop = Math.round(centerY - sheetHeight / 2);
+
+      topSlotY = sheetTop + innerPaddingY;
+      topSlotHeight = topH;
+      bottomSlotY = topSlotY + topH + staffGap;
+      bottomSlotHeight = bottomH;
+    } else {
+      // In landscape mode, staves fill upper and lower halves of the wide widescreen sheet
+      sheetTop = Math.round(height * 0.11);
+      const sheetBottom = Math.round(height * 0.89);
+      sheetHeight = sheetBottom - sheetTop;
+
+      const innerPadding = Math.round(sheetHeight * 0.035);
+      const usableWidth = sheetWidth - innerPadding * 2;
+      const usableHeight = sheetHeight - innerPadding * 2;
+      const lineHeight = usableHeight / 2;
+
+      sharedScale = Math.min(
+        usableWidth / systemWidth,
+        (lineHeight - 12) / maxBboxHeight,
+      );
+      drawW = systemWidth * sharedScale;
+      drawX = sheetPaddingX + innerPadding + (usableWidth - drawW) / 2;
+
+      topSlotY = sheetTop + innerPadding;
+      topSlotHeight = lineHeight;
+      bottomSlotY = sheetTop + innerPadding + lineHeight;
+      bottomSlotHeight = lineHeight;
+    }
+
+    ctx.save();
+
+    // Unified Sheet Card
+    ctx.fillStyle = this.palette.cardBg;
+    ctx.strokeStyle = this.palette.border;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(sheetPaddingX, sheetTop, sheetWidth, sheetHeight, 20);
+    ctx.fill();
+    ctx.stroke();
 
     // Line 1: Top Line
     this.renderSheetLine(
       ctx,
       topSys,
       drawX,
-      sheetTop + innerPadding,
+      topSlotY,
       drawW,
-      lineHeight,
+      topSlotHeight,
       sharedScale,
       isTopActive,
       isTopActive ? scoreState.cursorX : null,
@@ -382,9 +477,9 @@ export class ScoreVideoRenderer {
         ctx,
         bottomSys,
         drawX,
-        sheetTop + innerPadding + lineHeight,
+        bottomSlotY,
         drawW,
-        lineHeight,
+        bottomSlotHeight,
         sharedScale,
         isBottomActive,
         isBottomActive ? scoreState.cursorX : null,
