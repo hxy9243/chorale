@@ -126,6 +126,8 @@ describe('ScoreVideoRenderer', () => {
       scoreState: {
         scoreTimeSec: 1.0,
         activeSystemIndex: 0,
+        topLineSystemIndex: 0,
+        bottomLineSystemIndex: 1,
         nextSystemIndex: 1,
         cursorX: 150,
         cursorY: 0,

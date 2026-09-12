@@ -203,13 +203,19 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
         if (audioCtx.state === 'suspended') {
           void audioCtx.resume();
         }
-        if (extractedData?.audioBuffer && previewTimeRef.current >= introDurationSec) {
+        if (extractedData?.audioBuffer) {
           stopPreviewAudio();
           const src = audioCtx.createBufferSource();
           src.buffer = extractedData.audioBuffer;
           src.connect(audioCtx.destination);
-          const offset = Math.max(0, previewTimeRef.current - introDurationSec);
-          src.start(0, offset);
+          const currentTime = previewTimeRef.current;
+          if (currentTime < introDurationSec) {
+            const delay = introDurationSec - currentTime;
+            src.start(audioCtx.currentTime + delay, 0);
+          } else {
+            const offset = currentTime - introDurationSec;
+            src.start(0, offset);
+          }
           previewAudioSourceRef.current = src;
         }
       }

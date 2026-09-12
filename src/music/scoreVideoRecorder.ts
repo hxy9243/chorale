@@ -35,8 +35,28 @@ export interface ExtractedScoreData {
   audioBuffer?: AudioBuffer | null;
 }
 
+function mixAudioBuffers(audioCtx: AudioContext, buffers: AudioBuffer[]): AudioBuffer | null {
+  if (!buffers || buffers.length === 0) return null;
+  if (buffers.length === 1) return buffers[0];
+  const sampleRate = buffers[0].sampleRate;
+  const numberOfChannels = Math.max(...buffers.map((b) => b.numberOfChannels));
+  const length = Math.max(...buffers.map((b) => b.length));
+  const mixed = audioCtx.createBuffer(numberOfChannels, length, sampleRate);
+  for (let ch = 0; ch < numberOfChannels; ch++) {
+    const mixedData = mixed.getChannelData(ch);
+    for (const b of buffers) {
+      const chToRead = Math.min(ch, b.numberOfChannels - 1);
+      const bData = b.getChannelData(chToRead);
+      for (let i = 0; i < bData.length; i++) {
+        mixedData[i] += bData[i];
+      }
+    }
+  }
+  return mixed;
+}
+
 /**
- * Extracts system bounding boxes, synthesizes offline audio buffer, and renders
+ * Parses the offscreen or rendered SVG score staves and prepares
  * high-res Image slices from an ABC source or fallback SVG element.
  */
 export async function extractScoreSystems(
@@ -48,6 +68,7 @@ export async function extractScoreSystems(
   let totalScoreTimeSec = 30;
   let audioBuffer: AudioBuffer | null = null;
   let cleanupContainer: HTMLElement | null = null;
+  let activeTune: any = null;
 
   if (typeof source === 'string' && typeof document !== 'undefined') {
     const container = document.createElement('div');
@@ -76,6 +97,7 @@ export async function extractScoreSystems(
       });
 
       const tune = tunes?.[0];
+      activeTune = tune;
       if (tune) {
         totalScoreTimeSec = Math.max(1, tune.getTotalTime?.() || 30);
 
@@ -90,7 +112,7 @@ export async function extractScoreSystems(
                 audioContext: audioCtx,
                 options: {
                   soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/',
-                  soundFontVolumeMultiplier: 0.5,
+                  soundFontVolumeMultiplier: 0.8,
                 },
               });
             } catch {
@@ -98,12 +120,17 @@ export async function extractScoreSystems(
                 visualObj: tune,
                 audioContext: audioCtx,
                 options: {
-                  soundFontVolumeMultiplier: 0.5,
+                  soundFontVolumeMultiplier: 0.8,
                 },
               });
             }
             await createSynth.prime();
-            audioBuffer = createSynth.getAudioBuffer?.() || null;
+            const rawBuffers: AudioBuffer[] = (createSynth.audioBuffers && createSynth.audioBuffers.length > 0)
+              ? createSynth.audioBuffers
+              : (createSynth.getAudioBuffer?.() ? [createSynth.getAudioBuffer()] : []);
+            if (rawBuffers.length > 0 && audioCtx) {
+              audioBuffer = mixAudioBuffers(audioCtx, rawBuffers);
+            }
           } catch (synthErr) {
             console.warn('CreateSynth audio buffer generation warning:', synthErr);
           }
@@ -256,55 +283,86 @@ export async function extractScoreSystems(
     });
   }
 
-  // Extract note timing events if present in SVG
+  // Extract accurate note timing events using tune.setTiming(bpm) if available
   const noteEvents: ScoreNoteEvent[] = [];
-  const noteEls = Array.from(svgElement.querySelectorAll<SVGGraphicsElement>('.abcjs-note'));
-  const totalNotes = Math.max(1, noteEls.length);
-
-  noteEls.forEach((noteEl, idx) => {
-    let sysIdx = 0;
-    noteEl.classList.forEach((cls) => {
-      const match = cls.match(/^abcjs-l(\d+)$/);
-      if (match) sysIdx = Number(match[1]);
-    });
-
-    let measure = 1;
-    noteEl.classList.forEach((cls) => {
-      const match = cls.match(/^abcjs-mm(\d+)$/);
-      if (match) measure = Number(match[1]) + 1;
-    });
-
-    let x = 50;
-    let y = 50;
-    let width = 10;
-    let height = 20;
-
+  if (activeTune && typeof activeTune.setTiming === 'function') {
     try {
-      if (typeof noteEl.getBBox === 'function') {
-        const b = noteEl.getBBox();
-        x = b.x;
-        y = b.y;
-        width = b.width;
-        height = b.height;
+      const tempo = activeTune.getBpm?.(activeTune.metaText?.tempo) || 120;
+      const timings = activeTune.setTiming(tempo);
+      if (Array.isArray(timings) && timings.length > 0) {
+        for (const ev of timings) {
+          if (ev.type === 'event' && typeof ev.milliseconds === 'number') {
+            noteEvents.push({
+              timeSec: ev.milliseconds / 1000,
+              durationSec: ev.millisecondsPerMeasure ? ev.millisecondsPerMeasure / 1000 : 0.5,
+              systemIndex: typeof ev.line === 'number' ? ev.line : 0,
+              measureNumber: (ev.measureNumber ?? 0) + 1,
+              x: ev.left ?? 50,
+              endX: ev.endX,
+              y: ev.top ?? 50,
+              width: ev.width ?? 10,
+              height: ev.height ?? 50,
+            });
+          } else if (ev.type === 'end' && typeof ev.milliseconds === 'number') {
+            totalScoreTimeSec = Math.max(1, ev.milliseconds / 1000);
+          }
+        }
       }
-    } catch {
-      // fallback
+    } catch (timingErr) {
+      console.warn('Could not extract tune timings:', timingErr);
     }
+  }
 
-    const timeSec = (idx / totalNotes) * totalScoreTimeSec;
-    const durationSec = totalScoreTimeSec / totalNotes;
+  // Fallback to DOM elements if timing events were not generated
+  if (noteEvents.length === 0) {
+    const noteEls = Array.from(svgElement.querySelectorAll<SVGGraphicsElement>('.abcjs-note'));
+    const totalNotes = Math.max(1, noteEls.length);
 
-    noteEvents.push({
-      timeSec,
-      durationSec,
-      systemIndex: sysIdx,
-      measureNumber: measure,
-      x,
-      y,
-      width,
-      height,
+    noteEls.forEach((noteEl, idx) => {
+      let sysIdx = 0;
+      noteEl.classList.forEach((cls) => {
+        const match = cls.match(/^abcjs-l(\d+)$/);
+        if (match) sysIdx = Number(match[1]);
+      });
+
+      let measure = 1;
+      noteEl.classList.forEach((cls) => {
+        const match = cls.match(/^abcjs-mm(\d+)$/);
+        if (match) measure = Number(match[1]) + 1;
+      });
+
+      let x = 50;
+      let y = 50;
+      let width = 10;
+      let height = 20;
+
+      try {
+        if (typeof noteEl.getBBox === 'function') {
+          const b = noteEl.getBBox();
+          x = b.x;
+          y = b.y;
+          width = b.width;
+          height = b.height;
+        }
+      } catch {
+        // fallback
+      }
+
+      const timeSec = (idx / totalNotes) * totalScoreTimeSec;
+      const durationSec = totalScoreTimeSec / totalNotes;
+
+      noteEvents.push({
+        timeSec,
+        durationSec,
+        systemIndex: sysIdx,
+        measureNumber: measure,
+        x,
+        y,
+        width,
+        height,
+      });
     });
-  });
+  }
 
   if (cleanupContainer) {
     cleanupContainer.remove();
@@ -382,35 +440,10 @@ export async function recordScoreVideo(
     }
   }
 
-  // Schedule Count-in Audio Clicks during Intro
-  if (activeAudioCtx && destNode && introDurationSec > 0) {
-    const tempo = options.metadata.tempoBpm ?? 120;
-    const beatInterval = 60 / tempo;
-    const countInBeats = 4;
-    const countInDuration = Math.min(introDurationSec, beatInterval * countInBeats);
-    const startSec = introDurationSec - countInDuration;
-    const now = activeAudioCtx.currentTime;
-
-    for (let i = 0; i < countInBeats; i++) {
-      const beatTime = now + startSec + i * beatInterval;
-      const osc = activeAudioCtx.createOscillator();
-      const gain = activeAudioCtx.createGain();
-
-      osc.frequency.setValueAtTime(i === 0 ? 1200 : 900, beatTime);
-      gain.gain.setValueAtTime(0.35, beatTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, beatTime + 0.08);
-
-      osc.connect(gain);
-      gain.connect(destNode);
-
-      osc.start(beatTime);
-      osc.stop(beatTime + 0.09);
-    }
-  }
-
   // Play Score Music Audio starting at introDurationSec
+  let musicSource: AudioBufferSourceNode | null = null;
   if (activeAudioCtx && destNode && extracted.audioBuffer) {
-    const musicSource = activeAudioCtx.createBufferSource();
+    musicSource = activeAudioCtx.createBufferSource();
     musicSource.buffer = extracted.audioBuffer;
     musicSource.connect(destNode);
     musicSource.start(activeAudioCtx.currentTime + introDurationSec);
@@ -456,6 +489,13 @@ export async function recordScoreVideo(
     recorder.onerror = (err) => reject(err);
 
     recorder.onstop = () => {
+      if (musicSource) {
+        try {
+          musicSource.stop();
+        } catch {
+          // ignore
+        }
+      }
       onProgress?.({
         currentSec: totalDuration,
         totalSec: totalDuration,
@@ -468,12 +508,14 @@ export async function recordScoreVideo(
 
     recorder.start(100);
 
-    // Frame rendering loop
+    // Frame rendering loop driven by wall-clock time to remain 100% in sync with audio
     const frameIntervalMs = 1000 / fps;
-    let currentTimeSec = 0;
+    const startTimeMs = performance.now();
 
     const interval = setInterval(() => {
-      if (currentTimeSec > totalDuration) {
+      const elapsedSec = (performance.now() - startTimeMs) / 1000;
+
+      if (elapsedSec >= totalDuration) {
         clearInterval(interval);
         onProgress?.({
           currentSec: totalDuration,
@@ -487,17 +529,15 @@ export async function recordScoreVideo(
         return;
       }
 
-      const frameState = timeline.getFrameState(currentTimeSec);
+      const frameState = timeline.getFrameState(elapsedSec);
       renderer.renderFrame(ctx, frameState, extracted.systemImages);
 
       onProgress?.({
-        currentSec: currentTimeSec,
+        currentSec: elapsedSec,
         totalSec: totalDuration,
-        percentage: Math.min(99, Math.round((currentTimeSec / totalDuration) * 100)),
+        percentage: Math.min(99, Math.round((elapsedSec / totalDuration) * 100)),
         phase: 'rendering',
       });
-
-      currentTimeSec += frameIntervalMs / 1000;
     }, frameIntervalMs);
   });
 }

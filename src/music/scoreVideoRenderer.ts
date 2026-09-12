@@ -206,7 +206,7 @@ export class ScoreVideoRenderer {
     ctx.restore();
   }
 
-  private drawIntroCard(ctx: CanvasRenderingContext2D, frameState: ScoreVideoFrameState): void {
+  private drawIntroCard(ctx: CanvasRenderingContext2D, _frameState: ScoreVideoFrameState): void {
     const { width, height, metadata } = this.options;
     const cx = width / 2;
     const cy = height / 2;
@@ -250,43 +250,7 @@ export class ScoreVideoRenderer {
     if (badges.length > 0) {
       ctx.fillStyle = this.palette.textMuted;
       ctx.font = `500 ${Math.max(13, Math.round(width * 0.013))}px monospace`;
-      ctx.fillText(badges.join('   •   '), cx, cy + cardH * 0.08);
-    }
-
-    // Animated Count-in Dots
-    if (frameState.introState && frameState.introState.countInTotalBeats > 0) {
-      const { countInBeat, countInTotalBeats, beatFraction } = frameState.introState;
-      const dotSpacing = 36;
-      const totalDotsWidth = (countInTotalBeats - 1) * dotSpacing;
-      const dotsStartX = cx - totalDotsWidth / 2;
-      const dotsY = cy + cardH * 0.28;
-
-      for (let i = 1; i <= countInTotalBeats; i++) {
-        const dotX = dotsStartX + (i - 1) * dotSpacing;
-        const isActive = i <= countInBeat;
-        const isCurrent = i === countInBeat;
-
-        ctx.beginPath();
-        const baseRadius = 7;
-        const radius = isCurrent ? baseRadius + Math.sin(beatFraction * Math.PI) * 3 : baseRadius;
-        ctx.arc(dotX, dotsY, radius, 0, Math.PI * 2);
-
-        if (isActive) {
-          ctx.fillStyle = this.palette.dotActive;
-          ctx.fill();
-
-          if (isCurrent) {
-            ctx.strokeStyle = this.palette.cursorGlow;
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.arc(dotX, dotsY, radius + 4, 0, Math.PI * 2);
-            ctx.stroke();
-          }
-        } else {
-          ctx.fillStyle = this.palette.dotInactive;
-          ctx.fill();
-        }
-      }
+      ctx.fillText(badges.join('   •   '), cx, cy + cardH * 0.12);
     }
 
     ctx.restore();
@@ -341,48 +305,75 @@ export class ScoreVideoRenderer {
     if (!scoreState || systems.length === 0) return;
 
     const { width, height } = this.options;
-    const scoreAreaTop = Math.round(height * 0.12);
-    const scoreAreaBottom = Math.round(height * 0.88);
-    const scoreAreaHeight = scoreAreaBottom - scoreAreaTop;
-    const slotHeight = scoreAreaHeight / 2;
-    const paddingX = Math.round(width * 0.05);
-    const targetWidth = width - paddingX * 2;
+    const sheetPaddingX = Math.round(width * 0.05);
+    const sheetTop = Math.round(height * 0.11);
+    const sheetBottom = Math.round(height * 0.89);
+    const sheetWidth = width - sheetPaddingX * 2;
+    const sheetHeight = sheetBottom - sheetTop;
 
-    const activeSys = systems.find((s) => s.systemIndex === scoreState.activeSystemIndex) || systems[0];
-    const nextSys = scoreState.nextSystemIndex !== null
-      ? systems.find((s) => s.systemIndex === scoreState.nextSystemIndex)
+    ctx.save();
+
+    // Unified Sheet Card
+    ctx.fillStyle = this.palette.cardBg;
+    ctx.strokeStyle = this.palette.border;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(sheetPaddingX, sheetTop, sheetWidth, sheetHeight, 20);
+    ctx.fill();
+    ctx.stroke();
+
+    // Two lines inside the same sheet, equal width and aligned together
+    const innerPadding = Math.round(sheetHeight * 0.035);
+    const usableWidth = sheetWidth - innerPadding * 2;
+    const usableHeight = sheetHeight - innerPadding * 2;
+    const lineHeight = usableHeight / 2;
+
+    const topLineIndex = typeof scoreState.topLineSystemIndex === 'number'
+      ? scoreState.topLineSystemIndex
+      : (typeof scoreState.activeSystemIndex === 'number' ? Math.floor(scoreState.activeSystemIndex / 2) * 2 : 0);
+
+    const bottomLineIndex = scoreState.bottomLineSystemIndex !== undefined
+      ? scoreState.bottomLineSystemIndex
+      : (scoreState.nextSystemIndex !== undefined ? scoreState.nextSystemIndex : (topLineIndex + 1));
+
+    const topSys = systems.find((s) => s.systemIndex === topLineIndex) || systems[0];
+    const bottomSys = bottomLineIndex !== null
+      ? systems.find((s) => s.systemIndex === bottomLineIndex)
       : null;
 
-    // Slot 1: Active System (Top Line)
-    this.renderSystemSlot(
+    const isTopActive = scoreState.activeSystemIndex === topLineIndex;
+    const isBottomActive = bottomLineIndex !== null && scoreState.activeSystemIndex === bottomLineIndex;
+
+    // Line 1: Top Line
+    this.renderSheetLine(
       ctx,
-      activeSys,
-      paddingX,
-      scoreAreaTop,
-      targetWidth,
-      slotHeight,
-      true,
-      scoreState.cursorX,
-      'Active Line',
+      topSys,
+      sheetPaddingX + innerPadding,
+      sheetTop + innerPadding,
+      usableWidth,
+      lineHeight,
+      isTopActive,
+      isTopActive ? scoreState.cursorX : null,
     );
 
-    // Slot 2: Next System Lookahead (Bottom Line)
-    if (nextSys) {
-      this.renderSystemSlot(
+    // Line 2: Bottom Line (Aligned together in the same sheet)
+    if (bottomSys) {
+      this.renderSheetLine(
         ctx,
-        nextSys,
-        paddingX,
-        scoreAreaTop + slotHeight,
-        targetWidth,
-        slotHeight,
-        false,
-        null,
-        'Next Line',
+        bottomSys,
+        sheetPaddingX + innerPadding,
+        sheetTop + innerPadding + lineHeight,
+        usableWidth,
+        lineHeight,
+        isBottomActive,
+        isBottomActive ? scoreState.cursorX : null,
       );
     }
+
+    ctx.restore();
   }
 
-  private renderSystemSlot(
+  private renderSheetLine(
     ctx: CanvasRenderingContext2D,
     system: RenderableSystem,
     x: number,
@@ -391,71 +382,47 @@ export class ScoreVideoRenderer {
     height: number,
     isActive: boolean,
     cursorX: number | null,
-    label: string,
   ): void {
+    if (!system.image || system.bbox.width <= 0 || system.bbox.height <= 0) return;
+
     ctx.save();
 
-    // Slot Frame / Container background
-    const slotPadding = 12;
-    const innerX = x + slotPadding;
-    const innerY = y + slotPadding;
-    const innerW = width - slotPadding * 2;
-    const innerH = height - slotPadding * 2;
+    const scale = Math.min(
+      width / system.bbox.width,
+      (height - 8) / system.bbox.height,
+    );
+    const drawW = system.bbox.width * scale;
+    const drawH = system.bbox.height * scale;
+    const drawX = x + (width - drawW) / 2;
+    const drawY = y + (height - drawH) / 2;
 
-    ctx.fillStyle = this.palette.cardBg;
-    ctx.strokeStyle = isActive ? this.palette.accent : this.palette.border;
-    ctx.lineWidth = isActive ? 1.5 : 1;
-    ctx.beginPath();
-    ctx.roundRect(innerX, innerY, innerW, innerH, 16);
-    ctx.fill();
-    ctx.stroke();
+    ctx.drawImage(system.image, drawX, drawY, drawW, drawH);
 
-    // Slot Tag (Active vs Lookahead)
-    ctx.fillStyle = isActive ? this.palette.accent : this.palette.textMuted;
-    ctx.font = `600 ${Math.max(11, Math.round(this.options.width * 0.01))}px monospace`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillText(`${label} (mm. ${system.bbox.minMeasure}–${system.bbox.maxMeasure})`, innerX + 16, innerY + 12);
-
-    // Draw System Image
-    if (system.image && system.bbox.width > 0 && system.bbox.height > 0) {
-      const scale = Math.min(
-        (innerW - 32) / system.bbox.width,
-        (innerH - 40) / system.bbox.height,
+    // Draw Animated Cursor on the actively playing line
+    if (isActive && cursorX !== null) {
+      const cursorRatio = Math.max(
+        0,
+        Math.min(1, (cursorX - system.bbox.left) / Math.max(1, system.bbox.width)),
       );
-      const drawW = system.bbox.width * scale;
-      const drawH = system.bbox.height * scale;
-      const drawX = innerX + (innerW - drawW) / 2;
-      const drawY = innerY + 30 + (innerH - 40 - drawH) / 2;
+      const actualCursorX = drawX + cursorRatio * drawW;
 
-      ctx.globalAlpha = isActive ? 1.0 : 0.75;
-      ctx.drawImage(system.image, drawX, drawY, drawW, drawH);
+      // Cursor Glow
+      ctx.save();
+      ctx.strokeStyle = this.palette.cursorGlow;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(actualCursorX, drawY - 4);
+      ctx.lineTo(actualCursorX, drawY + drawH + 4);
+      ctx.stroke();
 
-      // Draw Animated Cursor on Active System
-      if (isActive && cursorX !== null) {
-        const cursorRatio = Math.max(
-          0,
-          Math.min(1, (cursorX - system.bbox.left) / Math.max(1, system.bbox.width)),
-        );
-        const actualCursorX = drawX + cursorRatio * drawW;
-
-        // Glowing Line
-        ctx.save();
-        ctx.strokeStyle = this.palette.cursorGlow;
-        ctx.lineWidth = 6;
-        ctx.beginPath();
-        ctx.moveTo(actualCursorX, drawY - 4);
-        ctx.lineTo(actualCursorX, drawY + drawH + 4);
-        ctx.stroke();
-
-        ctx.strokeStyle = this.palette.cursor;
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(actualCursorX, drawY - 4);
-        ctx.lineTo(actualCursorX, drawY + drawH + 4);
-        ctx.stroke();
-        ctx.restore();
-      }
+      // Sharp Cursor Line
+      ctx.strokeStyle = this.palette.cursor;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(actualCursorX, drawY - 4);
+      ctx.lineTo(actualCursorX, drawY + drawH + 4);
+      ctx.stroke();
+      ctx.restore();
     }
 
     ctx.restore();
