@@ -218,4 +218,49 @@ describe('scoreVideoRecorder', () => {
       expect(blob.type).toBe('video/webm;codecs=vp9,opus');
     });
   });
+
+  describe('extractScoreSystems uniform sizing', () => {
+    it('extracts score systems with uniform bounding box heights and widths', async () => {
+      const originalImage = globalThis.Image;
+      class MockImage {
+        onload: any = null;
+        onerror: any = null;
+        set src(_v: string) {
+          setTimeout(() => {
+            if (this.onload) this.onload();
+          }, 0);
+        }
+      }
+      globalThis.Image = MockImage as any;
+
+      try {
+        const { extractScoreSystems } = await import('../scoreVideoRecorder');
+        
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 800 600');
+
+        // Create two lines: line 0 and line 1
+        const line0 = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        line0.setAttribute('class', 'abcjs-l0 abcjs-staff');
+        line0.getBBox = () => ({ x: 0, y: 50, width: 750, height: 60, top: 50, right: 750, bottom: 110, left: 0 } as DOMRect);
+
+        const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        line1.setAttribute('class', 'abcjs-l1 abcjs-staff');
+        line1.getBBox = () => ({ x: 0, y: 200, width: 750, height: 90, top: 200, right: 750, bottom: 290, left: 0 } as DOMRect);
+
+        svg.appendChild(line0);
+        svg.appendChild(line1);
+
+        const data = await extractScoreSystems(svg, 'dark');
+        expect(data.systems).toHaveLength(2);
+
+        // Both systems must have identical bounding box height and width
+        expect(data.systems[0].height).toBe(data.systems[1].height);
+        expect(data.systems[0].width).toBe(data.systems[1].width);
+        expect(data.systems[0].height).toBeGreaterThanOrEqual(100);
+      } finally {
+        globalThis.Image = originalImage;
+      }
+    });
+  });
 });
