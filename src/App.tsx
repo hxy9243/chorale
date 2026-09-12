@@ -103,6 +103,7 @@ export const App: React.FC = () => {
 
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [newScoreModalOpen, setNewScoreModalOpen] = useState(false);
+  const [videoExportModalOpen, setVideoExportModalOpen] = useState(false);
   const [scoreNavigationAnchor, setScoreNavigationAnchor] = useState<ScoreAnchor | null>(null);
   const [playbackSourceRanges, setPlaybackSourceRanges] = useState<PlaybackSourceRanges | null>(null);
 
@@ -114,6 +115,7 @@ export const App: React.FC = () => {
   const openHistoryModal = useCallback(() => setHistoryModalOpen(true), []);
   const closeHistoryModal = useCallback(() => setHistoryModalOpen(false), []);
   const closeNewScoreModal = useCallback(() => setNewScoreModalOpen(false), []);
+  const closeVideoExportModal = useCallback(() => setVideoExportModalOpen(false), []);
 
   // Keyboard shortcuts (Undo/Redo)
   useWorkspaceShortcuts({
@@ -220,6 +222,14 @@ export const App: React.FC = () => {
   const { exportState: exportStatus, exportDocument, dismissStatus: dismissExportStatus } = useScoreExport();
 
   const handleExportDocument = (fileId: string, format: ScoreExportFormat = 'musicxml') => {
+    if (format === 'video') {
+      const targetDoc = documents.find((doc) => doc.id === fileId);
+      if (targetDoc && targetDoc.id !== activeFileId) {
+        handleSelectFile(targetDoc.id);
+      }
+      setVideoExportModalOpen(true);
+      return;
+    }
     const targetDoc = documents.find((doc) => doc.id === fileId);
     if (targetDoc) {
       void exportDocument(targetDoc, format);
@@ -549,6 +559,10 @@ export const App: React.FC = () => {
         historyModalOpen={historyModalOpen}
         onCloseHistoryModal={closeHistoryModal}
         scoreTitle={scoreTitle}
+        scoreComposer={scoreComposer}
+        scoreKey={scoreKey}
+        scoreMeter={scoreMeter}
+        scoreTempoBpm={scoreTempoBpm}
         editingHistory={editingHistory}
         activeHistoryIndex={activeHistoryIndex}
         canUndo={canUndo}
@@ -559,6 +573,8 @@ export const App: React.FC = () => {
         newScoreModalOpen={newScoreModalOpen}
         onCloseNewScoreModal={closeNewScoreModal}
         onCreateDocument={handleCreateDocument}
+        videoExportModalOpen={videoExportModalOpen}
+        onCloseVideoExportModal={closeVideoExportModal}
         exportStatus={exportStatus}
       />
     </div>

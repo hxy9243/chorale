@@ -25,6 +25,7 @@ import {
   Download,
   FileMusic,
   FileText,
+  Film,
   FolderOpen,
   History,
   PanelLeft,
@@ -370,6 +371,19 @@ const FileItemContextMenu: React.FC<FileItemContextMenuProps> = ({
             >
               <FileText size={15} aria-hidden="true" />
               <span>PDF (.pdf)</span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="file-context-menu-item"
+              onClick={() => {
+                setSubmenuOpen(false);
+                onExport('video');
+                onClose();
+              }}
+            >
+              <Film size={15} aria-hidden="true" />
+              <span>Sheet Video (.webm)</span>
             </button>
           </div>
 
