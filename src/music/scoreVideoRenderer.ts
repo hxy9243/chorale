@@ -402,9 +402,9 @@ export class ScoreVideoRenderer {
     const innerW = width - slotPadding * 2;
     const innerH = height - slotPadding * 2;
 
-    ctx.fillStyle = isActive ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)';
-    ctx.strokeStyle = isActive ? this.palette.border : 'rgba(255, 255, 255, 0.04)';
-    ctx.lineWidth = 1;
+    ctx.fillStyle = this.palette.cardBg;
+    ctx.strokeStyle = isActive ? this.palette.accent : this.palette.border;
+    ctx.lineWidth = isActive ? 1.5 : 1;
     ctx.beginPath();
     ctx.roundRect(innerX, innerY, innerW, innerH, 16);
     ctx.fill();

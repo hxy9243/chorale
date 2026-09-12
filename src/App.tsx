@@ -576,6 +576,7 @@ export const App: React.FC = () => {
         videoExportModalOpen={videoExportModalOpen}
         onCloseVideoExportModal={closeVideoExportModal}
         exportStatus={exportStatus}
+        abcSource={displayAbc}
       />
     </div>
   );

@@ -37,12 +37,13 @@ export const getPluginViewConfig = (): PluginViewConfig => {
     return { viewId: 'plugin-main', bridgeUrl: defaultBridgeUrl };
   }
   const parameters = new URLSearchParams(window.location.search);
-  const servedByChorale = window.location.port !== '5173';
+  const isViteDev = window.location.port.startsWith('517') || window.location.port === '4173';
   return {
     viewId: parameters.get('viewId') || viewIdentity(),
     // The packaged UI is served by the daemon. Same-origin requests work from
     // every browser profile without broad mutation CORS permissions.
-    bridgeUrl: parameters.get('choraleBridge') || (servedByChorale ? window.location.origin : defaultBridgeUrl),
+    // Dev servers (5173, 5174, etc.) target the local daemon at defaultBridgeUrl.
+    bridgeUrl: parameters.get('choraleBridge') || (isViteDev ? defaultBridgeUrl : window.location.origin),
   };
 };
 
@@ -158,6 +159,8 @@ export const usePluginMcpBridge = ({
       try {
         const response = await fetch(`${config.bridgeUrl}/v1/scores/${encodeURIComponent(documentId)}`);
         if (!response.ok || cancelled) return;
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) return;
         const score = await response.json() as { annotations?: Annotation[]; revision?: number };
         if (Array.isArray(score.annotations) && onSetAnnotationsRef.current) {
           const currentAnns = annotationsRef.current || [];
@@ -177,6 +180,8 @@ export const usePluginMcpBridge = ({
       try {
         const response = await fetch(`${config.bridgeUrl}/v1/views/${encodeURIComponent(config.viewId)}/commands`);
         if (!response.ok || cancelled) return;
+        const pollContentType = response.headers.get('content-type') || '';
+        if (!pollContentType.includes('application/json')) return;
         const { commands } = await response.json() as { commands?: Array<Record<string, unknown>> };
         for (const command of commands || []) {
           const commandId = typeof command.id === 'string' ? command.id : '';

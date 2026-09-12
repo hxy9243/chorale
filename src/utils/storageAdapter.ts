@@ -28,7 +28,8 @@ const sharedServiceBase = (): string | null => {
     // fallbacks. Packaged daemon ports, including an alternate ephemeral port,
     // remain same-origin shared workspaces.
     if (window.location.port === '3000') return null;
-    return window.location.port === '5173' ? 'http://127.0.0.1:1685' : window.location.origin;
+    const isViteDev = window.location.port.startsWith('517') || window.location.port === '4173';
+    return isViteDev ? 'http://127.0.0.1:1685' : window.location.origin;
   }
   // Electron/file callers can opt in with ?choraleBridge=…; the legacy
   // loopback default remains available for existing local launches.
@@ -40,6 +41,10 @@ const usesSharedWorkspace = (): boolean => sharedServiceBase() !== null;
 const sharedWorkspace = async <T>(path: string, options?: RequestInit): Promise<T> => {
   const response = await fetch(`${sharedServiceBase()}${path}`, options);
   if (!response.ok) throw new Error(response.status === 409 ? 'Workspace changed in another view. Refreshing.' : 'Shared Chorale service is unavailable.');
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error('Shared Chorale service returned invalid content.');
+  }
   return response.json() as Promise<T>;
 };
 

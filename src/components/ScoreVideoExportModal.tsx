@@ -23,6 +23,7 @@ export interface ScoreVideoExportModalProps {
   keySignature?: string;
   meter?: string;
   tempoBpm?: number;
+  abcSource?: string;
   svgContainerSelector?: string;
 }
 
@@ -34,6 +35,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
   keySignature = 'C',
   meter = '4/4',
   tempoBpm = 120,
+  abcSource,
   svgContainerSelector = '#paper svg',
 }) => {
   const [aspectRatio, setAspectRatio] = useState<ScoreVideoAspectRatio>('16:9');
@@ -52,14 +54,38 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
   const lastFrameTimeRef = useRef<number>(0);
   const isPlayingRef = useRef<boolean>(false);
   const previewTimeRef = useRef<number>(0);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const previewAudioSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
-  // Synchronize ref with state
+  // Synchronize refs with state
   isPlayingRef.current = isPreviewPlaying;
   previewTimeRef.current = previewTimeSec;
 
-  // Extract score data when modal opens
+  const getAudioContext = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return null;
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioCtx();
+    }
+    return audioContextRef.current;
+  }, []);
+
+  const stopPreviewAudio = useCallback(() => {
+    if (previewAudioSourceRef.current) {
+      try {
+        previewAudioSourceRef.current.stop();
+      } catch {
+        // ignore
+      }
+      previewAudioSourceRef.current = null;
+    }
+  }, []);
+
+  // Extract score data and synthesize audio buffer when modal opens or theme/source changes
   useEffect(() => {
     if (!open) {
+      stopPreviewAudio();
       setExtractedData(null);
       setIsPreviewPlaying(false);
       setPreviewTimeSec(0);
@@ -71,13 +97,15 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
       return;
     }
 
-    const svgEl = document.querySelector<SVGSVGElement>(svgContainerSelector);
-    if (svgEl) {
-      void extractScoreSystems(svgEl, 45).then((data) => {
+    const audioCtx = getAudioContext();
+    const sourceToExtract = abcSource || document.querySelector<SVGSVGElement>(svgContainerSelector) || '';
+
+    if (sourceToExtract) {
+      void extractScoreSystems(sourceToExtract, theme, audioCtx).then((data) => {
         setExtractedData(data);
       });
     } else {
-      // Fallback empty data if SVG not yet in DOM
+      // Fallback empty data if no source is available
       setExtractedData({
         systems: [
           {
@@ -108,7 +136,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
         totalScoreTimeSec: 30,
       });
     }
-  }, [open, svgContainerSelector]);
+  }, [open, abcSource, theme, svgContainerSelector, getAudioContext, stopPreviewAudio]);
 
   const previewTimeline = React.useMemo(() => {
     return new ScoreVideoTimeline(
@@ -164,9 +192,36 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
     renderPreview();
   }, [renderPreview, previewTimeSec]);
 
+  // Toggle preview playback with audio
+  const handleTogglePlayPreview = useCallback(() => {
+    const nextPlaying = !isPlayingRef.current;
+    setIsPreviewPlaying(nextPlaying);
+
+    if (nextPlaying) {
+      const audioCtx = getAudioContext();
+      if (audioCtx) {
+        if (audioCtx.state === 'suspended') {
+          void audioCtx.resume();
+        }
+        if (extractedData?.audioBuffer && previewTimeRef.current >= introDurationSec) {
+          stopPreviewAudio();
+          const src = audioCtx.createBufferSource();
+          src.buffer = extractedData.audioBuffer;
+          src.connect(audioCtx.destination);
+          const offset = Math.max(0, previewTimeRef.current - introDurationSec);
+          src.start(0, offset);
+          previewAudioSourceRef.current = src;
+        }
+      }
+    } else {
+      stopPreviewAudio();
+    }
+  }, [getAudioContext, extractedData?.audioBuffer, introDurationSec, stopPreviewAudio]);
+
   // Animation loop for preview playback
   useEffect(() => {
     if (!isPreviewPlaying) {
+      stopPreviewAudio();
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -183,6 +238,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
         const next = prev + deltaSec;
         if (next >= totalDuration) {
           setIsPreviewPlaying(false);
+          stopPreviewAudio();
           return 0;
         }
         return next;
@@ -198,15 +254,25 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [isPreviewPlaying, totalDuration]);
+  }, [isPreviewPlaying, totalDuration, stopPreviewAudio]);
 
   // Export video handler
   const handleExport = async () => {
     if (!extractedData) return;
     setIsPreviewPlaying(false);
+    stopPreviewAudio();
     setIsExporting(true);
 
     try {
+      const audioCtx = getAudioContext();
+      if (audioCtx && audioCtx.state === 'suspended') {
+        try {
+          await audioCtx.resume();
+        } catch {
+          // ignore
+        }
+      }
+
       const offscreenCanvas = document.createElement('canvas');
       const width = aspectRatio === '16:9' ? 1920 : 1080;
       const height = aspectRatio === '16:9' ? 1080 : 1920;
@@ -231,6 +297,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
           fps: 30,
           onProgress: (p) => setExportProgress(p),
         },
+        audioCtx,
       );
 
       // Trigger download
@@ -262,7 +329,10 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
       aria-modal="true"
       aria-labelledby="video-export-modal-title"
       onClick={(e) => {
-        if (e.target === e.currentTarget && !isExporting) onClose();
+        if (e.target === e.currentTarget && !isExporting) {
+          stopPreviewAudio();
+          onClose();
+        }
       }}
     >
       <div className="modal-content video-export-modal-content">
@@ -274,7 +344,10 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
           <button
             type="button"
             className="modal-close-btn"
-            onClick={onClose}
+            onClick={() => {
+              stopPreviewAudio();
+              onClose();
+            }}
             disabled={isExporting}
             aria-label="Close modal"
           >
@@ -302,7 +375,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
               <button
                 type="button"
                 className="btn-circle btn-play-preview"
-                onClick={() => setIsPreviewPlaying(!isPreviewPlaying)}
+                onClick={handleTogglePlayPreview}
                 disabled={isExporting}
                 aria-label={isPreviewPlaying ? 'Pause preview' : 'Play preview'}
               >
@@ -313,6 +386,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
                 type="button"
                 className="btn-circle btn-reset-preview"
                 onClick={() => {
+                  stopPreviewAudio();
                   setIsPreviewPlaying(false);
                   setPreviewTimeSec(0);
                 }}
@@ -329,6 +403,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
                 step={0.1}
                 value={previewTimeSec}
                 onChange={(e) => {
+                  stopPreviewAudio();
                   setIsPreviewPlaying(false);
                   setPreviewTimeSec(Number(e.target.value));
                 }}
@@ -447,7 +522,10 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={onClose}
+                onClick={() => {
+                  stopPreviewAudio();
+                  onClose();
+                }}
                 disabled={isExporting}
               >
                 Cancel

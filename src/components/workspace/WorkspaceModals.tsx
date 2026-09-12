@@ -27,6 +27,7 @@ export interface WorkspaceModalsProps {
 
   videoExportModalOpen?: boolean;
   onCloseVideoExportModal?: () => void;
+  abcSource?: string;
 
   exportStatus: ScoreExportState;
 }
@@ -47,6 +48,7 @@ export const WorkspaceModals: React.FC<WorkspaceModalsProps> = ({
   onCreateDocument,
   videoExportModalOpen = false,
   onCloseVideoExportModal,
+  abcSource,
   scoreComposer,
   scoreKey,
   scoreMeter,
@@ -80,6 +82,7 @@ export const WorkspaceModals: React.FC<WorkspaceModalsProps> = ({
         keySignature={scoreKey}
         meter={scoreMeter}
         tempoBpm={scoreTempoBpm}
+        abcSource={abcSource}
       />
       {exportStatus.status === 'success' && (
         <div className="export-status-toast" role="status">
