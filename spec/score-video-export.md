@@ -98,6 +98,13 @@ Given $M$ systems extracted from the score:
   - MP4 recording prioritizes standard AAC audio codecs (`video/mp4;codecs=avc1,mp4a.40.2`, `video/mp4;codecs=avc1,aac`, `video/mp4;codecs=avc1`, `video/mp4`) for universal cross-platform playback.
 - **Container Finalization & Duration Indexing**:
   - `MediaRecorder.start()` is invoked without fractional timeslicing, enabling browser muxers to generate valid movie fragment random access (`mfra`) tables and full duration metadata without truncation.
+- **Post-Recording MP4 Container Box Duration Repair (`repairMp4BoxDurations`)**:
+  - In Chromium on Linux/Windows/macOS, `MediaRecorder` has an internal ISO-BMFF muxing bug: when generating MP4 files, it writes unscaled millisecond durations into `mdhd` (media header) boxes rather than scaling by the track timescale (e.g. writing `50,000` instead of $50,000 \times 48 = 2,400,000$ for a 48 kHz audio track, and $50,000 \times 30 = 1,500,000$ for a 30 kHz video track).
+  - External players (VLC, GStreamer, Totem, QuickTime, Windows Media Player) read the unscaled duration and conclude the audio/video streams end after ~1.04s and ~1.72s, causing video freezing after a few seconds and garbled/choppy/prematurely aborted audio.
+  - `repairMp4BoxDurations` parses the MP4 `moov` hierarchy, locates all `trak` and `mdia.mdhd` boxes, extracts the authoritative movie duration from `mvhd`, and rescales the `mdhd` durations to `(durationMs / 1000) * timescale`, ensuring seamless 100% playback across all native OS media players.
+- **Synchronous Canvas Capture & DOM Attachment**:
+  - The recording canvas is mounted into the DOM (`position: fixed; left: -9999px; visibility: hidden;`) during export to connect Chromium's compositor to regular paint cycles, and `track.requestFrame()` is called synchronously after every rendered frame to ensure zero dropped frames at 30 fps.
+
 
 ### 3.5 SVG System Slice Isolation & Ledger Line Preservation
 - **Accurate Line Class Filtering**:

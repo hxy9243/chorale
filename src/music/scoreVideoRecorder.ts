@@ -605,7 +605,7 @@ export async function recordScoreVideo(
   return new Promise((resolve, reject) => {
     recorder.onerror = (err) => reject(err);
 
-    recorder.onstop = () => {
+    recorder.onstop = async () => {
       if (musicSource) {
         try {
           musicSource.stop();
@@ -619,8 +619,11 @@ export async function recordScoreVideo(
         percentage: 100,
         phase: 'done',
       });
-      const blob = new Blob(recordedChunks, { type: mimeType });
-      resolve(blob);
+      const rawBlob = new Blob(recordedChunks, { type: mimeType });
+      const finalBlob = (requestedFormat === 'mp4' || mimeType.includes('mp4'))
+        ? await repairMp4BoxDurations(rawBlob)
+        : rawBlob;
+      resolve(finalBlob);
     };
 
     recorder.start();
@@ -649,6 +652,14 @@ export async function recordScoreVideo(
       const frameState = timeline.getFrameState(elapsedSec);
       renderer.renderFrame(ctx, frameState, extracted.systemImages);
 
+      // Explicitly request frame capture if supported by track to guarantee exact fps without drops
+      try {
+        const videoTrack = canvasStream.getVideoTracks()[0];
+        (videoTrack as any)?.requestFrame?.();
+      } catch {
+        // ignore
+      }
+
       onProgress?.({
         currentSec: elapsedSec,
         totalSec: totalDuration,
@@ -657,4 +668,195 @@ export async function recordScoreVideo(
       });
     }, frameIntervalMs);
   });
+}
+
+/**
+ * Repairs ISO BMFF (MP4) container metadata produced by Chromium's MediaRecorder.
+ * Chromium has a known bug where track media header (mdhd) boxes have their duration
+ * values written in milliseconds instead of being scaled by the track timescale
+ * (e.g. 50,000 instead of 50,000 * 48 for a 48kHz audio track).
+ * This causes media players (VLC, GStreamer, Totem, QuickTime, Windows Media Player)
+ * to report a ~1-second duration on the audio track and fail with garbled/stuttering sound
+ * or immediate EOS.
+ */
+export async function repairMp4BoxDurations(blob: Blob): Promise<Blob> {
+  try {
+    const arrayBuffer = await blob.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+    let pos = 0;
+    while (pos + 8 <= bytes.length) {
+      const size = view.getUint32(pos);
+      const type = String.fromCharCode(
+        bytes[pos + 4],
+        bytes[pos + 5],
+        bytes[pos + 6],
+        bytes[pos + 7],
+      );
+
+      if (type === 'moov') {
+        repairMoovBox(view, bytes, pos, size);
+        break;
+      }
+
+      if (size === 1 && pos + 16 <= bytes.length) {
+        const hi = view.getUint32(pos + 8);
+        const lo = view.getUint32(pos + 12);
+        pos += hi * 2 ** 32 + lo;
+      } else if (size === 0 || size > bytes.length - pos) {
+        break;
+      } else {
+        pos += size;
+      }
+    }
+
+    return new Blob([bytes], { type: blob.type || 'video/mp4' });
+  } catch (err) {
+    console.warn('repairMp4BoxDurations warning:', err);
+    return blob;
+  }
+}
+
+function repairMoovBox(view: DataView, bytes: Uint8Array, moovPos: number, moovSize: number): void {
+  let mvhdTimescale = 1000;
+  let mvhdDurationMs = 0;
+
+  const pos = moovPos + 8;
+  const end = Math.min(bytes.length, moovPos + moovSize);
+
+  // 1. Scan for mvhd to get the authoritative duration in milliseconds
+  let scanPos = pos;
+  while (scanPos + 8 <= end) {
+    const bSize = view.getUint32(scanPos);
+    const bType = String.fromCharCode(
+      bytes[scanPos + 4],
+      bytes[scanPos + 5],
+      bytes[scanPos + 6],
+      bytes[scanPos + 7],
+    );
+
+    if (bType === 'mvhd') {
+      const ver = bytes[scanPos + 8];
+      if (ver === 0 && scanPos + 28 <= end) {
+        mvhdTimescale = view.getUint32(scanPos + 20) || 1000;
+        const dur = view.getUint32(scanPos + 24);
+        mvhdDurationMs = (dur / mvhdTimescale) * 1000;
+      } else if (ver === 1 && scanPos + 40 <= end) {
+        mvhdTimescale = view.getUint32(scanPos + 28) || 1000;
+        const durHi = view.getUint32(scanPos + 32);
+        const durLo = view.getUint32(scanPos + 36);
+        const dur = durHi * 2 ** 32 + durLo;
+        mvhdDurationMs = (dur / mvhdTimescale) * 1000;
+      }
+      break;
+    }
+
+    if (bSize <= 0 || scanPos + bSize > end) break;
+    scanPos += bSize;
+  }
+
+  if (mvhdDurationMs <= 0) return;
+
+  // 2. Scan all trak boxes and repair their tkhd and mdhd durations
+  scanPos = pos;
+  while (scanPos + 8 <= end) {
+    const bSize = view.getUint32(scanPos);
+    const bType = String.fromCharCode(
+      bytes[scanPos + 4],
+      bytes[scanPos + 5],
+      bytes[scanPos + 6],
+      bytes[scanPos + 7],
+    );
+
+    if (bType === 'trak') {
+      repairTrakBox(view, bytes, scanPos, bSize, mvhdDurationMs);
+    }
+
+    if (bSize <= 0 || scanPos + bSize > end) break;
+    scanPos += bSize;
+  }
+}
+
+function repairTrakBox(
+  view: DataView,
+  bytes: Uint8Array,
+  trakPos: number,
+  trakSize: number,
+  mvhdDurationMs: number,
+): void {
+  const end = Math.min(bytes.length, trakPos + trakSize);
+  let pos = trakPos + 8;
+
+  while (pos + 8 <= end) {
+    const bSize = view.getUint32(pos);
+    const bType = String.fromCharCode(
+      bytes[pos + 4],
+      bytes[pos + 5],
+      bytes[pos + 6],
+      bytes[pos + 7],
+    );
+
+    if (bType === 'tkhd') {
+      const ver = bytes[pos + 8];
+      if (ver === 0 && pos + 32 <= end) {
+        view.setUint32(pos + 28, Math.round(mvhdDurationMs));
+      } else if (ver === 1 && pos + 44 <= end) {
+        const dur = Math.round(mvhdDurationMs);
+        view.setUint32(pos + 36, Math.floor(dur / 2 ** 32));
+        view.setUint32(pos + 40, dur >>> 0);
+      }
+    } else if (bType === 'mdia') {
+      repairMdiaBox(view, bytes, pos, bSize, mvhdDurationMs);
+    }
+
+    if (bSize <= 0 || pos + bSize > end) break;
+    pos += bSize;
+  }
+}
+
+function repairMdiaBox(
+  view: DataView,
+  bytes: Uint8Array,
+  mdiaPos: number,
+  mdiaSize: number,
+  mvhdDurationMs: number,
+): void {
+  const end = Math.min(bytes.length, mdiaPos + mdiaSize);
+  let pos = mdiaPos + 8;
+
+  while (pos + 8 <= end) {
+    const bSize = view.getUint32(pos);
+    const bType = String.fromCharCode(
+      bytes[pos + 4],
+      bytes[pos + 5],
+      bytes[pos + 6],
+      bytes[pos + 7],
+    );
+
+    if (bType === 'mdhd') {
+      const ver = bytes[pos + 8];
+      if (ver === 0 && pos + 28 <= end) {
+        const timescale = view.getUint32(pos + 20) || 1000;
+        const currentDur = view.getUint32(pos + 24);
+        if (timescale > 1000 && currentDur <= mvhdDurationMs * 1.5) {
+          const scaledDur = Math.round((mvhdDurationMs / 1000) * timescale);
+          view.setUint32(pos + 24, scaledDur);
+        }
+      } else if (ver === 1 && pos + 40 <= end) {
+        const timescale = view.getUint32(pos + 28) || 1000;
+        const currentDurHi = view.getUint32(pos + 32);
+        const currentDurLo = view.getUint32(pos + 36);
+        const currentDur = currentDurHi * 2 ** 32 + currentDurLo;
+        if (timescale > 1000 && currentDur <= mvhdDurationMs * 1.5) {
+          const scaledDur = Math.round((mvhdDurationMs / 1000) * timescale);
+          view.setUint32(pos + 32, Math.floor(scaledDur / 2 ** 32));
+          view.setUint32(pos + 36, scaledDur >>> 0);
+        }
+      }
+    }
+
+    if (bSize <= 0 || pos + bSize > end) break;
+    pos += bSize;
+  }
 }

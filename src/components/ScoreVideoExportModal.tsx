@@ -285,49 +285,60 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
       }
 
       const offscreenCanvas = document.createElement('canvas');
-      const width = aspectRatio === '16:9' ? 1920 : 1080;
-      const height = aspectRatio === '16:9' ? 1080 : 1920;
+      offscreenCanvas.style.position = 'fixed';
+      offscreenCanvas.style.left = '-9999px';
+      offscreenCanvas.style.top = '-9999px';
+      offscreenCanvas.style.visibility = 'hidden';
+      offscreenCanvas.style.pointerEvents = 'none';
+      document.body.appendChild(offscreenCanvas);
 
-      const videoBlob = await recordScoreVideo(
-        offscreenCanvas,
-        extractedData,
-        {
-          width,
-          height,
-          theme,
-          aspectRatio,
-          format,
-          quality,
-          introDurationSec,
-          outroDurationSec,
-          metadata: {
-            title: scoreTitle,
-            composer,
-            key: keySignature,
-            meter,
-            tempoBpm,
+      try {
+        const width = aspectRatio === '16:9' ? 1920 : 1080;
+        const height = aspectRatio === '16:9' ? 1080 : 1920;
+
+        const videoBlob = await recordScoreVideo(
+          offscreenCanvas,
+          extractedData,
+          {
+            width,
+            height,
+            theme,
+            aspectRatio,
+            format,
+            quality,
+            introDurationSec,
+            outroDurationSec,
+            metadata: {
+              title: scoreTitle,
+              composer,
+              key: keySignature,
+              meter,
+              tempoBpm,
+            },
+            fps: 30,
+            onProgress: (p) => setExportProgress(p),
           },
-          fps: 30,
-          onProgress: (p) => setExportProgress(p),
-        },
-        audioCtx,
-      );
+          audioCtx,
+        );
 
-      // Trigger download with appropriate extension
-      const sanitizedTitle = (scoreTitle || 'score')
-        .toLowerCase()
-        .replace(/[^a-z0-9_-]/g, '_')
-        .replace(/_+/g, '_');
-      const isMp4 = videoBlob.type.includes('mp4') || (format === 'mp4' && isMp4RecordingSupported());
-      const extension = isMp4 ? 'mp4' : 'webm';
-      const url = URL.createObjectURL(videoBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${sanitizedTitle}-video.${extension}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+        // Trigger download with appropriate extension
+        const sanitizedTitle = (scoreTitle || 'score')
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]/g, '_')
+          .replace(/_+/g, '_');
+        const isMp4 = videoBlob.type.includes('mp4') || (format === 'mp4' && isMp4RecordingSupported());
+        const extension = isMp4 ? 'mp4' : 'webm';
+        const url = URL.createObjectURL(videoBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${sanitizedTitle}-video.${extension}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } finally {
+        offscreenCanvas.remove();
+      }
     } catch (err) {
       console.error('Failed to export score video:', err);
     } finally {
