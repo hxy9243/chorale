@@ -20,11 +20,31 @@ export interface ScoreVideoExportProgress {
   phase: 'preparing' | 'rendering' | 'encoding' | 'done';
 }
 
+export type ScoreVideoFormat = 'mp4' | 'webm';
+export type ScoreVideoQuality = 'compressed' | 'high';
+
 export interface ScoreVideoExportOptions extends ScoreVideoRenderOptions {
   introDurationSec: number;
   outroDurationSec: number;
   fps?: number;
+  format?: ScoreVideoFormat;
+  quality?: ScoreVideoQuality;
+  videoBitrate?: number;
   onProgress?: (progress: ScoreVideoExportProgress) => void;
+}
+
+/**
+ * Checks if the current browser environment supports MP4 video recording via MediaRecorder.
+ */
+export function isMp4RecordingSupported(): boolean {
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+    return false;
+  }
+  return (
+    MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,opus') ||
+    MediaRecorder.isTypeSupported('video/mp4;codecs=avc1') ||
+    MediaRecorder.isTypeSupported('video/mp4')
+  );
 }
 
 export interface ExtractedScoreData {
@@ -459,23 +479,38 @@ export async function recordScoreVideo(
 
   const combinedStream = new MediaStream(tracks);
 
-  // Determine optimal MIME type supported by browser
-  let mimeType = 'video/webm;codecs=vp9,opus';
-  if (typeof MediaRecorder !== 'undefined') {
-    if (!MediaRecorder.isTypeSupported(mimeType)) {
-      if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
-        mimeType = 'video/webm;codecs=vp8,opus';
-      } else if (MediaRecorder.isTypeSupported('video/webm')) {
-        mimeType = 'video/webm';
-      } else if (MediaRecorder.isTypeSupported('video/mp4')) {
-        mimeType = 'video/mp4';
-      }
+  const requestedFormat = options.format ?? 'mp4';
+  const requestedQuality = options.quality ?? 'compressed';
+  const bitrate = options.videoBitrate ?? (requestedQuality === 'compressed' ? 2_000_000 : 6_000_000);
+
+  // Determine optimal MIME type supported by browser based on requested format
+  let mimeType = '';
+  if (requestedFormat === 'mp4' && typeof MediaRecorder !== 'undefined') {
+    const mp4Types = [
+      'video/mp4;codecs=avc1,opus',
+      'video/mp4;codecs=avc1',
+      'video/mp4',
+    ];
+    mimeType = mp4Types.find((t) => MediaRecorder.isTypeSupported(t)) || '';
+  }
+
+  // If mp4 not requested or not supported by browser, use webm
+  if (!mimeType) {
+    const webmTypes = [
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm',
+    ];
+    if (typeof MediaRecorder !== 'undefined') {
+      mimeType = webmTypes.find((t) => MediaRecorder.isTypeSupported(t)) || 'video/webm';
+    } else {
+      mimeType = requestedFormat === 'mp4' ? 'video/mp4' : 'video/webm';
     }
   }
 
   const recorder = new MediaRecorder(combinedStream, {
-    mimeType: MediaRecorder.isTypeSupported(mimeType) ? mimeType : undefined,
-    videoBitsPerSecond: 6_000_000,
+    mimeType: (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(mimeType)) ? mimeType : undefined,
+    videoBitsPerSecond: bitrate,
   });
 
   const recordedChunks: Blob[] = [];

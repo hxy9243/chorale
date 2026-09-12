@@ -383,7 +383,7 @@ const FileItemContextMenu: React.FC<FileItemContextMenuProps> = ({
               }}
             >
               <Film size={15} aria-hidden="true" />
-              <span>Sheet Video (.webm)</span>
+              <span>Sheet Video</span>
             </button>
           </div>
 

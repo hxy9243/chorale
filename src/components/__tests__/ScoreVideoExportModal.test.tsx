@@ -43,6 +43,10 @@ describe('ScoreVideoExportModal', () => {
     expect(screen.getByRole('dialog', { name: 'Export Sheet Video' })).toBeDefined();
     expect(screen.getByRole('heading', { name: 'Export Sheet Video' })).toBeDefined();
     expect(screen.getByRole('button', { name: /Export Sheet Video/ })).toBeDefined();
+    expect(screen.getByText('MP4 (.mp4)')).toBeDefined();
+    expect(screen.getByText('WebM (.webm)')).toBeDefined();
+    expect(screen.getByText('Compressed')).toBeDefined();
+    expect(screen.getByText('High Quality')).toBeDefined();
     expect(screen.getByText('16:9 Landscape')).toBeDefined();
     expect(screen.getByText('9:16 Portrait')).toBeDefined();
     expect(screen.getByText('Modern Dark')).toBeDefined();
@@ -59,6 +63,38 @@ describe('ScoreVideoExportModal', () => {
     );
 
     expect(container.firstChild).toBeNull();
+  });
+
+  it('toggles format and compression selection', () => {
+    render(
+      <ScoreVideoExportModal
+        open={true}
+        onClose={vi.fn()}
+        scoreTitle="Chorale in C Major"
+      />,
+    );
+
+    const mp4Btn = screen.getByText('MP4 (.mp4)').closest('button')!;
+    const webmBtn = screen.getByText('WebM (.webm)').closest('button')!;
+
+    // MP4 is default
+    expect(mp4Btn.classList.contains('active')).toBe(true);
+    expect(webmBtn.classList.contains('active')).toBe(false);
+
+    fireEvent.click(webmBtn);
+    expect(webmBtn.classList.contains('active')).toBe(true);
+    expect(mp4Btn.classList.contains('active')).toBe(false);
+
+    const compressedBtn = screen.getByText('Compressed').closest('button')!;
+    const highQualityBtn = screen.getByText('High Quality').closest('button')!;
+
+    // Compressed is default
+    expect(compressedBtn.classList.contains('active')).toBe(true);
+    expect(highQualityBtn.classList.contains('active')).toBe(false);
+
+    fireEvent.click(highQualityBtn);
+    expect(highQualityBtn.classList.contains('active')).toBe(true);
+    expect(compressedBtn.classList.contains('active')).toBe(false);
   });
 
   it('toggles aspect ratio and theme selection', () => {

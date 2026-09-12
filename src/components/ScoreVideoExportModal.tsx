@@ -3,8 +3,11 @@ import { Play, Pause, RotateCcw, Download, X, Film, Loader2 } from 'lucide-react
 import {
   extractScoreSystems,
   recordScoreVideo,
+  isMp4RecordingSupported,
   type ExtractedScoreData,
   type ScoreVideoExportProgress,
+  type ScoreVideoFormat,
+  type ScoreVideoQuality,
 } from '../music/scoreVideoRecorder';
 import {
   ScoreVideoTimeline,
@@ -38,6 +41,8 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
   abcSource,
   svgContainerSelector = '#paper svg',
 }) => {
+  const [format, setFormat] = useState<ScoreVideoFormat>('mp4');
+  const [quality, setQuality] = useState<ScoreVideoQuality>('compressed');
   const [aspectRatio, setAspectRatio] = useState<ScoreVideoAspectRatio>('16:9');
   const [theme, setTheme] = useState<ScoreVideoTheme>('dark');
   const [introDurationSec, setIntroDurationSec] = useState<number>(3);
@@ -291,6 +296,8 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
           height,
           theme,
           aspectRatio,
+          format,
+          quality,
           introDurationSec,
           outroDurationSec,
           metadata: {
@@ -306,15 +313,17 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
         audioCtx,
       );
 
-      // Trigger download
+      // Trigger download with appropriate extension
       const sanitizedTitle = (scoreTitle || 'score')
         .toLowerCase()
         .replace(/[^a-z0-9_-]/g, '_')
         .replace(/_+/g, '_');
+      const isMp4 = videoBlob.type.includes('mp4') || (format === 'mp4' && isMp4RecordingSupported());
+      const extension = isMp4 ? 'mp4' : 'webm';
       const url = URL.createObjectURL(videoBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${sanitizedTitle}-video.webm`;
+      a.download = `${sanitizedTitle}-video.${extension}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -425,6 +434,54 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
 
           {/* Right Column: Settings & Configuration */}
           <div className="video-options-pane">
+            <div className="option-section">
+              <label className="option-label">Video Format</label>
+              <div className="option-toggle-group">
+                <button
+                  type="button"
+                  className={`option-toggle-btn ${format === 'mp4' ? 'active' : ''}`}
+                  onClick={() => setFormat('mp4')}
+                  disabled={isExporting}
+                >
+                  MP4 (.mp4)
+                  <span className="option-hint">Universal (iOS, Android, Social)</span>
+                </button>
+                <button
+                  type="button"
+                  className={`option-toggle-btn ${format === 'webm' ? 'active' : ''}`}
+                  onClick={() => setFormat('webm')}
+                  disabled={isExporting}
+                >
+                  WebM (.webm)
+                  <span className="option-hint">Open Web Standard</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="option-section">
+              <label className="option-label">Compression & Quality</label>
+              <div className="option-toggle-group">
+                <button
+                  type="button"
+                  className={`option-toggle-btn ${quality === 'compressed' ? 'active' : ''}`}
+                  onClick={() => setQuality('compressed')}
+                  disabled={isExporting}
+                >
+                  Compressed
+                  <span className="option-hint">~2 Mbps (Fast Share)</span>
+                </button>
+                <button
+                  type="button"
+                  className={`option-toggle-btn ${quality === 'high' ? 'active' : ''}`}
+                  onClick={() => setQuality('high')}
+                  disabled={isExporting}
+                >
+                  High Quality
+                  <span className="option-hint">~6 Mbps (Archival)</span>
+                </button>
+              </div>
+            </div>
+
             <div className="option-section">
               <label className="option-label">Aspect Ratio</label>
               <div className="option-toggle-group">

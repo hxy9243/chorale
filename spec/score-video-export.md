@@ -108,11 +108,16 @@ Pure rendering module for HTML5 Canvas (`OffscreenCanvas` or `HTMLCanvasElement`
 - Context menu entry in `FileRail.tsx` under `Export ▸`:
   - `MusicXML (.musicxml)`
   - `PDF (.pdf)`
-  - `Sheet Video (.webm)`
+  - `Sheet Video` (opens video export modal)
 - Modal `ScoreVideoExportModal.tsx`:
   - Live preview canvas with Play / Pause / Seek / Time display.
-  - Controls: Aspect Ratio (16:9 / 9:16), Intro duration (0–5s), Outro duration (0–5s), Theme (Dark / Warm Paper).
-  - "Export Video" action: runs through the timeline, captures stream, downloads file.
+  - Controls:
+    - Format: `MP4 (.mp4)` (default, universal playback) vs `WebM (.webm)` (open web standard).
+    - Quality & Compression: `Compressed` (~2 Mbps target bitrate for lightweight sharing via chat/email) vs `High Quality` (~6 Mbps target bitrate).
+    - Aspect Ratio: 16:9 Landscape vs 9:16 Portrait.
+    - Theme: Modern Dark vs Warm Paper.
+    - Intro duration (0–4s) and Outro duration (0–3s).
+  - "Export Sheet Video" action: runs through the timeline, captures stream at chosen bitrate and MIME format, and downloads file.
 
 ## 6. Testing Strategy
 
