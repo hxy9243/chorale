@@ -249,4 +249,91 @@ describe('ScoreVideoRenderer', () => {
       expect.any(Number),
     );
   });
+
+  it('preserves invariant clef dimensions and coordinates across screen transitions', () => {
+    const renderer = new ScoreVideoRenderer({
+      ...defaultOptions,
+      width: 1920,
+      height: 1080,
+      aspectRatio: '16:9',
+    });
+
+    const mockSystems: RenderableSystem[] = [
+      {
+        systemIndex: 0,
+        bbox: { systemIndex: 0, lineClass: 'abcjs-l0', minMeasure: 1, maxMeasure: 2, top: 10, bottom: 110, height: 100, left: 0, width: 800 },
+        image: {} as any,
+      },
+      {
+        systemIndex: 1,
+        bbox: { systemIndex: 1, lineClass: 'abcjs-l1', minMeasure: 3, maxMeasure: 4, top: 120, bottom: 220, height: 100, left: 0, width: 800 },
+        image: {} as any,
+      },
+      {
+        systemIndex: 2,
+        bbox: { systemIndex: 2, lineClass: 'abcjs-l2', minMeasure: 5, maxMeasure: 6, top: 230, bottom: 330, height: 100, left: 0, width: 800 },
+        image: {} as any,
+      },
+      {
+        systemIndex: 3,
+        bbox: { systemIndex: 3, lineClass: 'abcjs-l3', minMeasure: 7, maxMeasure: 8, top: 340, bottom: 440, height: 100, left: 0, width: 800 },
+        image: {} as any,
+      },
+    ];
+
+    // Screen 1: Systems 0 and 1
+    const ctx1 = createMockContext();
+    renderer.renderFrame(ctx1, {
+      timestampSec: 4.0,
+      totalDurationSec: 20,
+      phase: 'score',
+      progress: 0.2,
+      scoreState: {
+        scoreTimeSec: 1.0,
+        activeSystemIndex: 0,
+        topLineSystemIndex: 0,
+        bottomLineSystemIndex: 1,
+        nextSystemIndex: 1,
+        cursorX: 100,
+        cursorY: 0,
+        cursorHeight: 100,
+        measureNumber: 1,
+      },
+    }, mockSystems);
+
+    // Screen 2: Systems 2 and 3 (after page turn)
+    const ctx2 = createMockContext();
+    renderer.renderFrame(ctx2, {
+      timestampSec: 12.0,
+      totalDurationSec: 20,
+      phase: 'score',
+      progress: 0.6,
+      scoreState: {
+        scoreTimeSec: 9.0,
+        activeSystemIndex: 2,
+        topLineSystemIndex: 2,
+        bottomLineSystemIndex: 3,
+        nextSystemIndex: 3,
+        cursorX: 100,
+        cursorY: 0,
+        cursorHeight: 100,
+        measureNumber: 5,
+      },
+    }, mockSystems);
+
+    const calls1 = vi.mocked(ctx1.drawImage).mock.calls;
+    const calls2 = vi.mocked(ctx2.drawImage).mock.calls;
+
+    // Line 1 across transitions has identical (x, y, width, height)
+    expect(calls1[0][1]).toBe(calls2[0][1]); // x
+    expect(calls1[0][2]).toBe(calls2[0][2]); // y
+    expect(calls1[0][3]).toBe(calls2[0][3]); // width
+    expect(calls1[0][4]).toBe(calls2[0][4]); // height
+
+    // Line 2 across transitions has identical (x, y, width, height)
+    expect(calls1[1][1]).toBe(calls2[1][1]); // x
+    expect(calls1[1][2]).toBe(calls2[1][2]); // y
+    expect(calls1[1][3]).toBe(calls2[1][3]); // width
+    expect(calls1[1][4]).toBe(calls2[1][4]); // height
+  });
 });
