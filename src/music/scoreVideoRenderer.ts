@@ -379,16 +379,10 @@ export class ScoreVideoRenderer {
     const isTopActive = scoreState.activeSystemIndex === topLineIndex;
     const isBottomActive = bottomLineIndex !== null && scoreState.activeSystemIndex === bottomLineIndex;
 
-    const maxBboxHeight = Math.max(
-      topSys.bbox.height,
-      bottomSys ? bottomSys.bbox.height : topSys.bbox.height,
-      1,
-    );
-    const systemWidth = Math.max(
-      topSys.bbox.width,
-      bottomSys ? bottomSys.bbox.width : topSys.bbox.width,
-      1,
-    );
+    // Use global maximum system dimensions across all score systems so clefs, staff lines,
+    // and overall scale remain completely invariant across screen transitions.
+    const globalMaxBboxHeight = Math.max(...systems.map((s) => s.bbox.height), 1);
+    const globalSystemWidth = Math.max(...systems.map((s) => s.bbox.width), 1);
 
     let sheetTop: number;
     let sheetHeight: number;
@@ -405,24 +399,23 @@ export class ScoreVideoRenderer {
       // and the sheet card frames them with balanced vertical padding centered in the screen.
       const innerPaddingX = Math.max(16, Math.round(sheetWidth * 0.035));
       const usableWidth = sheetWidth - innerPaddingX * 2;
-      sharedScale = usableWidth / systemWidth;
-      drawW = systemWidth * sharedScale;
+      sharedScale = usableWidth / globalSystemWidth;
+      drawW = globalSystemWidth * sharedScale;
       drawX = sheetPaddingX + innerPaddingX + (usableWidth - drawW) / 2;
 
-      const topH = topSys.bbox.height * sharedScale;
-      const bottomH = bottomSys ? bottomSys.bbox.height * sharedScale : topH;
-      const staffGap = Math.max(24, Math.round(Math.max(topH, bottomH) * 0.38));
+      const slotH = globalMaxBboxHeight * sharedScale;
+      const staffGap = Math.max(24, Math.round(slotH * 0.38));
       const innerPaddingY = Math.max(28, Math.round(sheetWidth * 0.055));
-      const totalContentHeight = topH + (bottomSys ? staffGap + bottomH : 0);
+      const totalContentHeight = slotH + (bottomSys ? staffGap + slotH : 0);
       sheetHeight = Math.round(totalContentHeight + innerPaddingY * 2);
 
       const centerY = Math.round((height * 0.12 + height * 0.91) / 2);
       sheetTop = Math.round(centerY - sheetHeight / 2);
 
       topSlotY = sheetTop + innerPaddingY;
-      topSlotHeight = topH;
-      bottomSlotY = topSlotY + topH + staffGap;
-      bottomSlotHeight = bottomH;
+      topSlotHeight = slotH;
+      bottomSlotY = topSlotY + slotH + staffGap;
+      bottomSlotHeight = slotH;
     } else {
       // In landscape mode, staves fill upper and lower halves of the wide widescreen sheet
       sheetTop = Math.round(height * 0.11);
@@ -435,10 +428,10 @@ export class ScoreVideoRenderer {
       const lineHeight = usableHeight / 2;
 
       sharedScale = Math.min(
-        usableWidth / systemWidth,
-        (lineHeight - 12) / maxBboxHeight,
+        usableWidth / globalSystemWidth,
+        (lineHeight - 12) / globalMaxBboxHeight,
       );
-      drawW = systemWidth * sharedScale;
+      drawW = globalSystemWidth * sharedScale;
       drawX = sheetPaddingX + innerPadding + (usableWidth - drawW) / 2;
 
       topSlotY = sheetTop + innerPadding;

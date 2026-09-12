@@ -102,8 +102,9 @@ Pure rendering module for HTML5 Canvas (`OffscreenCanvas` or `HTMLCanvasElement`
   3. Two-line staff rendering:
      - Slices SVG elements of System $k$ and System $k+1$.
      - Both staves share uniform scale, identical width, and identical horizontal offset.
+     - **Global Invariant Scale & Clef Alignment**: All systems across the score are scaled uniformly using global dimensions (`globalMaxBboxHeight` and `globalSystemWidth`). The sheet clefs, staff lines, and bounding slots remain at the exact same height, width, and $(x, y)$ coordinates across every screen transition, guaranteeing seamless visual continuity.
      - *Landscape (16:9)*: Staves occupy proportional upper and lower halves of the wide score sheet.
-     - *Portrait (9:16)*: Staves are spaced with a tight, natural musical gap (`staffGap` ~ 40% staff height), and the sheet card frames the staves with proportional vertical margins centered in the viewport, avoiding large empty voids.
+     - *Portrait (9:16)*: Staves are spaced with a tight, natural musical gap (`staffGap` ~ 38% staff height), and the sheet card frames the staves with proportional vertical margins centered in the viewport, avoiding large empty voids.
   4. Playhead cursor: vertical glow line at $x(t)$ bounded between the top and bottom of the active staff.
   5. Measure highlight: rounded rectangle over active measure.
 

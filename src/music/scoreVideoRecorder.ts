@@ -191,8 +191,17 @@ export async function extractScoreSystems(
   const viewBox = svgElement.viewBox.baseVal;
   const svgWidth = viewBox && viewBox.width > 0 ? viewBox.width : 800;
 
-  const systems: ScoreSystemBBox[] = [];
-  const systemImages: RenderableSystem[] = [];
+  // Phase 1: Scan all systems to compute bounding ranges and determine a uniform system height
+  interface RawSystemInfo {
+    lineClass: string;
+    minMeasure: number;
+    maxMeasure: number;
+    minY: number;
+    maxY: number;
+    staffMidY: number;
+  }
+
+  const rawSystems: RawSystemInfo[] = [];
 
   for (let i = 0; i < sortedLineClasses.length; i++) {
     const lineClass = sortedLineClasses[i];
@@ -200,6 +209,8 @@ export async function extractScoreSystems(
 
     let minY = Infinity;
     let maxY = -Infinity;
+    let staffMinY = Infinity;
+    let staffMaxY = -Infinity;
     const measures: number[] = [];
 
     elements.forEach((el) => {
@@ -214,6 +225,11 @@ export async function extractScoreSystems(
           if (bbox.height > 0) {
             minY = Math.min(minY, bbox.y);
             maxY = Math.max(maxY, bbox.y + bbox.height);
+
+            if (el.classList.contains('abcjs-staff') || el.classList.contains('abcjs-top-line')) {
+              staffMinY = Math.min(staffMinY, bbox.y);
+              staffMaxY = Math.max(staffMaxY, bbox.y + bbox.height);
+            }
           }
         }
       } catch {
@@ -225,18 +241,44 @@ export async function extractScoreSystems(
     const minMeasure = uniqueMeasures.length > 0 ? uniqueMeasures[0] : i + 1;
     const maxMeasure = uniqueMeasures.length > 0 ? uniqueMeasures[uniqueMeasures.length - 1] : minMeasure;
 
-    const top = Number.isFinite(minY) ? Math.max(0, minY - 15) : i * 140 + 40;
-    const bottom = Number.isFinite(maxY) ? maxY + 20 : top + 130;
-    const height = Math.max(70, bottom - top);
+    const staffMid = Number.isFinite(staffMinY) && Number.isFinite(staffMaxY)
+      ? (staffMinY + staffMaxY) / 2
+      : (Number.isFinite(minY) && Number.isFinite(maxY) ? (minY + maxY) / 2 : i * 140 + 80);
 
-    const bbox: ScoreSystemBBox = {
-      systemIndex: i,
+    rawSystems.push({
       lineClass,
       minMeasure,
       maxMeasure,
+      minY,
+      maxY,
+      staffMidY: staffMid,
+    });
+  }
+
+  // Calculate a uniform slice height encompassing all systems plus comfortable staff margin
+  const maxSpan = rawSystems.reduce((max, s) => {
+    const span = Number.isFinite(s.minY) && Number.isFinite(s.maxY) ? (s.maxY - s.minY) : 90;
+    return Math.max(max, span);
+  }, 80);
+  const uniformHeight = Math.max(100, Math.round(maxSpan + 30));
+
+  // Phase 2: Create uniform bounding boxes and slice images centered on each system's staff
+  const systems: ScoreSystemBBox[] = [];
+  const systemImages: RenderableSystem[] = [];
+
+  for (let i = 0; i < rawSystems.length; i++) {
+    const raw = rawSystems[i];
+    const top = Math.round(raw.staffMidY - uniformHeight / 2);
+    const bottom = top + uniformHeight;
+
+    const bbox: ScoreSystemBBox = {
+      systemIndex: i,
+      lineClass: raw.lineClass,
+      minMeasure: raw.minMeasure,
+      maxMeasure: raw.maxMeasure,
       top,
       bottom,
-      height,
+      height: uniformHeight,
       left: 0,
       width: Math.max(100, svgWidth),
     };
@@ -250,9 +292,9 @@ export async function extractScoreSystems(
         const svgClone = svgElement.cloneNode(true) as SVGSVGElement;
         svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
         svgClone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
-        svgClone.setAttribute('viewBox', `0 ${top} ${svgWidth} ${height}`);
+        svgClone.setAttribute('viewBox', `0 ${top} ${svgWidth} ${uniformHeight}`);
         svgClone.setAttribute('width', `${svgWidth}`);
-        svgClone.setAttribute('height', `${height}`);
+        svgClone.setAttribute('height', `${uniformHeight}`);
 
         // Strip metadata headers so they never bleed into system rows
         svgClone
@@ -261,7 +303,7 @@ export async function extractScoreSystems(
 
         // Remove elements belonging to other lines so this system is strictly isolated
         svgClone.querySelectorAll<SVGGraphicsElement>('[class*="abcjs-l"]').forEach((el) => {
-          if (!el.classList.contains(lineClass)) {
+          if (!el.classList.contains(raw.lineClass)) {
             el.remove();
           }
         });
