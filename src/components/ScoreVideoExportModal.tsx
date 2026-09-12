@@ -4,6 +4,7 @@ import {
   extractScoreSystems,
   recordScoreVideo,
   isMp4RecordingSupported,
+  getEstimatedScoreVideoSize,
   type ExtractedScoreData,
   type ScoreVideoExportProgress,
   type ScoreVideoFormat,
@@ -42,7 +43,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
   svgContainerSelector = '#paper svg',
 }) => {
   const [format, setFormat] = useState<ScoreVideoFormat>('mp4');
-  const [quality, setQuality] = useState<ScoreVideoQuality>('compressed');
+  const [quality, setQuality] = useState<ScoreVideoQuality>('compact');
   const [aspectRatio, setAspectRatio] = useState<ScoreVideoAspectRatio>('16:9');
   const [theme, setTheme] = useState<ScoreVideoTheme>('dark');
   const [introDurationSec, setIntroDurationSec] = useState<number>(3);
@@ -157,6 +158,11 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
   }, [introDurationSec, outroDurationSec, extractedData, tempoBpm]);
 
   const totalDuration = previewTimeline.totalDurationSec;
+
+  const currentEstimate = getEstimatedScoreVideoSize(totalDuration, quality, format);
+  const compactEstimate = getEstimatedScoreVideoSize(totalDuration, 'compact', format);
+  const compressedEstimate = getEstimatedScoreVideoSize(totalDuration, 'compressed', format);
+  const highEstimate = getEstimatedScoreVideoSize(totalDuration, 'high', format);
 
   // Render preview frame onto preview canvas
   const renderPreview = useCallback(() => {
@@ -293,8 +299,13 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
       document.body.appendChild(offscreenCanvas);
 
       try {
-        const width = aspectRatio === '16:9' ? 1920 : 1080;
-        const height = aspectRatio === '16:9' ? 1080 : 1920;
+        const isCompact = quality === 'compact';
+        const width = isCompact
+          ? (aspectRatio === '16:9' ? 1280 : 720)
+          : (aspectRatio === '16:9' ? 1920 : 1080);
+        const height = isCompact
+          ? (aspectRatio === '16:9' ? 720 : 1280)
+          : (aspectRatio === '16:9' ? 1080 : 1920);
 
         const videoBlob = await recordScoreVideo(
           offscreenCanvas,
@@ -470,8 +481,22 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
             </div>
 
             <div className="option-section">
-              <label className="option-label">Compression & Quality</label>
-              <div className="option-toggle-group">
+              <div className="option-label-group">
+                <label className="option-label">Compression & Quality</label>
+                <span className="option-estimate-pill" data-testid="video-estimate-pill">
+                  Est. {currentEstimate.formatted}
+                </span>
+              </div>
+              <div className="option-toggle-group option-toggle-three">
+                <button
+                  type="button"
+                  className={`option-toggle-btn ${quality === 'compact' ? 'active' : ''}`}
+                  onClick={() => setQuality('compact')}
+                  disabled={isExporting}
+                >
+                  Compact
+                  <span className="option-hint">720p · {compactEstimate.formatted}</span>
+                </button>
                 <button
                   type="button"
                   className={`option-toggle-btn ${quality === 'compressed' ? 'active' : ''}`}
@@ -479,7 +504,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
                   disabled={isExporting}
                 >
                   Compressed
-                  <span className="option-hint">~2 Mbps (Fast Share)</span>
+                  <span className="option-hint">1080p · {compressedEstimate.formatted}</span>
                 </button>
                 <button
                   type="button"
@@ -488,7 +513,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
                   disabled={isExporting}
                 >
                   High Quality
-                  <span className="option-hint">~6 Mbps (Archival)</span>
+                  <span className="option-hint">1080p · {highEstimate.formatted}</span>
                 </button>
               </div>
             </div>
@@ -568,6 +593,17 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
                   <option value={3}>3 seconds</option>
                 </select>
               </div>
+            </div>
+
+            {/* Output Size Estimate Info Banner */}
+            <div className="video-export-estimate-banner" data-testid="video-export-estimate-banner">
+              <div className="estimate-banner-header">
+                <span className="estimate-banner-title">Estimated File Size</span>
+                <span className="estimate-banner-value">{currentEstimate.formatted}</span>
+              </div>
+              <span className="estimate-banner-sub">
+                {format.toUpperCase()} · {quality === 'compact' ? '720p Compact' : '1080p Full HD'} · {Math.round(totalDuration)}s total duration
+              </span>
             </div>
 
             {/* Export Progress Status */}

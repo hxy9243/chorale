@@ -21,14 +21,20 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.0.0'),
   },
-  server: {
-    proxy: {
-      '/v1': {
-        target: 'http://127.0.0.1:1685',
-        changeOrigin: true,
+  ...(process.env.CHORALE_PORT ? {
+    server: {
+      proxy: {
+        '/v1': {
+          target: `http://127.0.0.1:${process.env.CHORALE_PORT}`,
+          changeOrigin: true,
+        },
+        '/sse': {
+          target: `http://127.0.0.1:${process.env.CHORALE_PORT}`,
+          changeOrigin: true,
+        },
       },
     },
-  },
+  } : {}),
   test: {
     globals: true,
     environment: 'jsdom',

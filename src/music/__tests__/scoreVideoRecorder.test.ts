@@ -1,9 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   isMp4RecordingSupported,
+  isWebCodecsSupported,
+  ensureAacEncoderReady,
   recordScoreVideo,
   repairMp4BoxDurations,
   getOpusPacketSampleCount,
+  getEstimatedScoreVideoSize,
   type ExtractedScoreData,
   type ScoreVideoExportOptions,
 } from '../scoreVideoRecorder';
@@ -118,8 +121,61 @@ describe('scoreVideoRecorder', () => {
       const blob = await recordScoreVideo(mockCanvas, mockExtracted, exportOptions);
       expect(createdOptions.videoBitsPerSecond).toBe(2_000_000);
       expect(createdOptions.audioBitsPerSecond).toBe(192_000);
+      expect(createdOptions.bitsPerSecond).toBe(2_192_000);
       expect(createdOptions.mimeType).toBe('video/mp4;codecs=avc1,mp4a.40.2');
       expect(blob.type).toBe('video/mp4;codecs=avc1,mp4a.40.2');
+    });
+
+    it('configures MediaRecorder with compact 750kbps video, 112kbps audio, and 862kbps total for compact quality', async () => {
+      let createdOptions: any = null;
+
+      class MockMediaStream {
+        tracks: any[];
+        constructor(tracks: any[]) {
+          this.tracks = tracks;
+        }
+      }
+      globalThis.MediaStream = MockMediaStream as any;
+
+      class MockMediaRecorder {
+        static isTypeSupported(type: string) {
+          return type.includes('webm');
+        }
+        ondataavailable: any = null;
+        onstop: any = null;
+        constructor(_stream: any, options: any) {
+          createdOptions = options;
+        }
+        start() {
+          setTimeout(() => {
+            if (this.onstop) this.onstop();
+          }, 10);
+        }
+        stop() {
+          if (this.onstop) this.onstop();
+        }
+      }
+
+      globalThis.MediaRecorder = MockMediaRecorder as any;
+
+      const exportOptions: ScoreVideoExportOptions = {
+        width: 1280,
+        height: 720,
+        theme: 'dark',
+        aspectRatio: '16:9',
+        introDurationSec: 0,
+        outroDurationSec: 0,
+        metadata: { title: 'Test Score' },
+        format: 'webm',
+        quality: 'compact',
+      };
+
+      const blob = await recordScoreVideo(mockCanvas, mockExtracted, exportOptions);
+      expect(createdOptions.videoBitsPerSecond).toBe(750_000);
+      expect(createdOptions.audioBitsPerSecond).toBe(112_000);
+      expect(createdOptions.bitsPerSecond).toBe(862_000);
+      expect(createdOptions.mimeType).toBe('video/webm;codecs=vp9,opus');
+      expect(blob.type).toBe('video/webm;codecs=vp9,opus');
     });
 
     it('configures MediaRecorder with 6Mbps video and 320kbps audio for high quality and WebM format', async () => {
@@ -169,6 +225,7 @@ describe('scoreVideoRecorder', () => {
       const blob = await recordScoreVideo(mockCanvas, mockExtracted, exportOptions);
       expect(createdOptions.videoBitsPerSecond).toBe(6_000_000);
       expect(createdOptions.audioBitsPerSecond).toBe(320_000);
+      expect(createdOptions.bitsPerSecond).toBe(6_320_000);
       expect(createdOptions.mimeType).toBe('video/webm;codecs=vp9,opus');
       expect(blob.type).toBe('video/webm;codecs=vp9,opus');
     });
@@ -645,4 +702,68 @@ describe('scoreVideoRecorder', () => {
       expect(getOpusPacketSampleCount(new Uint8Array([]))).toBe(2880);
     });
   });
+
+  describe('getEstimatedScoreVideoSize', () => {
+    it('estimates compact WebM and MP4 sizes accurately', () => {
+      // 60 seconds of compact WebM (550 kbps)
+      const webmEstimate = getEstimatedScoreVideoSize(60, 'compact', 'webm');
+      // 550,000 * 60 / 8 = 4,125,000 bytes + 30,000 = ~4.15 MB
+      expect(webmEstimate.megabytes).toBeCloseTo(4.0, 0);
+      expect(webmEstimate.formatted).toMatch(/^~\d+(\.\d+)? MB$/);
+
+      // 60 seconds of compact MP4 (450 kbps)
+      const mp4Estimate = getEstimatedScoreVideoSize(60, 'compact', 'mp4');
+      // 450,000 * 60 / 8 = 3,375,000 bytes + 30,000 = ~3.4 MB
+      expect(mp4Estimate.megabytes).toBeLessThan(webmEstimate.megabytes);
+      expect(mp4Estimate.formatted).toMatch(/^~\d+(\.\d+)? MB$/);
+    });
+
+    it('estimates compressed and high quality tiers with proportional scaling', () => {
+      const compact = getEstimatedScoreVideoSize(60, 'compact', 'webm');
+      const compressed = getEstimatedScoreVideoSize(60, 'compressed', 'webm');
+      const high = getEstimatedScoreVideoSize(60, 'high', 'webm');
+
+      expect(compact.megabytes).toBeLessThan(compressed.megabytes);
+      expect(compressed.megabytes).toBeLessThan(high.megabytes);
+    });
+
+    it('formats values under 1 MB gracefully', () => {
+      const shortEstimate = getEstimatedScoreVideoSize(5, 'compact', 'mp4');
+      expect(shortEstimate.formatted).toBe('< 1 MB');
+    });
+
+    it('handles zero or negative duration safely without throwing', () => {
+      const zeroEst = getEstimatedScoreVideoSize(0, 'compact', 'mp4');
+      expect(zeroEst.formatted).toBe('< 1 MB');
+      expect(zeroEst.bytes).toBeGreaterThan(0);
+    });
+  });
+
+  describe('WebCodecs support & AAC readiness', () => {
+    const originalVideoEncoder = (globalThis as any).VideoEncoder;
+    const originalVideoFrame = (globalThis as any).VideoFrame;
+
+    afterEach(() => {
+      (globalThis as any).VideoEncoder = originalVideoEncoder;
+      (globalThis as any).VideoFrame = originalVideoFrame;
+    });
+
+    it('detects when WebCodecs is unsupported', () => {
+      delete (globalThis as any).VideoEncoder;
+      delete (globalThis as any).VideoFrame;
+      expect(isWebCodecsSupported()).toBe(false);
+    });
+
+    it('detects when WebCodecs is supported', () => {
+      (globalThis as any).VideoEncoder = class {};
+      (globalThis as any).VideoFrame = class {};
+      expect(isWebCodecsSupported()).toBe(true);
+      expect(isMp4RecordingSupported()).toBe(true);
+    });
+
+    it('ensureAacEncoderReady completes without throwing', async () => {
+      await expect(ensureAacEncoderReady()).resolves.toBeUndefined();
+    });
+  });
 });
+

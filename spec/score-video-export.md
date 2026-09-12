@@ -92,25 +92,23 @@ Given $M$ systems extracted from the score:
   - When raw audio summation exceeds peak amplitude $0.92$, samples are smoothly normalized down to $0.92$ to prevent harsh digital clipping.
 - **Gain Staging & Headroom**:
   - `musicSource` routes through a master `GainNode` ($0.95$ gain) into the `MediaStreamAudioDestinationNode` to ensure clean headroom.
-- **Audio Bitrate Configuration**:
-  - Highest quality audio encoding is explicitly specified: $320\text{ kbps}$ for `High Quality` mode, and $192\text{ kbps}$ for `Compressed` mode (eliminating browser-default $64\text{ kbps}$ artifacts).
-- **MIME Type Prioritization**:
-  - MP4 recording prioritizes standard AAC audio codecs (`video/mp4;codecs=avc1,mp4a.40.2`, `video/mp4;codecs=avc1,aac`, `video/mp4;codecs=avc1`, `video/mp4`) for universal cross-platform playback.
-- **Container Finalization & Duration Indexing**:
-  - `MediaRecorder.start()` is invoked without fractional timeslicing, enabling browser muxers to generate valid movie fragment random access (`mfra`) tables and full duration metadata without truncation.
-- **Post-Recording MP4 Container Box Duration & Audio Sample Alignment Repair (`repairMp4BoxDurations`)**:
-  - In Chromium on Linux/Windows/macOS, `MediaRecorder` has two distinct ISO-BMFF muxing bugs when exporting MP4 files with audio:
-    1. **Unscaled Media Header Durations (`mdhd`)**: It writes unscaled millisecond durations into `mdhd` boxes rather than scaling by the track timescale (e.g. writing `50,000` instead of $50,000 \times 48 = 2,400,000$ for a 48 kHz audio track, and $50,000 \times 30 = 1,500,000$ for a 30 kHz video track). External players (VLC, GStreamer, Totem, QuickTime, Windows Media Player) read the unscaled duration and assume the track ends after ~1.04s, freezing playback.
-    2. **Jittery Fragmented Audio Sample Durations (`trun` / `tfdt`)**: Chromium calculates Opus audio sample durations from variable main-thread wall-clock arrival intervals (e.g. `[3132, 2490, 3143, 3000, 2619]`) rather than locking them to the exact Opus frame PCM sample count (2880 samples = 60ms at 48 kHz per RFC 6716). In compliant MP4 decoders (such as VLC/libopus), any Opus packet whose `trun` sample duration is less than decoded PCM samples triggers hard sample truncation (e.g. dropping 261 samples off 2880 samples), causing severe robotic glitching, stuttering, and garbled sound.
-  - `repairMp4BoxDurations` performs a comprehensive multi-pass ISO-BMFF container repair:
-    - Normalizes movie fragment sequence numbers (`mfhd`) to 0-based sequential integers to eliminate player sequence discontinuity warnings.
-    - Inspects each audio fragment (`traf`), re-aligns `tfdt` decode times monotonically, parses Opus packet TOC bytes to determine exact frame sample counts, and overwrites `trun` sample durations with the precise PCM sample count (2880 samples for 60ms Opus, 1024 samples for AAC).
-    - Synchronizes the cumulative audio sample count back into the audio track's `mdhd` and `tkhd` boxes, and rescales video `mdhd` durations.
-    - Result: 100% clean, pristine, glitch-free audio playback across VLC, native OS players, and web browsers.
-- **High-Fidelity Audio Bitrate Allocation**:
-  - Audio bitrate in `MediaRecorder` is raised to 256 kbps for compressed exports and 320 kbps for high-quality exports, ensuring full-bandwidth studio fidelity.
-- **Synchronous Canvas Capture & DOM Attachment**:
-  - The recording canvas is mounted into the DOM (`position: fixed; left: -9999px; visibility: hidden;`) during export to connect Chromium's compositor to regular paint cycles, and `track.requestFrame()` is called synchronously after every rendered frame to ensure zero dropped frames at 30 fps.
+- **Audio & Video Bitrate Configuration Across Quality Presets**:
+  - Three specialized presets tailored for static sheet music:
+    - **`compact`**: 720p resolution ($1280 \times 720$ Landscape / $720 \times 1280$ Portrait), $750\text{ kbps}$ video bitrate, $112\text{ kbps}$ audio bitrate. Enforces strict total budget ($862\text{ kbps}$ aggregate), keeping file sizes under 5–8 MB for a full 2-minute piece to effortlessly clear Discord free (10 MB), email attachment, and mobile chat limits.
+    - **`compressed` (Balanced)**: 1080p resolution ($1920 \times 1080$ / $1080 \times 1920$), $1.8\text{ Mbps}$ video bitrate, $192\text{ kbps}$ audio bitrate. Crisp 1080p balanced for general sharing and YouTube.
+    - **`high` (Archival)**: 1080p resolution, $6.0\text{ Mbps}$ video bitrate, $320\text{ kbps}$ audio bitrate for pristine studio archiving.
+  - Passes `bitsPerSecond: videoBitrate + audioBitrate` directly to `MediaRecorder` alongside `videoBitsPerSecond` and `audioBitsPerSecond` to enforce total bitrate ceilings across Chromium and Gecko muxers.
+- **WebCodecs & Mediabunny Architecture with AAC-LC Support**:
+  - The primary export pipeline uses the modern **WebCodecs API** (`VideoEncoder`, `AudioEncoder`) via `mediabunny` and `@mediabunny/aac-encoder`:
+    1. **Video Track**: Hardware-accelerated H.264 (`avc`) encoded via `CanvasSource` at 30 fps using the selected quality preset bitrate.
+    2. **Audio Track**: Encoded as genuine **AAC-LC (`mp4a.40.2`)** via `AudioBufferSource`. Native browser AAC support is probed with `canEncodeAudio('aac')`. On platforms with native AAC encoding (macOS Safari, Windows Chrome), native hardware encoding is used; on platforms lacking native AAC encoding (Linux Chromium), `@mediabunny/aac-encoder` (an optimized WebAssembly build of FFmpeg's AAC-LC encoder) is automatically registered.
+    3. **Container Muxing**: Packaged into an MP4 container with `fastStart: 'in-memory'`, placing the `moov` atom at the beginning of the file. This guarantees instant streaming and 100% compliance with social media platforms (Twitter/X, Instagram, TikTok, YouTube Shorts) which reject Opus-in-MP4 with "Incompatible audio codecs".
+    4. **Offline Frame Rendering**: Replaces 1x real-time wall-clock recording with non-real-time frame pump, allowing an entire score video to export in seconds rather than the full audio playback duration.
+- **MediaRecorder Fallback**:
+  - If WebCodecs is unsupported in the execution environment (e.g. legacy browsers or headless environments without `VideoEncoder`), the system gracefully falls back to the `MediaRecorder` pipeline:
+    - MP4 recording checks available MIME types (`video/mp4;codecs=avc1,mp4a.40.2`, `video/mp4;codecs=avc1,aac`, `video/mp4;codecs=avc1`, `video/mp4`).
+    - Post-recording container repair (`repairMp4BoxDurations`) rescales `mdhd` durations, normalizes `mfhd` fragment sequence numbers, and aligns `trun` Opus packet sample counts to guarantee glitch-free playback across VLC and local players.
+- **Dynamic File Size Estimation Model**:
 
 
 ### 3.5 SVG System Slice Isolation & Ledger Line Preservation
@@ -161,11 +159,15 @@ Pure rendering module for HTML5 Canvas (`OffscreenCanvas` or `HTMLCanvasElement`
   - Live preview canvas with Play / Pause / Seek / Time display.
   - Controls:
     - Format: `MP4 (.mp4)` (default, universal playback) vs `WebM (.webm)` (open web standard).
-    - Quality & Compression: `Compressed` (~2 Mbps target bitrate for lightweight sharing via chat/email) vs `High Quality` (~6 Mbps target bitrate).
+    - Quality & Compression:
+      - `Compact`: 720p resolution, ~750 kbps video / 112 kbps audio (Fast Share under 10MB for Discord, Email, and Chat).
+      - `Balanced`: 1080p resolution, ~1.8 Mbps video / 192 kbps audio (Standard social sharing & YouTube).
+      - `High Quality`: 1080p resolution, ~6.0 Mbps video / 320 kbps audio (Studio & archival master).
+    - Dynamic Estimated File Size badge & button hints showing anticipated output file size (e.g. `~2.8 MB`) calculated from score duration, format, and quality tier.
     - Aspect Ratio: 16:9 Landscape vs 9:16 Portrait.
     - Theme: Modern Dark vs Warm Paper.
     - Intro duration (0–4s) and Outro duration (0–3s).
-  - "Export Sheet Video" action: runs through the timeline, captures stream at chosen bitrate and MIME format, and downloads file.
+  - "Export Sheet Video" action: runs through the timeline, captures stream at chosen resolution, bitrate, and MIME format, and downloads file.
 
 ## 6. Testing Strategy
 

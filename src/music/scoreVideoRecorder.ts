@@ -21,7 +21,57 @@ export interface ScoreVideoExportProgress {
 }
 
 export type ScoreVideoFormat = 'mp4' | 'webm';
-export type ScoreVideoQuality = 'compressed' | 'high';
+export type ScoreVideoQuality = 'compact' | 'compressed' | 'high';
+
+export interface ScoreVideoSizeEstimate {
+  bytes: number;
+  megabytes: number;
+  formatted: string;
+}
+
+/**
+ * Computes empirical output file size estimation for a score video based on
+ * duration, chosen format (MP4 vs WebM), and compression quality tier.
+ */
+export function getEstimatedScoreVideoSize(
+  totalDurationSec: number,
+  quality: ScoreVideoQuality = 'compact',
+  format: ScoreVideoFormat = 'mp4',
+): ScoreVideoSizeEstimate {
+  const safeDuration = Math.max(0, totalDurationSec);
+
+  // Empirical total bitrates (video + audio + container muxing overhead) in bps:
+  // - compact (720p): WebM ~550 kbps, MP4 ~450 kbps
+  // - compressed (1080p): WebM ~1,000 kbps, MP4 ~650 kbps
+  // - high (1080p): WebM ~1,850 kbps, MP4 ~1,450 kbps
+  const bitratesBps: Record<ScoreVideoQuality, Record<ScoreVideoFormat, number>> = {
+    compact: {
+      webm: 550_000,
+      mp4: 450_000,
+    },
+    compressed: {
+      webm: 1_000_000,
+      mp4: 650_000,
+    },
+    high: {
+      webm: 1_850_000,
+      mp4: 1_450_000,
+    },
+  };
+
+  const bps = bitratesBps[quality]?.[format] ?? bitratesBps.compact.mp4;
+  const rawBytes = Math.round((bps * safeDuration) / 8);
+  // Add base container header overhead (~30 KB)
+  const totalBytes = rawBytes + 30_000;
+  const megabytes = Math.round((totalBytes / (1024 * 1024)) * 10) / 10;
+  const formatted = megabytes < 1 ? '< 1 MB' : `~${megabytes.toFixed(1)} MB`;
+
+  return {
+    bytes: totalBytes,
+    megabytes,
+    formatted,
+  };
+}
 
 export interface ScoreVideoExportOptions extends ScoreVideoRenderOptions {
   introDurationSec: number;
@@ -33,10 +83,58 @@ export interface ScoreVideoExportOptions extends ScoreVideoRenderOptions {
   onProgress?: (progress: ScoreVideoExportProgress) => void;
 }
 
+import {
+  Output,
+  Mp4OutputFormat,
+  WebMOutputFormat,
+  BufferTarget,
+  CanvasSource,
+  AudioBufferSource,
+  canEncodeAudio,
+} from 'mediabunny';
+import { registerAacEncoder } from '@mediabunny/aac-encoder';
+
+let aacEncoderRegistered = false;
+
 /**
- * Checks if the current browser environment supports MP4 video recording via MediaRecorder.
+ * Ensures a reliable AAC encoder is registered with Mediabunny.
+ * If native AAC encoding is supported (Safari, Windows Chrome), it uses native hardware.
+ * On platforms without native AAC encoding (e.g. Linux Chrome), it registers the WASM AAC-LC encoder.
+ */
+export async function ensureAacEncoderReady(): Promise<void> {
+  if (aacEncoderRegistered) return;
+  try {
+    const nativeAac = await canEncodeAudio('aac');
+    if (!nativeAac) {
+      registerAacEncoder();
+    }
+  } catch {
+    try {
+      registerAacEncoder();
+    } catch {
+      // ignore
+    }
+  }
+  aacEncoderRegistered = true;
+}
+
+/**
+ * Checks if the browser environment supports WebCodecs (VideoEncoder and VideoFrame).
+ */
+export function isWebCodecsSupported(): boolean {
+  return (
+    typeof VideoEncoder !== 'undefined' &&
+    typeof VideoFrame !== 'undefined'
+  );
+}
+
+/**
+ * Checks if the current browser environment supports MP4 video recording via WebCodecs or MediaRecorder.
  */
 export function isMp4RecordingSupported(): boolean {
+  if (isWebCodecsSupported()) {
+    return true;
+  }
   if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
     return false;
   }
@@ -470,9 +568,181 @@ export async function extractScoreSystems(
 }
 
 /**
- * Records a sheet video by rendering frames onto a canvas and streaming into MediaRecorder.
+ * Records a sheet video using hardware-accelerated WebCodecs and Mediabunny.
+ * Supports genuine AAC-LC audio (via native OS encoder or fallback WASM encoder)
+ * and outputs web-optimized FastStart MP4s for instant Twitter/social compatibility.
+ */
+export async function recordScoreVideoWithWebCodecs(
+  canvas: HTMLCanvasElement,
+  extracted: ExtractedScoreData,
+  options: ScoreVideoExportOptions,
+): Promise<Blob> {
+  const { width, height, introDurationSec, outroDurationSec, fps = 30, onProgress } = options;
+  const requestedFormat = options.format ?? 'mp4';
+  const requestedQuality = options.quality ?? 'compressed';
+
+  const defaultVideoBitrates: Record<ScoreVideoQuality, number> = {
+    compact: 750_000,
+    compressed: 2_000_000,
+    high: 6_000_000,
+  };
+  const defaultAudioBitrates: Record<ScoreVideoQuality, number> = {
+    compact: 112_000,
+    compressed: 192_000,
+    high: 320_000,
+  };
+
+  const videoBitrate = options.videoBitrate ?? defaultVideoBitrates[requestedQuality] ?? 2_000_000;
+  const audioBitrate = defaultAudioBitrates[requestedQuality] ?? 192_000;
+
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error('Canvas 2D context is unavailable.');
+  }
+
+  const timeline = new ScoreVideoTimeline(
+    {
+      introDurationSec,
+      outroDurationSec,
+      scoreDurationSec: extracted.totalScoreTimeSec,
+      tempoBpm: options.metadata.tempoBpm ?? 120,
+    },
+    extracted.systems,
+    extracted.noteEvents,
+  );
+
+  const renderer = new ScoreVideoRenderer(options);
+  const totalDuration = timeline.totalDurationSec;
+
+  onProgress?.({
+    currentSec: 0,
+    totalSec: totalDuration,
+    percentage: 0,
+    phase: 'preparing',
+  });
+
+  const isMp4 = requestedFormat === 'mp4';
+
+  if (isMp4) {
+    await ensureAacEncoderReady();
+  }
+
+  const format = isMp4
+    ? new Mp4OutputFormat({ fastStart: 'in-memory' })
+    : new WebMOutputFormat();
+
+  const target = new BufferTarget();
+  const output = new Output({
+    format,
+    target,
+  });
+
+  const videoSource = new CanvasSource(canvas, {
+    codec: isMp4 ? 'avc' : 'vp9',
+    bitrate: videoBitrate,
+  });
+  output.addVideoTrack(videoSource);
+
+  let audioSource: AudioBufferSource | null = null;
+  if (extracted.audioBuffer) {
+    audioSource = new AudioBufferSource(
+      {
+        codec: isMp4 ? 'aac' : 'opus',
+        bitrate: audioBitrate,
+      },
+      {
+        startTimestamp: introDurationSec,
+      },
+    );
+    output.addAudioTrack(audioSource);
+  }
+
+  await output.start();
+
+  const totalFrames = Math.max(1, Math.ceil(totalDuration * fps));
+  const frameDuration = 1 / fps;
+
+  for (let frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
+    const elapsedSec = Math.min(totalDuration, frameIndex * frameDuration);
+    const frameState = timeline.getFrameState(elapsedSec);
+    renderer.renderFrame(ctx, frameState, extracted.systemImages);
+
+    await videoSource.add(elapsedSec, frameDuration);
+
+    onProgress?.({
+      currentSec: elapsedSec,
+      totalSec: totalDuration,
+      percentage: Math.min(90, Math.round((frameIndex / totalFrames) * 90)),
+      phase: 'rendering',
+    });
+
+    if (frameIndex % 5 === 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
+  if (audioSource && extracted.audioBuffer) {
+    onProgress?.({
+      currentSec: totalDuration,
+      totalSec: totalDuration,
+      percentage: 95,
+      phase: 'encoding',
+    });
+    await audioSource.add(extracted.audioBuffer);
+  }
+
+  onProgress?.({
+    currentSec: totalDuration,
+    totalSec: totalDuration,
+    percentage: 98,
+    phase: 'encoding',
+  });
+
+  await output.finalize();
+
+  onProgress?.({
+    currentSec: totalDuration,
+    totalSec: totalDuration,
+    percentage: 100,
+    phase: 'done',
+  });
+
+  if (!target.buffer) {
+    throw new Error('Video multiplexer did not produce output buffer.');
+  }
+
+  return new Blob([target.buffer], {
+    type: isMp4 ? 'video/mp4' : 'video/webm',
+  });
+}
+
+/**
+ * Records a sheet video by rendering frames onto a canvas.
+ * Uses hardware-accelerated WebCodecs with AAC-LC audio when available,
+ * falling back to MediaRecorder in legacy or unsupported environments.
  */
 export async function recordScoreVideo(
+  canvas: HTMLCanvasElement,
+  extracted: ExtractedScoreData,
+  options: ScoreVideoExportOptions,
+  audioContext?: AudioContext | null,
+): Promise<Blob> {
+  if (isWebCodecsSupported()) {
+    try {
+      return await recordScoreVideoWithWebCodecs(canvas, extracted, options);
+    } catch (err) {
+      console.warn('WebCodecs recording failed, falling back to MediaRecorder:', err);
+    }
+  }
+  return await recordScoreVideoWithMediaRecorder(canvas, extracted, options, audioContext);
+}
+
+/**
+ * Records a sheet video by rendering frames onto a canvas and streaming into MediaRecorder.
+ */
+export async function recordScoreVideoWithMediaRecorder(
   canvas: HTMLCanvasElement,
   extracted: ExtractedScoreData,
   options: ScoreVideoExportOptions,
@@ -559,8 +829,20 @@ export async function recordScoreVideo(
 
   const requestedFormat = options.format ?? 'mp4';
   const requestedQuality = options.quality ?? 'compressed';
-  const videoBitrate = options.videoBitrate ?? (requestedQuality === 'compressed' ? 2_000_000 : 6_000_000);
-  const audioBitrate = requestedQuality === 'compressed' ? 192_000 : 320_000;
+
+  const defaultVideoBitrates: Record<ScoreVideoQuality, number> = {
+    compact: 750_000,
+    compressed: 2_000_000,
+    high: 6_000_000,
+  };
+  const defaultAudioBitrates: Record<ScoreVideoQuality, number> = {
+    compact: 112_000,
+    compressed: 192_000,
+    high: 320_000,
+  };
+
+  const videoBitrate = options.videoBitrate ?? defaultVideoBitrates[requestedQuality] ?? 2_000_000;
+  const audioBitrate = defaultAudioBitrates[requestedQuality] ?? 192_000;
 
   // Determine optimal MIME type supported by browser based on requested format
   let mimeType = '';
@@ -593,6 +875,7 @@ export async function recordScoreVideo(
     mimeType: (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(mimeType)) ? mimeType : undefined,
     videoBitsPerSecond: videoBitrate,
     audioBitsPerSecond: audioBitrate,
+    bitsPerSecond: videoBitrate + audioBitrate,
   });
 
   const recordedChunks: Blob[] = [];

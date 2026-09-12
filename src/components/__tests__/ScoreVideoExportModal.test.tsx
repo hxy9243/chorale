@@ -45,12 +45,15 @@ describe('ScoreVideoExportModal', () => {
     expect(screen.getByRole('button', { name: /Export Sheet Video/ })).toBeDefined();
     expect(screen.getByText('MP4 (.mp4)')).toBeDefined();
     expect(screen.getByText('WebM (.webm)')).toBeDefined();
+    expect(screen.getByText('Compact')).toBeDefined();
     expect(screen.getByText('Compressed')).toBeDefined();
     expect(screen.getByText('High Quality')).toBeDefined();
     expect(screen.getByText('16:9 Landscape')).toBeDefined();
     expect(screen.getByText('9:16 Portrait')).toBeDefined();
     expect(screen.getByText('Modern Dark')).toBeDefined();
     expect(screen.getByText('Warm Paper')).toBeDefined();
+    expect(screen.getByTestId('video-estimate-pill')).toBeDefined();
+    expect(screen.getByTestId('video-export-estimate-banner')).toBeDefined();
   });
 
   it('does not render when open is false', () => {
@@ -85,16 +88,44 @@ describe('ScoreVideoExportModal', () => {
     expect(webmBtn.classList.contains('active')).toBe(true);
     expect(mp4Btn.classList.contains('active')).toBe(false);
 
+    const compactBtn = screen.getByText('Compact').closest('button')!;
     const compressedBtn = screen.getByText('Compressed').closest('button')!;
     const highQualityBtn = screen.getByText('High Quality').closest('button')!;
 
-    // Compressed is default
-    expect(compressedBtn.classList.contains('active')).toBe(true);
+    // Compact is default
+    expect(compactBtn.classList.contains('active')).toBe(true);
+    expect(compressedBtn.classList.contains('active')).toBe(false);
     expect(highQualityBtn.classList.contains('active')).toBe(false);
+
+    fireEvent.click(compressedBtn);
+    expect(compressedBtn.classList.contains('active')).toBe(true);
+    expect(compactBtn.classList.contains('active')).toBe(false);
 
     fireEvent.click(highQualityBtn);
     expect(highQualityBtn.classList.contains('active')).toBe(true);
     expect(compressedBtn.classList.contains('active')).toBe(false);
+  });
+
+  it('updates dynamic file size estimates when changing format or quality tier', () => {
+    render(
+      <ScoreVideoExportModal
+        open={true}
+        onClose={vi.fn()}
+        scoreTitle="Chorale in C Major"
+      />,
+    );
+
+    const banner = screen.getByTestId('video-export-estimate-banner');
+    expect(banner.textContent).toContain('MP4');
+    expect(banner.textContent).toContain('720p Compact');
+
+    const webmBtn = screen.getByText('WebM (.webm)').closest('button')!;
+    fireEvent.click(webmBtn);
+    expect(banner.textContent).toContain('WEBM');
+
+    const highQualityBtn = screen.getByText('High Quality').closest('button')!;
+    fireEvent.click(highQualityBtn);
+    expect(banner.textContent).toContain('1080p Full HD');
   });
 
   it('toggles aspect ratio and theme selection', () => {
