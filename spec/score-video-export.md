@@ -86,6 +86,19 @@ Given $M$ systems extracted from the score:
   - If $t_{\text{score}}$ falls between event $i$ and $i+1$, linear interpolation computes exact $x(t)$.
   - Bounding box of the active measure is highlighted with a soft translucent pill.
 
+### 3.4 Audio Synthesis & High-Fidelity Recording Pipeline (`src/music/scoreVideoRecorder.ts`)
+- **Multi-Voice Summation & Peak Normalization**:
+  - Synthesized polyphonic buffers from `abcjs.synth.CreateSynth` are mixed across voices in `mixAudioBuffers`.
+  - When raw audio summation exceeds peak amplitude $0.92$, samples are smoothly normalized down to $0.92$ to prevent harsh digital clipping.
+- **Gain Staging & Headroom**:
+  - `musicSource` routes through a master `GainNode` ($0.95$ gain) into the `MediaStreamAudioDestinationNode` to ensure clean headroom.
+- **Audio Bitrate Configuration**:
+  - Highest quality audio encoding is explicitly specified: $320\text{ kbps}$ for `High Quality` mode, and $192\text{ kbps}$ for `Compressed` mode (eliminating browser-default $64\text{ kbps}$ artifacts).
+- **MIME Type Prioritization**:
+  - MP4 recording prioritizes standard AAC audio codecs (`video/mp4;codecs=avc1,mp4a.40.2`, `video/mp4;codecs=avc1,aac`, `video/mp4;codecs=avc1`, `video/mp4`) for universal cross-platform playback.
+- **Container Finalization & Duration Indexing**:
+  - `MediaRecorder.start()` is invoked without fractional timeslicing, enabling browser muxers to generate valid movie fragment random access (`mfra`) tables and full duration metadata without truncation.
+
 ## 4. Canvas Video Renderer (`src/music/scoreVideoRenderer.ts`)
 
 Pure rendering module for HTML5 Canvas (`OffscreenCanvas` or `HTMLCanvasElement`):
