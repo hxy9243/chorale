@@ -58,6 +58,19 @@ export const startServer = async (options = {}) => {
 
   const sseTransports = new Map();
 
+  const isDevLoopback = (originUrl) => {
+    if (typeof originUrl !== 'string') return false;
+    try {
+      const parsed = new URL(originUrl);
+      if (parsed.protocol !== 'http:') return false;
+      if (parsed.hostname !== '127.0.0.1' && parsed.hostname !== 'localhost') return false;
+      const portNum = Number(parsed.port);
+      return portNum === boundPort || (portNum >= 5170 && portNum <= 5179) || portNum === 4173;
+    } catch {
+      return false;
+    }
+  };
+
   const httpServer = createHttpServer(async (req, res) => {
     const origin = req.headers.origin;
     const trustedOrigins = new Set([
@@ -68,7 +81,7 @@ export const startServer = async (options = {}) => {
       ...configuredOrigins(),
     ]);
     const hasOrigin = typeof origin === 'string' && origin.length > 0;
-    const trustedOrigin = !hasOrigin || trustedOrigins.has(origin);
+    const trustedOrigin = !hasOrigin || trustedOrigins.has(origin) || isDevLoopback(origin);
 
     if (!trustedOrigin) {
       res.writeHead(403).end('Cross-origin requests are not allowed.');

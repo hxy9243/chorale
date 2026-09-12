@@ -344,7 +344,7 @@ test('server: starts HTTP server, serves /v1/health, REST tools, and files', asy
     });
     assert.equal(editScoreRes.status, 200);
 
-    // 2c. Browser requests are restricted to the local UI and Vite dev origin.
+    // 2c. Browser requests are restricted to the local UI and Vite dev origins.
     const blocked = await fetch(`${baseUrl}/v1/files`, {
       headers: { Origin: 'https://untrusted.example' },
     });
@@ -355,6 +355,12 @@ test('server: starts HTTP server, serves /v1/health, REST tools, and files', asy
     });
     assert.equal(preflight.status, 204);
     assert.equal(preflight.headers.get('access-control-allow-origin'), 'http://127.0.0.1:5173');
+    const preflight5174 = await fetch(`${baseUrl}/v1/files`, {
+      method: 'OPTIONS',
+      headers: { Origin: 'http://localhost:5174' },
+    });
+    assert.equal(preflight5174.status, 204);
+    assert.equal(preflight5174.headers.get('access-control-allow-origin'), 'http://localhost:5174');
 
     // 2d. Every SSE client owns a separate MCP protocol session.
     const firstSse = await fetch(`${baseUrl}/sse`);
