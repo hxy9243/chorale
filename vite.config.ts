@@ -21,20 +21,34 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.0.0'),
   },
-  ...(process.env.CHORALE_PORT ? {
-    server: {
-      proxy: {
-        '/v1': {
-          target: `http://127.0.0.1:${process.env.CHORALE_PORT}`,
-          changeOrigin: true,
+  server: {
+    proxy: {
+      '/v1': {
+        target: `http://127.0.0.1:${process.env.CHORALE_PORT || 1685}`,
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', (err, _req, res) => {
+            if (err && 'writeHead' in res && typeof res.writeHead === 'function' && !res.headersSent) {
+              res.writeHead(503, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Chorale daemon offline' }));
+            }
+          });
         },
-        '/sse': {
-          target: `http://127.0.0.1:${process.env.CHORALE_PORT}`,
-          changeOrigin: true,
+      },
+      '/sse': {
+        target: `http://127.0.0.1:${process.env.CHORALE_PORT || 1685}`,
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', (err, _req, res) => {
+            if (err && 'writeHead' in res && typeof res.writeHead === 'function' && !res.headersSent) {
+              res.writeHead(503, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Chorale daemon offline' }));
+            }
+          });
         },
       },
     },
-  } : {}),
+  },
   test: {
     globals: true,
     environment: 'jsdom',
