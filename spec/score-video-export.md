@@ -99,6 +99,21 @@ Given $M$ systems extracted from the score:
 - **Container Finalization & Duration Indexing**:
   - `MediaRecorder.start()` is invoked without fractional timeslicing, enabling browser muxers to generate valid movie fragment random access (`mfra`) tables and full duration metadata without truncation.
 
+### 3.5 SVG System Slice Isolation & Ledger Line Preservation
+- **Accurate Line Class Filtering**:
+  - When isolating score systems in `extractScoreSystems`, line elements are filtered strictly by `/^abcjs-l\d+$/` patterns rather than broad substring matches (`[class*="abcjs-l"]`).
+  - Musical notation elements whose class names happen to contain the `abcjs-l` prefix—specifically `.abcjs-ledger` (horizontal ledger lines for high and low register notes) and `.abcjs-legato` (slurs and ties)—are strictly protected from accidental deletion.
+- **Explicit Theme & Stroke Styling**:
+  - The isolated system SVG slices inject CSS rules for `.abcjs-ledger`:
+    ```css
+    .abcjs-ledger { fill: ${staffColor} !important; stroke: ${staffColor} !important; stroke-width: 0.8px !important; }
+    .abcjs-beam-elem { fill: ${strokeColor} !important; stroke: ${strokeColor} !important; }
+    ```
+    This ensures that thin $0.70\text{ px}$ ledger lines never vanish under canvas image-scaling or anti-aliasing.
+- **Generous Staff Headroom**:
+  - Bounding box spans calculate `uniformHeight = Math.max(100, Math.round(maxSpan + 40))`, providing ample vertical clearance for notes in extreme high registers without vertical slice clipping.
+
+
 ## 4. Canvas Video Renderer (`src/music/scoreVideoRenderer.ts`)
 
 Pure rendering module for HTML5 Canvas (`OffscreenCanvas` or `HTMLCanvasElement`):

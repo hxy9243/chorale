@@ -285,7 +285,7 @@ export async function extractScoreSystems(
     const span = Number.isFinite(s.minY) && Number.isFinite(s.maxY) ? (s.maxY - s.minY) : 90;
     return Math.max(max, span);
   }, 80);
-  const uniformHeight = Math.max(100, Math.round(maxSpan + 30));
+  const uniformHeight = Math.max(100, Math.round(maxSpan + 40));
 
   // Phase 2: Create uniform bounding boxes and slice images centered on each system's staff
   const systems: ScoreSystemBBox[] = [];
@@ -326,9 +326,12 @@ export async function extractScoreSystems(
           .querySelectorAll('.abcjs-meta-top, .abcjs-title, .abcjs-composer, .abcjs-subtitle, .abcjs-header')
           .forEach((el) => el.remove());
 
-        // Remove elements belonging to other lines so this system is strictly isolated
+        // Remove elements belonging to other lines so this system is strictly isolated.
+        // Be careful to only remove elements with an actual line class (e.g. abcjs-l0, abcjs-l1),
+        // and NOT musical elements like .abcjs-ledger or .abcjs-legato whose class names contain 'abcjs-l'.
         svgClone.querySelectorAll<SVGGraphicsElement>('[class*="abcjs-l"]').forEach((el) => {
-          if (!el.classList.contains(raw.lineClass)) {
+          const lineClasses = Array.from(el.classList).filter((cls) => /^abcjs-l\d+$/.test(cls));
+          if (lineClasses.length > 0 && !lineClasses.includes(raw.lineClass)) {
             el.remove();
           }
         });
@@ -342,6 +345,8 @@ export async function extractScoreSystems(
           * { color: inherit; }
           .abcjs-staff path, .abcjs-top-line { stroke: ${staffColor} !important; fill: none !important; }
           .abcjs-bar path { stroke: ${strokeColor} !important; }
+          .abcjs-ledger { fill: ${staffColor} !important; stroke: ${staffColor} !important; stroke-width: 0.8px !important; }
+          .abcjs-beam-elem { fill: ${strokeColor} !important; stroke: ${strokeColor} !important; }
         `;
         svgClone.insertBefore(styleEl, svgClone.firstChild);
 

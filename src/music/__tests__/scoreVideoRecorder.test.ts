@@ -310,5 +310,75 @@ describe('scoreVideoRecorder', () => {
         globalThis.Image = originalImage;
       }
     });
+
+    it('preserves ledger lines and legato slurs in system slices without purging them as other lines', async () => {
+      let serializedSliceXml = '';
+      const originalImage = globalThis.Image;
+      const originalBlob = globalThis.Blob;
+      const originalUrl = globalThis.URL;
+
+      class MockImage {
+        onload: any = null;
+        onerror: any = null;
+        set src(_v: string) {
+          setTimeout(() => {
+            if (this.onload) this.onload();
+          }, 0);
+        }
+      }
+      globalThis.Image = MockImage as any;
+      globalThis.Blob = class MockBlob {
+        constructor(parts: any[]) {
+          serializedSliceXml = parts.join('');
+        }
+      } as any;
+      globalThis.URL = {
+        ...originalUrl,
+        createObjectURL: vi.fn(() => 'blob:mock-url'),
+      } as any;
+
+      try {
+        const { extractScoreSystems } = await import('../scoreVideoRecorder');
+
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 800 600');
+
+        // Line 0 with a note containing ledger lines
+        const line0 = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        line0.setAttribute('class', 'abcjs-l0 abcjs-staff');
+        line0.getBBox = () => ({ x: 0, y: 50, width: 750, height: 60, top: 50, right: 750, bottom: 110, left: 0 } as DOMRect);
+
+        const note0 = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        note0.setAttribute('class', 'abcjs-note abcjs-l0');
+        const ledger = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        ledger.setAttribute('class', 'abcjs-ledger');
+        ledger.setAttribute('d', 'M 10 20 L 30 20');
+        note0.appendChild(ledger);
+        line0.appendChild(note0);
+
+        const slur = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        slur.setAttribute('class', 'abcjs-slur abcjs-legato abcjs-l0');
+        line0.appendChild(slur);
+
+        // Line 1 to be removed from Line 0 slice
+        const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        line1.setAttribute('class', 'abcjs-l1 abcjs-staff');
+        line1.getBBox = () => ({ x: 0, y: 200, width: 750, height: 60, top: 200, right: 750, bottom: 260, left: 0 } as DOMRect);
+
+        svg.appendChild(line0);
+        svg.appendChild(line1);
+
+        const data = await extractScoreSystems(svg, 'dark');
+        expect(data.systems).toHaveLength(2);
+
+        // The serialized XML for the slices should retain .abcjs-ledger and .abcjs-legato
+        expect(serializedSliceXml).toContain('abcjs-ledger');
+        expect(serializedSliceXml).toContain('.abcjs-ledger { fill: #94a3b8 !important;');
+      } finally {
+        globalThis.Image = originalImage;
+        globalThis.Blob = originalBlob;
+        globalThis.URL = originalUrl;
+      }
+    });
   });
 });
