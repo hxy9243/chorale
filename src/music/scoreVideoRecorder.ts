@@ -217,8 +217,8 @@ export async function extractScoreSystems(
       top,
       bottom,
       height,
-      left: 10,
-      width: Math.max(100, svgWidth - 20),
+      left: 0,
+      width: Math.max(100, svgWidth),
     };
 
     systems.push(bbox);

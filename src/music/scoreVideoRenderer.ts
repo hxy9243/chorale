@@ -344,27 +344,48 @@ export class ScoreVideoRenderer {
     const isTopActive = scoreState.activeSystemIndex === topLineIndex;
     const isBottomActive = bottomLineIndex !== null && scoreState.activeSystemIndex === bottomLineIndex;
 
+    const maxBboxHeight = Math.max(
+      topSys.bbox.height,
+      bottomSys ? bottomSys.bbox.height : topSys.bbox.height,
+      1,
+    );
+    const systemWidth = Math.max(
+      topSys.bbox.width,
+      bottomSys ? bottomSys.bbox.width : topSys.bbox.width,
+      1,
+    );
+
+    // Compute identical scale and identical width for both lines so they align perfectly
+    const sharedScale = Math.min(
+      usableWidth / systemWidth,
+      (lineHeight - 12) / maxBboxHeight,
+    );
+    const drawW = systemWidth * sharedScale;
+    const drawX = sheetPaddingX + innerPadding + (usableWidth - drawW) / 2;
+
     // Line 1: Top Line
     this.renderSheetLine(
       ctx,
       topSys,
-      sheetPaddingX + innerPadding,
+      drawX,
       sheetTop + innerPadding,
-      usableWidth,
+      drawW,
       lineHeight,
+      sharedScale,
       isTopActive,
       isTopActive ? scoreState.cursorX : null,
     );
 
-    // Line 2: Bottom Line (Aligned together in the same sheet)
+    // Line 2: Bottom Line (Aligned together in the same sheet with identical width)
     if (bottomSys) {
       this.renderSheetLine(
         ctx,
         bottomSys,
-        sheetPaddingX + innerPadding,
+        drawX,
         sheetTop + innerPadding + lineHeight,
-        usableWidth,
+        drawW,
         lineHeight,
+        sharedScale,
         isBottomActive,
         isBottomActive ? scoreState.cursorX : null,
       );
@@ -376,10 +397,11 @@ export class ScoreVideoRenderer {
   private renderSheetLine(
     ctx: CanvasRenderingContext2D,
     system: RenderableSystem,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
+    drawX: number,
+    slotY: number,
+    drawW: number,
+    slotHeight: number,
+    scale: number,
     isActive: boolean,
     cursorX: number | null,
   ): void {
@@ -387,14 +409,8 @@ export class ScoreVideoRenderer {
 
     ctx.save();
 
-    const scale = Math.min(
-      width / system.bbox.width,
-      (height - 8) / system.bbox.height,
-    );
-    const drawW = system.bbox.width * scale;
     const drawH = system.bbox.height * scale;
-    const drawX = x + (width - drawW) / 2;
-    const drawY = y + (height - drawH) / 2;
+    const drawY = slotY + (slotHeight - drawH) / 2;
 
     ctx.drawImage(system.image, drawX, drawY, drawW, drawH);
 

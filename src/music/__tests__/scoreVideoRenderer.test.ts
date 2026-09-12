@@ -137,7 +137,10 @@ describe('ScoreVideoRenderer', () => {
     };
 
     renderer.renderFrame(ctx, frameState, mockSystems);
-    expect(ctx.drawImage).toHaveBeenCalledTimes(2);
+    const drawCalls = vi.mocked(ctx.drawImage).mock.calls;
+    expect(drawCalls).toHaveLength(2);
+    expect(drawCalls[0][1]).toBe(drawCalls[1][1]); // Identical left X alignment
+    expect(drawCalls[0][3]).toBe(drawCalls[1][3]); // Identical width
     expect(ctx.stroke).toHaveBeenCalled();
   });
 
