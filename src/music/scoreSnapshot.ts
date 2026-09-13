@@ -163,7 +163,10 @@ type ParsedElement = {
   startChar?: number;
   endChar?: number;
   pitches?: ParsedPitch[];
-  rest?: unknown;
+  rest?: {
+    type?: string;
+    text?: number | string;
+  };
   startTriplet?: number;
   tripletMultiplier?: number;
   endTriplet?: unknown;
@@ -609,10 +612,47 @@ export const extractScore = (abc: string): ExtractedScore => {
           if (element.startTriplet && element.tripletMultiplier) {
             state.tupletMultiplier = element.tripletMultiplier;
           }
+
+          const rawRestText = element.rest?.text;
+          const restCount = typeof rawRestText === 'number'
+            ? rawRestText
+            : typeof rawRestText === 'string' && /^\d+$/.test(rawRestText)
+              ? Number(rawRestText)
+              : 1;
+          const multimeasureCount = element.rest?.type === 'multimeasure'
+            && Number.isSafeInteger(restCount)
+            && restCount > 1
+            ? restCount
+            : 1;
+          const range = sourceRange(element);
+
+          if (multimeasureCount > 1) {
+            const singleDuration = createRationalDurationFromNumber(
+              (element.duration * state.tupletMultiplier) / multimeasureCount,
+            );
+            for (let k = 0; k < multimeasureCount; k++) {
+              const currentMeasureNum = state.measureNumber + k;
+              const currentMeasure = getMeasure(currentMeasureNum);
+              const event: MeasuredScoreEvent = {
+                type: 'rest',
+                position: { measure: currentMeasureNum, offset: ZERO_DURATION },
+                duration: singleDuration,
+                voiceId,
+                ...(range ? { abcRange: range } : {}),
+              };
+              currentMeasure.events.push(event);
+              addElementRange(currentMeasure, voiceId, element);
+            }
+            state.measureNumber += multimeasureCount - 1;
+            state.hasEvents = true;
+            state.offset = singleDuration;
+            if (element.endTriplet) state.tupletMultiplier = 1;
+            continue;
+          }
+
           const duration = createRationalDurationFromNumber(
             element.duration * state.tupletMultiplier,
           );
-          const range = sourceRange(element);
           const pitches = (element.pitches || [])
             .map(pitchFromParsed)
             .filter((pitch): pitch is ScorePitch => pitch !== null);

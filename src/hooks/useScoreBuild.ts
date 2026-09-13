@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import abcjs from 'abcjs';
 import type { BuildResult, FileDocument } from '../types/document';
-import { prepareAbcForPlayback } from '../utils/abcAudio';
+import { prepareAbcForEngraving, prepareAbcForPlayback } from '../utils/abcAudio';
 
 export type BuildStatus = 'idle' | 'building' | 'valid' | 'invalid';
 
@@ -80,7 +80,7 @@ export function useScoreBuild({
       try {
         const parsedTunes = typeof abcjs.parseOnly === 'function'
           ? abcjs.parseOnly(prepareAbcForPlayback(displayAbc))
-          : abcjs.renderAbc(document.createElement('div'), prepareAbcForPlayback(displayAbc));
+          : abcjs.renderAbc(document.createElement('div'), prepareAbcForEngraving(displayAbc));
         if (requestId !== buildRequestRef.current) return;
 
         const result: BuildResult = {

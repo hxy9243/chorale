@@ -49,6 +49,33 @@ export function prepareAbcForAudio(abc: string): string {
     .replace(HAIRPIN_DECORATION_PATTERN, (decoration) => ' '.repeat(decoration.length));
 }
 
+/**
+ * Produces ABC specifically prepared for visual SVG score engraving.
+ *
+ * 1. Expands multi-measure rests (Z<count> / X<count>) into individual bar-delimited
+ *    rests (Z|Z|...) so that abcjs's layout engine maintains strict vertical alignment
+ *    across polyphonic staves when systems wrap, and so that generated DOM classes
+ *    (.abcjs-mm<index>) match canonical measure numbers.
+ *
+ * 2. Rewrites unrepresentable odd note durations (e.g. 10 sixteenths / 5 eighths)
+ *    into tied glyphs (A8-A2) for clean rendering without warning artifacts.
+ */
+export function prepareAbcForEngraving(abc: string): string {
+  const prepared = prepareAbcForPlayback(abc);
+  const withExpandedRests = prepared.replace(
+    /\b([ZX])(\d+)\b/g,
+    (_, restChar, countStr) => {
+      const count = Number(countStr);
+      if (!Number.isSafeInteger(count) || count <= 1) return `${restChar}${countStr}`;
+      return Array(count).fill(restChar).join('|');
+    },
+  );
+  return withExpandedRests.replace(
+    /([_^=]*[A-Ga-g][,']*)10(?=[^0-9]|$)/g,
+    '$18-$12',
+  );
+}
+
 type ParsedTupletElement = {
   el_type?: string;
   duration?: number;

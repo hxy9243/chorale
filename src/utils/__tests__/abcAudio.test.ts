@@ -7,6 +7,7 @@ import {
   hideSvgNode,
   hideSyntheticTupletRests,
   prepareAbcForAudio,
+  prepareAbcForEngraving,
   prepareAbcForPlayback,
 } from '../abcAudio';
 
@@ -227,6 +228,31 @@ x2 (3:2:2A,/ (D, (3:2:1C,3/2) | B,4 | C4 | D4 |`;
     const mockElem = { setAttribute: vi.fn() } as unknown as SVGElement;
     hideSvgNode(mockElem);
     expect(mockElem.setAttribute).toHaveBeenCalledWith('visibility', 'hidden');
+  });
+
+  describe('prepareAbcForEngraving', () => {
+    it('expands multimeasure rests into bar-delimited individual rests for visual alignment', () => {
+      const abc = 'V:1\nZ4 | Z12 |\nV:2\nX2 | Z |';
+      const prepared = prepareAbcForEngraving(abc);
+      expect(prepared).toContain('Z|Z|Z|Z | Z|Z|Z|Z|Z|Z|Z|Z|Z|Z|Z|Z |');
+      expect(prepared).toContain('X|X | Z |');
+    });
+
+    it('rewrites 5/16 notes into tied glyphs for clean visual engraving', () => {
+      const abc = 'M:4/4\nL:1/16\nK:C\nc10 ^f10 _B10 c\'10 |';
+      const prepared = prepareAbcForEngraving(abc);
+      expect(prepared).toContain('c8-c2 ^f8-^f2 _B8-_B2 c\'8-c\'2 |');
+    });
+
+    it('renders aligned SVG measure classes across multimeasure rests in polyphonic staves', () => {
+      const multiVoice = `X:1\nT:Test\nM:4/4\nL:1/16\nV:1\nV:2\nK:C\nV:1\nc16 | d16 | e16 | f16 | g16 |\nV:2\nZ4 |\nG16 |`;
+      const scratch = document.createElement('div');
+      abcjs.renderAbc(scratch, prepareAbcForEngraving(multiVoice), { add_classes: true });
+      const classes = Array.from(scratch.querySelectorAll('[class*="abcjs-mm"]'))
+        .flatMap((el) => Array.from((el as SVGElement).classList))
+        .filter((c) => c.startsWith('abcjs-mm'));
+      expect(new Set(classes)).toEqual(new Set(['abcjs-mm0', 'abcjs-mm1', 'abcjs-mm2', 'abcjs-mm3', 'abcjs-mm4']));
+    });
   });
 });
 

@@ -11,7 +11,7 @@ import { formatAnchorLabel } from '../utils/anchor';
 import {
   configureAudioPlayback,
   hideSyntheticTupletRests,
-  prepareAbcForPlayback,
+  prepareAbcForEngraving,
 } from '../utils/abcAudio';
 import {
   buildMeasureOccurrences,
@@ -722,7 +722,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
 
       const visualTranspose = transpose;
       const spacing = chordStaffSpacing();
-      const tunes = abcjs.renderAbc(containerRef.current, prepareAbcForPlayback(abcCode), {
+      const tunes = abcjs.renderAbc(containerRef.current, prepareAbcForEngraving(abcCode), {
         responsive: 'resize',
         scale: 1,
         staffwidth: 740,

@@ -1,7 +1,7 @@
 import abcjs from 'abcjs';
 import type { Annotation, RangeAnnotation, ScoreInfo } from '../types/document';
 import { chordStaffSpacing, packChordBadgeIntervals } from './annotationLayout';
-import { hideSyntheticTupletRests, prepareAbcForPlayback } from '../utils/abcAudio';
+import { hideSyntheticTupletRests, prepareAbcForEngraving } from '../utils/abcAudio';
 import { parseAbcHeaderMetadata } from '../utils/abcMetadata';
 import { extractBBoxFromElement, scanScoreSystems } from './scoreSystemScanner';
 
@@ -95,7 +95,7 @@ export const generateScorePdfHtml = ({
     const chordAnnotations = annotations.filter((a) => a.kind === 'chord');
     const hasChords = chordAnnotations.length > 0;
 
-    const preparedAbc = prepareAbcForPlayback(abcSource);
+    const preparedAbc = prepareAbcForEngraving(abcSource);
     const baseSpacing = chordStaffSpacing();
 
     const spacing = {

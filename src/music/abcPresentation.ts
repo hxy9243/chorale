@@ -72,6 +72,10 @@ type ParsedElement = {
   startChar?: number;
   endChar?: number;
   duration?: number;
+  rest?: {
+    type?: string;
+    text?: number | string;
+  };
 };
 
 type ParsedTune = {
@@ -272,6 +276,49 @@ export const buildAbcPresentation = (abc: string): AbcPresentation => {
             continue;
           }
           if (!range) continue;
+
+          const rawRestText = element.rest?.text;
+          const restCount = typeof rawRestText === 'number'
+            ? rawRestText
+            : typeof rawRestText === 'string' && /^\d+$/.test(rawRestText)
+              ? Number(rawRestText)
+              : 1;
+          const multimeasureCount = element.rest?.type === 'multimeasure'
+            && Number.isSafeInteger(restCount)
+            && restCount > 1
+            ? restCount
+            : 1;
+
+          if (multimeasureCount > 1 && typeof element.duration === 'number') {
+            const singleDuration = Math.max(0, element.duration / multimeasureCount);
+            for (let k = 0; k < multimeasureCount; k++) {
+              const currentMeasureNum = state.measureNumber + k;
+              const key = `${voiceId}:${currentMeasureNum}`;
+              let cell = cells.get(key);
+              if (!cell) {
+                cell = {
+                  voiceId,
+                  measureNumber: currentMeasureNum,
+                  minStart: range.start,
+                  maxEnd: range.end,
+                  ranges: [range],
+                  events: [],
+                };
+                cells.set(key, cell);
+                voiceCellsMap.get(voiceId)?.push(cell);
+              } else {
+                cell.ranges.push(range);
+                cell.minStart = Math.min(cell.minStart, range.start);
+                cell.maxEnd = Math.max(cell.maxEnd, range.end);
+              }
+              cell.events.push({ range, start: 0, duration: singleDuration });
+            }
+            state.measureNumber += multimeasureCount - 1;
+            state.hasEvents = true;
+            state.elapsed = singleDuration;
+            continue;
+          }
+
           const key = `${voiceId}:${state.measureNumber}`;
           let cell = cells.get(key);
           if (!cell) {
@@ -325,7 +372,7 @@ export const buildAbcPresentation = (abc: string): AbcPresentation => {
         text,
         duration: Math.max(0, ...events.map((event) => event.start + event.duration)),
         events,
-        editable: Boolean(text.trim()) && sameLine(abc, range) && !text.includes('%'),
+        editable: Boolean(text.trim()) && sameLine(abc, range) && !text.includes('%') && !/^[ZX]\d+[\s|]*$/i.test(text.trim()),
       };
     });
     return {
