@@ -22,6 +22,7 @@ test_files:
   - src/components/__tests__/FileRail.test.tsx
   - src/hooks/__tests__/useScoreExport.test.ts
 related_specs:
+  - spec/score-video-export.md
   - spec/score-surface.md
   - spec/file-workspace-architecture.md
   - spec/workspace-layout.md

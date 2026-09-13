@@ -250,6 +250,18 @@ describe('FileRail Component', () => {
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
+  it('triggers Sheet Video export and closes the menu', () => {
+    const onExportDocument = vi.fn();
+    render(<FileRail {...defaultProps} onExportDocument={onExportDocument} />);
+
+    fireEvent.contextMenu(getFirstFileButton());
+    fireEvent.click(screen.getByRole('menuitem', { name: /Export/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Sheet Video/ }));
+
+    expect(onExportDocument).toHaveBeenCalledWith(doc1.id, 'video');
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
 
   it('confirms deletion through a centered dialog before deleting', () => {
     const onDeleteDocument = vi.fn();

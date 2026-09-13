@@ -58,6 +58,9 @@ export const startServer = async (options = {}) => {
 
   const sseTransports = new Map();
 
+  // Although same-origin bridging proxies /mcp requests through the Vite dev server,
+  // Vite preserves the client browser's original `Origin` header (e.g. http://localhost:5173).
+  // isDevLoopback allows loopback dev server origins so cross-origin checks do not reject proxied dev traffic.
   const isDevLoopback = (originUrl) => {
     if (typeof originUrl !== 'string') return false;
     try {

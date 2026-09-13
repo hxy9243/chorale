@@ -4,7 +4,7 @@ import { generateScorePdfHtml } from '../music/scorePdfExport';
 import { savePdfFile, saveTextFile } from '../utils/fileSave';
 import type { FileDocument } from '../types/document';
 
-export type ScoreExportFormat = 'musicxml' | 'pdf';
+export type ScoreExportFormat = 'musicxml' | 'pdf' | 'video';
 
 export type ScoreExportStatus = 'idle' | 'exporting' | 'success' | 'error';
 

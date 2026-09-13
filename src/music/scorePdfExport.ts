@@ -3,6 +3,7 @@ import type { Annotation, RangeAnnotation, ScoreInfo } from '../types/document';
 import { chordStaffSpacing, packChordBadgeIntervals } from './annotationLayout';
 import { hideSyntheticTupletRests, prepareAbcForPlayback } from '../utils/abcAudio';
 import { parseAbcHeaderMetadata } from '../utils/abcMetadata';
+import { extractBBoxFromElement, scanScoreSystems } from './scoreSystemScanner';
 
 export class ScorePdfExportError extends Error {
   readonly cause?: unknown;
@@ -49,133 +50,6 @@ type SystemInfo = {
   bottom: number;
   height: number;
   elements: Element[];
-};
-
-const extractBBoxFromElement = (
-  el: Element,
-): { x: number; y: number; width: number; height: number } | null => {
-  try {
-    if (typeof (el as SVGGraphicsElement).getBBox === 'function') {
-      const bbox = (el as SVGGraphicsElement).getBBox();
-      if (
-        Number.isFinite(bbox.x)
-        && Number.isFinite(bbox.y)
-        && Number.isFinite(bbox.width)
-        && Number.isFinite(bbox.height)
-        && (bbox.width > 0 || bbox.height > 0)
-      ) {
-        return { x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height };
-      }
-    }
-  } catch {
-    // ignore
-  }
-
-  const tagName = el.tagName.toLowerCase();
-
-  // Container elements (<g>, <svg>): compute union bounding box of children
-  if (tagName === 'g' || tagName === 'svg') {
-    const childBoxes: Array<{ x: number; y: number; width: number; height: number }> = [];
-    for (const child of Array.from(el.children)) {
-      const box = extractBBoxFromElement(child);
-      if (box) childBoxes.push(box);
-    }
-    if (childBoxes.length > 0) {
-      const minX = Math.min(...childBoxes.map((b) => b.x));
-      const minY = Math.min(...childBoxes.map((b) => b.y));
-      const maxX = Math.max(...childBoxes.map((b) => b.x + b.width));
-      const maxY = Math.max(...childBoxes.map((b) => b.y + b.height));
-      return {
-        x: minX,
-        y: minY,
-        width: Math.max(1, maxX - minX),
-        height: Math.max(1, maxY - minY),
-      };
-    }
-  }
-
-  // Parse path coordinates directly from 'd' attribute
-  if (tagName === 'path') {
-    const d = el.getAttribute('d');
-    if (d) {
-      const coords = Array.from(d.matchAll(/([MLCSTQAZ])\s*([0-9.-]+)[,\s]+([0-9.-]+)/gi));
-      if (coords.length > 0) {
-        let minX = Infinity;
-        let maxX = -Infinity;
-        let minY = Infinity;
-        let maxY = -Infinity;
-        for (const coord of coords) {
-          const x = Number(coord[2]);
-          const y = Number(coord[3]);
-          if (Number.isFinite(x) && Number.isFinite(y)) {
-            minX = Math.min(minX, x);
-            maxX = Math.max(maxX, x);
-            minY = Math.min(minY, y);
-            maxY = Math.max(maxY, y);
-          }
-        }
-        if (Number.isFinite(minX) && Number.isFinite(minY)) {
-          return {
-            x: minX,
-            y: minY,
-            width: Math.max(1, maxX - minX),
-            height: Math.max(1, maxY - minY),
-          };
-        }
-      }
-    }
-  }
-
-  // Parse rect, image, use
-  if (tagName === 'rect' || tagName === 'image' || tagName === 'use') {
-    const x = Number(el.getAttribute('x') || 0);
-    const y = Number(el.getAttribute('y') || 0);
-    const width = Number(el.getAttribute('width') || 0);
-    const height = Number(el.getAttribute('height') || 0);
-    if (Number.isFinite(x) && Number.isFinite(y)) {
-      return {
-        x,
-        y,
-        width: Math.max(1, Number.isFinite(width) ? width : 1),
-        height: Math.max(1, Number.isFinite(height) ? height : 1),
-      };
-    }
-  }
-
-  // Parse line
-  if (tagName === 'line') {
-    const x1 = Number(el.getAttribute('x1') || 0);
-    const y1 = Number(el.getAttribute('y1') || 0);
-    const x2 = Number(el.getAttribute('x2') || 0);
-    const y2 = Number(el.getAttribute('y2') || 0);
-    if ([x1, y1, x2, y2].every(Number.isFinite)) {
-      const minX = Math.min(x1, x2);
-      const minY = Math.min(y1, y2);
-      return {
-        x: minX,
-        y: minY,
-        width: Math.max(1, Math.abs(x2 - x1)),
-        height: Math.max(1, Math.abs(y2 - y1)),
-      };
-    }
-  }
-
-  // Parse text
-  if (tagName === 'text') {
-    const x = Number(el.getAttribute('x') || 0);
-    const y = Number(el.getAttribute('y') || 0);
-    if (Number.isFinite(x) && Number.isFinite(y)) {
-      const textLen = (el.textContent || '').length;
-      return {
-        x,
-        y: y - 10,
-        width: Math.max(1, textLen * 7),
-        height: 12,
-      };
-    }
-  }
-
-  return null;
 };
 
 export const generateScorePdfHtml = ({
@@ -264,71 +138,21 @@ export const generateScorePdfHtml = ({
       ? viewBoxParts[3]
       : 800;
 
-    // Identify distinct lines/systems
-    const lineClassSet = new Set<string>();
-    container.querySelectorAll<SVGGraphicsElement>('[class*="abcjs-l"]').forEach((el) => {
-      Array.from(el.classList).forEach((className) => {
-        if (/^abcjs-l\d+$/.test(className)) {
-          lineClassSet.add(className);
-        }
-      });
-    });
-
-    const sortedLineClasses = Array.from(lineClassSet).sort(
-      (a, b) => Number(a.slice(7)) - Number(b.slice(7)),
-    );
+    // Identify distinct lines/systems via shared scanner
+    const scannedSystems = scanScoreSystems(svg);
 
     // Extract system information
     const systems: SystemInfo[] = [];
 
-    if (sortedLineClasses.length > 0) {
-      sortedLineClasses.forEach((lineClass, index) => {
-        const lineElements = Array.from(svg.querySelectorAll<SVGGraphicsElement>(`.${lineClass}`));
-        const measuresInLine: number[] = [];
-
-        svg.querySelectorAll<SVGGraphicsElement>(`[class*="abcjs-mm"].${lineClass}`).forEach((el) => {
-          Array.from(el.classList).forEach((cls) => {
-            const match = cls.match(/^abcjs-mm(\d+)$/);
-            if (match) {
-              measuresInLine.push(Number(match[1]) + 1);
-            }
-          });
-        });
-
-        const uniqueMeasures = Array.from(new Set(measuresInLine)).sort((a, b) => a - b);
-        const minMeasure = uniqueMeasures.length > 0 ? uniqueMeasures[0] : 1;
-        const maxMeasure = uniqueMeasures.length > 0 ? uniqueMeasures[uniqueMeasures.length - 1] : minMeasure;
-
-        // Approximate or measure bounding box
-        const staffEls = svg.querySelectorAll<SVGGraphicsElement>(`.abcjs-staff.${lineClass}`);
-        let staffTop = Infinity;
-        let staffBottom = -Infinity;
-
-        staffEls.forEach((el) => {
-          const box = extractBBoxFromElement(el);
-          if (box) {
-            staffTop = Math.min(staffTop, box.y);
-            staffBottom = Math.max(staffBottom, box.y + box.height);
-          }
-        });
-
-        let elementMinY = Infinity;
-        let elementMaxY = -Infinity;
-
-        lineElements.forEach((el) => {
-          if (
-            el.classList.contains('abcjs-note')
-            || el.classList.contains('abcjs-dynamics')
-            || el.classList.contains('abcjs-tempo')
-            || el.classList.contains('abcjs-bar')
-          ) {
-            const box = extractBBoxFromElement(el);
-            if (box) {
-              elementMinY = Math.min(elementMinY, box.y);
-              elementMaxY = Math.max(elementMaxY, box.y + box.height);
-            }
-          }
-        });
+    if (scannedSystems.length > 0) {
+      scannedSystems.forEach((scanned, index) => {
+        const lineElements = Array.from(svg.querySelectorAll<SVGGraphicsElement>(`.${scanned.lineClass}`));
+        const minMeasure = scanned.minMeasure;
+        const maxMeasure = scanned.maxMeasure;
+        const staffTop = scanned.staffTop;
+        const staffBottom = scanned.staffBottom;
+        const elementMinY = scanned.elementsMinY;
+        const elementMaxY = scanned.elementsMaxY;
 
         const systemChords = chordAnnotations.filter((c) => {
           const m = c.position.measure;
@@ -349,14 +173,14 @@ export const generateScorePdfHtml = ({
 
         if (!Number.isFinite(top) || !Number.isFinite(bottom)) {
           // Fallback proportional slicing
-          const sliceHeight = totalSvgHeight / sortedLineClasses.length;
+          const sliceHeight = totalSvgHeight / scannedSystems.length;
           top = index * sliceHeight;
           bottom = (index + 1) * sliceHeight;
         }
 
         systems.push({
           index,
-          lineClass,
+          lineClass: scanned.lineClass,
           minMeasure,
           maxMeasure,
           top: Math.max(0, top),
