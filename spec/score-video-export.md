@@ -3,8 +3,9 @@ title: "Score Video Export Spec"
 description: "Specification for exporting scores as synchronized two-line sheet videos with audio playback, progress indicator, and intro/outro cards"
 category: "core-workspace"
 date: 2026-09-12
-status: "in-progress"
+status: "implemented"
 source_files:
+  - src/music/scoreSystemScanner.ts
   - src/music/scoreVideoTimeline.ts
   - src/music/scoreVideoRenderer.ts
   - src/music/scoreVideoRecorder.ts
@@ -12,6 +13,7 @@ source_files:
   - src/components/FileRail.tsx
   - src/components/workspace/WorkspaceModals.tsx
 test_files:
+  - src/music/__tests__/scoreSystemScanner.test.ts
   - src/music/__tests__/scoreVideoTimeline.test.ts
   - src/music/__tests__/scoreVideoRenderer.test.ts
   - src/music/__tests__/scoreVideoRecorder.test.ts
