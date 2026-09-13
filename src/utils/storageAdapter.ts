@@ -15,6 +15,7 @@ type IndexedDBRecord = {
 let dbPromise: Promise<IDBDatabase> | null = null;
 const memoryStore = new Map<string, unknown>();
 let workspaceRevision = 0;
+let sharedServiceAvailable: boolean | null = null;
 
 // The packaged workspace is served by the Chorale daemon. Vite remains an
 // intentionally local development fallback; it never becomes production
@@ -24,22 +25,25 @@ const sharedServiceBase = (): string | null => {
   const configured = new URLSearchParams(window.location.search).get('choraleBridge');
   if (configured) return configured;
   if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
-    // Vite (5173) and JSDOM's conventional 3000 origin are development/test
-    // fallbacks. Packaged daemon ports, including an alternate ephemeral port,
-    // remain same-origin shared workspaces.
+    // JSDOM's conventional 3000 origin is a development/test fallback.
+    // In actual browser environments, fetch from the current server origin.
     if (window.location.port === '3000') return null;
-    return window.location.port === '5173' ? 'http://127.0.0.1:1685' : window.location.origin;
+    return window.location.origin;
   }
-  // Electron/file callers can opt in with ?choraleBridge=…; the legacy
-  // loopback default remains available for existing local launches.
-  return 'http://127.0.0.1:1685';
+  return null;
 };
 
 const usesSharedWorkspace = (): boolean => sharedServiceBase() !== null;
 
 const sharedWorkspace = async <T>(path: string, options?: RequestInit): Promise<T> => {
-  const response = await fetch(`${sharedServiceBase()}${path}`, options);
+  const base = sharedServiceBase();
+  const url = base ? `${base}${path}` : path;
+  const response = await fetch(url, options);
   if (!response.ok) throw new Error(response.status === 409 ? 'Workspace changed in another view. Refreshing.' : 'Shared Chorale service is unavailable.');
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error('Shared Chorale service returned invalid content.');
+  }
   return response.json() as Promise<T>;
 };
 
@@ -84,6 +88,7 @@ const normalizeDocuments = (documents: unknown[]): FileDocument[] => (
 export const storageAdapter = {
   clearMemoryStore(): void {
     memoryStore.clear();
+    sharedServiceAvailable = null;
   },
 
   async getSharedActiveFileId(): Promise<string | null> {
@@ -103,10 +108,19 @@ export const storageAdapter = {
   },
 
   async getDocuments(): Promise<FileDocument[]> {
-    if (usesSharedWorkspace()) {
-      const workspace = await sharedWorkspace<{ revision: number; documents: unknown[] }>('/v1/workspace');
-      workspaceRevision = workspace.revision;
-      return normalizeDocuments(workspace.documents || []);
+    if (usesSharedWorkspace() && sharedServiceAvailable !== false) {
+      try {
+        const workspace = await sharedWorkspace<{ revision: number; documents: unknown[] }>('/v1/workspace');
+        workspaceRevision = workspace.revision;
+        sharedServiceAvailable = true;
+        return normalizeDocuments(workspace.documents || []);
+      } catch (err) {
+        if (err instanceof Error && err.message.includes('Workspace changed in another view')) {
+          throw err;
+        }
+        sharedServiceAvailable = false;
+        console.info('Shared Chorale service unavailable, falling back to local storage.');
+      }
     }
     if (!hasIndexedDB()) {
       const memoryDocuments = memoryStore.get(DOCUMENTS_STORAGE_KEY);
@@ -134,14 +148,23 @@ export const storageAdapter = {
   },
 
   async saveDocuments(documents: FileDocument[]): Promise<boolean> {
-    if (usesSharedWorkspace()) {
-      const workspace = await sharedWorkspace<{ revision: number }>('/v1/workspace/documents', {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ documents, expectedRevision: workspaceRevision }),
-      });
-      workspaceRevision = workspace.revision;
-      return true;
+    if (usesSharedWorkspace() && sharedServiceAvailable !== false) {
+      try {
+        const workspace = await sharedWorkspace<{ revision: number }>('/v1/workspace/documents', {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ documents, expectedRevision: workspaceRevision }),
+        });
+        workspaceRevision = workspace.revision;
+        sharedServiceAvailable = true;
+        return true;
+      } catch (err) {
+        if (err instanceof Error && err.message.includes('Workspace changed in another view')) {
+          throw err;
+        }
+        sharedServiceAvailable = false;
+        console.info('Shared Chorale service unavailable, saving to local storage.');
+      }
     }
     if (!hasIndexedDB()) {
       // Non-browser test environments have no durable storage. Keep this fallback

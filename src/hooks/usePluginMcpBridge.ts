@@ -37,12 +37,11 @@ export const getPluginViewConfig = (): PluginViewConfig => {
     return { viewId: 'plugin-main', bridgeUrl: defaultBridgeUrl };
   }
   const parameters = new URLSearchParams(window.location.search);
-  const servedByChorale = window.location.port !== '5173';
+  const isHttp = window.location.protocol === 'http:' || window.location.protocol === 'https:';
   return {
     viewId: parameters.get('viewId') || viewIdentity(),
-    // The packaged UI is served by the daemon. Same-origin requests work from
-    // every browser profile without broad mutation CORS permissions.
-    bridgeUrl: parameters.get('choraleBridge') || (servedByChorale ? window.location.origin : defaultBridgeUrl),
+    // When served via HTTP/HTTPS, use the current server origin instead of hardwiring port 1685.
+    bridgeUrl: parameters.get('choraleBridge') || (isHttp ? window.location.origin : defaultBridgeUrl),
   };
 };
 
@@ -105,9 +104,11 @@ export const usePluginMcpBridge = ({
     [abcSource, selection],
   );
 
+  const isBridgeAvailableRef = useRef(true);
+
   useEffect(() => {
     if (!enabled || !documentId) return undefined;
-    const publish = () => {
+    const publish = async () => {
       const snapshot = {
         documentId,
         title,
@@ -127,24 +128,41 @@ export const usePluginMcpBridge = ({
         visibilityState: document.visibilityState,
         updatedAt: new Date().toISOString(),
       };
-      void fetch(`${config.bridgeUrl}/v1/views/${encodeURIComponent(config.viewId)}`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(snapshot),
-        keepalive: true,
-      }).catch(() => {
-        // The page remains usable while the optional local MCP process is not running.
-      });
+      try {
+        const response = await fetch(`${config.bridgeUrl}/v1/views/${encodeURIComponent(config.viewId)}`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(snapshot),
+          keepalive: true,
+        });
+        if (response.status === 404 || !response.ok) {
+          isBridgeAvailableRef.current = false;
+        } else {
+          isBridgeAvailableRef.current = true;
+        }
+      } catch {
+        isBridgeAvailableRef.current = false;
+      }
     };
 
-    publish();
-    const refresh = window.setInterval(publish, 1500);
-    window.addEventListener('focus', publish);
+    void publish();
+    const refresh = window.setInterval(() => {
+      if (isBridgeAvailableRef.current) {
+        void publish();
+      }
+    }, 1500);
+
+    const onFocus = () => {
+      isBridgeAvailableRef.current = true;
+      void publish();
+    };
+
+    window.addEventListener('focus', onFocus);
     window.addEventListener('blur', publish);
     document.addEventListener('visibilitychange', publish);
     return () => {
       window.clearInterval(refresh);
-      window.removeEventListener('focus', publish);
+      window.removeEventListener('focus', onFocus);
       window.removeEventListener('blur', publish);
       document.removeEventListener('visibilitychange', publish);
     };
@@ -155,9 +173,13 @@ export const usePluginMcpBridge = ({
     let cancelled = false;
 
     const syncFromStore = async () => {
+      if (!isBridgeAvailableRef.current) return;
       try {
         const response = await fetch(`${config.bridgeUrl}/v1/scores/${encodeURIComponent(documentId)}`);
-        if (!response.ok || cancelled) return;
+        if (!response.ok || cancelled) {
+          if (response.status === 404) isBridgeAvailableRef.current = false;
+          return;
+        }
         const score = await response.json() as { annotations?: Annotation[]; revision?: number };
         if (Array.isArray(score.annotations) && onSetAnnotationsRef.current) {
           const currentAnns = annotationsRef.current || [];
@@ -169,14 +191,18 @@ export const usePluginMcpBridge = ({
           }
         }
       } catch {
-        // The optional local bridge may be offline.
+        isBridgeAvailableRef.current = false;
       }
     };
 
     const poll = async () => {
+      if (!isBridgeAvailableRef.current) return;
       try {
         const response = await fetch(`${config.bridgeUrl}/v1/views/${encodeURIComponent(config.viewId)}/commands`);
-        if (!response.ok || cancelled) return;
+        if (!response.ok || cancelled) {
+          if (response.status === 404) isBridgeAvailableRef.current = false;
+          return;
+        }
         const { commands } = await response.json() as { commands?: Array<Record<string, unknown>> };
         for (const command of commands || []) {
           const commandId = typeof command.id === 'string' ? command.id : '';
