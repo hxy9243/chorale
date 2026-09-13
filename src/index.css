@@ -1678,19 +1678,6 @@ body {
   .workspace-body.chat-open {
     grid-template-columns: 220px 1fr 340px;
   }
-
-  .score-editor-shell {
-    flex-direction: column;
-  }
-
-  .editor-divider {
-    display: none;
-  }
-
-  .editor-workspace-card {
-    width: 100% !important;
-    margin-top: 1rem;
-  }
 }
 
 @media (max-width: 980px) {
