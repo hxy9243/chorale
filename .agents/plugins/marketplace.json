@@ -1,0 +1,20 @@
+{
+  "name": "chorale-local",
+  "interface": {
+    "displayName": "Chorale Local"
+  },
+  "plugins": [
+    {
+      "name": "chorale-codex-plugin",
+      "source": {
+        "source": "local",
+        "path": "./plugins/chorale-codex-plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
