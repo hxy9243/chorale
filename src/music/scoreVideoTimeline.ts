@@ -198,15 +198,19 @@ export class ScoreVideoTimeline {
       };
     }
 
-    // Find the note events surrounding scoreTimeSec
+    // Find the latest note event at or before scoreTimeSec via binary search
     const events = this.noteEvents;
+    let low = 0;
+    let high = events.length - 1;
     let currIdx = 0;
 
-    for (let i = 0; i < events.length; i++) {
-      if (events[i].timeSec <= scoreTimeSec) {
-        currIdx = i;
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      if (events[mid].timeSec <= scoreTimeSec) {
+        currIdx = mid;
+        low = mid + 1;
       } else {
-        break;
+        high = mid - 1;
       }
     }
 

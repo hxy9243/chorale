@@ -189,4 +189,52 @@ describe('ScoreVideoExportModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onClose).toHaveBeenCalledTimes(2);
   });
+
+  it('downloads with .webm extension if recorded blob is webm even when mp4 was requested', async () => {
+    const scoreVideoRecorderModule = await import('../../music/scoreVideoRecorder');
+    const recordScoreVideoMock = vi.spyOn(scoreVideoRecorderModule, 'recordScoreVideo').mockResolvedValue(
+      new Blob(['fake-video'], { type: 'video/webm' }),
+    );
+
+    let downloadedFileName = '';
+    const clickMock = vi.fn();
+    const originalCreateElement = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
+      if (tagName === 'a') {
+        const link = originalCreateElement('a');
+        link.click = clickMock;
+        link.remove = vi.fn();
+        Object.defineProperty(link, 'download', {
+          set(name: string) {
+            downloadedFileName = name;
+          },
+          get() {
+            return downloadedFileName;
+          },
+        });
+        return link;
+      }
+      return originalCreateElement(tagName);
+    });
+
+    render(
+      <ScoreVideoExportModal
+        open={true}
+        onClose={vi.fn()}
+        scoreTitle="Test Piece"
+      />,
+    );
+
+    const exportBtn = screen.getByRole('button', { name: /Export Sheet Video/ });
+    fireEvent.click(exportBtn);
+
+    await vi.waitFor(() => {
+      expect(recordScoreVideoMock).toHaveBeenCalled();
+      expect(clickMock).toHaveBeenCalled();
+      expect(downloadedFileName).toBe('test_piece-video.webm');
+    });
+
+    recordScoreVideoMock.mockRestore();
+    vi.restoreAllMocks();
+  });
 });

@@ -260,7 +260,7 @@ export class ScoreVideoRenderer {
     ctx.restore();
   }
 
-  private drawIntroCard(ctx: CanvasRenderingContext2D, _frameState: ScoreVideoFrameState): void {
+  private drawIntroCard(ctx: CanvasRenderingContext2D, frameState: ScoreVideoFrameState): void {
     const { width, height, metadata } = this.options;
     const cx = width / 2;
     const cy = height / 2;
@@ -304,7 +304,54 @@ export class ScoreVideoRenderer {
     if (badges.length > 0) {
       ctx.fillStyle = this.palette.textMuted;
       ctx.font = `500 ${Math.max(13, Math.round(width * 0.013))}px monospace`;
-      ctx.fillText(badges.join('   •   '), cx, cy + cardH * 0.12);
+      ctx.fillText(badges.join('   •   '), cx, cy + cardH * 0.10);
+    }
+
+    // Animated Count-in Beat Indicator
+    const introState = frameState.introState;
+    if (introState && introState.countInTotalBeats > 0) {
+      const totalBeats = introState.countInTotalBeats;
+      const currentBeat = introState.countInBeat;
+      const beatFraction = introState.beatFraction;
+
+      const dotSpacing = Math.max(28, Math.round(width * 0.032));
+      const dotRadius = Math.max(6, Math.round(width * 0.0075));
+      const dotsY = cy + cardH * 0.28;
+      const startX = cx - ((totalBeats - 1) * dotSpacing) / 2;
+
+      for (let b = 1; b <= totalBeats; b++) {
+        const dotX = startX + (b - 1) * dotSpacing;
+
+        if (b < currentBeat) {
+          // Completed beat
+          ctx.beginPath();
+          ctx.arc(dotX, dotsY, dotRadius, 0, Math.PI * 2);
+          ctx.fillStyle = this.palette.dotActive;
+          ctx.fill();
+        } else if (b === currentBeat) {
+          // Active beat pulsing with beatFraction
+          const pulseExtra = (1 - beatFraction) * 6;
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(dotX, dotsY, dotRadius + pulseExtra, 0, Math.PI * 2);
+          ctx.strokeStyle = this.palette.cursorGlow;
+          ctx.lineWidth = 2;
+          ctx.globalAlpha = Math.max(0, 1 - beatFraction * 0.8);
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.beginPath();
+          ctx.arc(dotX, dotsY, dotRadius, 0, Math.PI * 2);
+          ctx.fillStyle = this.palette.dotActive;
+          ctx.fill();
+        } else {
+          // Inactive beat
+          ctx.beginPath();
+          ctx.arc(dotX, dotsY, dotRadius, 0, Math.PI * 2);
+          ctx.fillStyle = this.palette.dotInactive;
+          ctx.fill();
+        }
+      }
     }
 
     ctx.restore();

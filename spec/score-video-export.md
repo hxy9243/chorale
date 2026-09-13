@@ -109,6 +109,12 @@ Given $M$ systems extracted from the score:
     - MP4 recording checks available MIME types (`video/mp4;codecs=avc1,mp4a.40.2`, `video/mp4;codecs=avc1,aac`, `video/mp4;codecs=avc1`, `video/mp4`).
     - Post-recording container repair (`repairMp4BoxDurations`) rescales `mdhd` durations, normalizes `mfhd` fragment sequence numbers, and aligns `trun` Opus packet sample counts to guarantee glitch-free playback across VLC and local players.
 - **Dynamic File Size Estimation Model**:
+  - Predicts anticipated file size before export using empirical total bitrates (video + audio + container muxing overhead) based on duration, format, and compression tier:
+    - `compact` (720p): WebM $\sim 550\text{ kbps}$, MP4 $\sim 450\text{ kbps}$.
+    - `compressed` (1080p): WebM $\sim 1{,}000\text{ kbps}$, MP4 $\sim 650\text{ kbps}$.
+    - `high` (1080p): WebM $\sim 1{,}850\text{ kbps}$, MP4 $\sim 1{,}450\text{ kbps}$.
+  - Includes $30\text{ KB}$ baseline container initialization overhead:
+    $$\text{estimatedBytes} = \left\lfloor \frac{\text{bitrate}_{\text{bps}} \times \text{duration}_{\text{sec}}}{8} \right\rfloor + 30{,}000$$
 
 
 ### 3.5 SVG System Slice Isolation & Ledger Line Preservation

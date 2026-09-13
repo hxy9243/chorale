@@ -11,7 +11,8 @@ import {
   type ScoreVideoTheme,
   type RenderableSystem,
 } from './scoreVideoRenderer';
-import { prepareAbcForPlayback } from '../utils/abcAudio';
+import { hideSyntheticTupletRests, initAbcjsSynth, prepareAbcForPlayback } from '../utils/abcAudio';
+import { scanScoreSystems } from './scoreSystemScanner';
 
 export interface ScoreVideoExportProgress {
   currentSec: number;
@@ -22,6 +23,18 @@ export interface ScoreVideoExportProgress {
 
 export type ScoreVideoFormat = 'mp4' | 'webm';
 export type ScoreVideoQuality = 'compact' | 'compressed' | 'high';
+
+export const DEFAULT_VIDEO_BITRATES: Record<ScoreVideoQuality, number> = {
+  compact: 750_000,
+  compressed: 2_000_000,
+  high: 6_000_000,
+};
+
+export const DEFAULT_AUDIO_BITRATES: Record<ScoreVideoQuality, number> = {
+  compact: 112_000,
+  compressed: 192_000,
+  high: 320_000,
+};
 
 export interface ScoreVideoSizeEstimate {
   bytes: number;
@@ -239,6 +252,8 @@ export async function extractScoreSystems(
         foregroundColor: strokeColor,
       });
 
+      hideSyntheticTupletRests(source, tunes);
+
       const tune = tunes?.[0];
       activeTune = tune;
       if (tune) {
@@ -249,24 +264,11 @@ export async function extractScoreSystems(
           try {
             const synthApi = (abcjs as any).synth;
             const createSynth = new synthApi.CreateSynth();
-            try {
-              await createSynth.init({
-                visualObj: tune,
-                audioContext: audioCtx,
-                options: {
-                  soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/',
-                  soundFontVolumeMultiplier: 0.8,
-                },
-              });
-            } catch {
-              await createSynth.init({
-                visualObj: tune,
-                audioContext: audioCtx,
-                options: {
-                  soundFontVolumeMultiplier: 0.8,
-                },
-              });
-            }
+            await initAbcjsSynth(createSynth, {
+              visualObj: tune,
+              audioContext: audioCtx,
+              soundFontVolumeMultiplier: 0.8,
+            });
             await createSynth.prime();
             const rawBuffers: AudioBuffer[] = (createSynth.audioBuffers && createSynth.audioBuffers.length > 0)
               ? createSynth.audioBuffers
@@ -298,85 +300,19 @@ export async function extractScoreSystems(
     };
   }
 
-  const lineClassSet = new Set<string>();
-  svgElement.querySelectorAll<SVGGraphicsElement>('[class*="abcjs-l"]').forEach((el) => {
-    el.classList.forEach((cls) => {
-      if (/^abcjs-l\d+$/.test(cls)) {
-        lineClassSet.add(cls);
-      }
-    });
-  });
-
-  const sortedLineClasses = Array.from(lineClassSet).sort(
-    (a, b) => Number(a.slice(7)) - Number(b.slice(7)),
-  );
-
   const viewBox = svgElement.viewBox.baseVal;
   const svgWidth = viewBox && viewBox.width > 0 ? viewBox.width : 800;
 
-  // Phase 1: Scan all systems to compute bounding ranges and determine a uniform system height
-  interface RawSystemInfo {
-    lineClass: string;
-    minMeasure: number;
-    maxMeasure: number;
-    minY: number;
-    maxY: number;
-    staffMidY: number;
-  }
-
-  const rawSystems: RawSystemInfo[] = [];
-
-  for (let i = 0; i < sortedLineClasses.length; i++) {
-    const lineClass = sortedLineClasses[i];
-    const elements = Array.from(svgElement.querySelectorAll<SVGGraphicsElement>(`.${lineClass}`));
-
-    let minY = Infinity;
-    let maxY = -Infinity;
-    let staffMinY = Infinity;
-    let staffMaxY = -Infinity;
-    const measures: number[] = [];
-
-    elements.forEach((el) => {
-      el.classList.forEach((cls) => {
-        const mm = cls.match(/^abcjs-mm(\d+)$/);
-        if (mm) measures.push(Number(mm[1]) + 1);
-      });
-
-      try {
-        if (typeof el.getBBox === 'function') {
-          const bbox = el.getBBox();
-          if (bbox.height > 0) {
-            minY = Math.min(minY, bbox.y);
-            maxY = Math.max(maxY, bbox.y + bbox.height);
-
-            if (el.classList.contains('abcjs-staff') || el.classList.contains('abcjs-top-line')) {
-              staffMinY = Math.min(staffMinY, bbox.y);
-              staffMaxY = Math.max(staffMaxY, bbox.y + bbox.height);
-            }
-          }
-        }
-      } catch {
-        // ignore in non-rendered states
-      }
-    });
-
-    const uniqueMeasures = Array.from(new Set(measures)).sort((a, b) => a - b);
-    const minMeasure = uniqueMeasures.length > 0 ? uniqueMeasures[0] : i + 1;
-    const maxMeasure = uniqueMeasures.length > 0 ? uniqueMeasures[uniqueMeasures.length - 1] : minMeasure;
-
-    const staffMid = Number.isFinite(staffMinY) && Number.isFinite(staffMaxY)
-      ? (staffMinY + staffMaxY) / 2
-      : (Number.isFinite(minY) && Number.isFinite(maxY) ? (minY + maxY) / 2 : i * 140 + 80);
-
-    rawSystems.push({
-      lineClass,
-      minMeasure,
-      maxMeasure,
-      minY,
-      maxY,
-      staffMidY: staffMid,
-    });
-  }
+  // Phase 1: Scan all systems to compute bounding ranges via shared scanner
+  const scannedSystems = scanScoreSystems(svgElement);
+  const rawSystems = scannedSystems.map((s) => ({
+    lineClass: s.lineClass,
+    minMeasure: s.minMeasure,
+    maxMeasure: s.maxMeasure,
+    minY: s.elementsMinY,
+    maxY: s.elementsMaxY,
+    staffMidY: s.staffMidY,
+  }));
 
   // Calculate a uniform slice height encompassing all systems plus comfortable staff margin
   const maxSpan = rawSystems.reduce((max, s) => {
@@ -453,11 +389,17 @@ export async function extractScoreSystems(
         const url = URL.createObjectURL(blob);
         const img = new Image();
 
-        await new Promise<void>((resolve) => {
-          img.onload = () => resolve();
-          img.onerror = () => resolve();
-          img.src = url;
-        });
+        try {
+          await new Promise<void>((resolve) => {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+            img.src = url;
+          });
+        } finally {
+          if (typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+            URL.revokeObjectURL(url);
+          }
+        }
 
         image = img;
       } catch (sliceErr) {
@@ -581,19 +523,8 @@ export async function recordScoreVideoWithWebCodecs(
   const requestedFormat = options.format ?? 'mp4';
   const requestedQuality = options.quality ?? 'compressed';
 
-  const defaultVideoBitrates: Record<ScoreVideoQuality, number> = {
-    compact: 750_000,
-    compressed: 2_000_000,
-    high: 6_000_000,
-  };
-  const defaultAudioBitrates: Record<ScoreVideoQuality, number> = {
-    compact: 112_000,
-    compressed: 192_000,
-    high: 320_000,
-  };
-
-  const videoBitrate = options.videoBitrate ?? defaultVideoBitrates[requestedQuality] ?? 2_000_000;
-  const audioBitrate = defaultAudioBitrates[requestedQuality] ?? 192_000;
+  const videoBitrate = options.videoBitrate ?? DEFAULT_VIDEO_BITRATES[requestedQuality] ?? 2_000_000;
+  const audioBitrate = DEFAULT_AUDIO_BITRATES[requestedQuality] ?? 192_000;
 
   canvas.width = width;
   canvas.height = height;
@@ -659,48 +590,57 @@ export async function recordScoreVideoWithWebCodecs(
     output.addAudioTrack(audioSource);
   }
 
-  await output.start();
+  try {
+    await output.start();
 
-  const totalFrames = Math.max(1, Math.ceil(totalDuration * fps));
-  const frameDuration = 1 / fps;
+    const totalFrames = Math.max(1, Math.ceil(totalDuration * fps));
+    const frameDuration = 1 / fps;
 
-  for (let frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
-    const elapsedSec = Math.min(totalDuration, frameIndex * frameDuration);
-    const frameState = timeline.getFrameState(elapsedSec);
-    renderer.renderFrame(ctx, frameState, extracted.systemImages);
+    for (let frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
+      const elapsedSec = Math.min(totalDuration, frameIndex * frameDuration);
+      const frameState = timeline.getFrameState(elapsedSec);
+      renderer.renderFrame(ctx, frameState, extracted.systemImages);
 
-    await videoSource.add(elapsedSec, frameDuration);
+      await videoSource.add(elapsedSec, frameDuration);
 
-    onProgress?.({
-      currentSec: elapsedSec,
-      totalSec: totalDuration,
-      percentage: Math.min(90, Math.round((frameIndex / totalFrames) * 90)),
-      phase: 'rendering',
-    });
+      onProgress?.({
+        currentSec: elapsedSec,
+        totalSec: totalDuration,
+        percentage: Math.min(90, Math.round((frameIndex / totalFrames) * 90)),
+        phase: 'rendering',
+      });
 
-    if (frameIndex % 5 === 0) {
-      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      if (frameIndex % 5 === 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      }
     }
-  }
 
-  if (audioSource && extracted.audioBuffer) {
+    if (audioSource && extracted.audioBuffer) {
+      onProgress?.({
+        currentSec: totalDuration,
+        totalSec: totalDuration,
+        percentage: 95,
+        phase: 'encoding',
+      });
+      await audioSource.add(extracted.audioBuffer);
+    }
+
     onProgress?.({
       currentSec: totalDuration,
       totalSec: totalDuration,
-      percentage: 95,
+      percentage: 98,
       phase: 'encoding',
     });
-    await audioSource.add(extracted.audioBuffer);
+
+    await output.finalize();
+  } catch (err) {
+    try {
+      await (output as any).cancel?.();
+    } catch {
+      // ignore cancellation errors
+    }
+    throw err;
   }
-
-  onProgress?.({
-    currentSec: totalDuration,
-    totalSec: totalDuration,
-    percentage: 98,
-    phase: 'encoding',
-  });
-
-  await output.finalize();
 
   onProgress?.({
     currentSec: totalDuration,
@@ -830,19 +770,8 @@ export async function recordScoreVideoWithMediaRecorder(
   const requestedFormat = options.format ?? 'mp4';
   const requestedQuality = options.quality ?? 'compressed';
 
-  const defaultVideoBitrates: Record<ScoreVideoQuality, number> = {
-    compact: 750_000,
-    compressed: 2_000_000,
-    high: 6_000_000,
-  };
-  const defaultAudioBitrates: Record<ScoreVideoQuality, number> = {
-    compact: 112_000,
-    compressed: 192_000,
-    high: 320_000,
-  };
-
-  const videoBitrate = options.videoBitrate ?? defaultVideoBitrates[requestedQuality] ?? 2_000_000;
-  const audioBitrate = defaultAudioBitrates[requestedQuality] ?? 192_000;
+  const videoBitrate = options.videoBitrate ?? DEFAULT_VIDEO_BITRATES[requestedQuality] ?? 2_000_000;
+  const audioBitrate = DEFAULT_AUDIO_BITRATES[requestedQuality] ?? 192_000;
 
   // Determine optimal MIME type supported by browser based on requested format
   let mimeType = '';
@@ -1132,12 +1061,15 @@ export async function repairMp4BoxDurations(blob: Blob): Promise<Blob> {
                 if (flags & 0x400) p += 4;
                 if (flags & 0x800) p += 4;
 
+                const isAac =
+                  audioInfo?.audioCodec?.toLowerCase().includes('mp4a') ||
+                  audioInfo?.audioCodec?.toLowerCase().includes('aac');
                 let exactSamples = 2880;
-                if (sampleSize > 0 && packetDataPos + sampleSize <= bytes.length) {
+                if (isAac) {
+                  exactSamples = 1024;
+                } else if (sampleSize > 0 && packetDataPos + sampleSize <= bytes.length) {
                   const pkt = bytes.subarray(packetDataPos, packetDataPos + sampleSize);
                   exactSamples = getOpusPacketSampleCount(pkt);
-                } else if (audioInfo?.audioCodec?.toLowerCase().includes('mp4a')) {
-                  exactSamples = 1024;
                 }
 
                 if (durPos >= 0 && durPos + 4 <= bEnd) {

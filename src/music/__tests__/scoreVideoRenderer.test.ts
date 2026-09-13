@@ -80,6 +80,8 @@ describe('ScoreVideoRenderer', () => {
     renderer.renderFrame(ctx, frameState);
     expect(ctx.fillRect).toHaveBeenCalled();
     expect(ctx.fillText).toHaveBeenCalledWith('Chorale in G Major', expect.any(Number), expect.any(Number));
+    // 4 beat dots + 1 pulse ring for active beat = at least 4 arc calls
+    expect(vi.mocked(ctx.arc).mock.calls.length).toBeGreaterThanOrEqual(4);
   });
 
   it('renders score frame with systems and cursor', () => {

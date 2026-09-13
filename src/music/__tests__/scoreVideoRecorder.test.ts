@@ -7,6 +7,8 @@ import {
   repairMp4BoxDurations,
   getOpusPacketSampleCount,
   getEstimatedScoreVideoSize,
+  DEFAULT_VIDEO_BITRATES,
+  DEFAULT_AUDIO_BITRATES,
   type ExtractedScoreData,
   type ScoreVideoExportOptions,
 } from '../scoreVideoRecorder';
@@ -681,6 +683,123 @@ describe('scoreVideoRecorder', () => {
       // trun sample durations repaired from 3132 and 2490 to exact 2880 samples
       expect(repairedView.getUint32(trunStart + 20)).toBe(2880);
       expect(repairedView.getUint32(trunStart + 28)).toBe(2880);
+    });
+
+    it('repairs AAC fMP4 trun durations to 1024 samples without parsing as Opus', async () => {
+      const buffer = new ArrayBuffer(4096);
+      const bytes = new Uint8Array(buffer);
+      const view = new DataView(buffer);
+      let offset = 0;
+
+      const writeBox = (type: string, payloadSize: number) => {
+        const start = offset;
+        view.setUint32(start, payloadSize + 8);
+        for (let i = 0; i < 4; i++) bytes[start + 4 + i] = type.charCodeAt(i);
+        offset += 8;
+        return start;
+      };
+
+      // moov
+      const moovStart = writeBox('moov', 300);
+      const mvhdStart = writeBox('mvhd', 24);
+      bytes[mvhdStart + 8] = 0;
+      view.setUint32(mvhdStart + 20, 1000);
+      view.setUint32(mvhdStart + 24, 10000);
+      offset = mvhdStart + 32;
+
+      // trak for audio with mp4a codec
+      const trakStart = writeBox('trak', 200);
+      const tkhdStart = writeBox('tkhd', 24);
+      view.setUint32(tkhdStart + 20, 2);
+      offset = tkhdStart + 32;
+
+      const mdiaStart = writeBox('mdia', 180);
+      const hdlrStart = writeBox('hdlr', 16);
+      for (let i = 0; i < 4; i++) bytes[hdlrStart + 16 + i] = 'soun'.charCodeAt(i);
+      offset = hdlrStart + 24;
+
+      const mdhdStart = writeBox('mdhd', 24);
+      view.setUint32(mdhdStart + 20, 48000);
+      offset = mdhdStart + 32;
+
+      const minfStart = writeBox('minf', 80);
+      const stblStart = writeBox('stbl', 70);
+      const stsdStart = writeBox('stsd', 50);
+      view.setUint32(stsdStart + 8, 0); // version & flags
+      view.setUint32(stsdStart + 12, 1); // 1 entry
+      offset = stsdStart + 16;
+      const mp4aStart = writeBox('mp4a', 30);
+      offset = mp4aStart + 38;
+
+      view.setUint32(stsdStart, offset - stsdStart);
+      for (let i = 0; i < 4; i++) bytes[stsdStart + 4 + i] = 'stsd'.charCodeAt(i);
+      view.setUint32(stblStart, offset - stblStart);
+      for (let i = 0; i < 4; i++) bytes[stblStart + 4 + i] = 'stbl'.charCodeAt(i);
+      view.setUint32(minfStart, offset - minfStart);
+      for (let i = 0; i < 4; i++) bytes[minfStart + 4 + i] = 'minf'.charCodeAt(i);
+      view.setUint32(mdiaStart, offset - mdiaStart);
+      for (let i = 0; i < 4; i++) bytes[mdiaStart + 4 + i] = 'mdia'.charCodeAt(i);
+      view.setUint32(trakStart, offset - trakStart);
+      for (let i = 0; i < 4; i++) bytes[trakStart + 4 + i] = 'trak'.charCodeAt(i);
+      view.setUint32(moovStart, offset - moovStart);
+      for (let i = 0; i < 4; i++) bytes[moovStart + 4 + i] = 'moov'.charCodeAt(i);
+
+      // moof with traf track_id = 2 and trun
+      const moofStart = writeBox('moof', 120);
+      const mfhdStart = writeBox('mfhd', 8);
+      view.setUint32(mfhdStart + 12, 1);
+      offset = mfhdStart + 16;
+
+      const trafStart = writeBox('traf', 80);
+      const tfhdStart = writeBox('tfhd', 8);
+      view.setUint32(tfhdStart + 12, 2);
+      offset = tfhdStart + 16;
+
+      const tfdtStart = writeBox('tfdt', 8);
+      view.setUint32(tfdtStart + 12, 0);
+      offset = tfdtStart + 16;
+
+      const trunStart = writeBox('trun', 28);
+      bytes[trunStart + 9] = 0x00;
+      bytes[trunStart + 10] = 0x03;
+      bytes[trunStart + 11] = 0x01;
+      view.setUint32(trunStart + 12, 1);
+      view.setInt32(trunStart + 16, 200);
+      view.setUint32(trunStart + 20, 2400); // jittered duration
+      view.setUint32(trunStart + 24, 8); // sample size
+      offset = trunStart + 28;
+
+      view.setUint32(trafStart, offset - trafStart);
+      for (let i = 0; i < 4; i++) bytes[trafStart + 4 + i] = 'traf'.charCodeAt(i);
+      view.setUint32(moofStart, offset - moofStart);
+      for (let i = 0; i < 4; i++) bytes[moofStart + 4 + i] = 'moof'.charCodeAt(i);
+
+      // mdat with non-Opus bytes (e.g. 0x00)
+      const mdatStart = offset;
+      bytes[moofStart + 200] = 0x00;
+      offset = moofStart + 208;
+      view.setUint32(mdatStart, offset - mdatStart);
+      for (let i = 0; i < 4; i++) bytes[mdatStart + 4 + i] = 'mdat'.charCodeAt(i);
+
+      const blob = new Blob([new Uint8Array(buffer, 0, offset)], { type: 'video/mp4' });
+      const repairedBlob = await repairMp4BoxDurations(blob);
+      const repairedBytes = new Uint8Array(await repairedBlob.arrayBuffer());
+      const repairedView = new DataView(repairedBytes.buffer);
+
+      // AAC samples must get exact 1024 duration rather than Opus-parsed values
+      expect(repairedView.getUint32(trunStart + 20)).toBe(1024);
+    });
+  });
+
+  describe('DEFAULT_BITRATES', () => {
+    it('defines expected default bitrates across quality tiers', () => {
+      expect(DEFAULT_VIDEO_BITRATES.compact).toBe(750_000);
+      expect(DEFAULT_VIDEO_BITRATES.compressed).toBe(2_000_000);
+      expect(DEFAULT_VIDEO_BITRATES.high).toBe(6_000_000);
+
+      expect(DEFAULT_AUDIO_BITRATES.compact).toBe(112_000);
+      expect(DEFAULT_AUDIO_BITRATES.compressed).toBe(192_000);
+      expect(DEFAULT_AUDIO_BITRATES.high).toBe(320_000);
     });
   });
 

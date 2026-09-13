@@ -3,7 +3,6 @@ import { Play, Pause, RotateCcw, Download, X, Film, Loader2 } from 'lucide-react
 import {
   extractScoreSystems,
   recordScoreVideo,
-  isMp4RecordingSupported,
   getEstimatedScoreVideoSize,
   type ExtractedScoreData,
   type ScoreVideoExportProgress,
@@ -90,6 +89,8 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
 
   // Extract score data and synthesize audio buffer when modal opens or theme/source changes
   useEffect(() => {
+    let cancelled = false;
+
     if (!open) {
       stopPreviewAudio();
       setExtractedData(null);
@@ -108,7 +109,9 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
 
     if (sourceToExtract) {
       void extractScoreSystems(sourceToExtract, theme, audioCtx).then((data) => {
-        setExtractedData(data);
+        if (!cancelled) {
+          setExtractedData(data);
+        }
       });
     } else {
       // Fallback empty data if no source is available
@@ -142,6 +145,10 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
         totalScoreTimeSec: 30,
       });
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, [open, abcSource, theme, svgContainerSelector, getAudioContext, stopPreviewAudio]);
 
   const previewTimeline = React.useMemo(() => {
@@ -251,16 +258,15 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
       const deltaSec = (now - lastFrameTimeRef.current) / 1000;
       lastFrameTimeRef.current = now;
 
-      setPreviewTimeSec((prev) => {
-        const next = prev + deltaSec;
-        if (next >= totalDuration) {
-          setIsPreviewPlaying(false);
-          stopPreviewAudio();
-          return 0;
-        }
-        return next;
-      });
+      const next = previewTimeRef.current + deltaSec;
+      if (next >= totalDuration) {
+        setIsPreviewPlaying(false);
+        stopPreviewAudio();
+        setPreviewTimeSec(0);
+        return;
+      }
 
+      setPreviewTimeSec(next);
       animationFrameRef.current = requestAnimationFrame(loop);
     };
 
@@ -337,7 +343,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
           .toLowerCase()
           .replace(/[^a-z0-9_-]/g, '_')
           .replace(/_+/g, '_');
-        const isMp4 = videoBlob.type.includes('mp4') || (format === 'mp4' && isMp4RecordingSupported());
+        const isMp4 = videoBlob.type.includes('mp4');
         const extension = isMp4 ? 'mp4' : 'webm';
         const url = URL.createObjectURL(videoBlob);
         const a = document.createElement('a');

@@ -207,3 +207,59 @@ export function hideSyntheticTupletRests(
     }
   }
 }
+
+export interface InitAbcjsSynthOptions {
+  visualObj: abcjs.TuneObject;
+  audioContext?: AudioContext | null;
+  soundFontVolumeMultiplier?: number;
+  pan?: number[];
+  soundFontUrl?: string;
+}
+
+/**
+ * Initializes an abcjs CreateSynth instance with remote SoundFont, falling back
+ * to the built-in synthesizer if network fetch fails.
+ */
+export async function initAbcjsSynth(
+  createSynth: any,
+  options: InitAbcjsSynthOptions,
+): Promise<void> {
+  const soundFontUrl = options.soundFontUrl ?? 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/';
+  const soundFontVolumeMultiplier = options.soundFontVolumeMultiplier ?? 0.8;
+
+  const baseOptions: Record<string, unknown> = {
+    soundFontVolumeMultiplier,
+  };
+  if (options.pan) {
+    baseOptions.pan = options.pan;
+  }
+
+  const primaryInitOptions: Record<string, unknown> = {
+    visualObj: options.visualObj,
+    options: {
+      ...baseOptions,
+      soundFontUrl,
+    },
+  };
+  if (options.audioContext) {
+    primaryInitOptions.audioContext = options.audioContext;
+  }
+
+  const fallbackInitOptions: Record<string, unknown> = {
+    visualObj: options.visualObj,
+    options: {
+      ...baseOptions,
+    },
+  };
+  if (options.audioContext) {
+    fallbackInitOptions.audioContext = options.audioContext;
+  }
+
+  try {
+    await createSynth.init(primaryInitOptions);
+  } catch (sfErr) {
+    console.warn('SoundFont remote init failed, using built-in synth:', sfErr);
+    await createSynth.init(fallbackInitOptions);
+  }
+}
+
