@@ -3,7 +3,7 @@ title: "Score Surface Spec"
 description: "Specification for score rendering, continuous range selection, chord overlays, range annotation rail, line measure numbers, and auto-centering playback"
 category: "core-workspace"
 date: 2026-08-05
-updated: 2026-09-05
+updated: 2026-09-12
 status: "implemented"
 source_files:
   - src/components/SheetMusicView.tsx
@@ -12,6 +12,9 @@ source_files:
   - src/components/AnnotationOverlay.tsx
   - src/components/AnnotationRail.tsx
   - src/components/AnnotationEditor.tsx
+  - src/music/abcPresentation.ts
+  - src/music/scoreSnapshot.ts
+  - src/music/scorePdfExport.ts
   - src/utils/abcMetadata.ts
   - src/utils/scoreSceneSizing.ts
   - src/music/annotationLayout.ts
@@ -24,6 +27,8 @@ source_files:
 test_files:
   - src/components/__tests__/SheetMusicView.test.tsx
   - src/components/__tests__/ScoreMetadataHeader.test.tsx
+  - src/utils/__tests__/abcAudio.test.ts
+  - src/music/__tests__/scoreSnapshot.multimeasure.test.ts
   - src/utils/__tests__/abcMetadata.test.ts
   - src/utils/__tests__/scoreSceneSizing.test.ts
   - src/components/__tests__/AnnotationRail.test.tsx
@@ -175,3 +180,15 @@ The `ScoreMetadataHeader` component provides visual display and inline editing f
 - **Add field menu:** A subtle `+` button in the attribution row opens a dropdown to add optional header fields (Subtitle, Composer, Lyricist/Author, Origin, Rhythm).
 - **Non-destructive synchronization:** `updateAbcHeaderMetadata` in `src/utils/abcMetadata.ts` modifies header fields in the first tune's header section without touching musical notes, voice blocks, lyrics, or comments.
 - **Bi-directional updates:** Changes to ABC code (via file import, ABC editor, or agent) immediately update `ScoreMetadataHeader` fields; editing headers in `ScoreMetadataHeader` immediately updates ABC code, increments document revisions, triggers autosave, and re-renders the score.
+
+## 9. Multimeasure rest and engraving pre-processing
+
+- **Multimeasure rest accounting (`Z<N>`):**
+  - Compressed multimeasure rests (`Z<count>` or `X<count>`) span `count` measures.
+  - In `scoreSnapshot` and `abcPresentation`, multimeasure rest tokens allocate rest events and cells across all measures in the span `[m, m + count - 1]`.
+  - Voices remain strictly measure-synchronized: silent voices do not collapse, and subsequent notes land in their correct measure index.
+- **Engraving pre-processing (`prepareAbcForEngraving`):**
+  - In multi-voice scores where staves wrap across lines, `Z<count>` tokens are expanded into `Z|Z|...` exclusively for visual engraving so that `abcjs` maintains vertical measure-by-measure staff alignment across system wraps.
+  - Non-standard odd note durations (such as `A10` in `L:1/16` representing a 5/16 note) are rewritten as tied glyphs (`A8-A2`) for clean visual engraving without altering the underlying audio timeline.
+  - Audio synthesis remains bound to the canonical unexpanded tune to ensure automatic chord accompaniment is not distorted by visual layout barlines.
+
