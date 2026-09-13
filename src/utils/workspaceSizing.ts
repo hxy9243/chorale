@@ -71,12 +71,13 @@ export const fitWorkspacePanelLayout = ({
   const desiredEditorPanelWidth = clampEditorPanelWidth(editorPanelWidth);
 
   if (safeViewportWidth < DESKTOP_PANEL_LAYOUT_MIN_WIDTH) {
+    const inlineRailWidth = fileRailVisible ? desiredFileRailWidth : FILE_RAIL_BAR_WIDTH;
     return {
-      fileRailWidth: fileRailVisible ? desiredFileRailWidth : FILE_RAIL_BAR_WIDTH,
+      fileRailWidth: inlineRailWidth,
       chatPanelWidth: desiredChatPanelWidth,
       editorPanelWidth: Math.min(desiredEditorPanelWidth, safeViewportWidth),
-      scoreWorkspaceWidth: safeViewportWidth,
-      overlaySidePanels: fileRailVisible || chatPanelVisible,
+      scoreWorkspaceWidth: Math.max(0, safeViewportWidth - inlineRailWidth),
+      overlaySidePanels: chatPanelVisible,
     };
   }
 

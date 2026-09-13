@@ -27,3 +27,6 @@ dist-ssr
 !.agents/plugins/
 .agents/plugins/*
 !.agents/plugins/marketplace.json
+
+# Generated plugin packages
+plugins/chorale-codex-plugin/

@@ -3,7 +3,7 @@ title: "Workspace Layout Spec"
 description: "Specification for the top-level desktop workspace structure, header, file rail, central score workspace, and chat panel"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-09-05
+updated: 2026-09-12
 status: "implemented"
 source_files:
   - src/App.tsx
@@ -141,8 +141,10 @@ The Figma file is desktop-first. Implementation should preserve the desktop hier
 Required behavior:
 
 - collapse non-essential regions (such as file rail or chat panel) before compressing the score beyond readability
+- the left file rail always remains an in-flow inline grid column flanking the central column; it must never be positioned absolutely or rendered as a floating overlay that occludes or underlaps the music sheet, score tabs, or clef margins
 - toggling, resizing, or closing the chat panel must never clip the annotation rail: the central score workspace rebalances its internal scene tracks elastically (balance spacer first, then rail floor — see `spec/score-surface.md` §5) before falling back to horizontal overflow
 - keep the active file and score context visible
+- when both Sheet and ABC source panes are open, they remain side by side (`flex-direction: row; flex-wrap: nowrap`) across all window widths with an interactive resize divider, sharing available width proportionally rather than vertically stacking or hiding the divider
 - avoid turning desktop chat structure into an unusable narrow transcript
 
 Desktop remains the primary fidelity target until the product behavior is stable.

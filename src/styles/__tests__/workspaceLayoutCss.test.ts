@@ -141,4 +141,46 @@ describe('workspace layout CSS contract', () => {
     expect(themeCss).not.toMatch(/\.file-rail\s*{[^}]*#efebe2/s);
     expect(controlsCss).not.toMatch(/\.file-rail-panel-stack\s*{[^}]*#efebe2/s);
   });
+
+  it('orders playback dock media queries so narrow viewports are not shadowed by wider rules', () => {
+    const idx60rem = themeCss.indexOf('@media (max-width: 60rem)');
+    const idx44rem = themeCss.indexOf('@media (max-width: 44rem)');
+    expect(idx60rem).toBeGreaterThan(-1);
+    expect(idx44rem).toBeGreaterThan(-1);
+    expect(idx60rem).toBeLessThan(idx44rem);
+  });
+
+  it('preserves transport button width with max-content in playback controls grid', () => {
+    expect(themeCss).toMatch(
+      /\.central-workspace\s*>\s*\.playback-dock-container\s+\.player-controls-bar\s*{[^}]*grid-template-columns:\s*max-content/s,
+    );
+  });
+
+  it('keeps file rail in-flow as an inline grid column and never positions it absolutely over the score', () => {
+    expect(responsiveCss).not.toMatch(
+      /\.file-rail\s*{[^}]*position:\s*absolute;/s,
+    );
+    expect(responsiveCss).not.toMatch(
+      /\.workspace-body\.side-panels-overlay[^{]*{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*!important;/s,
+    );
+    expect(themeCss).not.toMatch(
+      /^\.file-rail\s*{[^}]*position:\s*absolute;/m,
+    );
+  });
+
+  it('keeps score-editor-shell side-by-side without column stacking or hidden divider at low widths', () => {
+    // Neither theme nor responsive CSS may stack score-editor-shell into column
+    expect(responsiveCss).toMatch(
+      /\.score-editor-shell\s*{[^}]*flex-direction:\s*row\s*!important;[^}]*flex-wrap:\s*nowrap\s*!important;/s,
+    );
+    expect(responsiveCss).toMatch(
+      /\.editor-divider\s*{[^}]*display:\s*flex\s*!important;/s,
+    );
+
+    // Legacy overrides in index.css must not collapse or hide editor
+    const indexCss = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8');
+    expect(indexCss).not.toMatch(/\.score-editor-shell\s*{[^}]*flex-direction:\s*column;/s);
+    expect(indexCss).not.toMatch(/\.editor-divider\s*{[^}]*display:\s*none;/s);
+  });
 });
+
