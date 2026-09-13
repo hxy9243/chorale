@@ -6,6 +6,7 @@ import type { ScoreAnchor } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
 import type { PlaybackPosition } from '../utils/repeatPlayback';
 import type { PlaybackSourceRanges } from '../music/abcPresentation';
+import { initAbcjsSynth } from '../utils/abcAudio';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const PLAYBACK_CURSOR_SELECTOR = '.abcjs-playback-cursor';
@@ -249,24 +250,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         }
 
         const createSynth = new synthApi.CreateSynth();
-        try {
-          await createSynth.init({
-            visualObj: currentTune,
-            options: {
-              soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/',
-              soundFontVolumeMultiplier: soundFontBaseVolume,
-              pan: [0],
-            },
-          });
-        } catch (sfErr) {
-          console.warn('SoundFont remote init failed, using built-in synth:', sfErr);
-          await createSynth.init({
-            visualObj: currentTune,
-            options: {
-              soundFontVolumeMultiplier: soundFontBaseVolume,
-            },
-          });
-        }
+        await initAbcjsSynth(createSynth, {
+          visualObj: currentTune,
+          soundFontVolumeMultiplier: soundFontBaseVolume,
+          pan: [0],
+        });
 
         if (cancelled) return;
 

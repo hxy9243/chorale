@@ -203,6 +203,8 @@ export const usePluginMcpBridge = ({
           if (response.status === 404) isBridgeAvailableRef.current = false;
           return;
         }
+        const pollContentType = response.headers.get('content-type') || '';
+        if (!pollContentType.includes('application/json')) return;
         const { commands } = await response.json() as { commands?: Array<Record<string, unknown>> };
         for (const command of commands || []) {
           const commandId = typeof command.id === 'string' ? command.id : '';
