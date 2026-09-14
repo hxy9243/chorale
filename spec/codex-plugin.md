@@ -19,6 +19,10 @@ source_files:
   - tools/package-codex.mjs
   - tools/launch_chorale_mcp
   - skills/chorale-score/SKILL.md
+  - skills/chorale-score/references/basic-usage.md
+  - skills/chorale-score/references/abc-syntax-and-rules.md
+  - skills/chorale-score/references/counterpoint-and-forms.md
+  - skills/chorale-score/references/styles-and-composers.md
   - src/hooks/usePluginMcpBridge.ts
 test_files:
   - test/mcp-server.node.mjs
