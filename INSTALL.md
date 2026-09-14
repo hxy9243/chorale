@@ -86,6 +86,9 @@ chorale stop
 # Restart the verified daemon after a package update, preserving score data
 chorale upgrade
 
+# Show command line help and available options
+chorale help
+
 # Connect via MCP stdio transport (used by AI agents; ensures background daemon is active)
 chorale mcp
 ```
@@ -96,6 +99,7 @@ chorale mcp
 - `chorale status`: Reports health, port, and PID from recorded runtime metadata without starting a daemon.
 - `chorale stop`: Stops only the healthy daemon whose PID and port match `~/.chorale/runtime.json`.
 - `chorale upgrade`: Stops the verified daemon, spawns the updated version, and preserves score data in `~/.chorale/`.
+- `chorale help`: Displays usage guidance, available commands, and options.
 
 ---
 

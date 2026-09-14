@@ -101,29 +101,103 @@ export const runDaemon = async (options = {}) => {
   }
 };
 
+export const resolveListeningPid = async (port = CHORALE_PORT) => {
+  try {
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const execFileAsync = promisify(execFile);
+    try {
+      const { stdout } = await execFileAsync('lsof', ['-ti', `tcp:${port}`, '-sTCP:LISTEN']);
+      const pid = Number(stdout.trim().split(/\s+/)[0]);
+      if (Number.isInteger(pid) && pid > 0) return pid;
+    } catch {
+      try {
+        const { stdout } = await execFileAsync('fuser', [`${port}/tcp`]);
+        const pid = Number(stdout.trim().split(/\s+/)[0]);
+        if (Number.isInteger(pid) && pid > 0) return pid;
+      } catch {
+        if (process.platform === 'win32') {
+          try {
+            const { stdout } = await execFileAsync('netstat', ['-ano', '-p', 'tcp']);
+            for (const line of stdout.split('\n')) {
+              if (line.includes(`:${port}`) && line.includes('LISTENING')) {
+                const parts = line.trim().split(/\s+/);
+                const pid = Number(parts[parts.length - 1]);
+                if (Number.isInteger(pid) && pid > 0) return pid;
+              }
+            }
+          } catch {}
+        }
+      }
+    }
+  } catch {}
+  return null;
+};
+
 export const stopDaemon = async (options = {}) => {
   const port = options.port || CHORALE_PORT;
   const probe = options.probe || probeHealth;
   const read = options.readRuntime || readRuntime;
   const kill = options.kill || process.kill.bind(process);
   const isAlive = options.isProcessAlive || isProcessAlive;
+  const resolvePid = options.resolveListeningPid || resolveListeningPid;
+  const remove = options.removeRuntime || removeRuntime;
   const runtime = await read(options.choraleHome);
   const health = await probe({ port });
 
   if (!health) return { stopped: false };
-  if (!runtime?.pid || health.pid !== runtime.pid || runtime.port !== port) {
+
+  if (runtime?.pid && health.pid && runtime.pid !== health.pid) {
+    throw new Error('Refusing to stop a daemon that is not the runtime recorded by this Chorale installation.');
+  }
+  if (runtime?.port && runtime.port !== port) {
     throw new Error('Refusing to stop a daemon that is not the runtime recorded by this Chorale installation.');
   }
 
-  kill(runtime.pid, 'SIGTERM');
+  let targetPid = runtime?.pid ?? health.pid;
+  if (!targetPid) {
+    targetPid = await resolvePid(port);
+  }
+
+  if (!targetPid) {
+    throw new Error('Refusing to stop a daemon that is not the runtime recorded by this Chorale installation.');
+  }
+
+  kill(targetPid, 'SIGTERM');
   for (let attempt = 0; attempt < 40; attempt += 1) {
-    const alive = isAlive(runtime.pid);
+    const alive = isAlive(targetPid);
     const healthy = await probe({ port });
-    if (!alive && !healthy) return { stopped: true };
+    if (!alive && !healthy) {
+      if (runtime?.pid === targetPid) {
+        await remove(options.choraleHome);
+      }
+      return { stopped: true };
+    }
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 50));
   }
   throw new Error('Chorale did not stop within two seconds.');
 };
+
+export const HELP_TEXT = `Chorale - Score-focused music workspace, agent skill, and MCP server
+
+Usage:
+  chorale [command] [options]
+
+Commands:
+  start            Start the Chorale background daemon and open the workspace in browser (default)
+  status           Show status and runtime metadata of the running Chorale daemon
+  stop             Gracefully stop the running Chorale daemon
+  upgrade          Restart the verified daemon after a package update, preserving score data
+  mcp              Start the MCP stdio server adapter for AI coding agents
+  help             Display this help message
+  version          Display version information
+
+Options:
+  -h, --help       Show help information
+  -v, --version    Show version number
+      --stdio      Start MCP server over stdio (alias for 'mcp')
+      --serve      Run daemon in foreground (internal)
+`;
 
 export const runCli = async (options = {}) => {
   const args = options.args || process.argv.slice(2);
@@ -136,6 +210,16 @@ export const runCli = async (options = {}) => {
 
   if (args.includes('--serve')) {
     return runDaemon({ ...options, port });
+  }
+
+  if (command === 'help' || args.includes('--help') || args.includes('-h')) {
+    logger.log(HELP_TEXT);
+    return { statusCode: 0, help: true, text: HELP_TEXT };
+  }
+
+  if (command === 'version' || args.includes('--version') || args.includes('-v')) {
+    logger.log(`chorale v${CHORALE_VERSION}`);
+    return { statusCode: 0, version: CHORALE_VERSION };
   }
 
   if (command === 'mcp' || args.includes('--stdio')) {
@@ -155,8 +239,9 @@ export const runCli = async (options = {}) => {
     }
     const read = options.readRuntime || readRuntime;
     const runtime = await read(options.choraleHome);
-    logger.log(`Chorale service is active on http://127.0.0.1:${port} (PID ${health.pid ?? runtime?.pid ?? 'unknown'}).`);
-    return { health, runtime };
+    const resolvedPid = health.pid ?? runtime?.pid ?? (await (options.resolveListeningPid || resolveListeningPid)(port));
+    logger.log(`Chorale service is active on http://127.0.0.1:${port} (PID ${resolvedPid ?? 'unknown'}).`);
+    return { health, runtime, pid: resolvedPid };
   }
 
   if (command === 'stop') {
@@ -174,10 +259,15 @@ export const runCli = async (options = {}) => {
     return { ...ensured, stopped: stopped.stopped };
   }
 
-  const { health, started } = await ensure({ ...options, port, entrypoint });
-  logger.log(started
-    ? `Chorale service started on http://127.0.0.1:${health.port || port}.`
-    : `Chorale service is already running on http://127.0.0.1:${health.port || port} (no-op).`);
-  await (options.openBrowser || openBrowser)(`http://127.0.0.1:${health.port || port}`);
-  return { health, started };
+  if (command === 'start') {
+    const { health, started } = await ensure({ ...options, port, entrypoint });
+    logger.log(started
+      ? `Chorale service started on http://127.0.0.1:${health.port || port}.`
+      : `Chorale service is already running on http://127.0.0.1:${health.port || port} (no-op).`);
+    await (options.openBrowser || openBrowser)(`http://127.0.0.1:${health.port || port}`);
+    return { health, started };
+  }
+
+  logger.error(`Unknown command: ${command}\n\n${HELP_TEXT}`);
+  return { statusCode: 1, error: `Unknown command: ${command}` };
 };

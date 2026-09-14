@@ -78,6 +78,9 @@ npm start
 # Check server status
 chorale status
 
+# Show command line help
+chorale help
+
 # Connect via MCP stdio transport (for AI agents)
 chorale mcp
 # Or via npm

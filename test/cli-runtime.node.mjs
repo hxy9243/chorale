@@ -11,7 +11,14 @@ import {
   runtimePaths,
   writeRuntime,
 } from '../mcp/runtime.mjs';
-import { ensureDaemon, runDaemon, stopDaemon } from '../mcp/cli.mjs';
+import {
+  HELP_TEXT,
+  ensureDaemon,
+  runCli,
+  runDaemon,
+  stopDaemon,
+} from '../mcp/cli.mjs';
+import { CHORALE_VERSION } from '../mcp/version.mjs';
 
 test('runtime records daemon metadata atomically', async () => {
   const choraleHome = await mkdtemp(join(tmpdir(), 'chorale-runtime-'));
@@ -140,3 +147,133 @@ test('stopDaemon never terminates a process without matching runtime metadata', 
     /Refusing to stop/,
   );
 });
+
+test('runCli prints help text for "help", "--help", and "-h"', async () => {
+  for (const flag of ['help', '--help', '-h']) {
+    const logs = [];
+    const logger = { log: (msg) => logs.push(msg), error: () => {} };
+    const result = await runCli({ args: [flag], logger });
+
+    assert.equal(result.statusCode, 0);
+    assert.equal(result.help, true);
+    assert.equal(result.text, HELP_TEXT);
+    assert.equal(logs.length, 1);
+    assert.match(logs[0], /Usage:\s+chorale \[command\]/);
+    assert.match(logs[0], /start\s+Start the Chorale background daemon/);
+    assert.match(logs[0], /help\s+Display this help message/);
+  }
+});
+
+test('runCli prints version for "version", "--version", and "-v"', async () => {
+  for (const flag of ['version', '--version', '-v']) {
+    const logs = [];
+    const logger = { log: (msg) => logs.push(msg), error: () => {} };
+    const result = await runCli({ args: [flag], logger });
+
+    assert.equal(result.statusCode, 0);
+    assert.equal(result.version, CHORALE_VERSION);
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0], `chorale v${CHORALE_VERSION}`);
+  }
+});
+
+test('runCli logs error and returns status code 1 on unknown command', async () => {
+  const errors = [];
+  const logs = [];
+  const logger = { log: (msg) => logs.push(msg), error: (msg) => errors.push(msg) };
+  const result = await runCli({ args: ['nonexistent'], logger });
+
+  assert.equal(result.statusCode, 1);
+  assert.match(result.error, /Unknown command: nonexistent/);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /Unknown command: nonexistent/);
+  assert.match(errors[0], /Usage:\s+chorale/);
+  assert.equal(logs.length, 0);
+});
+
+test('runCli defaults to "start" when no command is provided or when "start" is explicit', async () => {
+  for (const args of [[], ['start']]) {
+    let ensured = false;
+    let openedUrl = null;
+    const logs = [];
+    const logger = { log: (msg) => logs.push(msg), error: () => {} };
+    const result = await runCli({
+      args,
+      logger,
+      ensureDaemon: async () => {
+        ensured = true;
+        return { health: { port: 1685 }, started: true };
+      },
+      openBrowser: async (url) => {
+        openedUrl = url;
+      },
+    });
+
+    assert.equal(ensured, true);
+    assert.equal(openedUrl, 'http://127.0.0.1:1685');
+    assert.equal(result.started, true);
+    assert.equal(logs.length, 1);
+    assert.match(logs[0], /Chorale service started on http:\/\/127.0.0.1:1685/);
+  }
+});
+
+test('stopDaemon stops a verified legacy chorale daemon when runtime.json is absent by resolving the listening PID', async () => {
+  const signals = [];
+  const aliveChecks = [true, false];
+  const probes = [
+    { service: 'chorale-service' },
+    null,
+  ];
+  const result = await stopDaemon({
+    port: 1985,
+    readRuntime: async () => null,
+    probe: async () => probes.shift() ?? null,
+    resolveListeningPid: async () => 9876,
+    kill: (...args) => signals.push(args),
+    isProcessAlive: () => aliveChecks.shift() ?? false,
+  });
+
+  assert.equal(result.stopped, true);
+  assert.deepEqual(signals, [[9876, 'SIGTERM']]);
+});
+
+test('stopDaemon stops a verified daemon using health.pid when runtime.json is missing', async () => {
+  const signals = [];
+  const aliveChecks = [true, false];
+  const probes = [
+    { service: 'chorale-service', pid: 5432 },
+    null,
+  ];
+  const result = await stopDaemon({
+    port: 1985,
+    readRuntime: async () => null,
+    probe: async () => probes.shift() ?? null,
+    kill: (...args) => signals.push(args),
+    isProcessAlive: () => aliveChecks.shift() ?? false,
+  });
+
+  assert.equal(result.stopped, true);
+  assert.deepEqual(signals, [[5432, 'SIGTERM']]);
+});
+
+test('stopDaemon cleans up runtime.json upon stopping matching runtime', async () => {
+  const choraleHome = await mkdtemp(join(tmpdir(), 'chorale-stop-'));
+  try {
+    await writeRuntime({ pid: 1234, port: 1985, version: '1.0.0' }, choraleHome);
+    const probes = [{ service: 'chorale-service', pid: 1234 }, null];
+    const aliveChecks = [true, false];
+    const result = await stopDaemon({
+      port: 1985,
+      choraleHome,
+      probe: async () => probes.shift() ?? null,
+      kill: () => {},
+      isProcessAlive: () => aliveChecks.shift() ?? false,
+    });
+    assert.equal(result.stopped, true);
+    assert.equal(await readRuntime(choraleHome), null);
+  } finally {
+    await rm(choraleHome, { recursive: true, force: true });
+  }
+});
+
+

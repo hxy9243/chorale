@@ -61,6 +61,10 @@ Chorale is redesigned from a monolithic script and fragmented plugin wrappers in
     - Gracefully stops only the healthy daemon whose PID and port match recorded runtime metadata.
   - `chorale upgrade`:
     - Restarts that verified daemon after a package-manager upgrade, preserving the local score store.
+  - `chorale help`, `chorale --help`, or `chorale -h`:
+    - Displays usage instructions, available CLI commands, and supported flags.
+  - `chorale version`, `chorale --version`, or `chorale -v`:
+    - Displays current Chorale package version.
   - `chorale --serve`:
     - Internal foreground daemon mode. It owns the process lock and lifecycle metadata; it is not the normal user-facing launch command.
 
@@ -78,7 +82,7 @@ Chorale is redesigned from a monolithic script and fragmented plugin wrappers in
   - `GET /v1/health`: Returns `{ service: "chorale-service", version, port: 1685, pid, status: "ok" }`.
   - `GET /v1/workspace`: Returns active workspace JSON state.
   - `PUT /v1/workspace`: Persists full workspace state.
-  - `PUT /v1/workspace/documents`: Persists updated documents array.
+  - `PUT /v1/workspace/documents`: Persists updated documents array via atomic last-write-wins (no optimistic revision locking or 409 Conflict errors).
   - `PUT /v1/workspace/active-document`: Sets active document ID.
   - `GET /v1/files`: Lists files saved in `~/.chorale/`.
   - `GET /v1/scores/:id`: Retrieves a single document by ID.
