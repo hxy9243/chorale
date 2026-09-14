@@ -1,7 +1,7 @@
 import abcjs from 'abcjs';
 import { parseKeySignature } from 'abc-utils';
 
-import { prepareAbcForPlayback } from '../utils/abcAudio';
+import { prepareAbcWithMap } from '../utils/abcAudio';
 import { extractScore } from './scoreSnapshot';
 import {
   addRationalDurations,
@@ -109,12 +109,18 @@ const HEADER_LABELS: Readonly<Record<string, string>> = Object.freeze({
   K: 'Key',
 });
 
-const sourceRange = (element: ParsedElement): AbcTextRange | null => (
+const sourceRange = (
+  element: ParsedElement,
+  toOriginalOffset?: (offset: number) => number,
+): AbcTextRange | null => (
   Number.isInteger(element.startChar)
   && Number.isInteger(element.endChar)
   && element.startChar! >= 0
   && element.endChar! > element.startChar!
-    ? { start: element.startChar!, end: element.endChar! }
+    ? {
+      start: toOriginalOffset ? toOriginalOffset(element.startChar!) : element.startChar!,
+      end: toOriginalOffset ? toOriginalOffset(element.endChar!) : element.endChar!,
+    }
     : null
 );
 
@@ -218,7 +224,8 @@ const sameLine = (abc: string, range: AbcTextRange) => (
 
 export const buildAbcPresentation = (abc: string): AbcPresentation => {
   if (!abc.trim()) throw new Error('ABC source is empty.');
-  const tunes = abcjs.parseOnly(prepareAbcForPlayback(abc)) as unknown as ParsedTune[];
+  const { prepared, toOriginalOffset } = prepareAbcWithMap(abc);
+  const tunes = abcjs.parseOnly(prepared) as unknown as ParsedTune[];
   if (tunes.length !== 1 || !tunes[0]) {
     throw new Error('Formatted ABC supports exactly one tune.');
   }
@@ -245,7 +252,7 @@ export const buildAbcPresentation = (abc: string): AbcPresentation => {
         }
         const state = states.get(voiceId) || { measureNumber: 1, hasEvents: false, elapsed: 0 };
         for (const element of voice) {
-          const range = sourceRange(element);
+          const range = sourceRange(element, toOriginalOffset);
           if (element.el_type === 'bar') {
             if (range) {
               boundaryRanges.push(range);

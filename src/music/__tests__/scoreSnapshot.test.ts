@@ -449,4 +449,39 @@ describe('score snapshot extraction', () => {
     expect(secondUpperNote?.voiceId).toBe('upper');
     expect(score.voices).toEqual(['upper', 'lower']);
   });
+
+  it('handles empty lines in between headers and measures while preserving exact source ranges', () => {
+    const abc = [
+      'X:1',
+      '',
+      'T:Tune with Blanks',
+      '   ',
+      'M:4/4',
+      'L:1/4',
+      'K:C',
+      '',
+      'C D E F |',
+      '',
+      'G A B c |',
+      '   ',
+      'c B A G |]',
+    ].join('\n');
+
+    const score = extractScore(abc);
+    expect(score.measures).toHaveLength(3);
+    expect(score.measures.map((m) => m.measureNumber)).toEqual([1, 2, 3]);
+
+    for (const measure of score.measures) {
+      expect(measure.abcSlice).toBe(abc.slice(measure.abcRange.start, measure.abcRange.end));
+      for (const event of measure.events) {
+        expect(event.abcRange).toBeDefined();
+        if (event.abcRange) {
+          expect(abc.slice(event.abcRange.start, event.abcRange.end)).toBeTruthy();
+          expect(event.abcRange.start).toBeGreaterThanOrEqual(measure.abcRange.start);
+          expect(event.abcRange.end).toBeLessThanOrEqual(measure.abcRange.end);
+        }
+      }
+    }
+  });
 });
+

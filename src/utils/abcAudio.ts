@@ -25,14 +25,83 @@ import abcjs from 'abcjs';
 const TUPLET_INVISIBLE_REST_PATTERN = /(\(\d(?::\d*){0,2}[ \t]*)x/g;
 const HAIRPIN_DECORATION_PATTERN = /![<>][()]!/g;
 
-export function prepareAbcForPlayback(abc: string): string {
-  if (!abc) return '';
-  return abc
+export interface PreparedAbcWithMap {
+  prepared: string;
+  toOriginalOffset: (offset: number) => number;
+}
+
+/**
+ * Prepares ABC source for abcjs parsing, audio synthesis, and engraving.
+ *
+ * 1. Replaces unsupported inline directives (`[Q:...]`, `[I:staff ...]`) with spaces
+ *    to preserve rhythm and exact character offsets.
+ * 2. Rewrites invisible tuplet rests (`(3x...`) to visible rests (`(3z...`) to avoid
+ *    abcjs layout crashes.
+ * 3. Converts empty or whitespace-only lines in between to ABC comment lines (`%`) so
+ *    that abcjs does not treat empty lines as premature tune terminators.
+ *
+ * Provides `toOriginalOffset` to accurately map any character offset in `prepared`
+ * back to the original offset in `abc`.
+ */
+export function prepareAbcWithMap(abc: string): PreparedAbcWithMap {
+  if (!abc) {
+    return { prepared: '', toOriginalOffset: (offset: number) => offset };
+  }
+
+  const sanitized = abc
     .replace(
       /\[Q:[^\]]+\]|\[I:staff\s+[+-]?\d+\]/gi,
       (directive) => ' '.repeat(directive.length),
     )
     .replace(TUPLET_INVISIBLE_REST_PATTERN, '$1z');
+
+  // abcjs treats blank lines as the end of a tune.
+  // Converting blank lines in between to comment lines (%) allows abcjs to continue
+  // parsing across empty lines without terminating the tune.
+  const parts = sanitized.split(/(\r?\n)/);
+  const insertedIndices: number[] = [];
+  let currentOffset = 0;
+
+  for (let i = 0; i < parts.length; i += 2) {
+    const line = parts[i];
+    const isTrailingEmpty = i === parts.length - 1 && line === '';
+    if (!isTrailingEmpty && /^\s*$/.test(line)) {
+      if (line.length > 0) {
+        // Line already contains whitespace: replace the first character with '%' to preserve length
+        parts[i] = '%' + line.slice(1);
+      } else {
+        // Completely empty line (0 characters): insert '%'
+        parts[i] = '%';
+        insertedIndices.push(currentOffset);
+      }
+    }
+    currentOffset += parts[i].length;
+    if (i + 1 < parts.length) {
+      currentOffset += parts[i + 1].length;
+    }
+  }
+
+  const prepared = parts.join('');
+
+  const toOriginalOffset = (offset: number): number => {
+    if (insertedIndices.length === 0) return offset;
+    let shift = 0;
+    for (const idx of insertedIndices) {
+      if (idx < offset) {
+        shift++;
+      } else {
+        break;
+      }
+    }
+    return Math.max(0, offset - shift);
+  };
+
+  return { prepared, toOriginalOffset };
+}
+
+export function prepareAbcForPlayback(abc: string): string {
+  if (!abc) return '';
+  return prepareAbcWithMap(abc).prepared;
 }
 
 /**
@@ -227,9 +296,13 @@ export function hideSyntheticTupletRests(
   }
   if (offsets.size === 0) return;
 
+  const { toOriginalOffset } = prepareAbcWithMap(originalAbc);
   for (const tune of tunes as TuneWithEngraver[]) {
     for (const selectable of tune.engraver?.selectables ?? []) {
-      if (!offsets.has(selectable.absEl?.abcelem?.startChar ?? -1)) continue;
+      const char = selectable.absEl?.abcelem?.startChar;
+      if (char === undefined) continue;
+      const mappedChar = toOriginalOffset(char);
+      if (!offsets.has(mappedChar) && !offsets.has(char)) continue;
       hideSvgNode(selectable.svgEl);
     }
   }

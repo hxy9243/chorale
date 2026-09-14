@@ -96,6 +96,33 @@ describe('ABC presentation feasibility contract', () => {
     expect(presentation.warnings).toEqual(['Additional source is available in Raw Source.']);
   });
 
+  it('builds presentation across empty lines without terminating or distorting cell ranges', () => {
+    const abcWithBlanks = `X:1
+
+T:Blank Line Piece
+
+C:Composer
+M:4/4
+L:1/4
+K:C
+
+C D E F |
+
+G A B c |
+`;
+    const presentation = buildAbcPresentation(abcWithBlanks);
+    expect(presentation.measureCount).toBe(2);
+    expect(presentation.voices[0].cells).toHaveLength(2);
+    expect(presentation.voices[0].cells[0].text).toContain('C D E F');
+    expect(presentation.voices[0].cells[1].text).toContain('G A B c');
+
+    const cell0 = presentation.voices[0].cells[0];
+    expect(abcWithBlanks.slice(cell0.range.start, cell0.range.end)).toBe(cell0.text);
+
+    const cell1 = presentation.voices[0].cells[1];
+    expect(abcWithBlanks.slice(cell1.range.start, cell1.range.end)).toBe(cell1.text);
+  });
+
   it('builds a representative 128-measure, eight-voice presentation within budget', () => {
     const voices = Array.from({ length: 8 }, (_, index) => `voice${index + 1}`);
     const abc = [

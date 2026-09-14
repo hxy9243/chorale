@@ -11,7 +11,7 @@ import {
   createRationalDuration,
   createRationalDurationFromNumber,
 } from './rational';
-import { prepareAbcForPlayback } from '../utils/abcAudio';
+import { prepareAbcWithMap } from '../utils/abcAudio';
 
 export type AbcSourceRange = Readonly<{ start: number; end: number }>;
 
@@ -282,12 +282,18 @@ const collectBodyVoiceMarkers = (abc: string): BodyVoiceMarker[] => {
   return markers.sort((left, right) => left.offset - right.offset);
 };
 
-const sourceRange = (element: ParsedElement): AbcSourceRange | undefined => (
+const sourceRange = (
+  element: ParsedElement,
+  toOriginalOffset?: (offset: number) => number,
+): AbcSourceRange | undefined => (
   Number.isInteger(element.startChar)
   && Number.isInteger(element.endChar)
   && element.startChar! >= 0
   && element.endChar! >= element.startChar!
-    ? { start: element.startChar!, end: element.endChar! }
+    ? {
+      start: toOriginalOffset ? toOriginalOffset(element.startChar!) : element.startChar!,
+      end: toOriginalOffset ? toOriginalOffset(element.endChar!) : element.endChar!,
+    }
     : undefined
 );
 
@@ -295,10 +301,11 @@ const resolveParsedVoiceId = (
   voice: readonly ParsedElement[],
   markers: readonly BodyVoiceMarker[],
   fallback: string,
+  toOriginalOffset?: (offset: number) => number,
 ): string => {
   let firstSourceOffset: number | undefined;
   for (const element of voice) {
-    const range = sourceRange(element);
+    const range = sourceRange(element, toOriginalOffset);
     if (range) {
       firstSourceOffset = range.start;
       break;
@@ -336,8 +343,9 @@ const addElementRange = (
   measure: MutableMeasure,
   voiceId: string,
   element: ParsedElement,
+  toOriginalOffset?: (offset: number) => number,
 ) => {
-  const range = sourceRange(element);
+  const range = sourceRange(element, toOriginalOffset);
   if (!range) return;
   measure.starts.push(range.start);
   measure.ends.push(range.end);
@@ -499,7 +507,7 @@ const freezeExtractedScore = (score: ExtractedScore): ExtractedScore => {
 export const extractScore = (abc: string): ExtractedScore => {
   if (!abc.trim()) throw new Error('ABC source is empty.');
 
-  const prepared = prepareAbcForPlayback(abc);
+  const { prepared, toOriginalOffset } = prepareAbcWithMap(abc);
   const parsed = abcjs.parseOnly(prepared) as unknown as ParsedTune[];
   const tune = parsed[0];
   if (!tune) throw new Error('ABC source did not contain a tune.');
@@ -542,6 +550,7 @@ export const extractScore = (abc: string): ExtractedScore => {
           voice,
           bodyVoiceMarkers,
           declaredVoiceIds[voiceSlot + index] || `voice-${voiceSlot + index + 1}`,
+          toOriginalOffset,
         ),
       }));
       const firstVoiceIdOnStaff = resolvedVoices[0]?.voiceId
@@ -581,7 +590,7 @@ export const extractScore = (abc: string): ExtractedScore => {
         for (const element of voice) {
           const measure = getMeasure(state.measureNumber);
           if (element.el_type === 'bar') {
-            addElementRange(measure, voiceId, element);
+            addElementRange(measure, voiceId, element, toOriginalOffset);
             if (state.hasEvents) {
               state.measureNumber += 1;
               state.offset = ZERO_DURATION;
@@ -595,7 +604,7 @@ export const extractScore = (abc: string): ExtractedScore => {
               measure.keyChange = formatted;
               runningStaffKey = formatted;
             }
-            addElementRange(measure, voiceId, element);
+            addElementRange(measure, voiceId, element, toOriginalOffset);
             continue;
           }
           if (element.el_type === 'meter') {
@@ -604,7 +613,7 @@ export const extractScore = (abc: string): ExtractedScore => {
               measure.meterChange = formatted;
               runningStaffMeter = formatted;
             }
-            addElementRange(measure, voiceId, element);
+            addElementRange(measure, voiceId, element, toOriginalOffset);
             continue;
           }
           if (element.el_type !== 'note' || typeof element.duration !== 'number') continue;
@@ -624,7 +633,7 @@ export const extractScore = (abc: string): ExtractedScore => {
             && restCount > 1
             ? restCount
             : 1;
-          const range = sourceRange(element);
+          const range = sourceRange(element, toOriginalOffset);
 
           if (multimeasureCount > 1) {
             const singleDuration = createRationalDurationFromNumber(
@@ -641,7 +650,7 @@ export const extractScore = (abc: string): ExtractedScore => {
                 ...(range ? { abcRange: range } : {}),
               };
               currentMeasure.events.push(event);
-              addElementRange(currentMeasure, voiceId, element);
+              addElementRange(currentMeasure, voiceId, element, toOriginalOffset);
             }
             state.measureNumber += multimeasureCount - 1;
             state.hasEvents = true;
@@ -668,7 +677,7 @@ export const extractScore = (abc: string): ExtractedScore => {
           };
           measure.events.push(event);
           state.hasEvents = true;
-          addElementRange(measure, voiceId, element);
+          addElementRange(measure, voiceId, element, toOriginalOffset);
           state.offset = addRationalDurations(state.offset, duration);
           if (element.endTriplet) state.tupletMultiplier = 1;
         }
