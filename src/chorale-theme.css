@@ -3124,6 +3124,12 @@ textarea:disabled,
   gap: var(--space-sm);
 }
 
+.ai-about-logo {
+  width: 3rem;
+  height: 3rem;
+  flex: 0 0 auto;
+}
+
 .ai-about-details {
   display: grid;
   max-width: 32.5rem;
@@ -11047,4 +11053,3 @@ body.is-resizing-col .editor-divider::before {
     transform: rotate(360deg);
   }
 }
-

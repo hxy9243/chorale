@@ -168,7 +168,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 aria-labelledby="settings-tab-about"
               >
                 <div className="ai-about-brand">
-                  <div className="brand-mark" aria-hidden="true">C</div>
+                  <img className="ai-about-logo" src="/chorale-logo.svg" alt="Chorale logo" />
                   <div>
                     <h3>Chorale</h3>
                     <p>Music score workspace and agent skill.</p>

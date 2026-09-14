@@ -1,4 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Chorale logo">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Chorale logo</title>
+  <desc id="desc">A circular musical C mark with a note head.</desc>
   <path fill="#171817" d="M384 174C346 93 253 63 169 102C67 151 45 271 101 366C158 463 283 475 379 410C423 380 455 336 468 299C473 285 466 272 452 269C438 266 426 273 421 287C404 331 371 366 326 390C250 430 156 400 122 320C88 240 126 151 207 118C276 90 343 121 371 181C376 192 387 198 398 194C409 190 415 178 410 167C405 156 393 162 384 174Z" />
   <circle cx="356" cy="210" r="45" fill="#171817" />
 </svg>
