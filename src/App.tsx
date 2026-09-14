@@ -9,7 +9,7 @@ import { AudioPlayer } from './components/AudioPlayer';
 import { AbcEditor } from './components/AbcEditor';
 import { WorkspacePaneMenu } from './components/workspace/WorkspacePaneMenu';
 import { WorkspaceModals } from './components/workspace/WorkspaceModals';
-import { useInterfaceZoom } from './hooks/useInterfaceZoom';
+import { useInterfaceZoom, INTERFACE_ZOOM_KEY } from './hooks/useInterfaceZoom';
 import {
   clampSheetZoom,
   useWorkspaceLayout,
@@ -41,6 +41,7 @@ export {
   FILE_RAIL_COLLAPSED_KEY,
   FILE_RAIL_ACTIVE_PANEL_KEY,
   SHEET_ZOOM_KEY,
+  INTERFACE_ZOOM_KEY,
   type BuildStatus,
 };
 
@@ -102,6 +103,7 @@ export const App: React.FC = () => {
     beginRailResize,
   } = useWorkspaceLayout(interfaceZoom);
 
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [newScoreModalOpen, setNewScoreModalOpen] = useState(false);
   const [videoExportModalOpen, setVideoExportModalOpen] = useState(false);
@@ -113,6 +115,8 @@ export const App: React.FC = () => {
     isPlaying: false,
   });
 
+  const openSettings = useCallback(() => setSettingsOpen(true), []);
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const openHistoryModal = useCallback(() => setHistoryModalOpen(true), []);
   const closeHistoryModal = useCallback(() => setHistoryModalOpen(false), []);
   const closeNewScoreModal = useCallback(() => setNewScoreModalOpen(false), []);
@@ -289,6 +293,7 @@ export const App: React.FC = () => {
           onBeginResize={beginRailResize}
           editorVisible={editorVisible}
           onToggleEditor={() => setEditorVisible((visible) => !visible)}
+          onOpenSettings={openSettings}
           onOpenHistory={openHistoryModal}
           historyCount={editingHistory.length}
         />
@@ -558,6 +563,10 @@ export const App: React.FC = () => {
 
       </div>
       <WorkspaceModals
+        settingsOpen={settingsOpen}
+        onCloseSettings={closeSettings}
+        interfaceZoom={interfaceZoom.zoom}
+        onInterfaceZoomChange={interfaceZoom.setZoom}
         historyModalOpen={historyModalOpen}
         onCloseHistoryModal={closeHistoryModal}
         scoreTitle={scoreTitle}

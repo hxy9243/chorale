@@ -7,6 +7,7 @@ import App, {
   FILE_RAIL_COLLAPSED_KEY,
   FILE_RAIL_ACTIVE_PANEL_KEY,
   SHEET_ZOOM_KEY,
+  INTERFACE_ZOOM_KEY,
 } from './App';
 import * as xmlParser from './utils/xmlParser';
 import { defaultFileRailWidth } from './utils/workspaceSizing';
@@ -832,5 +833,36 @@ describe('App Integration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open pane' }));
     fireEvent.click(screen.getByRole('menuitem', { name: /ABC source/ }));
     expect(document.querySelector('.score-pane')?.classList.contains('sheet-pane-on-right')).toBe(false);
+  });
+
+  it('opens and closes the Settings modal from the rail and persists interface scale', async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sheet-svg')).toBeDefined();
+    }, { timeout: 4000 });
+
+    const settingsButton = screen.getByRole('button', { name: 'Settings' });
+    fireEvent.click(settingsButton);
+
+    const dialog = screen.getByRole('dialog', { name: 'Settings' });
+    expect(dialog).toBeDefined();
+
+    // Appearance tab is open by default
+    expect(screen.getByRole('tabpanel', { name: 'Appearance' })).toBeDefined();
+    const scaleInput = screen.getByLabelText('Interface scale');
+    fireEvent.change(scaleInput, { target: { value: '130' } });
+    await waitFor(() => {
+      expect(localStorage.getItem(INTERFACE_ZOOM_KEY)).toBe('130');
+    });
+
+    // Switch to About tab
+    fireEvent.click(screen.getByRole('tab', { name: 'About' }));
+    expect(screen.getByRole('tabpanel', { name: 'About' })).toBeDefined();
+    expect(screen.getByText('Music score workspace and agent skill.')).toBeDefined();
+
+    // Close modal via close button
+    fireEvent.click(screen.getByRole('button', { name: 'Close settings' }));
+    expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
   });
 });

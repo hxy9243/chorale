@@ -1,4 +1,5 @@
 import React from 'react';
+import { SettingsModal } from '../SettingsModal';
 import { EditingHistoryModal } from '../EditingHistoryModal';
 import { NewScoreModal } from '../NewScoreModal';
 import { ScoreVideoExportModal } from '../ScoreVideoExportModal';
@@ -6,6 +7,11 @@ import type { EditHistoryEntry } from '../../types/document';
 import type { ScoreExportState } from '../../hooks/useScoreExport';
 
 export interface WorkspaceModalsProps {
+  settingsOpen?: boolean;
+  onCloseSettings?: () => void;
+  interfaceZoom?: number;
+  onInterfaceZoomChange?: (zoom: number) => void;
+
   historyModalOpen: boolean;
   onCloseHistoryModal: () => void;
   scoreTitle: string;
@@ -33,6 +39,10 @@ export interface WorkspaceModalsProps {
 }
 
 export const WorkspaceModals: React.FC<WorkspaceModalsProps> = ({
+  settingsOpen = false,
+  onCloseSettings,
+  interfaceZoom = 100,
+  onInterfaceZoomChange,
   historyModalOpen,
   onCloseHistoryModal,
   scoreTitle,
@@ -57,6 +67,12 @@ export const WorkspaceModals: React.FC<WorkspaceModalsProps> = ({
 }) => {
   return (
     <>
+      <SettingsModal
+        open={settingsOpen}
+        onClose={onCloseSettings || (() => {})}
+        interfaceZoom={interfaceZoom}
+        onInterfaceZoomChange={onInterfaceZoomChange || (() => {})}
+      />
       <EditingHistoryModal
         open={historyModalOpen}
         onClose={onCloseHistoryModal}
