@@ -16,10 +16,13 @@ source_files:
   - mcp/tools/workspace.mjs
   - .codex-plugin/plugin.json
   - .agents/plugins/marketplace.json
+  - tools/package-codex.mjs
+  - tools/launch_chorale_mcp
   - skills/chorale-score/SKILL.md
   - src/hooks/usePluginMcpBridge.ts
 test_files:
   - test/mcp-server.node.mjs
+  - test/codex-package.node.mjs
   - test/measure-ops.node.mjs
   - src/hooks/usePluginMcpBridge.test.ts
 related_specs:
@@ -43,6 +46,8 @@ Chorale is accessed as an independent CLI tool (`chorale` or `bin/chorale.mjs mc
 1. **Stdio MCP Server**: Codex connects to `chorale mcp` over stdio. If the background HTTP server on port 1685 is not already running, `bin/chorale.mjs` automatically spawns it as a detached process and proxies mutations so changes immediately reflect in any open workspace.
 2. **On-Demand Browser Launch**: Opening the browser workspace is explicitly controlled via `open_ui({ documentId? })`. Codex harness browser environments (e.g. `CODEX_BROWSER_COMMAND`) are preferred before falling back to system browsers.
 3. **Local Marketplace Manifest**: The repository acts as a local marketplace root (`.agents/plugins/marketplace.json`) pointing to `plugins/chorale-codex-plugin` or runs directly via `.codex-plugin/plugin.json`.
+
+Run `npm run package:codex` before installing from the local marketplace. It builds the UI and replaces the generated package with the current CLI, bundled dependencies, and skills. The installed package uses the same port 1685 service and `store.json` as the browser. It must not include the retired `server.mjs`, `codex-plugin-store.json`, or port 43171 daemon. After a package update, reinstall it and start a new Codex task to attach the current tool contract.
 
 ## Automatic View Connection & Routing
 
