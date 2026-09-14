@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { createMcpServer } from '../mcp/index.mjs';
-import { proxyDocumentMutations } from '../mcp/daemon-mutations.mjs';
+import { proxyDaemonTools, proxyDocumentMutations } from '../mcp/daemon-mutations.mjs';
 import { startServer } from '../mcp/server.mjs';
 import { LocalDocumentStore, PluginError } from '../mcp/store.mjs';
 import { createFileManagementTools } from '../mcp/tools/file-management.mjs';
@@ -225,6 +225,22 @@ test('stdio mutation proxy routes score writes to the daemon without proxying vi
   assert.equal(request.url, 'http://127.0.0.1:1985/v1/tools/create_new_file');
 });
 
+test('stdio daemon proxy routes reads and writes through the authoritative server', async () => {
+  const handlers = {
+    create_new_file: async () => ({ structuredContent: { source: 'local-write' } }),
+    read_measure: async () => ({ structuredContent: { source: 'local-read' } }),
+  };
+  const requestedTools = [];
+  const proxied = proxyDaemonTools(handlers, 1985, async (url) => {
+    requestedTools.push(url.split('/').at(-1));
+    return new Response(JSON.stringify({ structuredContent: { source: 'daemon' } }), { status: 200 });
+  });
+
+  assert.deepEqual(await proxied.read_measure({ documentId: 'score-1' }), { structuredContent: { source: 'daemon' } });
+  assert.deepEqual(await proxied.create_new_file({ title: 'Daemon score' }), { structuredContent: { source: 'daemon' } });
+  assert.deepEqual(requestedTools, ['read_measure', 'create_new_file']);
+});
+
 test('sheet tools: read, insert, edit, delete measures and notations', async () => {
   const tempDir = await mkdtemp(join(tmpdir(), 'chorale-test-sheet-tools-'));
   try {
@@ -319,6 +335,8 @@ test('server: starts HTTP server, serves /v1/health, REST tools, and files', asy
     const healthJson = await healthRes.json();
     assert.equal(healthJson.service, 'chorale-service');
     assert.equal(healthJson.status, 'ok');
+    assert.equal(healthJson.port, port);
+    assert.equal(healthJson.pid, process.pid);
 
     // 2. Direct REST tool call: create_new_file
     const createToolRes = await fetch(`${baseUrl}/v1/tools/create_new_file`, {

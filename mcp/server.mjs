@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { z } from 'zod';
 import { createMcpServer } from './index.mjs';
+import { CHORALE_PORT } from './runtime.mjs';
 import { LocalDocumentStore, PluginError, scoreSummary } from './store.mjs';
+import { CHORALE_VERSION } from './version.mjs';
 import { ViewSnapshotStore } from './views.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -50,7 +52,7 @@ const requestBody = async (request, limit = MAX_PAYLOAD_BYTES) => {
 };
 
 export const startServer = async (options = {}) => {
-  const port = typeof options.port === 'number' ? options.port : (Number(process.env.CHORALE_PORT) || 1685);
+  const port = typeof options.port === 'number' ? options.port : (Number(process.env.CHORALE_PORT) || CHORALE_PORT);
   const store = options.store || new LocalDocumentStore();
   const views = options.views || new ViewSnapshotStore();
   let boundPort = port;
@@ -110,8 +112,9 @@ export const startServer = async (options = {}) => {
       res.setHeader('content-type', 'application/json');
       res.writeHead(200).end(JSON.stringify({
         service: 'chorale-service',
-        version: '1.0.0',
-        port,
+        version: CHORALE_VERSION,
+        port: boundPort,
+        pid: process.pid,
         status: 'ok',
       }));
       return;

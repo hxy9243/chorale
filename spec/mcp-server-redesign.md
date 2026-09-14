@@ -6,8 +6,11 @@ date: 2026-09-10
 status: "approved"
 source_files:
   - bin/chorale.mjs
+  - mcp/cli.mjs
   - mcp/index.mjs
   - mcp/server.mjs
+  - mcp/runtime.mjs
+  - mcp/version.mjs
   - mcp/store.mjs
   - mcp/views.mjs
   - mcp/tools/file-management.mjs
@@ -18,6 +21,7 @@ source_files:
   - src/hooks/usePluginMcpBridge.ts
 test_files:
   - test/mcp-server.node.mjs
+  - test/cli-runtime.node.mjs
   - test/measure-ops.node.mjs
 related_specs:
   - spec/design.md
@@ -47,16 +51,31 @@ Chorale is redesigned from a monolithic script and fragmented plugin wrappers in
   - `chorale` or `chorale start`:
     1. Sends a probe request to `http://127.0.0.1:1685/v1/health`.
     2. If healthy, reports that the service is already running (idempotent no-op).
-    3. If not running, launches the HTTP + MCP server on port 1685.
+    3. If not running, launches the HTTP + MCP server in the background on port 1685 and waits for its health response.
     4. Opens the workspace in the browser: checks for active agent harness environments (e.g. Codex webview via environment variables, Antigravity desktop browser, Claude environment) before falling back to system-default browser (`google-chrome`, `xdg-open`, `open`, `start`).
   - `chorale mcp` or `chorale --stdio`:
-    - Connects an MCP StdioServerTransport to stdin/stdout, ensuring the background HTTP service is active on port 1685.
+    - Ensures the background HTTP service is active, then exposes a stdio adapter whose tools all forward to that daemon. It must not construct an independent document or view store.
+  - `chorale status`:
+    - Reports health and recorded runtime metadata without launching a daemon.
+  - `chorale stop`:
+    - Gracefully stops only the healthy daemon whose PID and port match recorded runtime metadata.
+  - `chorale upgrade`:
+    - Restarts that verified daemon after a package-manager upgrade, preserving the local score store.
+  - `chorale --serve`:
+    - Internal foreground daemon mode. It owns the process lock and lifecycle metadata; it is not the normal user-facing launch command.
+
+### 2.1.1 Runtime lifecycle
+
+- `~/.chorale/runtime.json` records the daemon PID, executable path, package version, port, and start time after the server begins listening.
+- `~/.chorale/runtime.lock` is held for the daemon lifetime. Startup removes it only when its recorded PID is no longer alive.
+- The port is always 1685. If another healthy Chorale daemon wins a startup race, the contender succeeds as a no-op. If an unrelated process owns the port, startup fails without terminating that process.
+- Graceful shutdown removes runtime metadata and the lock. An interrupted process leaves stale metadata that the next launch can safely recover.
 
 ### 2.2 Network & Protocol Boundary (Port 1685)
 - Standard port: **1685** (`http://127.0.0.1:1685`).
 - **HTTP Endpoints:**
   - `GET /`: Serves static web UI (`dist/index.html` and assets).
-  - `GET /v1/health`: Returns `{ service: "chorale-service", version: "1.0.0", port: 1685 }`.
+  - `GET /v1/health`: Returns `{ service: "chorale-service", version, port: 1685, pid, status: "ok" }`.
   - `GET /v1/workspace`: Returns active workspace JSON state.
   - `PUT /v1/workspace`: Persists full workspace state.
   - `PUT /v1/workspace/documents`: Persists updated documents array.

@@ -1,129 +1,55 @@
 ---
 name: chorale-install
-description: Step-by-step installation, build, and MCP integration instructions for the Chorale music workspace across Codex, Claude, and Antigravity.
+description: Install, launch, upgrade, and connect the Chorale CLI and its local MCP daemon.
 ---
 
-# Chorale Installation & Agent Setup
+# Chorale installation and MCP setup
 
-This skill guides agents and users through installing, building, launching, and integrating Chorale with AI agent harnesses.
+Chorale uses one local daemon at `http://127.0.0.1:1685`. It owns the browser workspace, persistent score store, and MCP tools.
 
----
-
-## 1. Prerequisites & Installation
-
-Chorale requires **Node.js v20+** and **npm**.
+## Install for development
 
 ```bash
-# 1. Install dependencies
 npm install
-
-# 2. Build the interactive web workspace
 npm run build
-
-# 3. (Optional) Link the CLI globally so `chorale` is available in PATH
 npm link
 ```
 
----
+For a released package, install `@chorale/cli` globally instead. Both approaches expose the `chorale` command.
 
-## 2. Launching the Service (`chorale`)
-
-Chorale uses a single CLI entry point (`bin/chorale.mjs` or `chorale`):
+## Launch and inspect
 
 ```bash
-# Start the service (or run via npx)
 chorale
-
-# Or via npm
-npm start
+chorale status
 ```
 
-### Behavior:
-- **Port 1685:** Binds `http://127.0.0.1:1685` serving the Web UI, REST API, and MCP SSE transport.
-- **Idempotent No-Op:** If the service is already running on port 1685, it skips initialization and immediately opens the workspace in the browser.
-- **Browser Launch:** Opens the UI in the user's browser, preferring agent harness browsers (Codex webview, Antigravity, Claude) when running inside an agent environment.
-- **Persistent Storage:** Stores all files and workspaces in `~/.chorale/` (`~/.chorale/store.json` and `~/.chorale/scores/`).
+`chorale` is idempotent: it starts the daemon in the background only when its health endpoint is unavailable, then opens the browser workspace. Never start a second server or choose a fallback port.
 
-### Background / Daemon Mode:
-```bash
-node bin/chorale.mjs --daemon
-```
+`chorale status` does not launch a daemon. It reports the healthy process and its runtime metadata.
 
----
+## Codex and other local MCP clients
 
-## 3. Agent MCP Integration
-
-### A. Claude (Claude Code & Claude Desktop)
-Add Chorale to your Claude MCP configuration (e.g. `~/.config/Claude/claude_desktop_config.json` or project `.mcp.json`):
-
-**Option 1: Stdio Transport (Recommended)**
-```json
-{
-  "mcpServers": {
-    "chorale": {
-      "command": "node",
-      "args": ["/path/to/chorale/bin/chorale.mjs", "mcp"]
-    }
-  }
-}
-```
-
-**Option 2: SSE Transport**
-```json
-{
-  "mcpServers": {
-    "chorale": {
-      "url": "http://127.0.0.1:1685/sse"
-    }
-  }
-}
-```
-
----
-
-### B. Codex
-In your Codex environment or project configuration:
-```json
-{
-  "mcpServers": {
-    "chorale": {
-      "command": "node",
-      "args": ["/path/to/chorale/bin/chorale.mjs", "mcp"],
-      "cwd": "/path/to/chorale"
-    }
-  }
-}
-```
-
----
-
-### C. Antigravity
-In Antigravity's MCP configuration (`~/.gemini/antigravity/mcp/chorale/` or project config):
-```json
-{
-  "mcpServers": {
-    "chorale": {
-      "command": "node",
-      "args": ["/path/to/chorale/bin/chorale.mjs", "mcp"]
-    }
-  }
-}
-```
-
----
-
-## 4. Verification
-
-Verify that the service is running and healthy:
+Register the stdio adapter once:
 
 ```bash
-# Check service health
-curl -s http://127.0.0.1:1685/v1/health
+codex mcp add chorale -- chorale mcp
+```
 
-# List locally managed score files
-curl -s http://127.0.0.1:1685/v1/files
+The adapter ensures the daemon is alive and forwards all tool calls to it. UI state, selection reads, and score mutations must therefore be read from the daemon rather than a separate local store.
+
+For a development checkout without `npm link`, configure the absolute command instead:
+
+```bash
+codex mcp add chorale -- node /absolute/path/to/chorale/bin/chorale.mjs mcp
 ```
-Expected response:
-```json
-{"service":"chorale-service","version":"1.0.0","port":1685,"status":"ok"}
+
+## Upgrade
+
+After a package-manager upgrade, run:
+
+```bash
+chorale upgrade
 ```
+
+This stops only the daemon whose PID and port match Chorale's runtime record, starts the new executable, and preserves score data in `~/.chorale/`. A new Codex task is required when the tool catalog changes.

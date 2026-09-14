@@ -38,11 +38,19 @@ Chorale is a Proof of Concept (PoC) web application that imports MusicXML files 
 npm install
 ```
 
-### Run MCP Plugin Server
+### Launch Chorale
 ```bash
 npm start
-# Launches the stdio MCP server exposing Chorale score tools and UI resource
+# Starts the background service when needed, then opens the browser workspace.
 ```
+
+The local service owns both the UI and MCP state at `http://127.0.0.1:1685`.
+
+### Connect an MCP Client
+```bash
+npm run mcp
+```
+This starts the stdio adapter and ensures the same local service is already running.
 
 ### Start Web Workspace (Dev)
 ```bash
@@ -65,14 +73,6 @@ npm run test:unit
 ### Build for Production
 ```bash
 npm run build
-```
-
-### Electron Desktop App
-The standalone Electron desktop shell is preserved on the `electron` branch:
-```bash
-git checkout electron
-npm install
-npm run dev:electron
 ```
 
 ### Installation & Skill Setup
