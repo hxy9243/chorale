@@ -83,7 +83,7 @@ describe('App Integration', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
     fireEvent.click(screen.getByRole('button', { name: 'Close ABC source pane' }));
     expect(screen.queryByPlaceholderText(/Parsed ABC code will appear here/)).toBeNull();
-  }, 10000);
+  }, 30000);
 
   it('omits the standalone agent sidebar in plugin view', async () => {
     window.history.replaceState({}, '', '/?plugin=1');

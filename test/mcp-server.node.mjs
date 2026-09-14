@@ -487,3 +487,57 @@ test('server: starts HTTP server, serves /v1/health, REST tools, and files', asy
     await rm(tempDir, { recursive: true, force: true });
   }
 });
+
+test('store: SQLite in-memory mode, ordering, cascading deletes, and preferences', async () => {
+  const store = new LocalDocumentStore({ dbPath: ':memory:' });
+  try {
+    const docA = await store.create({ title: 'Score Alpha', abcSource: sampleAbc });
+    const docB = await store.create({ title: 'Score Beta', abcSource: sampleAbc });
+
+    const initialList = await store.list();
+    assert.equal(initialList.length, 2);
+    assert.equal(initialList[0].id, docA.id);
+    assert.equal(initialList[1].id, docB.id);
+
+    // Reorder documents (Beta first, Alpha second)
+    const ws = await store.getWorkspace();
+    await store.putWorkspace({
+      documents: [docB, docA],
+      preferences: { zoom: 120 },
+      expectedRevision: ws.revision,
+    });
+
+    const reorderedList = await store.list();
+    assert.equal(reorderedList[0].id, docB.id);
+    assert.equal(reorderedList[1].id, docA.id);
+
+    // Patch preference
+    await store.patchWorkspace({
+      kind: 'preference',
+      key: 'theme',
+      value: 'dark',
+    });
+    const updatedWs = await store.getWorkspace();
+    assert.equal(updatedWs.preferences.theme, 'dark');
+    assert.equal(updatedWs.preferences.zoom, 120);
+
+    // Update document and verify versions
+    await store.update(docA.id, {
+      abcSource: `${sampleAbc}\n% modified`,
+      expectedRevision: docA.revision,
+    });
+    const fetchedDocA = await store.require(docA.id);
+    assert.equal(fetchedDocA.revision, 2);
+    assert.equal(fetchedDocA.versions.length >= 2, true);
+
+    // Delete docA and verify cascade in SQLite
+    await store.delete(docA.id);
+    assert.equal(store.db.prepare('SELECT count(*) as count FROM documents WHERE id = ?').get(docA.id).count, 0);
+    assert.equal(store.db.prepare('SELECT count(*) as count FROM document_versions WHERE document_id = ?').get(docA.id).count, 0);
+    assert.equal(store.db.prepare('SELECT count(*) as count FROM document_history WHERE document_id = ?').get(docA.id).count, 0);
+    assert.equal(store.db.prepare('SELECT count(*) as count FROM workspace_documents WHERE document_id = ?').get(docA.id).count, 0);
+  } finally {
+    store.close();
+  }
+});
+

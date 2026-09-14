@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { mkdirSync } from 'node:fs';
+import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { measureBodies } from './utils/measure-ops.mjs';
 
 export class PluginError extends Error {
@@ -34,17 +36,155 @@ V:2 clef=bass
 [V:2] [C,,C,]4 | [C,,C,]4 |
 `;
 
+const parseJson = (val, fallback) => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val !== 'string') return val;
+  try {
+    return JSON.parse(val);
+  } catch {
+    return fallback;
+  }
+};
+
+const rowToDocument = (row, versions = [], history = []) => {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    title: row.title,
+    sourceType: row.source_type || 'abc',
+    scoreInfo: parseJson(row.score_info, {}),
+    revision: row.revision,
+    abcSource: row.abc_source,
+    annotations: parseJson(row.annotations, []),
+    chats: parseJson(row.chats, []),
+    versions: versions.map((v) => ({
+      revision: v.revision,
+      abcSource: v.abc_source,
+      createdAt: v.created_at,
+      reason: v.reason,
+    })),
+    history: history.map((h) => ({
+      id: h.id,
+      revision: h.revision,
+      timestamp: h.timestamp,
+      category: h.category,
+      actionType: h.action_type,
+      summary: h.summary,
+      abcSource: h.abc_source,
+      scoreInfo: parseJson(h.score_info, {}),
+      annotations: parseJson(h.annotations, []),
+    })),
+    historyIndex: row.history_index ?? 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+};
+
 export class LocalDocumentStore {
   constructor(options = {}) {
     this.choraleDir = resolve(options.baseDir || process.env.CHORALE_HOME || join(homedir(), '.chorale'));
-    this.storePath = resolve(options.storePath || process.env.CHORALE_STORE_PATH || join(this.choraleDir, 'store.json'));
     this.scoresDir = join(this.choraleDir, 'scores');
     this.views = options.views || null;
     this.mutationTail = Promise.resolve();
+
+    const rawDbPath = options.dbPath || process.env.CHORALE_DB_PATH;
+    const legacyStorePath = options.storePath || process.env.CHORALE_STORE_PATH;
+    if (rawDbPath === ':memory:' || options.baseDir === ':memory:') {
+      this.dbPath = ':memory:';
+    } else if (rawDbPath) {
+      this.dbPath = resolve(rawDbPath);
+    } else if (legacyStorePath) {
+      this.dbPath = resolve(legacyStorePath.replace(/\.json$/i, '.db'));
+    } else {
+      this.dbPath = join(this.choraleDir, 'chorale.db');
+    }
+
+    if (this.dbPath !== ':memory:') {
+      mkdirSync(dirname(this.dbPath), { recursive: true });
+      mkdirSync(this.scoresDir, { recursive: true });
+    }
+
+    this.db = new DatabaseSync(this.dbPath);
+    this.db.exec('PRAGMA journal_mode = WAL;');
+    this.db.exec('PRAGMA foreign_keys = ON;');
+    this.db.exec('PRAGMA busy_timeout = 5000;');
+
+    this.initSchema();
+  }
+
+  get storePath() {
+    return this.dbPath;
   }
 
   setViews(views) {
     this.views = views;
+  }
+
+  close() {
+    if (this.db) {
+      this.db.close();
+    }
+  }
+
+  initSchema() {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS meta (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS workspace (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        revision INTEGER NOT NULL DEFAULT 0,
+        preferences TEXT NOT NULL DEFAULT '{}'
+      );
+
+      CREATE TABLE IF NOT EXISTS documents (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        title TEXT NOT NULL,
+        source_type TEXT NOT NULL DEFAULT 'abc',
+        revision INTEGER NOT NULL DEFAULT 1,
+        abc_source TEXT NOT NULL,
+        score_info TEXT NOT NULL DEFAULT '{}',
+        annotations TEXT NOT NULL DEFAULT '[]',
+        chats TEXT NOT NULL DEFAULT '[]',
+        history_index INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS workspace_documents (
+        document_id TEXT PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
+        sort_order INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS document_versions (
+        document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+        revision INTEGER NOT NULL,
+        abc_source TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        reason TEXT NOT NULL DEFAULT 'edit',
+        PRIMARY KEY (document_id, revision)
+      );
+
+      CREATE TABLE IF NOT EXISTS document_history (
+        id TEXT PRIMARY KEY,
+        document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+        revision INTEGER NOT NULL,
+        timestamp TEXT NOT NULL,
+        category TEXT NOT NULL,
+        action_type TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        abc_source TEXT NOT NULL,
+        score_info TEXT NOT NULL DEFAULT '{}',
+        annotations TEXT NOT NULL DEFAULT '[]',
+        sort_order INTEGER NOT NULL
+      );
+
+      INSERT OR IGNORE INTO workspace (id, revision, preferences) VALUES (1, 0, '{}');
+    `);
   }
 
   serializeMutation(operation) {
@@ -53,69 +193,88 @@ export class LocalDocumentStore {
     return next;
   }
 
-  async read() {
+  async mirrorAbcFile(documentId, abcSource) {
+    if (!this.scoresDir || this.dbPath === ':memory:') return;
     try {
-      const content = await readFile(this.storePath, 'utf8');
-      const parsed = JSON.parse(content);
-      if (!parsed || parsed.schemaVersion !== 1 || !Array.isArray(parsed.documents)) {
-        throw new PluginError('PERSISTENCE_FAILED', 'The local Chorale store has an unsupported format.');
-      }
-      const workspace = parsed.workspace || { documents: [], preferences: {} };
-      const documents = Array.isArray(workspace.documents) && workspace.documents.length > 0 ? workspace.documents : parsed.documents;
-      return {
-        ...parsed,
-        documents,
-        workspaceRevision: parsed.workspaceRevision || 0,
-        workspace: { ...workspace, documents },
-      };
-    } catch (error) {
-      if (error && error.code === 'ENOENT') {
-        const initial = {
-          schemaVersion: 1,
-          documents: [],
-          workspaceRevision: 0,
-          workspace: { documents: [], preferences: {} },
-        };
-        await this.write(initial);
-        return initial;
-      }
-      if (error instanceof PluginError) throw error;
-      throw new PluginError('PERSISTENCE_FAILED', `The local Chorale store could not be read: ${error.message}`);
+      await mkdir(this.scoresDir, { recursive: true });
+      await writeFile(join(this.scoresDir, `${documentId}.abc`), abcSource, 'utf8');
+    } catch {
+      // Non-critical mirror failure
     }
   }
 
-  async write(state) {
-    await mkdir(dirname(this.storePath), { recursive: true });
-    await mkdir(this.scoresDir, { recursive: true });
-    state.workspace = { ...(state.workspace || {}), documents: state.documents || [] };
-    const temporaryPath = `${this.storePath}.${process.pid}.${randomUUID()}.tmp`;
-    await writeFile(temporaryPath, JSON.stringify(state, null, 2), 'utf8');
-    await rename(temporaryPath, this.storePath);
-
-    // Also mirror individual .abc files into ~/.chorale/scores/
-    for (const doc of state.documents || []) {
-      if (doc.id && doc.abcSource) {
-        const safeName = `${doc.id}.abc`;
-        try {
-          await writeFile(join(this.scoresDir, safeName), doc.abcSource, 'utf8');
-        } catch {
-          // Non-critical mirror failure
-        }
-      }
+  async unmirrorAbcFile(documentId) {
+    if (!this.scoresDir || this.dbPath === ':memory:') return;
+    try {
+      await unlink(join(this.scoresDir, `${documentId}.abc`));
+    } catch {
+      // Ignored if missing
     }
+  }
+
+  listSync() {
+    const docRows = this.db.prepare(`
+      SELECT d.* FROM documents d
+      LEFT JOIN workspace_documents wd ON d.id = wd.document_id
+      ORDER BY wd.sort_order ASC, d.created_at ASC
+    `).all();
+
+    if (docRows.length === 0) return [];
+
+    const versionRows = this.db.prepare(`
+      SELECT * FROM document_versions ORDER BY revision ASC
+    `).all();
+    const versionsByDoc = new Map();
+    for (const v of versionRows) {
+      if (!versionsByDoc.has(v.document_id)) versionsByDoc.set(v.document_id, []);
+      versionsByDoc.get(v.document_id).push(v);
+    }
+
+    const historyRows = this.db.prepare(`
+      SELECT * FROM document_history ORDER BY sort_order ASC
+    `).all();
+    const historyByDoc = new Map();
+    for (const h of historyRows) {
+      if (!historyByDoc.has(h.document_id)) historyByDoc.set(h.document_id, []);
+      historyByDoc.get(h.document_id).push(h);
+    }
+
+    return docRows.map((row) => rowToDocument(row, versionsByDoc.get(row.id) || [], historyByDoc.get(row.id) || []));
   }
 
   async list() {
-    return (await this.read()).documents;
+    return this.listSync();
+  }
+
+  requireSync(documentId) {
+    const docRow = this.db.prepare('SELECT * FROM documents WHERE id = ?').get(documentId);
+    if (!docRow) {
+      throw new PluginError('DOCUMENT_NOT_FOUND', `Score document "${documentId}" was not found.`);
+    }
+
+    const versions = this.db.prepare('SELECT * FROM document_versions WHERE document_id = ? ORDER BY revision ASC').all(documentId);
+    const history = this.db.prepare('SELECT * FROM document_history WHERE document_id = ? ORDER BY sort_order ASC').all(documentId);
+    return rowToDocument(docRow, versions, history);
   }
 
   async require(documentId) {
-    const documents = await this.list();
-    const found = documents.find((doc) => doc.id === documentId);
-    if (!found) {
-      throw new PluginError('DOCUMENT_NOT_FOUND', `Score document "${documentId}" was not found.`);
-    }
-    return found;
+    return this.requireSync(documentId);
+  }
+
+  async read() {
+    const ws = this.getWorkspaceSync();
+    return {
+      schemaVersion: 1,
+      documents: ws.documents,
+      workspaceRevision: ws.revision,
+      workspace: ws,
+    };
+  }
+
+  async write(state) {
+    const documents = state.documents || state.workspace?.documents || [];
+    const preferences = state.workspace?.preferences || {};
+    return this.putWorkspace({ documents, preferences });
   }
 
   async create(input) {
@@ -128,28 +287,78 @@ export class LocalDocumentStore {
     const now = new Date().toISOString();
     const safeTitle = title || 'Untitled score';
     const name = safeTitle.endsWith('.abc') ? safeTitle : `${safeTitle}.abc`;
+    const scoreInfo = { title: safeTitle, composer, meter, key };
+    const historyId = `hist-${randomUUID().slice(0, 8)}`;
+    const historyEntry = {
+      id: historyId,
+      revision: 1,
+      timestamp: now,
+      category: 'origin',
+      actionType: 'initial',
+      summary: `Initial score: ${safeTitle}`,
+      abcSource: source,
+      scoreInfo,
+      annotations: [],
+    };
+    const version = {
+      revision: 1,
+      abcSource: source,
+      createdAt: now,
+      reason: 'import',
+    };
+
+    this.db.exec('BEGIN IMMEDIATE;');
+    try {
+      const maxOrderRow = this.db.prepare('SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM workspace_documents').get();
+      const nextOrder = (maxOrderRow?.max_order ?? -1) + 1;
+
+      this.db.prepare(`
+        INSERT INTO documents (id, name, title, source_type, revision, abc_source, score_info, annotations, chats, history_index, created_at, updated_at)
+        VALUES (?, ?, ?, 'abc', 1, ?, ?, '[]', '[]', 0, ?, ?)
+      `).run(documentId, name, safeTitle, source, JSON.stringify(scoreInfo), now, now);
+
+      this.db.prepare(`
+        INSERT INTO workspace_documents (document_id, sort_order) VALUES (?, ?)
+      `).run(documentId, nextOrder);
+
+      this.db.prepare(`
+        INSERT INTO document_versions (document_id, revision, abc_source, created_at, reason)
+        VALUES (?, 1, ?, ?, 'import')
+      `).run(documentId, source, now);
+
+      this.db.prepare(`
+        INSERT INTO document_history (id, document_id, revision, timestamp, category, action_type, summary, abc_source, score_info, annotations, sort_order)
+        VALUES (?, ?, 1, ?, 'origin', 'initial', ?, ?, ?, '[]', 0)
+      `).run(historyId, documentId, now, historyEntry.summary, source, JSON.stringify(scoreInfo));
+
+      this.db.prepare(`
+        UPDATE workspace SET revision = revision + 1 WHERE id = 1
+      `).run();
+
+      this.db.exec('COMMIT;');
+    } catch (err) {
+      try { this.db.exec('ROLLBACK;'); } catch {}
+      throw new PluginError('PERSISTENCE_FAILED', `Failed to create score: ${err.message}`);
+    }
+
+    await this.mirrorAbcFile(documentId, source);
+
     const document = {
       id: documentId,
       name,
       title: safeTitle,
       sourceType: 'abc',
-      scoreInfo: { title: safeTitle, composer, meter, key },
+      scoreInfo,
       revision: 1,
       abcSource: source,
       annotations: [],
       chats: [],
-      versions: [{ revision: 1, abcSource: source, createdAt: now, reason: 'import' }],
-      history: [{ id: `hist-${randomUUID().slice(0, 8)}`, revision: 1, timestamp: now, category: 'origin', actionType: 'initial', summary: `Initial score: ${safeTitle}`, abcSource: source, scoreInfo: { title: safeTitle, composer, meter, key }, annotations: [] }],
+      versions: [version],
+      history: [historyEntry],
       historyIndex: 0,
       createdAt: now,
       updatedAt: now,
     };
-
-    const state = await this.read();
-    state.documents.push(document);
-    state.workspace.documents = state.documents;
-    state.workspaceRevision = (state.workspaceRevision || 0) + 1;
-    await this.write(state);
 
     if (this.views) {
       this.views.broadcastCommand({
@@ -167,32 +376,96 @@ export class LocalDocumentStore {
   }
 
   async updateUnsafe(documentId, updates = {}) {
-    const state = await this.read();
-    const index = state.documents.findIndex((doc) => doc.id === documentId);
-    if (index === -1) {
-      throw new PluginError('DOCUMENT_NOT_FOUND', `Score document "${documentId}" was not found.`);
+    this.db.exec('BEGIN IMMEDIATE;');
+    let updatedDoc;
+    try {
+      const docRow = this.db.prepare('SELECT * FROM documents WHERE id = ?').get(documentId);
+      if (!docRow) {
+        this.db.exec('ROLLBACK;');
+        throw new PluginError('DOCUMENT_NOT_FOUND', `Score document "${documentId}" was not found.`);
+      }
+
+      if (updates.expectedRevision !== undefined && updates.expectedRevision !== docRow.revision) {
+        this.db.exec('ROLLBACK;');
+        throw new PluginError(
+          'REVISION_CONFLICT',
+          `Score "${documentId}" is at revision ${docRow.revision}, but expected revision was ${updates.expectedRevision}.`,
+        );
+      }
+
+      const nextRevision = (docRow.revision || 1) + 1;
+      const now = new Date().toISOString();
+
+      const newTitle = updates.title !== undefined ? updates.title : docRow.title;
+      const newName = updates.name !== undefined ? updates.name : (updates.title ? (updates.title.endsWith('.abc') ? updates.title : `${updates.title}.abc`) : docRow.name);
+      const newAbcSource = updates.abcSource !== undefined ? updates.abcSource : docRow.abc_source;
+      const newScoreInfo = updates.scoreInfo !== undefined ? JSON.stringify(updates.scoreInfo) : docRow.score_info;
+      const newAnnotations = updates.annotations !== undefined ? JSON.stringify(updates.annotations) : docRow.annotations;
+      const newChats = updates.chats !== undefined ? JSON.stringify(updates.chats) : docRow.chats;
+      const newHistoryIndex = updates.historyIndex !== undefined ? updates.historyIndex : docRow.history_index;
+
+      this.db.prepare(`
+        UPDATE documents
+        SET name = ?, title = ?, abc_source = ?, score_info = ?, annotations = ?, chats = ?, history_index = ?, revision = ?, updated_at = ?
+        WHERE id = ?
+      `).run(newName, newTitle, newAbcSource, newScoreInfo, newAnnotations, newChats, newHistoryIndex, nextRevision, now, documentId);
+
+      if (Array.isArray(updates.versions)) {
+        this.db.prepare('DELETE FROM document_versions WHERE document_id = ?').run(documentId);
+        const insertVersion = this.db.prepare(`
+          INSERT INTO document_versions (document_id, revision, abc_source, created_at, reason)
+          VALUES (?, ?, ?, ?, ?)
+        `);
+        for (const v of updates.versions) {
+          insertVersion.run(documentId, v.revision, v.abcSource || '', v.createdAt || now, v.reason || 'edit');
+        }
+      } else if (updates.abcSource !== undefined && updates.abcSource !== docRow.abc_source) {
+        this.db.prepare(`
+          INSERT OR REPLACE INTO document_versions (document_id, revision, abc_source, created_at, reason)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(documentId, nextRevision, newAbcSource, now, updates.versionReason || 'edit');
+      }
+
+      if (Array.isArray(updates.history)) {
+        this.db.prepare('DELETE FROM document_history WHERE document_id = ?').run(documentId);
+        const insertHist = this.db.prepare(`
+          INSERT INTO document_history (id, document_id, revision, timestamp, category, action_type, summary, abc_source, score_info, annotations, sort_order)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        updates.history.forEach((h, idx) => {
+          insertHist.run(
+            h.id || `hist-${randomUUID().slice(0, 8)}`,
+            documentId,
+            h.revision || nextRevision,
+            h.timestamp || now,
+            h.category || 'body',
+            h.actionType || 'edit',
+            h.summary || 'Edit score',
+            h.abcSource || newAbcSource,
+            JSON.stringify(h.scoreInfo || {}),
+            JSON.stringify(h.annotations || []),
+            idx,
+          );
+        });
+      }
+
+      this.db.prepare(`
+        UPDATE workspace SET revision = revision + 1 WHERE id = 1
+      `).run();
+
+      this.db.exec('COMMIT;');
+      updatedDoc = this.requireSync(documentId);
+    } catch (err) {
+      if (!(err instanceof PluginError)) {
+        try { this.db.exec('ROLLBACK;'); } catch {}
+        throw new PluginError('PERSISTENCE_FAILED', `Failed to update score: ${err.message}`);
+      }
+      throw err;
     }
 
-    const current = state.documents[index];
-    if (updates.expectedRevision !== undefined && updates.expectedRevision !== current.revision) {
-      throw new PluginError(
-        'REVISION_CONFLICT',
-        `Score "${documentId}" is at revision ${current.revision}, but expected revision was ${updates.expectedRevision}.`,
-      );
+    if (updates.abcSource !== undefined) {
+      await this.mirrorAbcFile(documentId, updatedDoc.abcSource);
     }
-
-    const updatedDoc = {
-      ...current,
-      ...updates,
-      revision: (current.revision || 1) + 1,
-      updatedAt: new Date().toISOString(),
-    };
-    delete updatedDoc.expectedRevision;
-
-    state.documents[index] = updatedDoc;
-    state.workspace.documents = state.documents;
-    state.workspaceRevision = (state.workspaceRevision || 0) + 1;
-    await this.write(state);
 
     if (this.views) {
       if (updates.abcSource !== undefined) {
@@ -226,22 +499,30 @@ export class LocalDocumentStore {
   }
 
   async deleteUnsafe(documentId) {
-    const state = await this.read();
-    const initialLen = state.documents.length;
-    state.documents = state.documents.filter((doc) => doc.id !== documentId);
-    if (state.documents.length === initialLen) {
-      throw new PluginError('DOCUMENT_NOT_FOUND', `Score document "${documentId}" was not found.`);
-    }
-
-    state.workspace.documents = state.documents;
-    state.workspaceRevision = (state.workspaceRevision || 0) + 1;
-    await this.write(state);
-
+    this.db.exec('BEGIN IMMEDIATE;');
+    let remainingCount = 0;
     try {
-      await unlink(join(this.scoresDir, `${documentId}.abc`));
-    } catch {
-      // Ignored if missing
+      const doc = this.db.prepare('SELECT id FROM documents WHERE id = ?').get(documentId);
+      if (!doc) {
+        this.db.exec('ROLLBACK;');
+        throw new PluginError('DOCUMENT_NOT_FOUND', `Score document "${documentId}" was not found.`);
+      }
+
+      this.db.prepare('DELETE FROM documents WHERE id = ?').run(documentId);
+      this.db.prepare('UPDATE workspace SET revision = revision + 1 WHERE id = 1').run();
+      const countRow = this.db.prepare('SELECT COUNT(*) as count FROM documents').get();
+      remainingCount = countRow?.count ?? 0;
+
+      this.db.exec('COMMIT;');
+    } catch (err) {
+      if (!(err instanceof PluginError)) {
+        try { this.db.exec('ROLLBACK;'); } catch {}
+        throw new PluginError('PERSISTENCE_FAILED', `Failed to delete score: ${err.message}`);
+      }
+      throw err;
     }
+
+    await this.unmirrorAbcFile(documentId);
 
     if (this.views) {
       this.views.broadcastCommand({
@@ -250,12 +531,21 @@ export class LocalDocumentStore {
       });
     }
 
-    return { deleted: true, documentId, remainingCount: state.documents.length };
+    return { deleted: true, documentId, remainingCount };
+  }
+
+  getWorkspaceSync() {
+    const wsRow = this.db.prepare('SELECT revision, preferences FROM workspace WHERE id = 1').get();
+    const documents = this.listSync();
+    return {
+      revision: wsRow?.revision ?? 0,
+      documents,
+      preferences: parseJson(wsRow?.preferences, {}),
+    };
   }
 
   async getWorkspace() {
-    const state = await this.read();
-    return { revision: state.workspaceRevision || 0, ...state.workspace };
+    return this.getWorkspaceSync();
   }
 
   async putWorkspace(input) {
@@ -266,15 +556,111 @@ export class LocalDocumentStore {
     if (!Array.isArray(documents) || !documents.every((d) => d && typeof d.id === 'string' && typeof d.abcSource === 'string')) {
       throw new PluginError('INVALID_WORKSPACE', 'Workspace documents must contain an ID and ABC source.');
     }
-    const state = await this.read();
-    state.workspace = {
-      documents,
-      preferences: preferences && typeof preferences === 'object' ? preferences : state.workspace.preferences || {},
-    };
-    state.documents = documents;
-    state.workspaceRevision = (state.workspaceRevision || 0) + 1;
-    await this.write(state);
-    return { revision: state.workspaceRevision, ...state.workspace };
+
+    this.db.exec('BEGIN IMMEDIATE;');
+    try {
+      const wsRow = this.db.prepare('SELECT revision, preferences FROM workspace WHERE id = 1').get();
+      const currentRevision = wsRow?.revision ?? 0;
+      const nextRevision = currentRevision + 1;
+      const nextPreferences = preferences && typeof preferences === 'object' ? preferences : parseJson(wsRow?.preferences, {});
+
+      const existingIds = new Set(this.db.prepare('SELECT id FROM documents').all().map((r) => r.id));
+      const newDocIds = new Set(documents.map((d) => d.id));
+
+      for (const id of existingIds) {
+        if (!newDocIds.has(id)) {
+          this.db.prepare('DELETE FROM documents WHERE id = ?').run(id);
+        }
+      }
+
+      const upsertDoc = this.db.prepare(`
+        INSERT INTO documents (id, name, title, source_type, revision, abc_source, score_info, annotations, chats, history_index, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          title = excluded.title,
+          source_type = excluded.source_type,
+          revision = excluded.revision,
+          abc_source = excluded.abc_source,
+          score_info = excluded.score_info,
+          annotations = excluded.annotations,
+          chats = excluded.chats,
+          history_index = excluded.history_index,
+          updated_at = excluded.updated_at
+      `);
+
+      this.db.prepare('DELETE FROM workspace_documents').run();
+      const insertOrder = this.db.prepare('INSERT INTO workspace_documents (document_id, sort_order) VALUES (?, ?)');
+
+      const now = new Date().toISOString();
+      for (let i = 0; i < documents.length; i++) {
+        const doc = documents[i];
+        const safeTitle = doc.title || doc.scoreInfo?.title || doc.name || 'Untitled score';
+        upsertDoc.run(
+          doc.id,
+          doc.name || `${safeTitle}.abc`,
+          safeTitle,
+          doc.sourceType || 'abc',
+          doc.revision || 1,
+          doc.abcSource,
+          JSON.stringify(doc.scoreInfo || {}),
+          JSON.stringify(doc.annotations || []),
+          JSON.stringify(doc.chats || []),
+          doc.historyIndex || 0,
+          doc.createdAt || now,
+          doc.updatedAt || now,
+        );
+        insertOrder.run(doc.id, i);
+
+        if (Array.isArray(doc.versions)) {
+          this.db.prepare('DELETE FROM document_versions WHERE document_id = ?').run(doc.id);
+          const insVer = this.db.prepare('INSERT INTO document_versions (document_id, revision, abc_source, created_at, reason) VALUES (?, ?, ?, ?, ?)');
+          for (const v of doc.versions) {
+            insVer.run(doc.id, v.revision, v.abcSource || '', v.createdAt || now, v.reason || 'edit');
+          }
+        }
+
+        if (Array.isArray(doc.history)) {
+          this.db.prepare('DELETE FROM document_history WHERE document_id = ?').run(doc.id);
+          const insHist = this.db.prepare('INSERT INTO document_history (id, document_id, revision, timestamp, category, action_type, summary, abc_source, score_info, annotations, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+          doc.history.forEach((h, idx) => {
+            insHist.run(
+              h.id || `hist-${randomUUID().slice(0, 8)}`,
+              doc.id,
+              h.revision || 1,
+              h.timestamp || now,
+              h.category || 'origin',
+              h.actionType || 'initial',
+              h.summary || 'History entry',
+              h.abcSource || doc.abcSource,
+              JSON.stringify(h.scoreInfo || {}),
+              JSON.stringify(h.annotations || []),
+              idx,
+            );
+          });
+        }
+      }
+
+      this.db.prepare(`
+        UPDATE workspace SET revision = ?, preferences = ? WHERE id = 1
+      `).run(nextRevision, JSON.stringify(nextPreferences));
+
+      this.db.exec('COMMIT;');
+    } catch (err) {
+      if (!(err instanceof PluginError)) {
+        try { this.db.exec('ROLLBACK;'); } catch {}
+        throw new PluginError('PERSISTENCE_FAILED', `Failed to update workspace: ${err.message}`);
+      }
+      throw err;
+    }
+
+    for (const doc of documents) {
+      if (doc.id && doc.abcSource) {
+        await this.mirrorAbcFile(doc.id, doc.abcSource);
+      }
+    }
+
+    return this.getWorkspace();
   }
 
   async patchWorkspace({ kind, key, value }) {

@@ -31,7 +31,7 @@ Chorale unifies the score workspace and AI tools into a single local background 
 
 - **CLI-First Architecture**: Run `chorale` as an independent CLI tool that manages the server in the background and opens the interactive workspace in your browser on demand.
 - **Model Context Protocol (MCP)**: Full stdio and SSE MCP server on port 1685 exposing 16 modular musical score tools to Codex, Claude Code, and Antigravity.
-- **Durable Local Storage (`~/.chorale/`)**: Scores and revisions persist directly to the filesystem in `~/.chorale/store.json` and `~/.chorale/scores/`.
+- **Durable Local Storage (`~/.chorale/`)**: Scores and revisions persist directly in `~/.chorale/chorale.db` (SQLite via `node:sqlite`) and `~/.chorale/scores/`.
 - **Bounded Measure Operations**: Fast, deterministic measure reading (`read_measure`), insertion (`insert_measure`), replacement (`edit_measures` / `edit_measure`), and deletion (`delete_measures`) with optimistic revision guards.
 - **Harmonic Annotations**: Add, edit, delete, and list annotations with Roman numeral analysis and chord symbols directly on the score.
 - **MusicXML & MXL Import**: Drag-and-drop or programmatic import of `.xml`, `.musicxml`, and compressed `.mxl` files converted via `@educandu/abc-tools`.

@@ -47,13 +47,13 @@ The plugin is a score-focused workspace for importing music, selecting written m
 
 ## Architecture & CLI Entry Point
 
-Chorale is accessed as an independent CLI tool (`chorale` or `bin/chorale.mjs mcp`) that operates on port **1685** and persists score data in `~/.chorale/` (`store.json` and mirrored `.abc` files).
+Chorale is accessed as an independent CLI tool (`chorale` or `bin/chorale.mjs mcp`) that operates on port **1685** and persists score data in `~/.chorale/` (`chorale.db` and mirrored `.abc` files).
 
 1. **Stdio MCP Server**: Codex connects to `chorale mcp` over stdio. If the background HTTP server on port 1685 is not already running, `bin/chorale.mjs` automatically spawns it as a detached process and proxies mutations so changes immediately reflect in any open workspace.
 2. **On-Demand Browser Launch**: Opening the browser workspace is explicitly controlled via `open_ui({ documentId? })`. Codex harness browser environments (e.g. `CODEX_BROWSER_COMMAND`) are preferred before falling back to system browsers.
 3. **Local Marketplace Manifest**: The repository acts as a local marketplace root (`.agents/plugins/marketplace.json`) pointing to `plugins/chorale-codex-plugin` or runs directly via `.codex-plugin/plugin.json`.
 
-Run `npm run package:codex` before installing from the local marketplace. It builds the UI and replaces the generated package with the current CLI, bundled dependencies, and skills. The installed package uses the same port 1685 service and `store.json` as the browser. It must not include the retired `server.mjs`, `codex-plugin-store.json`, or port 43171 daemon. After a package update, reinstall it and start a new Codex task to attach the current tool contract.
+Run `npm run package:codex` before installing from the local marketplace. It builds the UI and replaces the generated package with the current CLI, bundled dependencies, and skills. The installed package uses the same port 1685 service and `chorale.db` as the browser. It must not include the retired `server.mjs`, `codex-plugin-store.json`, or port 43171 daemon. After a package update, reinstall it and start a new Codex task to attach the current tool contract.
 
 ## Automatic View Connection & Routing
 
@@ -89,6 +89,6 @@ The MCP server exposes 16 modular tools:
 
 - Out-of-range measure operations return structured error codes.
 - Stale mutations without matching `expectedRevision` fail closed.
-- Reopening preserves all scores and annotations across restarts (`~/.chorale/store.json`).
+- Reopening preserves all scores and annotations across restarts (`~/.chorale/chorale.db`).
 - Data tools operate fully headlessly without requiring the browser UI.
 - The `render_score_workspace` tool is distinct from ordinary reads so a data read never remounts a score page.

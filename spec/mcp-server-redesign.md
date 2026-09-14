@@ -94,12 +94,13 @@ Chorale is redesigned from a monolithic script and fragmented plugin wrappers in
   - `GET /v1/views/:viewId/commands`: Polling endpoint for view commands.
   - `POST /v1/views/:viewId/commands/:commandId/ack`: Command acknowledgment.
 
-### 2.3 Filesystem-Backed Storage (`~/.chorale/`)
-- Root directory: `~/.chorale/` (overrideable via `CHORALE_HOME` or `CHORALE_STORE_PATH`).
-- File structure:
-  - `~/.chorale/store.json`: Main durable database tracking documents, metadata, revision history, and workspace layout preferences.
-  - `~/.chorale/scores/`: Raw exported/imported ABC and MusicXML files.
-- Atomic writes: Temporary write (`store.json.<pid>.<uuid>.tmp`) followed by atomic rename to prevent corruption.
+### 2.3 Local SQLite Storage (`~/.chorale/chorale.db`)
+- Root directory: `~/.chorale/` (overrideable via `CHORALE_HOME`, `CHORALE_DB_PATH`, or `CHORALE_STORE_PATH`).
+- Storage engine:
+  - `~/.chorale/chorale.db`: Local SQLite database powered by Node.js standard library `node:sqlite` (`DatabaseSync`), operating in WAL mode with foreign keys enabled.
+  - Relational schema: `documents`, `workspace_documents` (preserves file rail ordering), `document_versions`, `document_history`, and `workspace` (singleton tracking revision and layout preferences).
+  - `~/.chorale/scores/`: Raw exported/mirrored ABC files (`${documentId}.abc`).
+- ACID transactions: Granular updates to documents, versions, history entries, and workspace preferences run inside immediate SQLite transactions with WAL concurrency safety.
 
 ---
 
