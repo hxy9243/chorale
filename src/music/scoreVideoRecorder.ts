@@ -415,6 +415,19 @@ export async function extractScoreSystems(
     });
   }
 
+  // Map abcjs line indices / class names to sequential systemIndex (0..N-1) in `systems`.
+  // In abcjs, tune.lines indexes all lines including subtitles, header metadata, or parts.
+  // Therefore, ev.line and abcjs-l\d+ classes might be 1-indexed or offset (e.g. abcjs-l1 when line 0 is a subtitle).
+  const lineClassToSystemIndex = new Map<string, number>();
+  const lineNumToSystemIndex = new Map<number, number>();
+  rawSystems.forEach((raw, idx) => {
+    lineClassToSystemIndex.set(raw.lineClass, idx);
+    const match = raw.lineClass.match(/^abcjs-l(\d+)$/);
+    if (match) {
+      lineNumToSystemIndex.set(Number(match[1]), idx);
+    }
+  });
+
   // Extract accurate note timing events using tune.setTiming(bpm) if available
   const noteEvents: ScoreNoteEvent[] = [];
   if (activeTune && typeof activeTune.setTiming === 'function') {
@@ -424,10 +437,13 @@ export async function extractScoreSystems(
       if (Array.isArray(timings) && timings.length > 0) {
         for (const ev of timings) {
           if (ev.type === 'event' && typeof ev.milliseconds === 'number') {
+            const sysIdx = typeof ev.line === 'number'
+              ? (lineNumToSystemIndex.get(ev.line) ?? lineClassToSystemIndex.get(`abcjs-l${ev.line}`) ?? 0)
+              : 0;
             noteEvents.push({
               timeSec: ev.milliseconds / 1000,
               durationSec: ev.millisecondsPerMeasure ? ev.millisecondsPerMeasure / 1000 : 0.5,
-              systemIndex: typeof ev.line === 'number' ? ev.line : 0,
+              systemIndex: sysIdx,
               measureNumber: (ev.measureNumber ?? 0) + 1,
               x: ev.left ?? 50,
               endX: ev.endX,
@@ -453,8 +469,14 @@ export async function extractScoreSystems(
     noteEls.forEach((noteEl, idx) => {
       let sysIdx = 0;
       noteEl.classList.forEach((cls) => {
-        const match = cls.match(/^abcjs-l(\d+)$/);
-        if (match) sysIdx = Number(match[1]);
+        if (lineClassToSystemIndex.has(cls)) {
+          sysIdx = lineClassToSystemIndex.get(cls)!;
+        } else {
+          const match = cls.match(/^abcjs-l(\d+)$/);
+          if (match && lineNumToSystemIndex.has(Number(match[1]))) {
+            sysIdx = lineNumToSystemIndex.get(Number(match[1]))!;
+          }
+        }
       });
 
       let measure = 1;

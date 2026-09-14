@@ -441,6 +441,63 @@ describe('scoreVideoRecorder', () => {
         globalThis.URL = originalUrl;
       }
     });
+
+    it('maps offset abcjs lines (e.g. abcjs-l1 from pieces with subtitles) to 0-based systemIndex in noteEvents', async () => {
+      const originalImage = globalThis.Image;
+      class MockImage {
+        onload: any = null;
+        onerror: any = null;
+        set src(_v: string) {
+          setTimeout(() => {
+            if (this.onload) this.onload();
+          }, 0);
+        }
+      }
+      globalThis.Image = MockImage as any;
+
+      try {
+        const { extractScoreSystems } = await import('../scoreVideoRecorder');
+
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 800 600');
+
+        // Piece with subtitle: lines start at abcjs-l1, abcjs-l2 (line 0 is subtitle text)
+        const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        line1.setAttribute('class', 'abcjs-l1 abcjs-staff');
+        line1.getBBox = () => ({ x: 0, y: 50, width: 750, height: 60, top: 50, right: 750, bottom: 110, left: 0 } as DOMRect);
+
+        const note1 = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        note1.setAttribute('class', 'abcjs-note abcjs-l1 abcjs-mm0');
+        note1.getBBox = () => ({ x: 50, y: 60, width: 10, height: 20, top: 60, right: 60, bottom: 80, left: 50 } as DOMRect);
+        line1.appendChild(note1);
+
+        const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        line2.setAttribute('class', 'abcjs-l2 abcjs-staff');
+        line2.getBBox = () => ({ x: 0, y: 200, width: 750, height: 60, top: 200, right: 750, bottom: 260, left: 0 } as DOMRect);
+
+        const note2 = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        note2.setAttribute('class', 'abcjs-note abcjs-l2 abcjs-mm4');
+        note2.getBBox = () => ({ x: 50, y: 210, width: 10, height: 20, top: 210, right: 60, bottom: 230, left: 50 } as DOMRect);
+        line2.appendChild(note2);
+
+        svg.appendChild(line1);
+        svg.appendChild(line2);
+
+        const data = await extractScoreSystems(svg, 'dark');
+        expect(data.systems).toHaveLength(2);
+        expect(data.systems[0].systemIndex).toBe(0);
+        expect(data.systems[0].lineClass).toBe('abcjs-l1');
+        expect(data.systems[1].systemIndex).toBe(1);
+        expect(data.systems[1].lineClass).toBe('abcjs-l2');
+
+        // noteEvents fallback should map abcjs-l1 to systemIndex 0, and abcjs-l2 to systemIndex 1
+        expect(data.noteEvents).toHaveLength(2);
+        expect(data.noteEvents[0].systemIndex).toBe(0);
+        expect(data.noteEvents[1].systemIndex).toBe(1);
+      } finally {
+        globalThis.Image = originalImage;
+      }
+    });
   });
 
   describe('repairMp4BoxDurations', () => {
