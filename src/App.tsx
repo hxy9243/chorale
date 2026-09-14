@@ -82,6 +82,7 @@ export const App: React.FC = () => {
     handleDeleteAnnotation,
     handleSetAnnotations,
     handleDeleteAnnotations,
+    handleRefreshDocuments,
   } = useDocumentStore();
 
   const interfaceZoom = useInterfaceZoom();
@@ -257,6 +258,7 @@ export const App: React.FC = () => {
     onReplaceScore: handleWholeScoreReplacement,
     onSetAnnotations: handleSetAnnotations,
     onDeleteAnnotations: handleDeleteAnnotations,
+    onRefreshDocuments: handleRefreshDocuments,
   });
 
   return (

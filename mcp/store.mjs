@@ -262,14 +262,11 @@ export class LocalDocumentStore {
     return this.serializeMutation(() => this.putWorkspaceUnsafe(input));
   }
 
-  async putWorkspaceUnsafe({ documents, preferences, expectedRevision }) {
+  async putWorkspaceUnsafe({ documents, preferences }) {
     if (!Array.isArray(documents) || !documents.every((d) => d && typeof d.id === 'string' && typeof d.abcSource === 'string')) {
       throw new PluginError('INVALID_WORKSPACE', 'Workspace documents must contain an ID and ABC source.');
     }
     const state = await this.read();
-    if (expectedRevision !== undefined && expectedRevision !== state.workspaceRevision) {
-      throw new PluginError('REVISION_CONFLICT', `Workspace is at revision ${state.workspaceRevision}, not ${expectedRevision}.`);
-    }
     state.workspace = {
       documents,
       preferences: preferences && typeof preferences === 'object' ? preferences : state.workspace.preferences || {},
@@ -280,14 +277,11 @@ export class LocalDocumentStore {
     return { revision: state.workspaceRevision, ...state.workspace };
   }
 
-  async patchWorkspace({ kind, key, value, expectedRevision }) {
+  async patchWorkspace({ kind, key, value }) {
     return this.serializeMutation(async () => {
       const current = await this.getWorkspace();
-      if (expectedRevision !== undefined && expectedRevision !== current.revision) {
-        throw new PluginError('REVISION_CONFLICT', `Workspace revision conflict: expected ${expectedRevision}, found ${current.revision}`);
-      }
       if (kind === 'documents') {
-        return this.putWorkspaceUnsafe({ ...current, documents: value, expectedRevision });
+        return this.putWorkspaceUnsafe({ ...current, documents: value });
       }
       if (kind === 'active') {
         // Active file is browser/tab-local; no-op for backward compatibility
@@ -295,7 +289,7 @@ export class LocalDocumentStore {
       }
       if (kind === 'preference' && key) {
         const preferences = { ...(current.preferences || {}), [key]: value };
-        return this.putWorkspaceUnsafe({ ...current, preferences, expectedRevision });
+        return this.putWorkspaceUnsafe({ ...current, preferences });
       }
       throw new PluginError('INVALID_WORKSPACE', `Unknown patch kind: ${kind}`);
     });

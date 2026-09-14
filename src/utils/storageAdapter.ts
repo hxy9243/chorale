@@ -14,7 +14,6 @@ type IndexedDBRecord = {
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 const memoryStore = new Map<string, unknown>();
-let workspaceRevision = 0;
 let sharedServiceAvailable: boolean | null = null;
 
 // The packaged workspace is served by the Chorale daemon. Vite remains an
@@ -39,7 +38,7 @@ const sharedWorkspace = async <T>(path: string, options?: RequestInit): Promise<
   const base = sharedServiceBase();
   const url = base ? `${base}${path}` : path;
   const response = await fetch(url, options);
-  if (!response.ok) throw new Error(response.status === 409 ? 'Workspace changed in another view. Refreshing.' : 'Shared Chorale service is unavailable.');
+  if (!response.ok) throw new Error('Shared Chorale service is unavailable.');
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
     throw new Error('Shared Chorale service returned invalid content.');
@@ -110,14 +109,10 @@ export const storageAdapter = {
   async getDocuments(): Promise<FileDocument[]> {
     if (usesSharedWorkspace() && sharedServiceAvailable !== false) {
       try {
-        const workspace = await sharedWorkspace<{ revision: number; documents: unknown[] }>('/v1/workspace');
-        workspaceRevision = workspace.revision;
+        const workspace = await sharedWorkspace<{ documents: unknown[] }>('/v1/workspace');
         sharedServiceAvailable = true;
         return normalizeDocuments(workspace.documents || []);
-      } catch (err) {
-        if (err instanceof Error && err.message.includes('Workspace changed in another view')) {
-          throw err;
-        }
+      } catch {
         sharedServiceAvailable = false;
         console.info('Shared Chorale service unavailable, falling back to local storage.');
       }
@@ -150,18 +145,14 @@ export const storageAdapter = {
   async saveDocuments(documents: FileDocument[]): Promise<boolean> {
     if (usesSharedWorkspace() && sharedServiceAvailable !== false) {
       try {
-        const workspace = await sharedWorkspace<{ revision: number }>('/v1/workspace/documents', {
+        await sharedWorkspace('/v1/workspace/documents', {
           method: 'PUT',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ documents, expectedRevision: workspaceRevision }),
+          body: JSON.stringify({ documents }),
         });
-        workspaceRevision = workspace.revision;
         sharedServiceAvailable = true;
         return true;
-      } catch (err) {
-        if (err instanceof Error && err.message.includes('Workspace changed in another view')) {
-          throw err;
-        }
+      } catch {
         sharedServiceAvailable = false;
         console.info('Shared Chorale service unavailable, saving to local storage.');
       }

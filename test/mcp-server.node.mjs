@@ -405,6 +405,13 @@ test('server: starts HTTP server, serves /v1/health, REST tools, and files', asy
     const wsJson = await wsRes.json();
     assert.equal(wsJson.documents.length, 1);
 
+    const putWsRes = await fetch(`${baseUrl}/v1/workspace/documents`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ documents: wsJson.documents }),
+    });
+    assert.equal(putWsRes.status, 200);
+
     // 4. Files listing
     const filesRes = await fetch(`${baseUrl}/v1/files`);
     assert.equal(filesRes.status, 200);

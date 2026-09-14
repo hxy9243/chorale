@@ -218,7 +218,6 @@ export const startServer = async (options = {}) => {
           kind,
           key: prefMatch && decodeURIComponent(prefMatch[1]),
           value: kind === 'documents' ? patch.documents : kind === 'active' ? patch.activeFileId : patch.value,
-          expectedRevision: patch.expectedRevision,
         });
         res.setHeader('content-type', 'application/json');
         res.writeHead(200).end(JSON.stringify(next));

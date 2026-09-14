@@ -137,27 +137,18 @@ export const useDocumentStore = () => {
     };
   }, []);
 
-  // The shared daemon is authoritative. Polling is deliberately bounded and
-  // never replaces a locally pending autosave; another browser's committed
-  // revision becomes visible without a manual reload.
-  useEffect(() => {
-    if (hydrationStatus !== 'ready') return undefined;
-    const refresh = async () => {
-      if (saveStatus === 'saving') return;
-      try {
-        const remote = await storageAdapter.getDocuments();
-        setDocuments((current) => JSON.stringify(current) === JSON.stringify(remote) ? current : remote);
-        setActiveFileId((currentActive) => {
-          if (currentActive && !remote.some((d) => d.id === currentActive)) {
-            return remote[0]?.id || '';
-          }
-          return currentActive;
-        });
-      } catch { /* optional bridge unavailable in local development */ }
-    };
-    const interval = window.setInterval(() => void refresh(), 2_000);
-    return () => window.clearInterval(interval);
-  }, [hydrationStatus, saveStatus]);
+  const handleRefreshDocuments = useCallback(async () => {
+    try {
+      const remote = await storageAdapter.getDocuments();
+      setDocuments((current) => JSON.stringify(current) === JSON.stringify(remote) ? current : remote);
+      setActiveFileId((currentActive) => {
+        if (currentActive && !remote.some((d) => d.id === currentActive)) {
+          return remote[0]?.id || '';
+        }
+        return currentActive;
+      });
+    } catch { /* optional bridge unavailable in local development */ }
+  }, []);
 
   // Auto-save effect: ONLY run after hydration is ready
   useEffect(() => {
@@ -730,5 +721,6 @@ export const useDocumentStore = () => {
     handleDeleteAnnotation,
     handleSetAnnotations,
     handleDeleteAnnotations,
+    handleRefreshDocuments,
   };
 };

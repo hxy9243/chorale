@@ -23,6 +23,7 @@ type PluginMcpBridgeInput = Readonly<{
   onReplaceScore: (replacementAbc: string) => { status: string };
   onSetAnnotations?: (annotations: readonly Annotation[]) => void;
   onDeleteAnnotations?: (annotationIds: readonly string[]) => void;
+  onRefreshDocuments?: () => void;
 }>;
 
 const defaultBridgeUrl = 'http://127.0.0.1:1685';
@@ -91,6 +92,7 @@ export const usePluginMcpBridge = ({
   onReplaceScore,
   onSetAnnotations,
   onDeleteAnnotations,
+  onRefreshDocuments,
 }: PluginMcpBridgeInput) => {
   const config = useMemo(() => getPluginViewConfig(), []);
   const annotationsRef = useRef(annotations);
@@ -98,6 +100,9 @@ export const usePluginMcpBridge = ({
 
   const onSetAnnotationsRef = useRef(onSetAnnotations);
   onSetAnnotationsRef.current = onSetAnnotations;
+
+  const onRefreshDocumentsRef = useRef(onRefreshDocuments);
+  onRefreshDocumentsRef.current = onRefreshDocuments;
 
   const selectedAbc = useMemo(
     () => selection ? extractSelectedAbc(abcSource, selection) : undefined,
@@ -216,6 +221,9 @@ export const usePluginMcpBridge = ({
             onDeleteAnnotations?.(command.annotationIds as string[]);
           } else if (accepted && command.kind === 'replace-score' && typeof command.replacementAbc === 'string') {
             accepted = onReplaceScore(command.replacementAbc).status === 'valid';
+          } else if (command.type === 'FILE_CREATED' || command.type === 'FILE_DELETED') {
+            onRefreshDocumentsRef.current?.();
+            accepted = true;
           } else {
             accepted = false;
           }
