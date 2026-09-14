@@ -42,7 +42,9 @@ export const createMcpServer = (
     ...sheetTools.handlers,
     ...workspaceTools.handlers,
   };
-  const handlers = handlersOverride || localHandlers;
+  const handlers = typeof handlersOverride === 'function'
+    ? handlersOverride(localHandlers)
+    : handlersOverride || localHandlers;
 
   for (const [name, schema] of Object.entries(schemas)) {
     server.registerTool(name, schema, handlers[name]);

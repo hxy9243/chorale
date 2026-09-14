@@ -39,3 +39,27 @@ export const proxyDocumentMutations = (handlers, port = 1685, fetchImpl = fetch)
   }
   return proxied;
 };
+
+/**
+ * Route every stdio tool through the already-running HTTP daemon. This keeps
+ * reads, writes, and live view state in the same process as the browser UI.
+ */
+export const proxyDaemonTools = (handlers, port = 1685, fetchImpl = fetch) => {
+  const proxied = {};
+  for (const toolName of Object.keys(handlers)) {
+    proxied[toolName] = async (input = {}) => {
+      try {
+        const response = await fetchImpl(`http://127.0.0.1:${port}/v1/tools/${toolName}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(input),
+          signal: AbortSignal.timeout(10_000),
+        });
+        return await response.json();
+      } catch (error) {
+        return unavailable(error);
+      }
+    };
+  }
+  return proxied;
+};
