@@ -49,7 +49,7 @@ export const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
   onDelete,
 }) => {
   const grid = useMemo(() => parseMeterBeatGrid(meter), [meter]);
-  const initialFriendlyPosition = initialAnnotation?.kind === 'chord'
+  const initialFriendlyPosition = initialAnnotation?.kind === 'chord' && initialAnnotation.position
     ? friendlyBeatFromRational(grid, initialAnnotation.position.offset)
     : { beat: 1, subdivision: 1 as const, step: 0 };
   const [kind, setKind] = useState<AnnotationKind>(initialAnnotation?.kind ?? 'explanation');
@@ -63,7 +63,7 @@ export const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
   const [body, setBody] = useState(initialAnnotation?.body ?? '');
   const [positionMeasure, setPositionMeasure] = useState(
     initialAnnotation?.kind === 'chord'
-      ? initialAnnotation.position.measure
+      ? initialAnnotation.position?.measure ?? initialAnnotation.span?.startMeasure ?? defaultSpan.startMeasure
       : defaultSpan.startMeasure,
   );
   const [beat, setBeat] = useState(initialFriendlyPosition.beat);

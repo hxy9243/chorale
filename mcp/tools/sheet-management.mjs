@@ -143,23 +143,33 @@ export const createSheetManagementTools = (store, views) => {
       try {
         const doc = await store.require(documentId);
         const now = new Date().toISOString();
-        const newAnnotations = notations.map((notation) => ({
-          id: `ann-${randomUUID().slice(0, 8)}`,
-          startMeasure: notation.startMeasure,
-          endMeasure: notation.endMeasure || notation.startMeasure,
-          span: {
-            startMeasure: notation.startMeasure,
-            endMeasure: notation.endMeasure || notation.startMeasure,
-          },
-          label: notation.label || 'Note',
-          body: notation.body || '',
-          kind: notation.kind || 'explanation',
-          chordSymbol: notation.chordSymbol || undefined,
-          romanNumeral: notation.romanNumeral || undefined,
-          position: notation.position || undefined,
-          createdAt: now,
-          updatedAt: now,
-        }));
+        const newAnnotations = notations.map((notation) => {
+          const kind = notation.kind || 'explanation';
+          const startMeasure = notation.startMeasure;
+          const endMeasure = notation.endMeasure || notation.startMeasure;
+          const position = notation.position || (kind === 'chord' ? {
+            measure: startMeasure,
+            offset: { numerator: 0, denominator: 1 },
+          } : undefined);
+
+          return {
+            id: `ann-${randomUUID().slice(0, 8)}`,
+            startMeasure,
+            endMeasure,
+            span: {
+              startMeasure,
+              endMeasure,
+            },
+            label: notation.label || 'Note',
+            body: notation.body || '',
+            kind,
+            chordSymbol: notation.chordSymbol || undefined,
+            romanNumeral: notation.romanNumeral || undefined,
+            position,
+            createdAt: now,
+            updatedAt: now,
+          };
+        });
 
         const existing = Array.isArray(doc.annotations) ? doc.annotations : [];
         const updated = await store.update(documentId, {

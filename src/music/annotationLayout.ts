@@ -427,17 +427,23 @@ export const projectAnnotations = ({
       placements.push(...rangePlacements(annotation, availableMeasures));
       continue;
     }
+    const targetMeasure = annotation.position?.measure ?? annotation.span?.startMeasure;
+    if (typeof targetMeasure !== 'number') continue;
     const measure = availableMeasures.find((candidate) => (
-      candidate.measure === annotation.position.measure
+      candidate.measure === targetMeasure
     ));
     if (!measure) continue;
+    const position = annotation.position ?? {
+      measure: targetMeasure,
+      offset: { numerator: 0, denominator: 1 },
+    };
     placements.push({
       id: `${annotation.id}:${measure.systemId}:0`,
       annotationId: annotation.id,
       systemId: measure.systemId,
       ...(measure.lineId ? { lineId: measure.lineId } : {}),
       track: 'chord',
-      x: horizontalEventPosition(annotation.position, events, measure),
+      x: horizontalEventPosition(position, events, measure),
       y: measure.bounds.y,
       width: 1,
       height: 24,

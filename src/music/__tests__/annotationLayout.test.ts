@@ -221,4 +221,22 @@ describe('annotation layout projection', () => {
       x: 364,
     });
   });
+
+  it('safely projects chord annotations missing an explicit position by defaulting to measure start', () => {
+    const annotations = [{
+      ...base,
+      id: 'chord-without-position',
+      kind: 'chord',
+      span: { startMeasure: 1, endMeasure: 1 },
+      chordSymbol: 'Cm',
+      label: 'C minor',
+      body: 'Tonic',
+    }] as unknown as Annotation[];
+
+    const result = projectAnnotations({ ...geometry, annotations });
+    expect(result).toHaveLength(1);
+    expect(result[0].x).toBe(20);
+    expect(result[0].chordSymbol).toBe('Cm');
+  });
 });
+
