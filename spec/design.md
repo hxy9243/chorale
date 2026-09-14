@@ -48,12 +48,14 @@ related_specs:
   - spec/agent-tools-and-profiles.md
   - spec/annotations-and-proposals.md
   - spec/score-drafting.md
+  - spec/mcp-server-redesign.md
+  - spec/score-video-export.md
 ---
 
 # Chorale Design Spec Index
 
 Date: 2026-08-05  
-Updated: 2026-09-03
+Updated: 2026-09-13
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 This directory splits the design into category-specific specs instead of keeping the entire workspace design in one file.
@@ -70,7 +72,9 @@ This directory splits the design into category-specific specs instead of keeping
 - [file-workspace-architecture.md](./file-workspace-architecture.md): runtime architecture, debounced persistence boundaries, editing history timeline, shared music & ABC metadata libraries, contracts, and invariants
 - [score-drafting.md](./score-drafting.md): blank piano-score creation, fail-closed measure mutations, and reviewable score-change proposals
 - [score-export.md](./score-export.md): MusicXML export conversion, desktop save flow, browser fallback, and file-rail context menu
-- [codex-plugin.md](./codex-plugin.md): local Codex plugin prototype, authoritative document-service boundary, MCP contracts, and staged extraction plan
+- [score-video-export.md](./score-video-export.md): sheet music video export with WebCodecs AAC/MP4 recording, 2-line lookahead, and audio sync
+- [codex-plugin.md](./codex-plugin.md): local Codex plugin architecture, authoritative document-service boundary, MCP contracts, and staged extraction plan
+- [mcp-server-redesign.md](./mcp-server-redesign.md): unified HTTP UI and MCP service on port 1685, single CLI entry point (`chorale`), ~/.chorale/ persistence, and multi-agent plugin interfaces
 
 ## Supporting specs
 

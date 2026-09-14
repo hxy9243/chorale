@@ -1,66 +1,103 @@
-# Chorale 🎵
+<div align="center">
 
-> A modern MusicXML to ABC sheet music renderer & WebAudio piano synthesizer player.
+# 🎼 Chorale
 
-Chorale is a Proof of Concept (PoC) web application that imports MusicXML files (`.xml`, `.musicxml`, and compressed `.mxl`), parses them into ABC notation, renders interactive SVG vector sheet music, and plays back synthesized piano audio with synchronized note highlights.
+**A high-precision music notation workspace and MCP tool server for AI coding agents.**
+
+[![Version](https://img.shields.io/badge/version-0.0.0-rose.svg)](package.json)
+[![License: MIT](https://img.shields.io/badge/License-MIT-amber.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-passing-emerald.svg)](package.json)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-blue.svg)](package.json)
+
+[Overview](#-overview) •
+[Features](#-features) •
+[Quick Start](#-quick-start) •
+[Agent Setup](#-ai-agent-setup-codex-claude-antigravity) •
+[Documentation](#-documentation-index)
+
+</div>
 
 ---
 
-## ✨ Key Features
+## 🌟 Overview
 
-- **MusicXML & MXL Import**: Drag and drop local `.xml`, `.musicxml`, or compressed `.mxl` files (unzipped in browser via `JSZip`), or pick built-in preset samples.
-- **Xml2Abc Conversion Engine**: Converts MusicXML into ABC notation using `@educandu/abc-tools` (Wim Vree's `xml2abc` engine).
-- **Interactive Sheet Music**: High-legibility SVG score rendered using `abcjs` with dynamic zoom (60% to 180%) and semitone key transposition (+1 / -1 / reset).
-- **WebAudio Piano Synthesizer**: Audio player with Play/Pause/Stop, tempo percentage slider (50% to 180%), volume control, and active note cursor highlighting (`#e11d48`) on the SVG score during audio playback.
-- **ABC Code Editor**: View & edit ABC notation in real-time with instant score re-rendering and copy to clipboard button.
-- **Score Drafting**: Create a blank two-staff piano score, select measures, and make revision-tracked insert, replace, or delete edits.
-- **Codex & Agent Skill + MCP**: Run Chorale as an MCP server with skills (`skills/chorale-score/SKILL.md`) for AI coding agents (Codex, Claude Code, Antigravity) to inspect scores, read measure ranges, propose edits, and queue annotations.
-- **Score Workspace MCP Apps UI**: Optional interactive score view embedded directly inside compatible agent hosts.
-- **Desktop Electron Archive**: The original standalone Electron desktop shell is preserved on branch `electron` (tag `v0.1-electron-archive`).
+**Chorale** is a music workspace, autonomous agent skill, and local Model Context Protocol (MCP) server engineered specifically for AI coding agents (**OpenAI Codex**, **Claude Code**, **Google Antigravity**). It provides deterministic score inspection, bounded measure reads, safe musical mutations, harmonic annotations, and an interactive browser workspace.
+
+Chorale unifies the score workspace and AI tools into a single local background daemon running on port **1685**, backed by durable local storage in `~/.chorale/`.
+
+---
+
+## ✨ Features
+
+- **CLI-First Architecture**: Run `chorale` as an independent CLI tool that manages the server in the background and opens the interactive workspace in your browser on demand.
+- **Model Context Protocol (MCP)**: Full stdio and SSE MCP server on port 1685 exposing 16 modular musical score tools to Codex, Claude Code, and Antigravity.
+- **Durable Local Storage (`~/.chorale/`)**: Scores and revisions persist directly to the filesystem in `~/.chorale/store.json` and `~/.chorale/scores/`.
+- **Bounded Measure Operations**: Fast, deterministic measure reading (`read_measure`), insertion (`insert_measure`), replacement (`edit_measure`), and deletion (`delete_measures`) with optimistic revision guards.
+- **Harmonic Annotations**: Add, edit, delete, and list annotations with Roman numeral analysis and chord symbols directly on the score.
+- **MusicXML & MXL Import**: Drag-and-drop or programmatic import of `.xml`, `.musicxml`, and compressed `.mxl` files converted via `@educandu/abc-tools`.
+- **Interactive Sheet Music**: High-legibility SVG score rendered via `abcjs` with dynamic zoom (60% to 180%) and key transposition.
+- **WebAudio Piano Synthesizer**: Audio player with tempo scaling (50% to 180%), volume control, and active note cursor highlighting (`#e11d48`) on the SVG score during audio playback.
+- **Score Video Export**: Export sheet music video animations with WebCodecs AAC/MP4 rendering.
+- **Desktop Electron Archive**: The original standalone Electron desktop shell is preserved intact on branch `electron` (tag `v0.1-electron-archive`).
 
 ---
 
 ## 🛠 Tech Stack
 
-- **MCP & Plugin**: `@modelcontextprotocol/sdk` + `zod`
-- **Notation & Audio**: `abcjs` + `@educandu/abc-tools`
-- **Framework**: React 19 + Vite + TypeScript
-- **Archive Unzipping**: `jszip`
-- **UI & Icons**: Custom CSS Paper/Glassmorphism + `lucide-react`
+- **CLI & MCP Server**: Node.js + `@modelcontextprotocol/sdk` + `zod`
+- **Notation & Audio**: `abcjs` + `@educandu/abc-tools` + `abc-utils`
+- **Video Export**: `@mediabunny/aac-encoder` + `mediabunny`
+- **Frontend Framework**: React 19 + Vite + TypeScript
+- **Archive Extraction**: `jszip`
+- **Design Tokens**: Custom CSS Paper/Glassmorphism + `lucide-react`
 - **Testing**: Node Test Runner + Vitest + `@testing-library/react` + `jsdom`
 
 ---
 
 ## 🚀 Quick Start
 
-### Install Dependencies
+### Install Dependencies & Build
 ```bash
+# 1. Install dependencies
 npm install
+
+# 2. Build the production workspace
+npm run build
+
+# 3. (Optional) Link CLI globally so `chorale` is available in PATH
+npm link
 ```
 
-### Launch Chorale
+### Launch Chorale & Web Workspace
 ```bash
+# Launch server on port 1685 and open interactive workspace in default browser
+chorale
+# Or via npm
 npm start
-# Starts the background service when needed, then opens the browser workspace.
+
+# Check server status
+chorale status
+
+# Connect via MCP stdio transport (for AI agents)
+chorale mcp
+# Or via npm
+npm run mcp
+
+# Gracefully stop the background daemon
+chorale stop
 ```
 
 The local service owns both the UI and MCP state at `http://127.0.0.1:1685`.
 
-### Connect an MCP Client
-```bash
-npm run mcp
-```
-This starts the stdio adapter and ensures the same local service is already running.
-
-### Start Web Workspace (Dev)
+### Start Development Server
 ```bash
 npm run dev
+# Opens Vite dev server on http://localhost:5173/
 ```
-Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ### Run Verification & Tests
 ```bash
-# Run both MCP tests and unit tests
+# Run both MCP server tests and unit tests
 npm test
 
 # Run MCP server tests only
@@ -70,20 +107,28 @@ npm run test:mcp
 npm run test:unit
 ```
 
-### Build for Production
-```bash
-npm run build
-```
+---
 
-### Installation & Skill Setup
-For complete setup guides for OpenAI Codex, Google Antigravity, Claude Code, and generic MCP clients, see:
+## 🤖 AI Agent Setup (Codex, Claude, Antigravity)
+
+Chorale is equipped with skills and MCP definitions ready for pair programming with autonomous agents:
+
+- **Google Antigravity**: Configured in `.agents/mcp_config.json` and detected via [`.agents/skills/chorale-score/SKILL.md`](./.agents/skills/chorale-score/SKILL.md).
+- **OpenAI Codex**: Manifest in [`.codex-plugin/plugin.json`](./.codex-plugin/plugin.json) and installable via local marketplace or `codex mcp add`.
+- **Claude Code & Claude Desktop**: Configurable via stdio (`chorale mcp`) or SSE (`http://127.0.0.1:1685/sse`).
+
+For complete, step-by-step agent installation guides and MCP configurations, see:  
 👉 **[INSTALL.md](./INSTALL.md)**
 
-## Project Documentation
+---
 
-- [Installation & Agent Setup Guide](./INSTALL.md)
-- [Design and specification index](./spec/design.md)
-- [Engineering conventions](./AGENTS.md)
+## 📚 Documentation Index
+
+- **[Installation & Configuration Guide](./INSTALL.md)**: Full agent setup, CLI details, and MCP tool reference.
+- **[Musical Workflow Skill (`skills/chorale-score/SKILL.md`)](./skills/chorale-score/SKILL.md)**: Musical composition, bounded reads, and analysis reference for AI agents.
+- **[Engineering Conventions (`AGENTS.md`)](./AGENTS.md)**: Spec-first workflow, invariants, and quality gates.
+- **[Design Language (`DESIGN.md`)](./DESIGN.md)**: Workspace paper surfaces, typography, and component specifications.
+- **[Design & Architecture Specifications (`spec/`)](./spec/design.md)**: Comprehensive architectural specifications.
 
 ---
 

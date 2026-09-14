@@ -1,55 +1,122 @@
 ---
 name: chorale-install
-description: Install, launch, upgrade, and connect the Chorale CLI and its local MCP daemon.
+description: Install, launch, upgrade, and connect the Chorale CLI and its local MCP daemon across Codex, Claude, and Antigravity.
 ---
 
-# Chorale installation and MCP setup
+# Chorale Installation and MCP Setup
 
-Chorale uses one local daemon at `http://127.0.0.1:1685`. It owns the browser workspace, persistent score store, and MCP tools.
+Chorale uses a single local background daemon running at `http://127.0.0.1:1685`. It owns the browser workspace, persistent score store (`~/.chorale/`), and MCP tools.
 
-## Install for development
+## 1. Install for Development
 
 ```bash
+# 1. Install dependencies
 npm install
+
+# 2. Build the interactive web workspace
 npm run build
+
+# 3. Link the CLI globally so `chorale` is available in PATH
 npm link
 ```
 
 For a released package, install `@chorale/cli` globally instead. Both approaches expose the `chorale` command.
 
-## Launch and inspect
+## 2. Launch and Inspect
 
 ```bash
+# Start the service and open default browser workspace (idempotent)
 chorale
+
+# Check status without starting a service
 chorale status
+
+# Gracefully stop the verified daemon
+chorale stop
+
+# Restart the verified daemon after an update
+chorale upgrade
 ```
 
-`chorale` is idempotent: it starts the daemon in the background only when its health endpoint is unavailable, then opens the browser workspace. Never start a second server or choose a fallback port.
+- `chorale` is idempotent: it starts the daemon in the background only when its health endpoint is unavailable, then opens the browser workspace. Never start a second server or choose a fallback port.
+- `chorale status` does not launch a daemon. It reports the healthy process and its runtime metadata.
+- `chorale stop` terminates only the daemon whose PID and port match `~/.chorale/runtime.json`.
+- `chorale upgrade` gracefully stops the running daemon and starts the updated executable while preserving score data in `~/.chorale/`.
 
-`chorale status` does not launch a daemon. It reports the healthy process and its runtime metadata.
+## 3. Agent MCP Integration
 
-## Codex and other local MCP clients
+The stdio adapter (`chorale mcp`) ensures the background HTTP daemon is alive on port 1685 and forwards all tool calls to it. UI state, selection reads, and score mutations are therefore shared seamlessly between AI agents and the browser workspace.
 
-Register the stdio adapter once:
+### A. Google Antigravity (AGY)
+In Antigravity's MCP configuration (`.agents/mcp_config.json` or `~/.gemini/antigravity/mcp_config.json`):
+```json
+{
+  "mcpServers": {
+    "chorale": {
+      "command": "node",
+      "args": ["/path/to/chorale/bin/chorale.mjs", "mcp"],
+      "cwd": "/path/to/chorale"
+    }
+  }
+}
+```
 
+### B. OpenAI Codex
+Register the stdio adapter using the Codex CLI:
 ```bash
 codex mcp add chorale -- chorale mcp
 ```
-
-The adapter ensures the daemon is alive and forwards all tool calls to it. UI state, selection reads, and score mutations must therefore be read from the daemon rather than a separate local store.
-
-For a development checkout without `npm link`, configure the absolute command instead:
-
+For a development checkout without `npm link`, configure the absolute script path:
 ```bash
 codex mcp add chorale -- node /absolute/path/to/chorale/bin/chorale.mjs mcp
 ```
 
-## Upgrade
+### C. Claude (Claude Code & Claude Desktop)
+Add Chorale to your Claude MCP configuration (e.g. `~/.config/Claude/claude_desktop_config.json` or project `.mcp.json`):
 
-After a package-manager upgrade, run:
+**Option 1: Stdio Transport (Recommended)**
+```json
+{
+  "mcpServers": {
+    "chorale": {
+      "command": "chorale",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+**Option 2: SSE Transport**
+```json
+{
+  "mcpServers": {
+    "chorale": {
+      "url": "http://127.0.0.1:1685/sse"
+    }
+  }
+}
+```
+
+## 4. Upgrade Process
+
+After pulling latest changes or upgrading the package:
 
 ```bash
 chorale upgrade
 ```
 
-This stops only the daemon whose PID and port match Chorale's runtime record, starts the new executable, and preserves score data in `~/.chorale/`. A new Codex task is required when the tool catalog changes.
+`chorale upgrade` preserves all score files in `~/.chorale/`. Start a new Codex or agent task when the tool catalog changes.
+
+## 5. Verification
+
+Verify that the service is running and healthy:
+
+```bash
+chorale status
+curl -s http://127.0.0.1:1685/v1/health
+```
+
+Expected response format:
+```json
+{"service":"chorale-service","version":"0.0.0","port":1685,"pid":12345,"status":"ok"}
+```
