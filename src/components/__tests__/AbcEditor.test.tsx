@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { AbcEditor } from '../AbcEditor';
 import * as autoScroll from '../../utils/autoScroll';
@@ -528,4 +528,39 @@ C D E F G A |
       span: { startMeasure: 2, endMeasure: 2 },
     });
   });
+
+  it('supports adjusting the tool belt height with pointer events and double click reset', () => {
+    localStorage.clear();
+    const { container } = render(
+      <AbcEditor
+        abcCode={formattedAbc}
+        onAbcChange={() => undefined}
+      />,
+    );
+
+    const toolbelt = container.querySelector('.abc-toolbelt') as HTMLElement;
+    expect(toolbelt).toBeDefined();
+    expect(toolbelt.style.height).toBe('328px');
+
+    const resizer = screen.getByRole('separator', { name: 'Resize tool belt' });
+    expect(resizer).toBeDefined();
+
+    // Drag to increase height
+    fireEvent.pointerDown(resizer, { clientY: 100, pointerId: 1 });
+    act(() => {
+      window.dispatchEvent(new PointerEvent('pointermove', { clientY: 180 }));
+      window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1 }));
+    });
+
+    expect(toolbelt.style.height).toBe('408px');
+    expect(localStorage.getItem('chorale.workspace.toolbeltHeight')).toBe('408');
+
+    // Double click resets to default
+    act(() => {
+      fireEvent.doubleClick(resizer);
+    });
+    expect(toolbelt.style.height).toBe('328px');
+    expect(localStorage.getItem('chorale.workspace.toolbeltHeight')).toBe('328');
+  });
 });
+

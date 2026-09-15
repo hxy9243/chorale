@@ -147,9 +147,23 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   const [copied, setCopied] = useState(false);
   const [view, setView] = useState<"measures" | "raw">("measures");
   const [horizontalScrollProgress, setHorizontalScrollProgress] = useState(0);
+  const TOOLBELT_HEIGHT_KEY = "chorale.workspace.toolbeltHeight";
+  const DEFAULT_TOOLBELT_HEIGHT = 328;
+  const MIN_TOOLBELT_HEIGHT = 80;
+  const MAX_TOOLBELT_HEIGHT = 640;
+
   const [draft, setDraft] = useState<Draft | null>(null);
   const [headerDraft, setHeaderDraft] = useState<HeaderDraft | null>(null);
   const [toolbeltOpen, setToolbeltOpen] = useState(true);
+  const [toolbeltHeight, setToolbeltHeight] = useState<number>(() => {
+    if (typeof window === "undefined") return DEFAULT_TOOLBELT_HEIGHT;
+    const stored = window.localStorage.getItem(TOOLBELT_HEIGHT_KEY);
+    if (!stored) return DEFAULT_TOOLBELT_HEIGHT;
+    const parsed = Number(stored);
+    return Number.isFinite(parsed) && parsed >= MIN_TOOLBELT_HEIGHT && parsed <= MAX_TOOLBELT_HEIGHT
+      ? parsed
+      : DEFAULT_TOOLBELT_HEIGHT;
+  });
   const [basicToolsOpen, setBasicToolsOpen] = useState(true);
   const [sheetInfoOpen, setSheetInfoOpen] = useState(false);
   const [transposeToolsOpen, setTransposeToolsOpen] = useState(false);
@@ -162,6 +176,55 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   const editorCardRef = useRef<HTMLElement>(null);
   const editorBodyRef = useRef<HTMLDivElement>(null);
   const measureTimelineRef = useRef<HTMLDivElement>(null);
+
+  const beginToolbeltResize = (event: React.PointerEvent) => {
+    const startY = event.clientY;
+    const startHeight = toolbeltHeight;
+    const target = event.currentTarget;
+    try {
+      target.setPointerCapture(event.pointerId);
+    } catch {
+      // safe fallback
+    }
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const deltaY = moveEvent.clientY - startY;
+      const nextHeight = Math.max(
+        MIN_TOOLBELT_HEIGHT,
+        Math.min(MAX_TOOLBELT_HEIGHT, Math.round(startHeight + deltaY)),
+      );
+      setToolbeltHeight(nextHeight);
+      try {
+        window.localStorage.setItem(TOOLBELT_HEIGHT_KEY, String(nextHeight));
+      } catch {
+        // safe fallback
+      }
+    };
+
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      try {
+        target.releasePointerCapture(upEvent.pointerId);
+      } catch {
+        // safe fallback
+      }
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+  };
+
+  const handleToolbeltReset = () => {
+    setToolbeltHeight(DEFAULT_TOOLBELT_HEIGHT);
+    try {
+      window.localStorage.setItem(TOOLBELT_HEIGHT_KEY, String(DEFAULT_TOOLBELT_HEIGHT));
+    } catch {
+      // safe fallback
+    }
+  };
   const horizontalScrollControllerRef = useRef<SmoothScrollController | null>(
     null,
   );
@@ -874,7 +937,11 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
       </div>
 
       {visible && view === "measures" && presentation && (
-        <section className={`abc-toolbelt${toolbeltOpen ? " is-open" : ""}`} aria-label="Measure Source tool belt">
+        <section
+          className={`abc-toolbelt${toolbeltOpen ? " is-open" : ""}`}
+          aria-label="Measure Source tool belt"
+          style={toolbeltOpen ? { height: `${toolbeltHeight}px` } : undefined}
+        >
           <button
             type="button"
             className="abc-toolbelt-toggle"
@@ -937,6 +1004,17 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
                 </section>
               )}
             </div>
+          )}
+          {toolbeltOpen && (
+            <div
+              className="abc-toolbelt-resize-handle"
+              role="separator"
+              aria-orientation="horizontal"
+              aria-label="Resize tool belt"
+              title="Drag to resize tool belt, double-click to reset"
+              onPointerDown={beginToolbeltResize}
+              onDoubleClick={handleToolbeltReset}
+            />
           )}
         </section>
       )}

@@ -9922,9 +9922,9 @@ body.is-resizing-col * {
   display: flex;
   flex: none;
   align-items: center;
-  padding: 6px 10px;
-  border-top: 1px solid #dcd8ce;
-  background: #f6f3ec;
+  padding: 4px 10px;
+  border-top: 0;
+  background: transparent;
 }
 
 .abc-horizontal-scrollbar input {
@@ -10433,19 +10433,59 @@ body.is-resizing-col .editor-divider::before {
 
 /* Measure Source owns a stable editor frame: tools, viewport, navigator, error well. */
 .abc-editor-card > .abc-toolbelt {
-  flex: 0 0 20.5rem;
-  min-height: 20.5rem;
-  max-height: 20.5rem;
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
   box-sizing: border-box;
-  overflow: auto;
   border-bottom: 1px solid #dcd8ce;
   background: #f6f3ec;
+  position: relative;
+  min-height: 0;
+}
+
+.abc-editor-card > .abc-toolbelt.is-open {
+  height: 20.5rem;
+  min-height: 5rem;
+  max-height: 40rem;
+  resize: vertical;
+  overflow: hidden;
 }
 
 .abc-editor-card > .abc-toolbelt:not(.is-open) {
-  flex: 0 0 auto;
+  height: auto;
   min-height: auto;
   max-height: none;
+  resize: none;
+}
+
+.abc-toolbelt-resize-handle {
+  flex: none;
+  height: 6px;
+  margin-top: auto;
+  width: 100%;
+  cursor: ns-resize;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  position: relative;
+  z-index: 2;
+  transition: background-color 0.15s ease;
+}
+
+.abc-toolbelt-resize-handle::after {
+  content: '';
+  display: block;
+  height: 1px;
+  background: #dcd8ce;
+  width: 100%;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+}
+
+.abc-toolbelt-resize-handle:hover,
+.abc-toolbelt-resize-handle:active {
+  background: var(--color-rule-strong, #b5af9f);
 }
 
 .abc-toolbelt-toggle,
@@ -10467,6 +10507,9 @@ body.is-resizing-col .editor-divider::before {
   display: grid;
   gap: 3px;
   padding: 0 8px 6px;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .abc-toolbelt-section {
@@ -10617,14 +10660,20 @@ body.is-resizing-col .editor-divider::before {
   z-index: auto;
   width: auto;
   height: auto;
-  min-height: 34px;
+  min-height: 28px;
   max-height: none;
-  padding: 6px 10px;
+  margin-top: 12px;
+  margin-bottom: 6px;
+  padding: 4px 10px;
   justify-content: center;
+  background: transparent;
+  border: 0;
+  border-top: 0;
   pointer-events: auto;
 }
 
-.workspace-pane.editor-pane .abc-editor-card > .abc-horizontal-scrollbar input {
+.workspace-pane.editor-pane .abc-editor-card > .abc-horizontal-scrollbar input,
+.abc-editor-card > .abc-horizontal-scrollbar input {
   width: 66%;
   max-width: 66%;
   pointer-events: auto;
@@ -10682,6 +10731,7 @@ body.is-resizing-col .editor-divider::before {
   flex: none;
   min-height: 0;
   margin-top: auto;
+  margin-bottom: var(--space-xs, 4px);
   box-sizing: border-box;
 }
 
