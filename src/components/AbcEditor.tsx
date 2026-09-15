@@ -130,6 +130,11 @@ const noteToken = (defaultLength: readonly [number, number], duration: readonly 
   return `C${suffix}`;
 };
 
+const TOOLBELT_HEIGHT_KEY = "chorale.workspace.toolbeltHeight";
+const DEFAULT_TOOLBELT_HEIGHT = 328;
+const MIN_TOOLBELT_HEIGHT = 80;
+const MAX_TOOLBELT_HEIGHT = 640;
+
 export const AbcEditor: React.FC<AbcEditorProps> = ({
   abcCode,
   onAbcChange,
@@ -147,10 +152,6 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   const [copied, setCopied] = useState(false);
   const [view, setView] = useState<"measures" | "raw">("measures");
   const [horizontalScrollProgress, setHorizontalScrollProgress] = useState(0);
-  const TOOLBELT_HEIGHT_KEY = "chorale.workspace.toolbeltHeight";
-  const DEFAULT_TOOLBELT_HEIGHT = 328;
-  const MIN_TOOLBELT_HEIGHT = 80;
-  const MAX_TOOLBELT_HEIGHT = 640;
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [headerDraft, setHeaderDraft] = useState<HeaderDraft | null>(null);
@@ -221,6 +222,38 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
     setToolbeltHeight(DEFAULT_TOOLBELT_HEIGHT);
     try {
       window.localStorage.setItem(TOOLBELT_HEIGHT_KEY, String(DEFAULT_TOOLBELT_HEIGHT));
+    } catch {
+      // safe fallback
+    }
+  };
+
+  const handleToolbeltKeyDown = (event: React.KeyboardEvent) => {
+    let nextHeight = toolbeltHeight;
+    const STEP = 16;
+    switch (event.key) {
+      case "ArrowUp":
+        nextHeight = Math.max(MIN_TOOLBELT_HEIGHT, toolbeltHeight - STEP);
+        break;
+      case "ArrowDown":
+        nextHeight = Math.min(MAX_TOOLBELT_HEIGHT, toolbeltHeight + STEP);
+        break;
+      case "Home":
+        nextHeight = MIN_TOOLBELT_HEIGHT;
+        break;
+      case "End":
+        nextHeight = MAX_TOOLBELT_HEIGHT;
+        break;
+      case "Enter":
+      case " ":
+        nextHeight = DEFAULT_TOOLBELT_HEIGHT;
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    setToolbeltHeight(nextHeight);
+    try {
+      window.localStorage.setItem(TOOLBELT_HEIGHT_KEY, String(nextHeight));
     } catch {
       // safe fallback
     }
@@ -1009,11 +1042,16 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
             <div
               className="abc-toolbelt-resize-handle"
               role="separator"
+              tabIndex={0}
               aria-orientation="horizontal"
               aria-label="Resize tool belt"
-              title="Drag to resize tool belt, double-click to reset"
+              aria-valuenow={toolbeltHeight}
+              aria-valuemin={MIN_TOOLBELT_HEIGHT}
+              aria-valuemax={MAX_TOOLBELT_HEIGHT}
+              title="Drag or use arrow keys to resize tool belt, double-click or Enter to reset"
               onPointerDown={beginToolbeltResize}
               onDoubleClick={handleToolbeltReset}
+              onKeyDown={handleToolbeltKeyDown}
             />
           )}
         </section>
@@ -1160,7 +1198,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
         </div>
       )}
       {errorMessage && (
-        <div className="abc-editor-error-toast" role="alert" aria-live="polite">
+        <div className="abc-editor-error-toast" role="alert">
           {errorMessage}
         </div>
       )}

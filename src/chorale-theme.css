@@ -9925,10 +9925,11 @@ body.is-resizing-col * {
   align-items: center;
   justify-content: center;
   width: min(320px, calc(100% - 2.5rem));
+  max-width: 320px;
   height: 22px;
   min-height: 22px;
   margin-top: 10px;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
   padding: 0 8px;
   border-radius: 999px;
   border: 1px solid #dcd8ce;
@@ -10488,7 +10489,6 @@ body.is-resizing-col .editor-divider::before {
   height: 20.5rem;
   min-height: 5rem;
   max-height: 40rem;
-  resize: vertical;
   overflow: hidden;
 }
 
@@ -10496,7 +10496,6 @@ body.is-resizing-col .editor-divider::before {
   height: auto;
   min-height: auto;
   max-height: none;
-  resize: none;
 }
 
 .abc-toolbelt-resize-handle {
@@ -10511,6 +10510,11 @@ body.is-resizing-col .editor-divider::before {
   position: relative;
   z-index: 2;
   transition: background-color 0.15s ease;
+}
+
+.abc-toolbelt-resize-handle:focus-visible {
+  outline: 2px solid var(--color-focus, #6d8067);
+  outline-offset: 1px;
 }
 
 .abc-toolbelt-resize-handle::after {
@@ -10677,41 +10681,16 @@ body.is-resizing-col .editor-divider::before {
 
 .workspace-pane.editor-pane .abc-editor-card > .abc-horizontal-scrollbar,
 .abc-editor-card > .abc-horizontal-scrollbar {
-  display: flex;
   position: relative;
   inset: auto;
   top: auto;
-  z-index: 2;
-  flex: 0 0 auto;
-  align-self: center;
-  align-items: center;
-  justify-content: center;
-  width: min(320px, calc(100% - 2.5rem));
-  max-width: 320px;
-  height: 22px;
-  min-height: 22px;
   max-height: none;
-  margin-top: 10px;
-  margin-bottom: 20px;
-  padding: 0 8px;
-  border-radius: 999px;
-  border: 1px solid #dcd8ce;
-  background: #ece8df;
-  box-shadow: 0 1px 3px rgba(41, 40, 36, 0.08);
-  pointer-events: auto;
-  box-sizing: border-box;
-}
-
-.workspace-pane.editor-pane .abc-editor-card > .abc-horizontal-scrollbar input,
-.abc-editor-card > .abc-horizontal-scrollbar input {
-  width: 100%;
-  max-width: 100%;
-  pointer-events: auto;
+  z-index: 2;
 }
 
 .abc-editor-card > .abc-editor-error-toast {
   position: absolute;
-  bottom: 12px;
+  bottom: 52px;
   left: 50%;
   transform: translateX(-50%);
   max-width: min(90%, 460px);

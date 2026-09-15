@@ -544,6 +544,12 @@ C D E F G A |
     const resizer = screen.getByRole('separator', { name: 'Resize tool belt' });
     expect(resizer).toBeDefined();
 
+    expect(resizer.getAttribute('tabindex')).toBe('0');
+    expect(resizer.getAttribute('aria-orientation')).toBe('horizontal');
+    expect(resizer.getAttribute('aria-valuenow')).toBe('328');
+    expect(resizer.getAttribute('aria-valuemin')).toBe('80');
+    expect(resizer.getAttribute('aria-valuemax')).toBe('640');
+
     // Drag to increase height
     fireEvent.pointerDown(resizer, { clientY: 100, pointerId: 1 });
     act(() => {
@@ -553,6 +559,7 @@ C D E F G A |
 
     expect(toolbelt.style.height).toBe('408px');
     expect(localStorage.getItem('chorale.workspace.toolbeltHeight')).toBe('408');
+    expect(resizer.getAttribute('aria-valuenow')).toBe('408');
 
     // Double click resets to default
     act(() => {
@@ -560,6 +567,46 @@ C D E F G A |
     });
     expect(toolbelt.style.height).toBe('328px');
     expect(localStorage.getItem('chorale.workspace.toolbeltHeight')).toBe('328');
+    expect(resizer.getAttribute('aria-valuenow')).toBe('328');
+
+    // Keyboard navigation: ArrowDown increases height by 16px
+    act(() => {
+      fireEvent.keyDown(resizer, { key: 'ArrowDown' });
+    });
+    expect(toolbelt.style.height).toBe('344px');
+    expect(localStorage.getItem('chorale.workspace.toolbeltHeight')).toBe('344');
+    expect(resizer.getAttribute('aria-valuenow')).toBe('344');
+
+    // Keyboard navigation: ArrowUp decreases height by 16px
+    act(() => {
+      fireEvent.keyDown(resizer, { key: 'ArrowUp' });
+    });
+    expect(toolbelt.style.height).toBe('328px');
+    expect(localStorage.getItem('chorale.workspace.toolbeltHeight')).toBe('328');
+
+    // Keyboard navigation: Home sets minimum height
+    act(() => {
+      fireEvent.keyDown(resizer, { key: 'Home' });
+    });
+    expect(toolbelt.style.height).toBe('80px');
+    expect(localStorage.getItem('chorale.workspace.toolbeltHeight')).toBe('80');
+    expect(resizer.getAttribute('aria-valuenow')).toBe('80');
+
+    // Keyboard navigation: End sets maximum height
+    act(() => {
+      fireEvent.keyDown(resizer, { key: 'End' });
+    });
+    expect(toolbelt.style.height).toBe('640px');
+    expect(localStorage.getItem('chorale.workspace.toolbeltHeight')).toBe('640');
+    expect(resizer.getAttribute('aria-valuenow')).toBe('640');
+
+    // Keyboard navigation: Enter resets to default height
+    act(() => {
+      fireEvent.keyDown(resizer, { key: 'Enter' });
+    });
+    expect(toolbelt.style.height).toBe('328px');
+    expect(localStorage.getItem('chorale.workspace.toolbeltHeight')).toBe('328');
+    expect(resizer.getAttribute('aria-valuenow')).toBe('328');
   });
 });
 
