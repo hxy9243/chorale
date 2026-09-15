@@ -145,14 +145,36 @@ export const createSheetManagementTools = (store, views) => {
       try {
         const doc = await store.require(documentId);
         const now = new Date().toISOString();
+        if (!Array.isArray(notations) || notations.length === 0) {
+          throw new PluginError('INVALID_PARAMS', 'notations must be a non-empty array.');
+        }
+
         const newAnnotations = notations.map((notation) => {
-          const kind = notation.kind || 'explanation';
-          const startMeasure = notation.startMeasure;
-          const endMeasure = notation.endMeasure || notation.startMeasure;
+          const startMeasure = Number.isInteger(notation.startMeasure) ? notation.startMeasure : undefined;
+          const endMeasure = Number.isInteger(notation.endMeasure) ? notation.endMeasure : startMeasure;
+
+          if (startMeasure === undefined || startMeasure <= 0 || endMeasure === undefined || endMeasure < startMeasure) {
+            throw new PluginError('INVALID_NOTATION', 'Invalid measure bounds: startMeasure must be >= 1 and endMeasure >= startMeasure.');
+          }
+
+          const kind = notation.kind || (notation.chordSymbol ? 'chord' : 'explanation');
+          if (!['chord', 'modulation', 'voice-leading', 'explanation'].includes(kind)) {
+            throw new PluginError('INVALID_NOTATION', `Invalid notation kind "${kind}".`);
+          }
+
+          if (kind === 'chord' && (!notation.chordSymbol || typeof notation.chordSymbol !== 'string' || !notation.chordSymbol.trim())) {
+            throw new PluginError('INVALID_NOTATION', 'Chord notation requires a non-empty chordSymbol.');
+          }
+
           const position = notation.position || (kind === 'chord' ? {
             measure: startMeasure,
             offset: { numerator: 0, denominator: 1 },
           } : undefined);
+
+          const label = notation.label?.trim() || notation.chordSymbol?.trim() || 'Note';
+          const body = typeof notation.body === 'string' && notation.body.trim().length > 0
+            ? notation.body.trim()
+            : (notation.chordSymbol ? `${notation.chordSymbol}${notation.romanNumeral ? ` (${notation.romanNumeral})` : ''}` : label);
 
           return {
             id: `ann-${randomUUID().slice(0, 8)}`,
@@ -162,11 +184,12 @@ export const createSheetManagementTools = (store, views) => {
               startMeasure,
               endMeasure,
             },
-            label: notation.label || 'Note',
-            body: notation.body || '',
+            label,
+            body,
+            source: notation.source === 'user' ? 'user' : 'assistant',
             kind,
-            chordSymbol: notation.chordSymbol || undefined,
-            romanNumeral: notation.romanNumeral || undefined,
+            chordSymbol: notation.chordSymbol?.trim() || undefined,
+            romanNumeral: notation.romanNumeral?.trim() || undefined,
             position,
             createdAt: now,
             updatedAt: now,
@@ -199,12 +222,23 @@ export const createSheetManagementTools = (store, views) => {
           throw new PluginError('NOTATION_NOT_FOUND', `Notation "${notationId}" was not found.`);
         }
 
+        if (updates.startMeasure !== undefined && (!Number.isInteger(updates.startMeasure) || updates.startMeasure <= 0)) {
+          throw new PluginError('INVALID_NOTATION', 'startMeasure must be a positive integer.');
+        }
+        if (updates.endMeasure !== undefined && (!Number.isInteger(updates.endMeasure) || updates.endMeasure <= 0)) {
+          throw new PluginError('INVALID_NOTATION', 'endMeasure must be a positive integer.');
+        }
+
         const now = new Date().toISOString();
         const current = existing[index];
         const nextSpan = {
           startMeasure: updates.startMeasure ?? current.startMeasure ?? current.span?.startMeasure,
           endMeasure: updates.endMeasure ?? current.endMeasure ?? current.span?.endMeasure,
         };
+
+        if (nextSpan.endMeasure < nextSpan.startMeasure) {
+          throw new PluginError('INVALID_NOTATION', 'endMeasure cannot be less than startMeasure.');
+        }
 
         const updatedAnn = {
           ...current,

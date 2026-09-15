@@ -363,4 +363,141 @@ describe('useDocumentStore', () => {
     expect(reloaded.result.current.abcRevision).toBe(sampleDoc.revision);
     expect(reloaded.result.current.activeDocument?.versions).toEqual(sampleDoc.versions);
   });
+
+  it('rejects invalid annotations and duplicate IDs without throwing or crashing', async () => {
+    vi.spyOn(storageAdapter, 'getDocuments').mockResolvedValue([sampleDoc]);
+    const { result } = renderHook(() => useDocumentStore());
+    await waitFor(() => expect(result.current.hydrationStatus).toBe('ready'));
+
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // 1. Completely invalid annotation (invalid span) should be rejected and NOT throw
+    expect(() => {
+      act(() => {
+        result.current.handleAddAnnotation({
+          id: 'invalid-ann-1',
+          kind: 'explanation',
+          span: { startMeasure: 0, endMeasure: 1 },
+          label: 'Invalid measure span',
+          body: 'Has startMeasure 0',
+          source: 'user',
+          createdAt: '2026-08-05T00:00:00.000Z',
+          updatedAt: '2026-08-05T00:00:00.000Z',
+        } as any);
+      });
+    }).not.toThrow();
+
+    expect(result.current.activeDocument?.annotations).toHaveLength(0);
+
+    // 2. Batch with one valid and one invalid annotation applies the valid one and rejects the invalid one
+    expect(() => {
+      act(() => {
+        result.current.handleAddAnnotations([
+          {
+            id: 'valid-ann-1',
+            kind: 'explanation',
+            span: { startMeasure: 1, endMeasure: 1 },
+            label: 'Valid Note',
+            body: 'Valid annotation',
+            source: 'user',
+            createdAt: '2026-08-05T00:00:00.000Z',
+            updatedAt: '2026-08-05T00:00:00.000Z',
+          },
+          {
+            id: 'invalid-ann-2',
+            kind: 'chord',
+            span: { startMeasure: 1, endMeasure: 1 },
+            position: { measure: 5, offset: { numerator: 0, denominator: 1 } }, // measure outside span!
+            chordSymbol: 'C',
+            label: 'Out of bounds chord',
+            body: 'Invalid position',
+            source: 'assistant',
+            createdAt: '2026-08-05T00:00:00.000Z',
+            updatedAt: '2026-08-05T00:00:00.000Z',
+          } as any,
+        ]);
+      });
+    }).not.toThrow();
+
+    expect(result.current.activeDocument?.annotations).toHaveLength(1);
+    expect(result.current.activeDocument?.annotations[0].id).toBe('valid-ann-1');
+
+    // 3. Duplicate ID in handleAddAnnotation is rejected and does not throw
+    expect(() => {
+      act(() => {
+        result.current.handleAddAnnotation({
+          id: 'valid-ann-1', // Already exists!
+          kind: 'explanation',
+          span: { startMeasure: 1, endMeasure: 1 },
+          label: 'Duplicate',
+          body: 'Duplicate ID',
+          source: 'user',
+          createdAt: '2026-08-05T00:00:00.000Z',
+          updatedAt: '2026-08-05T00:00:00.000Z',
+        });
+      });
+    }).not.toThrow();
+
+    expect(result.current.activeDocument?.annotations).toHaveLength(1);
+
+    // 4. Updating with an invalid annotation is rejected and does not throw
+    expect(() => {
+      act(() => {
+        result.current.handleUpdateAnnotation({
+          id: 'valid-ann-1',
+          kind: 'chord',
+          span: { startMeasure: 1, endMeasure: 1 },
+          position: { measure: 99, offset: { numerator: 0, denominator: 1 } }, // invalid measure
+          chordSymbol: 'Am',
+          label: 'Bad update',
+          body: 'Bad',
+          source: 'user',
+          createdAt: '2026-08-05T00:00:00.000Z',
+          updatedAt: '2026-08-05T00:00:00.000Z',
+        } as any);
+      });
+    }).not.toThrow();
+
+    expect(result.current.activeDocument?.annotations[0].label).toBe('Valid Note');
+
+    // 5. handleSetAnnotations filters out invalid items and duplicates without throwing
+    expect(() => {
+      act(() => {
+        result.current.handleSetAnnotations([
+          {
+            id: 'set-ann-1',
+            kind: 'explanation',
+            span: { startMeasure: 1, endMeasure: 1 },
+            label: 'Set Note',
+            body: 'Good note',
+            source: 'user',
+            createdAt: '2026-08-05T00:00:00.000Z',
+            updatedAt: '2026-08-05T00:00:00.000Z',
+          },
+          {
+            id: 'set-ann-1', // Duplicate ID in set!
+            kind: 'explanation',
+            span: { startMeasure: 1, endMeasure: 1 },
+            label: 'Duplicate',
+            body: 'Duplicate',
+            source: 'user',
+            createdAt: '2026-08-05T00:00:00.000Z',
+            updatedAt: '2026-08-05T00:00:00.000Z',
+          },
+          {
+            id: 'bad-ann',
+            kind: 'chord',
+            span: { startMeasure: -1, endMeasure: 0 }, // completely invalid span
+            label: 'Bad',
+            body: 'Bad',
+          } as any,
+        ]);
+      });
+    }).not.toThrow();
+
+    expect(result.current.activeDocument?.annotations).toHaveLength(1);
+    expect(result.current.activeDocument?.annotations[0].id).toBe('set-ann-1');
+
+    consoleWarnSpy.mockRestore();
+  });
 });

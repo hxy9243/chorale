@@ -37,6 +37,10 @@ import {
   updateDocumentAnnotation,
 } from '../music/annotationMutations';
 import {
+  normalizeAnnotation,
+  validateAnnotation,
+} from '../music/documentSchema';
+import {
   applyMeasureMutation,
   applyWholeScoreReplacement,
   rebaseAnnotationsForMutation,
@@ -530,28 +534,59 @@ export const useDocumentStore = () => {
 
   const handleAddAnnotations = useCallback((annotations: readonly Annotation[]) => {
     if (!activeFileId || annotations.length === 0) return;
+
+    // Validate annotations and reject invalid ones
+    const validAnnotations: Annotation[] = [];
+    for (const raw of annotations) {
+      const validated = validateAnnotation(raw) ?? normalizeAnnotation(raw);
+      if (validated) {
+        validAnnotations.push(validated);
+      } else {
+        console.warn('Rejected invalid annotation:', raw);
+      }
+    }
+    if (validAnnotations.length === 0) return;
+
     setDocuments((current) => current.map((document) => {
       if (document.id !== activeFileId) return document;
 
-      const docWithNewAnnotations = appendDocumentAnnotations(document, annotations);
-      const currentHistory = synthesizeInitialHistory(document);
-      const currentIndex = document.historyIndex !== undefined && document.historyIndex >= 0 && document.historyIndex < currentHistory.length
-        ? document.historyIndex
-        : currentHistory.length - 1;
-      const trimmedHistory = currentHistory.slice(0, currentIndex + 1);
+      try {
+        const existingIds = new Set(document.annotations.map(({ id }) => id));
+        const seenBatchIds = new Set<string>();
+        const nonDuplicateAnnotations: Annotation[] = [];
+        for (const ann of validAnnotations) {
+          if (!existingIds.has(ann.id) && !seenBatchIds.has(ann.id)) {
+            seenBatchIds.add(ann.id);
+            nonDuplicateAnnotations.push(ann);
+          } else {
+            console.warn(`Rejected annotation with duplicate ID: ${ann.id}`);
+          }
+        }
+        if (nonDuplicateAnnotations.length === 0) return document;
 
-      const newHistoryEntry = annotations.length === 1
-        ? createAnnotationHistoryEntry(document, 'add', annotations[0], docWithNewAnnotations.annotations)
-        : createBatchAnnotationsHistoryEntry(document, 'add', annotations, docWithNewAnnotations.annotations);
+        const docWithNewAnnotations = appendDocumentAnnotations(document, nonDuplicateAnnotations);
+        const currentHistory = synthesizeInitialHistory(document);
+        const currentIndex = document.historyIndex !== undefined && document.historyIndex >= 0 && document.historyIndex < currentHistory.length
+          ? document.historyIndex
+          : currentHistory.length - 1;
+        const trimmedHistory = currentHistory.slice(0, currentIndex + 1);
 
-      const nextHistory = limitHistoryEntries([...trimmedHistory, newHistoryEntry], MAX_HISTORY_ENTRIES);
+        const newHistoryEntry = nonDuplicateAnnotations.length === 1
+          ? createAnnotationHistoryEntry(document, 'add', nonDuplicateAnnotations[0], docWithNewAnnotations.annotations)
+          : createBatchAnnotationsHistoryEntry(document, 'add', nonDuplicateAnnotations, docWithNewAnnotations.annotations);
 
-      return {
-        ...docWithNewAnnotations,
-        history: nextHistory,
-        historyIndex: nextHistory.length - 1,
-        updatedAt: newHistoryEntry.timestamp,
-      };
+        const nextHistory = limitHistoryEntries([...trimmedHistory, newHistoryEntry], MAX_HISTORY_ENTRIES);
+
+        return {
+          ...docWithNewAnnotations,
+          history: nextHistory,
+          historyIndex: nextHistory.length - 1,
+          updatedAt: newHistoryEntry.timestamp,
+        };
+      } catch (err) {
+        console.warn('Failed to append annotations safely:', err);
+        return document;
+      }
     }));
   }, [activeFileId]);
 
@@ -561,30 +596,42 @@ export const useDocumentStore = () => {
 
   const handleUpdateAnnotation = useCallback((annotation: Annotation) => {
     if (!activeFileId) return;
+
+    const validated = validateAnnotation(annotation) ?? normalizeAnnotation(annotation);
+    if (!validated) {
+      console.warn('Rejected invalid annotation update:', annotation);
+      return;
+    }
+
     setDocuments((current) => current.map((document) => {
       if (document.id !== activeFileId) return document;
 
-      const docWithUpdatedAnnotations = updateDocumentAnnotation(document, annotation);
-      const currentHistory = synthesizeInitialHistory(document);
-      const currentIndex = document.historyIndex !== undefined && document.historyIndex >= 0 && document.historyIndex < currentHistory.length
-        ? document.historyIndex
-        : currentHistory.length - 1;
-      const trimmedHistory = currentHistory.slice(0, currentIndex + 1);
+      try {
+        const docWithUpdatedAnnotations = updateDocumentAnnotation(document, validated);
+        const currentHistory = synthesizeInitialHistory(document);
+        const currentIndex = document.historyIndex !== undefined && document.historyIndex >= 0 && document.historyIndex < currentHistory.length
+          ? document.historyIndex
+          : currentHistory.length - 1;
+        const trimmedHistory = currentHistory.slice(0, currentIndex + 1);
 
-      const newHistoryEntry = createAnnotationHistoryEntry(
-        document,
-        'edit',
-        annotation,
-        docWithUpdatedAnnotations.annotations
-      );
-      const nextHistory = limitHistoryEntries([...trimmedHistory, newHistoryEntry], MAX_HISTORY_ENTRIES);
+        const newHistoryEntry = createAnnotationHistoryEntry(
+          document,
+          'edit',
+          validated,
+          docWithUpdatedAnnotations.annotations
+        );
+        const nextHistory = limitHistoryEntries([...trimmedHistory, newHistoryEntry], MAX_HISTORY_ENTRIES);
 
-      return {
-        ...docWithUpdatedAnnotations,
-        history: nextHistory,
-        historyIndex: nextHistory.length - 1,
-        updatedAt: newHistoryEntry.timestamp,
-      };
+        return {
+          ...docWithUpdatedAnnotations,
+          history: nextHistory,
+          historyIndex: nextHistory.length - 1,
+          updatedAt: newHistoryEntry.timestamp,
+        };
+      } catch (err) {
+        console.warn('Failed to update annotation safely:', err);
+        return document;
+      }
     }));
   }, [activeFileId]);
 
@@ -593,41 +640,59 @@ export const useDocumentStore = () => {
     setDocuments((current) => current.map((document) => {
       if (document.id !== activeFileId) return document;
 
-      const deletedAnnotation = document.annotations.find((a) => a.id === annotationId);
-      const docWithDeletedAnnotations = deleteDocumentAnnotation(document, annotationId);
-      const currentHistory = synthesizeInitialHistory(document);
-      const currentIndex = document.historyIndex !== undefined && document.historyIndex >= 0 && document.historyIndex < currentHistory.length
-        ? document.historyIndex
-        : currentHistory.length - 1;
-      const trimmedHistory = currentHistory.slice(0, currentIndex + 1);
+      try {
+        const deletedAnnotation = document.annotations.find((a) => a.id === annotationId);
+        const docWithDeletedAnnotations = deleteDocumentAnnotation(document, annotationId);
+        const currentHistory = synthesizeInitialHistory(document);
+        const currentIndex = document.historyIndex !== undefined && document.historyIndex >= 0 && document.historyIndex < currentHistory.length
+          ? document.historyIndex
+          : currentHistory.length - 1;
+        const trimmedHistory = currentHistory.slice(0, currentIndex + 1);
 
-      const newHistoryEntry = deletedAnnotation
-        ? createAnnotationHistoryEntry(
-            document,
-            'delete',
-            deletedAnnotation,
-            docWithDeletedAnnotations.annotations
-          )
-        : createBodyHistoryEntry(document, document.abcSource, 'Deleted annotation');
+        const newHistoryEntry = deletedAnnotation
+          ? createAnnotationHistoryEntry(
+              document,
+              'delete',
+              deletedAnnotation,
+              docWithDeletedAnnotations.annotations
+            )
+          : createBodyHistoryEntry(document, document.abcSource, 'Deleted annotation');
 
-      const nextHistory = limitHistoryEntries([...trimmedHistory, newHistoryEntry], MAX_HISTORY_ENTRIES);
+        const nextHistory = limitHistoryEntries([...trimmedHistory, newHistoryEntry], MAX_HISTORY_ENTRIES);
 
-      return {
-        ...docWithDeletedAnnotations,
-        history: nextHistory,
-        historyIndex: nextHistory.length - 1,
-        updatedAt: newHistoryEntry.timestamp,
-      };
+        return {
+          ...docWithDeletedAnnotations,
+          history: nextHistory,
+          historyIndex: nextHistory.length - 1,
+          updatedAt: newHistoryEntry.timestamp,
+        };
+      } catch (err) {
+        console.warn('Failed to delete annotation safely:', err);
+        return document;
+      }
     }));
   }, [activeFileId]);
 
   const handleSetAnnotations = useCallback((annotations: readonly Annotation[]) => {
     if (!activeFileId) return;
+
+    const seenIds = new Set<string>();
+    const validAnnotations: Annotation[] = [];
+    for (const ann of annotations) {
+      const validated = validateAnnotation(ann) ?? normalizeAnnotation(ann);
+      if (validated && !seenIds.has(validated.id)) {
+        seenIds.add(validated.id);
+        validAnnotations.push(validated);
+      } else if (!validated) {
+        console.warn('Rejected invalid annotation in setAnnotations:', ann);
+      }
+    }
+
     setDocuments((current) => current.map((document) => {
       if (document.id !== activeFileId) return document;
       return {
         ...document,
-        annotations: [...annotations],
+        annotations: validAnnotations,
         updatedAt: new Date().toISOString(),
       };
     }));

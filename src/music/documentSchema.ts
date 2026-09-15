@@ -6,6 +6,7 @@ import type {
   EditHistoryEntry,
   FileDocument,
   MeasureSpan,
+  MusicalPosition,
   ScoreInfo,
   ScoreChangeProposal,
   ScoreVersion,
@@ -52,8 +53,8 @@ const normalizeAnnotationSpan = (value: UnknownRecord): MeasureSpan | null => {
   if (canonical) return canonical;
 
   const anchor = isRecord(value.anchor) ? value.anchor : {};
-  const startMeasure = anchor.startMeasure ?? anchor.measure ?? value.measureStart;
-  const endMeasure = anchor.endMeasure ?? value.measureEnd ?? startMeasure;
+  const startMeasure = anchor.startMeasure ?? anchor.measure ?? value.startMeasure ?? value.measureStart;
+  const endMeasure = anchor.endMeasure ?? value.endMeasure ?? value.measureEnd ?? startMeasure;
   return normalizeMeasureSpan({ startMeasure, endMeasure });
 };
 
@@ -69,14 +70,14 @@ const normalizeAnnotationBase = (value: UnknownRecord): AnnotationBase | null =>
   const id = nonEmptyString(value.id);
   const span = normalizeAnnotationSpan(value);
   const label = nonEmptyString(value.label);
-  const body = nonEmptyString(value.body) || nonEmptyString(value.description);
+  const body = typeof value.body === 'string' ? value.body : (nonEmptyString(value.description) ?? null);
   const createdAt = nonEmptyString(value.createdAt);
   const updatedAt = nonEmptyString(value.updatedAt);
   if (
     !id
     || !span
     || !label
-    || !body
+    || body === null
     || !createdAt
     || !updatedAt
     || (value.source !== 'user' && value.source !== 'assistant')
@@ -149,21 +150,77 @@ export const normalizeAnnotation = (value: unknown): Annotation | null => {
   const canonical = validateAnnotation(value);
   if (canonical) return canonical;
   if (!isRecord(value)) return null;
-  if (
-    value.kind === 'chord'
-    || value.kind === 'modulation'
-    || value.kind === 'voice-leading'
-    || value.kind === 'explanation'
-  ) {
-    return null;
-  }
-  const base = normalizeAnnotationBase(value);
-  if (!base) return null;
 
-  if (value.kind === 'harmony') {
-    const recoveredChord = validateAnnotation({ ...value, kind: 'chord' });
-    if (recoveredChord) return recoveredChord;
+  const span = normalizeAnnotationSpan(value);
+  if (!span) return null;
+
+  const id = nonEmptyString(value.id) ?? `ann-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const label = nonEmptyString(value.label) ?? nonEmptyString(value.chordSymbol) ?? 'Note';
+  const body = typeof value.body === 'string'
+    ? value.body
+    : (nonEmptyString(value.description) ?? nonEmptyString(value.chordSymbol) ?? label);
+  const source = value.source === 'user' || value.source === 'assistant' ? value.source : 'assistant';
+  const now = new Date().toISOString();
+  const createdAt = nonEmptyString(value.createdAt) ?? now;
+  const updatedAt = nonEmptyString(value.updatedAt) ?? createdAt;
+  const agentProfiles = normalizeProfiles(value.agentProfiles);
+
+  const base: AnnotationBase = {
+    id,
+    span,
+    label,
+    body,
+    source,
+    ...(agentProfiles ? { agentProfiles } : {}),
+    createdAt,
+    updatedAt,
+  };
+
+  const rawKind = value.kind;
+  if (rawKind === 'chord' || rawKind === 'harmony') {
+    const chordSymbol = nonEmptyString(value.chordSymbol);
+    if (!chordSymbol) {
+      if (rawKind === 'harmony') {
+        return { ...base, kind: 'explanation' };
+      }
+      return null;
+    }
+    let position: MusicalPosition;
+    if (value.position !== undefined) {
+      if (
+        !isRecord(value.position)
+        || !Number.isInteger(value.position.measure)
+        || !isRationalDuration(value.position.offset)
+      ) {
+        return null;
+      }
+      position = {
+        measure: value.position.measure as number,
+        offset: { ...value.position.offset },
+      };
+    } else {
+      position = {
+        measure: span.startMeasure,
+        offset: { numerator: 0, denominator: 1 },
+      };
+    }
+    if (position.measure < span.startMeasure || position.measure > span.endMeasure) {
+      return null;
+    }
+    const romanNumeral = optionalString(value.romanNumeral);
+    return {
+      ...base,
+      kind: 'chord',
+      position,
+      chordSymbol,
+      ...(romanNumeral ? { romanNumeral } : {}),
+    };
   }
+
+  if (rawKind === 'modulation' || rawKind === 'voice-leading') {
+    return { ...base, kind: rawKind };
+  }
+
   return { ...base, kind: 'explanation' };
 };
 

@@ -192,7 +192,11 @@ export const usePluginMcpBridge = ({
           const serverIds = new Set(score.annotations.map((a) => a.id));
           const hasDiff = currentIds.size !== serverIds.size || score.annotations.some((a) => !currentIds.has(a.id));
           if (hasDiff) {
-            onSetAnnotationsRef.current(score.annotations);
+            try {
+              onSetAnnotationsRef.current(score.annotations);
+            } catch (err) {
+              console.warn('Failed to sync annotations safely:', err);
+            }
           }
         }
       } catch {
@@ -215,16 +219,25 @@ export const usePluginMcpBridge = ({
           const commandId = typeof command.id === 'string' ? command.id : '';
           if (!commandId || cancelled) continue;
           let accepted = command.documentId === documentId;
-          if (accepted && command.kind === 'annotations' && Array.isArray(command.annotations)) {
-            onApplyAnnotations(command.annotations as Annotation[]);
-          } else if (accepted && command.kind === 'delete-annotations' && Array.isArray(command.annotationIds)) {
-            onDeleteAnnotations?.(command.annotationIds as string[]);
-          } else if (accepted && command.kind === 'replace-score' && typeof command.replacementAbc === 'string') {
-            accepted = onReplaceScore(command.replacementAbc).status === 'valid';
-          } else if (command.type === 'FILE_CREATED' || command.type === 'FILE_DELETED') {
-            onRefreshDocumentsRef.current?.();
-            accepted = true;
-          } else {
+          try {
+            if (accepted && command.kind === 'annotations' && Array.isArray(command.annotations)) {
+              if (onSetAnnotationsRef.current) {
+                onSetAnnotationsRef.current(command.annotations as Annotation[]);
+              } else {
+                onApplyAnnotations(command.annotations as Annotation[]);
+              }
+            } else if (accepted && command.kind === 'delete-annotations' && Array.isArray(command.annotationIds)) {
+              onDeleteAnnotations?.(command.annotationIds as string[]);
+            } else if (accepted && command.kind === 'replace-score' && typeof command.replacementAbc === 'string') {
+              accepted = onReplaceScore(command.replacementAbc).status === 'valid';
+            } else if (command.type === 'FILE_CREATED' || command.type === 'FILE_DELETED') {
+              onRefreshDocumentsRef.current?.();
+              accepted = true;
+            } else {
+              accepted = false;
+            }
+          } catch (err) {
+            console.warn('Failed to process view command safely:', err);
             accepted = false;
           }
           await fetch(`${config.bridgeUrl}/v1/views/${encodeURIComponent(config.viewId)}/commands/${encodeURIComponent(commandId)}/ack`, {

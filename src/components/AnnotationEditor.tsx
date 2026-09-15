@@ -94,7 +94,7 @@ export const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
       id: initialAnnotation?.id ?? crypto.randomUUID(),
       kind,
       span: { startMeasure, endMeasure },
-      label: label.trim(),
+      label: label.trim() || (kind === 'chord' ? (chordSymbol.trim() || 'Chord') : 'Note'),
       body: body.trim(),
       source: initialAnnotation?.source ?? (mode === 'proposal' ? 'assistant' as const : 'user' as const),
       agentProfiles: initialAnnotation?.agentProfiles,

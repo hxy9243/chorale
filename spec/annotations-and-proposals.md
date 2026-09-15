@@ -14,12 +14,16 @@ source_files:
   - src/components/AnnotationRail.tsx
   - src/components/AnnotationOverlay.tsx
   - src/components/AnnotationEditor.tsx
+  - src/components/ErrorBoundary.tsx
+  - src/hooks/useDocumentStore.ts
+  - src/hooks/usePluginMcpBridge.ts
   - src/agent/proposalActions.ts
   - src/agent/conversationStore.ts
 test_files:
   - src/music/__tests__/documentSchema.test.ts
   - src/music/__tests__/annotationLayout.test.ts
   - src/music/__tests__/annotationMutations.test.ts
+  - src/hooks/__tests__/useDocumentStore.test.ts
   - src/agent/__tests__/proposalActions.test.ts
   - src/components/__tests__/AnnotationProposalCard.test.tsx
   - src/components/__tests__/AnnotationRail.test.tsx
@@ -137,6 +141,15 @@ Legacy kinds normalize as follows:
 - valid unknown records to `explanation`.
 
 Annotations stay inline in stored `FileDocument` values, so no IndexedDB object-store migration is required.
+
+### 3.1 Mutation validation and safe failures
+
+All mutation entry points (`useDocumentStore`, bridge command dispatcher in `usePluginMcpBridge`, and external MCP tool handlers) validate candidate annotations before applying them to score state:
+
+- **Rejection of invalid annotations**: Candidates missing essential fields (invalid measure numbers, negative measures, endMeasure < startMeasure, missing chordSymbol when `kind === 'chord'`, or chord positions outside the measure span) are rejected and omitted from mutations.
+- **Duplicate ID rejection**: Incoming annotations whose IDs collide with existing annotations on the document or repeat within the same mutation batch are rejected to preserve ID uniqueness.
+- **Fail-safe state execution**: React document store updaters catch any unexpected mutation errors (e.g. `AnnotationMutationError`) inside state callbacks, log a warning, and safely retain the existing document state. They never throw uncaught exceptions to the React event loop.
+- **Global Error Boundary**: The application root is wrapped in an `ErrorBoundary` component to guarantee that unexpected runtime errors never render an unrecoverable blank screen.
 
 ## 4. Proposal lifecycle
 
