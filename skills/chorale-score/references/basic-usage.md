@@ -59,7 +59,7 @@ Chorale employs **optimistic concurrency control** through `revision` numbers. S
 3. Supply `expectedRevision: <revision>` in the mutation call.
 4. If a conflict occurs (`REVISION_CONFLICT`), re-read the latest measures and reconcile changes.
 
-### A. Editing Measures (`edit_measure`)
+### A. Editing Measures (`edit_measures` / `edit_measure`)
 Replaces a bounded range of measures with new ABC content:
 ```json
 {
@@ -71,7 +71,10 @@ Replaces a bounded range of measures with new ABC content:
   "expectedRevision": 3
 }
 ```
-*Rule*: Ensure `replacementAbc` contains complete bars with correct bar lines `|` matching the meter.
+*Rules*:
+1. `edit_measures` accepts any span `startMeasure` to `endMeasure` (1-indexed, inclusive).
+2. **Variable Measure Lengths**: The replacement ABC does *not* need to maintain the same measure count as `endMeasure - startMeasure + 1`. Replacing 4 measures with 2 measures contracts the score; replacing 2 measures with 5 measures expands it.
+3. `edit_measure` is fully supported as an identical backward-compatible alias.
 
 ### B. Inserting Measures (`insert_measure`)
 Inserts new empty or pre-filled measures:

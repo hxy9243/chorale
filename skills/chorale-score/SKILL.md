@@ -13,7 +13,7 @@ Use the local Chorale MCP server tools (`chorale`) as the primary interface for 
 
 For detailed rules, standards, and musical examples, consult the topic-specific references:
 
-- **[Basic MCP Usage & Workflows](references/basic-usage.md)**: Headless inspection, revision guards (`expectedRevision`), atomic measure mutations (`edit_measure`, `insert_measure`), annotations (`add_notation`), and view synchronization.
+- **[Basic MCP Usage & Workflows](references/basic-usage.md)**: Headless inspection, revision guards (`expectedRevision`), atomic measure mutations (`edit_measures`, `insert_measure`), annotations (`add_notation`), and view synchronization.
 - **[ABC Syntax, Engraving & Ergonomics](references/abc-syntax-and-rules.md)**: ABC pitch octaves, key signature inheritance, metric beam grouping (no spaces in beams), phrasing, vocal/instrumental ranges (SATB), and piano hand-reach ergonomics.
 - **[Chord Progression Analysis & Syntax](references/chord-progression-analysis.md)**: Vertical sonority extraction, Roman numeral analysis, chord inversions (5/3, 6/3, 6/4, 7, 6/5, 4/3, 4/2), functional syntax (Tonic, Pre-Dominant, Dominant), secondary dominants/leading tones, chromatic chords (Neapolitan, Augmented 6ths), and pivot-chord modulation.
 - **[Voice Leading & General Score Analysis](references/voice-leading-and-general-analysis.md)**: Linear voice leading, leap recovery, contrapuntal motion types, comprehensive non-chord tone (NCT) taxonomy, period and sentence formal structures, textural categories, and motivic development.
@@ -78,7 +78,7 @@ When generating or modifying ABC notation, agents must obey these non-negotiable
 | `import_file` | Import MusicXML/ABC | `filePath?`, `content?`, `title?` |
 | `export_file` | Export to ABC or JSON | `documentId`, `format`, `outputPath?` |
 | `read_measure` | Read ABC for measures or active selection | `documentId?`, `startMeasure?`, `endMeasure?`, `voiceId?` |
-| `edit_measure` | Replace measures with new ABC | `documentId`, `startMeasure`, `endMeasure`, `replacementAbc`, `expectedRevision` |
+| `edit_measures` | Replace measures across a span (supports variable lengths; alias: `edit_measure`) | `documentId`, `startMeasure`, `endMeasure`, `replacementAbc`, `expectedRevision` |
 | `insert_measure` | Insert measures before/after | `documentId`, `targetMeasure`, `position`, `count`, `expectedRevision` |
 | `delete_measures` | Delete measure span | `documentId`, `startMeasure`, `endMeasure`, `expectedRevision` |
 | `add_notation` | Add Roman numeral/harmonic annotation | `documentId`, `expectedRevision`, `notations: [...]` |

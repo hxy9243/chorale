@@ -132,7 +132,7 @@ mcp/
 ### 3.2 Sheet Management Tools
 - `read_measure`: Reads written ABC notation for specified measure range (or currently selected measures in live view).
 - `insert_measure`: Inserts new measures at a target index (before/after) with specified content or blank bars.
-- `edit_measure`: Replaces written measures across specified span with replacement ABC notation.
+- `edit_measures`: Replaces written measures across specified span with replacement ABC notation (supports variable measure lengths; aliased as `edit_measure` for backward compatibility).
 - `delete_measures`: Removes written measures across specified span.
 - `add_notation`: Adds harmonic, Roman numeral, or analytical annotations to measures.
 - `edit_notations`: Edits existing annotations by ID.

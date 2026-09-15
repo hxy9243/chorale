@@ -262,7 +262,7 @@ The Chorale MCP server registers 16 modular tools across file management, sheet 
 | :--- | :--- | :--- |
 | `read_measure` | Read written ABC notation for specific measure(s) or the current user selection in the active view. | optional `documentId`, `startMeasure`, `endMeasure`, `voiceId`, `viewId` |
 | `insert_measure` | Insert new measure(s) before or after a target measure in the score. | `documentId`, `targetMeasure`, optional `position` (`before`/`after`), optional `count`, optional `abcContent`, `expectedRevision` |
-| `edit_measure` | Replace written measures across a specified span with replacement ABC notation. | `documentId`, `startMeasure`, `endMeasure`, `replacementAbc`, optional `summary`, `expectedRevision` |
+| `edit_measures` | Replace written measures across a specified span with replacement ABC notation (supports variable measure lengths; alias: `edit_measure`). | `documentId`, `startMeasure`, `endMeasure`, `replacementAbc`, optional `summary`, `expectedRevision` |
 | `delete_measures` | Delete a range of measures from the score. | `documentId`, `startMeasure`, `endMeasure`, `expectedRevision` |
 | `add_notation` | Add harmonic analysis, chord symbols, Roman numerals, or analytical notes to score measures. | `documentId`, `expectedRevision`, `notations` (array of `{ startMeasure, endMeasure, label, body, kind, chordSymbol, romanNumeral }`) |
 | `edit_notations` | Update an existing notation/annotation on the score. | `documentId`, `notationId`, `updates` (object), `expectedRevision` |

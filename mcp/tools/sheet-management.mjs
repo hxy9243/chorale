@@ -100,7 +100,7 @@ export const createSheetManagementTools = (store, views) => {
       }
     },
 
-    edit_measure: async ({ documentId, startMeasure, endMeasure, replacementAbc, summary = 'Edit measures', expectedRevision }) => {
+    edit_measures: async ({ documentId, startMeasure, endMeasure, replacementAbc, summary = 'Edit measures', expectedRevision }) => {
       try {
         const doc = await store.require(documentId);
         const newAbc = replaceMeasuresOps(doc.abcSource, startMeasure, endMeasure, replacementAbc);
@@ -119,6 +119,8 @@ export const createSheetManagementTools = (store, views) => {
         return failure(error);
       }
     },
+
+    edit_measure: async (args) => handlers.edit_measures(args),
 
     delete_measures: async ({ documentId, startMeasure, endMeasure, expectedRevision }) => {
       try {
@@ -307,9 +309,22 @@ export const createSheetManagementTools = (store, views) => {
       },
     },
 
-    edit_measure: {
+    edit_measures: {
       title: 'Edit measures',
-      description: 'Replace written measures across a specified span with new ABC notation.',
+      description: 'Replace written measures across a specified span with new ABC notation (supports variable measure lengths).',
+      inputSchema: {
+        documentId: z.string().min(1).describe('The unique score document ID'),
+        startMeasure: z.number().int().min(1).describe('1-indexed start measure number'),
+        endMeasure: z.number().int().min(1).describe('1-indexed end measure number'),
+        replacementAbc: z.string().min(1).describe('Replacement ABC notation for the measures'),
+        summary: z.string().optional().describe('Brief description of musical edits made'),
+        expectedRevision: z.number().int().positive().describe('Expected current score revision'),
+      },
+    },
+
+    edit_measure: {
+      title: 'Edit measures (legacy alias)',
+      description: 'Replace written measures across a specified span with new ABC notation (alias of edit_measures).',
       inputSchema: {
         documentId: z.string().min(1).describe('The unique score document ID'),
         startMeasure: z.number().int().min(1).describe('1-indexed start measure number'),

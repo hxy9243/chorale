@@ -200,7 +200,10 @@ test('MCP server exposes only the current tool format and unbounded measure repl
   assert.equal(server._registeredTools.add_annotations, undefined);
   assert.equal(server._registeredTools.list_scores, undefined);
 
-  const schema = server._registeredTools.edit_measure.inputSchema;
+  assert.ok(server._registeredTools.edit_measures);
+  assert.ok(server._registeredTools.edit_measure);
+
+  const schema = server._registeredTools.edit_measures.inputSchema;
   const parsed = schema.safeParse({
     documentId: 'score-1',
     startMeasure: 1,
@@ -300,13 +303,23 @@ test('sheet tools: read, insert, edit, delete measures and notations', async () 
     });
     assert.equal(delNotRes.structuredContent.deletedCount, 1);
 
-    // Edit measure
-    const editMeasureRes = await handlers.edit_measure({
+    // Edit measures (plural)
+    const editMeasuresRes = await handlers.edit_measures({
       documentId: doc.id,
       startMeasure: 1,
       endMeasure: 1,
       replacementAbc: 'c2 d2 e2 f2 |',
       expectedRevision: 4,
+    });
+    assert.equal(editMeasuresRes.isError, undefined);
+
+    // Edit measure (singular alias)
+    const editMeasureRes = await handlers.edit_measure({
+      documentId: doc.id,
+      startMeasure: 1,
+      endMeasure: 1,
+      replacementAbc: 'c4 d4 |',
+      expectedRevision: 5,
     });
     assert.equal(editMeasureRes.isError, undefined);
   } finally {
@@ -348,8 +361,8 @@ test('server: starts HTTP server, serves /v1/health, REST tools, and files', asy
     const createToolJson = await createToolRes.json();
     assert.equal(createToolJson.structuredContent.title, 'HTTP Created Score');
 
-    // 2b. Direct REST tool call: edit_measure accepts large ABC source.
-    const editScoreRes = await fetch(`${baseUrl}/v1/tools/edit_measure`, {
+    // 2b. Direct REST tool call: edit_measures accepts large ABC source.
+    const editScoreRes = await fetch(`${baseUrl}/v1/tools/edit_measures`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -361,6 +374,20 @@ test('server: starts HTTP server, serves /v1/health, REST tools, and files', asy
       }),
     });
     assert.equal(editScoreRes.status, 200);
+
+    // 2b-2. Direct REST tool call: edit_measure alias also works.
+    const editMeasureAliasRes = await fetch(`${baseUrl}/v1/tools/edit_measure`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        documentId: createToolJson.structuredContent.documentId,
+        startMeasure: 1,
+        endMeasure: 1,
+        replacementAbc: 'c4 d4 |',
+        expectedRevision: 2,
+      }),
+    });
+    assert.equal(editMeasureAliasRes.status, 200);
 
     // 2c. Browser requests are restricted to the local UI and Vite dev origins.
     const blocked = await fetch(`${baseUrl}/v1/files`, {

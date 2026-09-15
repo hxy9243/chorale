@@ -78,7 +78,7 @@ The MCP server exposes 16 modular tools:
 | `export_file` | Export a score document to ABC, JSON, or an output disk path. |
 | `read_measure` | Read written ABC notation for specific measure(s) or active canvas selection. |
 | `insert_measure` | Insert new measure(s) before/after a target measure with revision guard. |
-| `edit_measure` | Replace written measures across a span with replacement ABC notation. |
+| `edit_measures` | Replace written measures across a span with replacement ABC notation (supports variable length; aliased as `edit_measure`). |
 | `delete_measures` | Delete written measures across a specified span with revision guard. |
 | `add_notation` | Append structured analytical annotations (chord, Roman numeral, text) to measures. |
 | `edit_notations` | Update label, body, kind, chord symbol, or measure bounds of an existing notation. |

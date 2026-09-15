@@ -3,6 +3,7 @@ const mutationToolNames = new Set([
   'delete_file',
   'import_file',
   'insert_measure',
+  'edit_measures',
   'edit_measure',
   'delete_measures',
   'add_notation',
