@@ -465,8 +465,8 @@ export class ScoreVideoRenderer {
       bottomSlotHeight = slotH;
     } else {
       // In landscape mode, staves fill upper and lower halves of the wide widescreen sheet
-      sheetTop = Math.round(height * 0.10);
-      const sheetBottom = Math.round(height * 0.90);
+      sheetTop = Math.round(height * 0.08);
+      const sheetBottom = Math.round(height * 0.92);
       sheetHeight = sheetBottom - sheetTop;
 
       const innerPadding = Math.round(sheetHeight * 0.035);

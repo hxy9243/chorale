@@ -327,9 +327,9 @@ export async function extractScoreSystems(
     return Math.max(max, reach);
   }, 55);
 
-  const extraHeadroom = 40;
-  const halfHeight = Math.max(70, Math.max(maxReachAbove, maxReachBelow) + extraHeadroom);
-  const uniformHeight = Math.max(140, Math.round(halfHeight * 2));
+  const extraHeadroom = 60;
+  const halfHeight = Math.max(80, Math.max(maxReachAbove, maxReachBelow) + extraHeadroom);
+  const uniformHeight = Math.max(160, Math.round(halfHeight * 2));
 
   // Phase 2: Create uniform bounding boxes and slice images centered on each system's staff
   const systems: ScoreSystemBBox[] = [];
@@ -337,7 +337,11 @@ export async function extractScoreSystems(
 
   for (let i = 0; i < rawSystems.length; i++) {
     const raw = rawSystems[i];
-    const top = Math.round(raw.staffMidY - uniformHeight / 2);
+    let top = Math.round(raw.staffMidY - uniformHeight / 2);
+    // Ensure top slice boundary never encroaches on annotations or tempo markings above staff
+    if (Number.isFinite(raw.minY) && top > raw.minY - 30) {
+      top = Math.round(raw.minY - 30);
+    }
     const bottom = top + uniformHeight;
 
     const bbox: ScoreSystemBBox = {

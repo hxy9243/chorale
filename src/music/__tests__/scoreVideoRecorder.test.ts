@@ -487,6 +487,31 @@ describe('scoreVideoRecorder', () => {
       }
     });
 
+    it('extracts real multi-voice ABC with tempo marking without clipping', async () => {
+      const originalImage = globalThis.Image;
+      class MockImage {
+        onload: any = null;
+        onerror: any = null;
+        set src(_v: string) {
+          setTimeout(() => {
+            if (this.onload) this.onload();
+          }, 0);
+        }
+      }
+      globalThis.Image = MockImage as any;
+
+      try {
+        const { extractScoreSystems } = await import('../scoreVideoRecorder');
+        const abc = `X:1\nT:The Unbroken Thread\nC:Bach\nM:4/4\nL:1/8\nQ:\"Allegro moderato\" 1/4=100\n%%score { (S A) B }\nV:S clef=treble\nV:A clef=treble\nV:B clef=bass\nK:Em\n[V:S] z8 | z8 |\n[V:A] z8 | z8 |\n[V:B] z8 | z8 |`;
+
+        const data = await extractScoreSystems(abc, 'dark');
+        expect(data.systems.length).toBeGreaterThan(0);
+        expect(data.systems[0].height).toBeGreaterThanOrEqual(160);
+      } finally {
+        globalThis.Image = originalImage;
+      }
+    });
+
     it('maps offset abcjs lines (e.g. abcjs-l1 from pieces with subtitles) to 0-based systemIndex in noteEvents', async () => {
       const originalImage = globalThis.Image;
       class MockImage {
