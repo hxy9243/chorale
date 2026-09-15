@@ -15,6 +15,8 @@ For detailed rules, standards, and musical examples, consult the topic-specific 
 
 - **[Basic MCP Usage & Workflows](references/basic-usage.md)**: Headless inspection, revision guards (`expectedRevision`), atomic measure mutations (`edit_measure`, `insert_measure`), annotations (`add_notation`), and view synchronization.
 - **[ABC Syntax, Engraving & Ergonomics](references/abc-syntax-and-rules.md)**: ABC pitch octaves, key signature inheritance, metric beam grouping (no spaces in beams), phrasing, vocal/instrumental ranges (SATB), and piano hand-reach ergonomics.
+- **[Chord Progression Analysis & Syntax](references/chord-progression-analysis.md)**: Vertical sonority extraction, Roman numeral analysis, chord inversions (5/3, 6/3, 6/4, 7, 6/5, 4/3, 4/2), functional syntax (Tonic, Pre-Dominant, Dominant), secondary dominants/leading tones, chromatic chords (Neapolitan, Augmented 6ths), and pivot-chord modulation.
+- **[Voice Leading & General Score Analysis](references/voice-leading-and-general-analysis.md)**: Linear voice leading, leap recovery, contrapuntal motion types, comprehensive non-chord tone (NCT) taxonomy, period and sentence formal structures, textural categories, and motivic development.
 - **[Counterpoint, Chorale & Fugue](references/counterpoint-and-forms.md)**: Strict 4-part SATB rules (no parallel 5ths/8ves, upper voice spacing $\le$ octave, voice crossing bans), tendency-tone resolutions, suspensions, cadences, and fugal architecture.
 - **[Styles & Composer Emulation](references/styles-and-composers.md)**: Stylistic conventions, harmonic rhythm, accompaniment figures, and ABC templates for Baroque (J.S. Bach), Classical (Mozart/Haydn), Beethoven, and Romantic (Chopin).
 
@@ -37,7 +39,7 @@ For detailed rules, standards, and musical examples, consult the topic-specific 
 1. Call `import_file` with `{ filePath }` or raw MusicXML `{ content }`. The server converts MusicXML/MXL to standard ABC and saves it in `~/.chorale/`.
 2. Call `open_ui` with `{ documentId: score.documentId }`.
 3. Inspect measures using `read_measure`.
-4. Formulate harmonic, motivic, and voice-leading analysis using [Counterpoint & Forms](references/counterpoint-and-forms.md). Call `add_notation` with `{ startMeasure, endMeasure, label, body, kind, chordSymbol, romanNumeral }`.
+4. Formulate harmonic, motivic, and voice-leading analysis using the [Chord Progression Analysis Guide](references/chord-progression-analysis.md), [Voice Leading & General Analysis Guide](references/voice-leading-and-general-analysis.md), and [Counterpoint & Forms Guide](references/counterpoint-and-forms.md). Call `add_notation` with `{ startMeasure, endMeasure, label, body, kind, chordSymbol, romanNumeral }`.
 5. Return a clear analytical summary grounded in exact measure numbers and voice parts.
 
 ---

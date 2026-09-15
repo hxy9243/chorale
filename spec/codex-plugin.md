@@ -21,6 +21,8 @@ source_files:
   - skills/chorale-score/SKILL.md
   - skills/chorale-score/references/basic-usage.md
   - skills/chorale-score/references/abc-syntax-and-rules.md
+  - skills/chorale-score/references/chord-progression-analysis.md
+  - skills/chorale-score/references/voice-leading-and-general-analysis.md
   - skills/chorale-score/references/counterpoint-and-forms.md
   - skills/chorale-score/references/styles-and-composers.md
   - src/hooks/usePluginMcpBridge.ts
