@@ -1159,9 +1159,11 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
           />
         </div>
       )}
-      <div className={`abc-editor-error-well${errorMessage ? " has-error" : ""}`} role={errorMessage ? "alert" : "status"} aria-live="polite">
-        {errorMessage || "\u00A0"}
-      </div>
+      {errorMessage && (
+        <div className="abc-editor-error-toast" role="alert" aria-live="polite">
+          {errorMessage}
+        </div>
+      )}
     </section>
   );
 };

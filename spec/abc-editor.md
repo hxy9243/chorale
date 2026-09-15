@@ -145,20 +145,20 @@ toggle header height.
 
 The measure timeline is positioned lower in the remaining tab viewport, raised with
 comfortable breathing space above the horizontal navigator. Native browser scrollbars
-are hidden there; the single custom dotted navigator remains directly below the display,
-centered at 66% of the pane width.
+are hidden there; the custom dotted navigator floats directly below the measure display
+as a compact rounded rectangle capsule control, elevated cleanly above the bottom of the pane
+with a circular round button thumb.
 
-The source viewport, its horizontal progress control, and a reserved error well
-are fixed vertical rows. The error well follows the progress control, reserves
-its height even when empty, and uses a light-red bordered rounded presentation
-for errors so editing, selecting, and de-selecting measures never shifts the
-measure display or progress control.
+The source viewport and its horizontal progress control are cleanly decoupled. Rather than
+reserving an opaque error well row beneath the navigator, validation and syntax errors are
+surfaced directly on the active measure inputs, header fields, and header status pill, keeping
+the bottom of the editor pane uncluttered.
 
 Every Measure Source commit and source-mutating tool action validates written
 duration with the parsed active meter. A short editable voice is completed by a
 trailing lowercase rest before its existing barline; an overfilled voice is
 rejected without changing canonical ABC. Unsupported meter/source ownership is
-reported in the error well and remains editable in Raw Source.
+surfaced via validation indicators and remains editable in Raw Source.
 
 Transpose applies `±1` or `±12` semitones to a complete text selection in the
 active measure input, or otherwise to all editable voices in the selected

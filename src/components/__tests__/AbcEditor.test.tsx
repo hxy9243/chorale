@@ -105,7 +105,7 @@ K:C
     expect(chrome?.nextElementSibling).toBe(toolbelt);
     expect(toolbelt?.nextElementSibling).toBe(body);
     expect(body?.nextElementSibling).toBe(navigator);
-    expect(navigator?.nextElementSibling).toBe(container.querySelector('.abc-editor-error-well'));
+    expect(navigator?.nextElementSibling).toBeNull();
 
     rerender(<AbcEditor abcCode={formattedAbc} onAbcChange={() => undefined} activeAnchor={{ startMeasure: 1, endMeasure: 1 }} />);
     expect(body?.nextElementSibling).toBe(navigator);
@@ -377,7 +377,7 @@ C D E F G A |
     expect(screen.queryByRole('button', { name: 'Close ABC editor' })).toBeNull();
   });
 
-  it('provides collapsible top tool sections and a reserved error well', () => {
+  it('provides collapsible top tool sections', () => {
     render(<AbcEditor abcCode={formattedAbc} onAbcChange={() => undefined} activeAnchor={{ startMeasure: 1, endMeasure: 1 }} />);
     expect(screen.getByRole('region', { name: 'Measure Source tool belt' })).toBeDefined();
     expect(screen.getByRole('button', { name: 'Basics' }).getAttribute('aria-expanded')).toBe('true');
@@ -385,7 +385,6 @@ C D E F G A |
     expect(screen.getByRole('button', { name: 'Eighth note' }).textContent).toBe('♪');
     fireEvent.click(screen.getByRole('button', { name: 'Transpose' }));
     expect(screen.getByRole('button', { name: '+1 semitone' })).toBeDefined();
-    expect(document.querySelector('.abc-editor-error-well')).toBeDefined();
   });
 
   it('normalizes a tool insertion in the active draft before it is committed', () => {
