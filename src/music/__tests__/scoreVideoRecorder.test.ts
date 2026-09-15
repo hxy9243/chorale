@@ -442,6 +442,51 @@ describe('scoreVideoRecorder', () => {
       }
     });
 
+    it('provides generous headroom for tempo markings like Allegro moderato above the staff', async () => {
+      const originalImage = globalThis.Image;
+      class MockImage {
+        onload: any = null;
+        onerror: any = null;
+        set src(_v: string) {
+          setTimeout(() => {
+            if (this.onload) this.onload();
+          }, 0);
+        }
+      }
+      globalThis.Image = MockImage as any;
+
+      try {
+        const { extractScoreSystems } = await import('../scoreVideoRecorder');
+
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 800 600');
+
+        // Line 0 with staff at y=100..160, and tempo text "Allegro moderato" at y=50..70
+        const line0 = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        line0.setAttribute('class', 'abcjs-l0 abcjs-staff');
+        line0.getBBox = () => ({ x: 0, y: 100, width: 750, height: 60, top: 100, right: 750, bottom: 160, left: 0 } as DOMRect);
+
+        const tempo = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        tempo.setAttribute('class', 'abcjs-tempo abcjs-l0');
+        tempo.getBBox = () => ({ x: 80, y: 50, width: 140, height: 20, top: 50, right: 220, bottom: 70, left: 80 } as DOMRect);
+
+        svg.appendChild(line0);
+        svg.appendChild(tempo);
+
+        const data = await extractScoreSystems(svg, 'dark');
+        expect(data.systems).toHaveLength(1);
+
+        const system0 = data.systems[0];
+        // The slice top must be comfortably ABOVE the tempo text (y=50)
+        expect(system0.top).toBeLessThanOrEqual(50);
+        // The slice height must fit both tempo text and staff with headroom
+        expect(system0.height).toBeGreaterThanOrEqual(140);
+        expect(system0.top + system0.height).toBeGreaterThan(160);
+      } finally {
+        globalThis.Image = originalImage;
+      }
+    });
+
     it('maps offset abcjs lines (e.g. abcjs-l1 from pieces with subtitles) to 0-based systemIndex in noteEvents', async () => {
       const originalImage = globalThis.Image;
       class MockImage {

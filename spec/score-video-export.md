@@ -130,8 +130,8 @@ Given $M$ systems extracted from the score:
     .abcjs-beam-elem { fill: ${strokeColor} !important; stroke: ${strokeColor} !important; }
     ```
     This ensures that thin $0.70\text{ px}$ ledger lines never vanish under canvas image-scaling or anti-aliasing.
-- **Generous Staff Headroom**:
-  - Bounding box spans calculate `uniformHeight = Math.max(100, Math.round(maxSpan + 40))`, providing ample vertical clearance for notes in extreme high registers without vertical slice clipping.
+- **Generous Staff & Tempo Text Headroom**:
+  - Bounding box spans calculate symmetric headroom from the staff center based on the maximum reach above and below staff center (`Math.max(maxReachAbove, maxReachBelow) + extraPadding`), producing `uniformHeight = Math.max(140, halfHeight * 2)`. This provides generous vertical clearance for tempo text (such as "Allegro moderato"), annotations, and extreme high/low notes without clipping at the slice boundary.
 
 
 ## 4. Canvas Video Renderer (`src/music/scoreVideoRenderer.ts`)

@@ -47,6 +47,21 @@ describe('scoreSystemScanner', () => {
         height: 40,
       });
     });
+
+    it('parses text elements with font-size and tspan fallback', () => {
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', '20');
+      text.setAttribute('y', '80');
+      text.setAttribute('font-size', '20');
+      text.textContent = 'Allegro moderato';
+
+      const bbox = extractBBoxFromElement(text);
+      expect(bbox).not.toBeNull();
+      expect(bbox!.x).toBe(20);
+      // y must account for font ascent above baseline
+      expect(bbox!.y).toBeLessThan(80);
+      expect(bbox!.height).toBeGreaterThanOrEqual(20);
+    });
   });
 
   describe('scanScoreSystems', () => {

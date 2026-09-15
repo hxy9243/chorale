@@ -314,12 +314,22 @@ export async function extractScoreSystems(
     staffMidY: s.staffMidY,
   }));
 
-  // Calculate a uniform slice height encompassing all systems plus comfortable staff margin
-  const maxSpan = rawSystems.reduce((max, s) => {
-    const span = Number.isFinite(s.minY) && Number.isFinite(s.maxY) ? (s.maxY - s.minY) : 90;
-    return Math.max(max, span);
-  }, 80);
-  const uniformHeight = Math.max(100, Math.round(maxSpan + 40));
+  // Calculate a uniform slice height encompassing all systems with generous headroom
+  // above the staff (for tempo markings such as "Allegro moderato", annotations, and chord symbols)
+  // and below the staff (for low registers and descenders).
+  const maxReachAbove = rawSystems.reduce((max, s) => {
+    const reach = Number.isFinite(s.minY) ? Math.max(0, s.staffMidY - s.minY) : 55;
+    return Math.max(max, reach);
+  }, 55);
+
+  const maxReachBelow = rawSystems.reduce((max, s) => {
+    const reach = Number.isFinite(s.maxY) ? Math.max(0, s.maxY - s.staffMidY) : 55;
+    return Math.max(max, reach);
+  }, 55);
+
+  const extraHeadroom = 40;
+  const halfHeight = Math.max(70, Math.max(maxReachAbove, maxReachBelow) + extraHeadroom);
+  const uniformHeight = Math.max(140, Math.round(halfHeight * 2));
 
   // Phase 2: Create uniform bounding boxes and slice images centered on each system's staff
   const systems: ScoreSystemBBox[] = [];

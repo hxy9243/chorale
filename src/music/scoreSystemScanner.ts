@@ -138,15 +138,29 @@ export function extractBBoxFromElement(el: Element): BBox | null {
 
   // Parse text
   if (tagName === 'text') {
-    const x = Number(el.getAttribute('x') || 0);
-    const y = Number(el.getAttribute('y') || 0);
+    const xAttr = el.getAttribute('x');
+    const yAttr = el.getAttribute('y');
+    let x = Number(xAttr || 0);
+    let y = Number(yAttr || 0);
+
+    // Check first tspan if text element itself lacks x/y attributes
+    if (!xAttr || !yAttr) {
+      const tspan = el.querySelector('tspan');
+      if (tspan) {
+        if (!xAttr && tspan.getAttribute('x')) x = Number(tspan.getAttribute('x'));
+        if (!yAttr && tspan.getAttribute('y')) y = Number(tspan.getAttribute('y'));
+      }
+    }
+
     if (Number.isFinite(x) && Number.isFinite(y)) {
+      const fontSizeAttr = el.getAttribute('font-size') || (el as SVGElement).style?.fontSize?.replace('px', '');
+      const fontSize = Number(fontSizeAttr) || 16;
       const textLen = (el.textContent || '').length;
       return {
         x,
-        y: y - 10,
-        width: Math.max(1, textLen * 7),
-        height: 12,
+        y: y - fontSize * 1.05,
+        width: Math.max(1, textLen * (fontSize * 0.6)),
+        height: Math.max(1, fontSize * 1.3),
       };
     }
   }
@@ -175,7 +189,11 @@ export function scanScoreSystems(root: Element): ScannedScoreSystem[] {
   const scanned: ScannedScoreSystem[] = [];
 
   sortedLineClasses.forEach((lineClass, index) => {
-    const lineElements = Array.from(root.querySelectorAll<SVGGraphicsElement>(`.${lineClass}`));
+    const lineElements = Array.from(
+      root.querySelectorAll<SVGGraphicsElement>(
+        index === 0 ? `.${lineClass}, .abcjs-tempo` : `.${lineClass}`,
+      ),
+    );
     const measuresInLine: number[] = [];
 
     root.querySelectorAll<SVGGraphicsElement>(`[class*="abcjs-mm"].${lineClass}`).forEach((el) => {
