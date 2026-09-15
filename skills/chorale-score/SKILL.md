@@ -63,6 +63,9 @@ When generating or modifying ABC notation, agents must obey these non-negotiable
    - **Zero parallel 5ths or 8ves** between any two voices.
    - Maximum distance between adjacent upper voices (S–A, A–T) is **one octave**.
    - Resolve leading tones ($\hat{7} \rightarrow \hat{1}$) and chordal sevenths downward ($\hat{4} \rightarrow \hat{3}$).
+5. **Composer Attribution (`C:` Field & `composer` Parameter)**:
+   - For all generated scores, **always set the composer attribution to the name of the current AI model + reasoning effort level** (e.g. `Gemini 3.8 Flash Medium` or `GPT-5.6 Sol High`).
+   - If emulating a historical style, include the style in the title or subtitle (e.g. `T:Sonata in G Major\nT:In the style of W.A. Mozart`), and specify the model + effort as the composer (e.g. `C:Gemini 3.8 Flash Medium`).
 
 ---
 

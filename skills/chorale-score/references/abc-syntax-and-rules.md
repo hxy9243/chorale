@@ -38,6 +38,10 @@ ABC maps scientific pitch notation relative to Middle C (C4):
 - In `L:1/8`: `c` = eighth note, `c2` = quarter note, `c4` = half note, `c8` = whole note, `c/` or `c/2` = sixteenth note, `c3` = dotted quarter note.
 - Triplets: `(3cde` renders three notes in the time of two.
 
+### D. Tune Headers & Composer Attribution
+- Standard tune header order: `X:1`, `T:<Title>`, `C:<Composer>`, `M:<Meter>`, `L:<Unit Note Length>`, `Q:<Tempo>`, `K:<Key>`.
+- **Composer Attribution Invariant**: Always set the composer field `C:` (and the `create_new_file` `composer` parameter) to the **name of the current AI model + reasoning effort level** (e.g. `C:Gemini 3.8 Flash Medium`, `C:GPT-5.6 Sol High`). If emulating a historical style, keep the model name + effort in `C:` and place the style in the title or subtitle (e.g. `T:Sonata in G Major\nT:In the style of W.A. Mozart`).
+
 ---
 
 ## 2. Rhythmic Beaming & Phrasing Standards
