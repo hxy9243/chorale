@@ -1,4 +1,5 @@
 import { abc2xml } from 'abc-utils';
+import { normalizeMusicXml } from './musicXmlNormalization';
 
 export class ScoreExportError extends Error {
   readonly cause?: unknown;
@@ -41,19 +42,20 @@ export const exportToMusicXml = ({ abcSource, fallbackTitle }: ScoreExportInput)
   let xml: string;
   try {
     const result = abc2xml(abcSource, { fallbackTitle });
-    xml = result.xml;
+    const rawXml = result.xml;
+    if (!rawXml.trim()) {
+      throw new ScoreExportError('MusicXML conversion produced no output.');
+    }
+    if (!/<note(?:\s|>)/.test(rawXml)) {
+      throw new ScoreExportError('No musical content was found — nothing to export.');
+    }
+    xml = normalizeMusicXml(rawXml);
   } catch (error) {
     if (error instanceof ScoreExportError) throw error;
     throw new ScoreExportError(
       'The score could not be converted to MusicXML.',
       error,
     );
-  }
-  if (!xml.trim()) {
-    throw new ScoreExportError('MusicXML conversion produced no output.');
-  }
-  if (!/<note(?:\s|>)/.test(xml)) {
-    throw new ScoreExportError('No musical content was found — nothing to export.');
   }
   return xml;
 };
