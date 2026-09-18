@@ -6,18 +6,18 @@ date: 2026-09-10
 status: "approved"
 source_files:
   - bin/chorale.mjs
-  - mcp/cli.mjs
-  - mcp/index.mjs
-  - mcp/server.mjs
-  - mcp/runtime.mjs
-  - mcp/version.mjs
-  - mcp/store.mjs
-  - mcp/views.mjs
-  - mcp/tools/file-management.mjs
-  - mcp/tools/sheet-management.mjs
-  - mcp/tools/workspace.mjs
-  - mcp/utils/measure-ops.mjs
-  - mcp/utils/music-xml.mjs
+  - server/cli.mjs
+  - server/api_server.mjs
+  - server/mcp/index.mjs
+  - server/runtime.mjs
+  - server/version.mjs
+  - server/store.mjs
+  - server/views.mjs
+  - server/mcp/tools/file-management.mjs
+  - server/mcp/tools/sheet-management.mjs
+  - server/mcp/tools/workspace.mjs
+  - server/utils/measure-ops.mjs
+  - server/utils/music-xml.mjs
   - src/hooks/usePluginMcpBridge.ts
 test_files:
   - test/mcp-server.node.mjs
@@ -94,32 +94,38 @@ Chorale is redesigned from a monolithic script and fragmented plugin wrappers in
   - `GET /v1/views/:viewId/commands`: Polling endpoint for view commands.
   - `POST /v1/views/:viewId/commands/:commandId/ack`: Command acknowledgment.
 
-### 2.3 Filesystem-Backed Storage (`~/.chorale/`)
-- Root directory: `~/.chorale/` (overrideable via `CHORALE_HOME` or `CHORALE_STORE_PATH`).
-- File structure:
-  - `~/.chorale/store.json`: Main durable database tracking documents, metadata, revision history, and workspace layout preferences.
-  - `~/.chorale/scores/`: Raw exported/imported ABC and MusicXML files.
-- Atomic writes: Temporary write (`store.json.<pid>.<uuid>.tmp`) followed by atomic rename to prevent corruption.
+### 2.3 Local SQLite Storage (`~/.chorale/chorale.db`)
+- Root directory: `~/.chorale/` (overrideable via `CHORALE_HOME`, `CHORALE_DB_PATH`, or `CHORALE_STORE_PATH`).
+- Storage engine:
+  - `~/.chorale/chorale.db`: Local SQLite database powered by Node.js standard library `node:sqlite` (`DatabaseSync`), operating in WAL mode with foreign keys enabled.
+  - Relational schema: `documents`, `workspace_documents` (preserves file rail ordering), `document_versions`, `document_history`, and `workspace` (singleton tracking revision and layout preferences).
+  - `~/.chorale/scores/`: Raw exported/mirrored ABC files (`${documentId}.abc`).
+- ACID transactions: Granular updates to documents, versions, history entries, and workspace preferences run inside immediate SQLite transactions with WAL concurrency safety.
 
 ---
 
-## 3. Modular MCP Architecture (`mcp/`)
+## 3. Modular Server Architecture (`server/`)
 
-The monolithic `server.mjs` is decomposed into cleanly structured modules:
+The backend daemon is cleanly partitioned into REST API, persistence, CLI runtime, and an embedded MCP module:
 
 ```
-mcp/
-├── index.mjs               # Aggregates McpServer instance & registers all tools
-├── server.mjs              # Node.js HTTP server hosting UI, REST API, and SSE MCP
-├── store.mjs               # Durable LocalDocumentStore in ~/.chorale/
+server/
+├── api_server.mjs          # Node.js HTTP server hosting UI, REST API (/v1/*), and SSE MCP
+├── cli.mjs                 # CLI command handler (chorale start, chorale mcp, etc.)
+├── daemon-mutations.mjs    # Tool mutation proxying to daemon
+├── runtime.mjs             # Process lock, PID metadata, port constants
+├── store.mjs               # Durable LocalDocumentStore (SQLite ~/.chorale/chorale.db)
+├── version.mjs             # Chorale version metadata
 ├── views.mjs               # In-memory ViewSnapshotStore tracking live browser views
-├── tools/
-│   ├── file-management.mjs # File operations: create, list, delete, import, export
-│   ├── sheet-management.mjs# Musical mutations: read, insert, edit, delete measures & notations
-│   └── workspace.mjs       # UI & workspace: open_ui, get_workspace_state, render_score_workspace
+├── mcp/
+│   ├── index.mjs           # McpServer instance & tool registration
+│   └── tools/              # 16 MCP agent tools
+│       ├── file-management.mjs # File operations: create, list, delete, import, export
+│       ├── sheet-management.mjs# Musical mutations: read, insert, edit, delete measures & notations
+│       └── workspace.mjs       # UI & workspace: open_ui, get_workspace_state, render_score_workspace
 └── utils/
-    ├── measure-ops.mjs     # Measure parsing, slicing, insertion, deletion, and replacement
-    └── music-xml.mjs       # MusicXML / MXL extraction and ABC conversion
+    ├── measure-ops.mjs     # Measure parsing and manipulation logic
+    └── music-xml.mjs       # MusicXML conversion utilities
 ```
 
 ### 3.1 File Management Tools

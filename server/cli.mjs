@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { createMcpServer } from './index.mjs';
+import { createMcpServer } from './mcp/index.mjs';
 import { proxyDaemonTools } from './daemon-mutations.mjs';
-import { startServer } from './server.mjs';
+import { startServer } from './api_server.mjs';
 import {
   CHORALE_PORT,
   RuntimeLockError,
@@ -15,7 +15,7 @@ import {
   writeRuntime,
 } from './runtime.mjs';
 import { LocalDocumentStore } from './store.mjs';
-import { openBrowser } from './tools/workspace.mjs';
+import { openBrowser } from './mcp/tools/workspace.mjs';
 import { ViewSnapshotStore } from './views.mjs';
 import { CHORALE_VERSION } from './version.mjs';
 

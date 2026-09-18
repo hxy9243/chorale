@@ -4,6 +4,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -25,7 +26,7 @@ test('fresh Codex package uses the browser service and current library', async (
     await assert.rejects(access(join(output, 'server.mjs')));
     const manifest = JSON.parse(await readFile(join(output, '.codex-plugin/plugin.json'), 'utf8'));
     assert.equal(manifest.mcpServers, './.mcp.json');
-    const bundle = await readFile(join(output, 'mcp/cli.mjs'), 'utf8');
+    const bundle = await readFile(join(output, 'server/cli.mjs'), 'utf8');
     assert.equal(bundle.includes('codex-plugin-store.json'), false);
     assert.equal(bundle.includes('43171'), false);
 
@@ -34,7 +35,7 @@ test('fresh Codex package uses the browser service and current library', async (
     const port = reservation.address().port;
     await new Promise(resolve => reservation.close(resolve));
     process.env.CHORALE_HOME = join(temporary, 'home');
-    const moduleUrl = pathToFileURL(join(output, 'mcp/cli.mjs')).href;
+    const moduleUrl = pathToFileURL(join(output, 'server/cli.mjs')).href;
     const { runDaemon } = await import(moduleUrl);
     running = await runDaemon({ port });
 
@@ -58,7 +59,11 @@ test('fresh Codex package uses the browser service and current library', async (
     assert.equal(persisted.title, 'Package check');
     const listed = await client.callTool({ name: 'list_files', arguments: {} });
     assert.ok(listed.structuredContent.files.some(file => file.documentId === id));
-    assert.ok((await readFile(join(process.env.CHORALE_HOME, 'store.json'), 'utf8')).includes(id));
+    const db = new DatabaseSync(join(process.env.CHORALE_HOME, 'chorale.db'));
+    const row = db.prepare('SELECT id FROM documents WHERE id = ?').get(id);
+    assert.equal(row?.id, id);
+    db.close();
+    await assert.rejects(access(join(process.env.CHORALE_HOME, 'store.json')));
     await assert.rejects(access(join(process.env.CHORALE_HOME, 'codex-plugin-store.json')));
     const page = await fetch(`http://127.0.0.1:${port}/`);
     assert.equal(page.status, 200);

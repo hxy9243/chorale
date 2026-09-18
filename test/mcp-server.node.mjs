@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import abcjs from 'abcjs';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { createMcpServer } from '../mcp/index.mjs';
-import { proxyDaemonTools, proxyDocumentMutations } from '../mcp/daemon-mutations.mjs';
-import { startServer } from '../mcp/server.mjs';
-import { LocalDocumentStore, PluginError } from '../mcp/store.mjs';
-import { createFileManagementTools } from '../mcp/tools/file-management.mjs';
-import { createSheetManagementTools } from '../mcp/tools/sheet-management.mjs';
+import { createMcpServer } from '../server/mcp/index.mjs';
+import { proxyDaemonTools, proxyDocumentMutations } from '../server/daemon-mutations.mjs';
+import { startServer } from '../server/api_server.mjs';
+import { LocalDocumentStore, PluginError } from '../server/store.mjs';
+import { createFileManagementTools } from '../server/mcp/tools/file-management.mjs';
+import { createSheetManagementTools } from '../server/mcp/tools/sheet-management.mjs';
 import {
   deleteMeasures,
   insertMeasures,
@@ -17,8 +17,8 @@ import {
   replaceMeasures,
   sliceMeasureRange,
   splitHeadersAndBody,
-} from '../mcp/utils/measure-ops.mjs';
-import { ViewSnapshotStore } from '../mcp/views.mjs';
+} from '../server/utils/measure-ops.mjs';
+import { ViewSnapshotStore } from '../server/views.mjs';
 
 const sampleAbc = `X:1
 T:Minuet in G
@@ -487,3 +487,146 @@ test('server: starts HTTP server, serves /v1/health, REST tools, and files', asy
     await rm(tempDir, { recursive: true, force: true });
   }
 });
+
+test('store: SQLite in-memory mode, ordering, cascading deletes, and preferences', async () => {
+  const store = new LocalDocumentStore({ dbPath: ':memory:' });
+  try {
+    const docA = await store.create({ title: 'Score Alpha', abcSource: sampleAbc });
+    const docB = await store.create({ title: 'Score Beta', abcSource: sampleAbc });
+
+    const initialList = await store.list();
+    assert.equal(initialList.length, 2);
+    assert.equal(initialList[0].id, docA.id);
+    assert.equal(initialList[1].id, docB.id);
+
+    // Reorder documents (Beta first, Alpha second)
+    const ws = await store.getWorkspace();
+    await store.putWorkspace({
+      documents: [docB, docA],
+      preferences: { zoom: 120 },
+      expectedRevision: ws.revision,
+    });
+
+    const reorderedList = await store.list();
+    assert.equal(reorderedList[0].id, docB.id);
+    assert.equal(reorderedList[1].id, docA.id);
+
+    // Patch preference
+    await store.patchWorkspace({
+      kind: 'preference',
+      key: 'theme',
+      value: 'dark',
+    });
+    const updatedWs = await store.getWorkspace();
+    assert.equal(updatedWs.preferences.theme, 'dark');
+    assert.equal(updatedWs.preferences.zoom, 120);
+
+    // Update document and verify versions
+    await store.update(docA.id, {
+      abcSource: `${sampleAbc}\n% modified`,
+      expectedRevision: docA.revision,
+    });
+    const fetchedDocA = await store.require(docA.id);
+    assert.equal(fetchedDocA.revision, 2);
+    assert.equal(fetchedDocA.versions.length >= 2, true);
+
+    // Delete docA and verify cascade in SQLite
+    await store.delete(docA.id);
+    assert.equal(store.db.prepare('SELECT count(*) as count FROM documents WHERE id = ?').get(docA.id).count, 0);
+    assert.equal(store.db.prepare('SELECT count(*) as count FROM document_versions WHERE document_id = ?').get(docA.id).count, 0);
+    assert.equal(store.db.prepare('SELECT count(*) as count FROM document_history WHERE document_id = ?').get(docA.id).count, 0);
+    assert.equal(store.db.prepare('SELECT count(*) as count FROM workspace_documents WHERE document_id = ?').get(docA.id).count, 0);
+  } finally {
+    store.close();
+  }
+});
+
+test('store: meta table tracks schema_version and custom metadata', async () => {
+  const store = new LocalDocumentStore({ dbPath: ':memory:' });
+  try {
+    assert.equal(store.getMeta('schema_version'), '1');
+    const readState = await store.read();
+    assert.equal(readState.schemaVersion, 1);
+
+    store.setMeta('schema_version', '2');
+    store.setMeta('custom_key', 'custom_value');
+    assert.equal(store.getMeta('schema_version'), '2');
+    assert.equal(store.getMeta('custom_key'), 'custom_value');
+
+    const updatedReadState = await store.read();
+    assert.equal(updatedReadState.schemaVersion, 2);
+  } finally {
+    store.close();
+  }
+});
+
+test('store: ID entropy uses 16 hex chars and collisions surface as DOCUMENT_EXISTS', async () => {
+  const store = new LocalDocumentStore({ dbPath: ':memory:' });
+  try {
+    const doc = await store.create({ title: 'Entropy Test' });
+    assert.match(doc.id, /^score-[a-f0-9]{16}$/);
+    assert.match(doc.history[0].id, /^hist-[a-f0-9]{16}$/);
+
+    // Explicit duplicate ID triggers DOCUMENT_EXISTS instead of cryptic failure
+    await assert.rejects(
+      () => store.createUnsafe({ id: doc.id, title: 'Duplicate' }),
+      (err) => err instanceof PluginError && err.code === 'DOCUMENT_EXISTS',
+    );
+  } finally {
+    store.close();
+  }
+});
+
+test('store: storePath pointing to directory safely resolves to chorale.db', async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), 'chorale-test-dir-path-'));
+  try {
+    // When storePath points to a directory without .json suffix
+    const store = new LocalDocumentStore({ storePath: tempDir });
+    assert.equal(store.dbPath, join(tempDir, 'chorale.db'));
+    const doc = await store.create({ title: 'Directory Path Safety' });
+    assert.ok(doc.id);
+    store.close();
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('store: mirror error handling reports warning and respects strictMirror', async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), 'chorale-test-mirror-'));
+  const warns = [];
+  const origWarn = console.warn;
+  console.warn = (...args) => warns.push(args.join(' '));
+  try {
+    // Point scoresDir to a regular file so mkdir/writeFile fails
+    const store = new LocalDocumentStore({
+      baseDir: tempDir,
+      strictMirror: false,
+    });
+    // Break scoresDir by making a file where scores directory should be
+    store.scoresDir = join(tempDir, 'scores-is-a-file');
+    await writeFile(store.scoresDir, 'not a directory');
+
+    // Default mode logs warning without aborting DB transaction
+    const doc = await store.create({ title: 'Tolerant Mirror' });
+    assert.ok(doc.id);
+    assert.ok(warns.some(w => w.includes('[Chorale Store] Failed to mirror ABC file')));
+
+    // strictMirror mode rejects with MIRROR_FAILED
+    const strictStore = new LocalDocumentStore({
+      baseDir: tempDir,
+      strictMirror: true,
+    });
+    strictStore.scoresDir = store.scoresDir;
+    await assert.rejects(
+      () => strictStore.create({ title: 'Strict Mirror' }),
+      (err) => err instanceof PluginError && err.code === 'MIRROR_FAILED',
+    );
+    strictStore.close();
+    store.close();
+  } finally {
+    console.warn = origWarn;
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+

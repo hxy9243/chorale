@@ -5,7 +5,7 @@ import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { z } from 'zod';
-import { createMcpServer } from './index.mjs';
+import { createMcpServer } from './mcp/index.mjs';
 import { CHORALE_PORT } from './runtime.mjs';
 import { LocalDocumentStore, PluginError, scoreSummary } from './store.mjs';
 import { CHORALE_VERSION } from './version.mjs';

@@ -39,13 +39,13 @@ Chorale functions as a standalone CLI application (`chorale`) that launches and 
 - **Shared State via Stdio Proxy**: The stdio adapter (`chorale mcp`) forwards all tool calls to the background HTTP daemon, ensuring that AI agent queries, measure edits, and browser UI state share identical document revisions and selection context.
 - **Headless by Default**: All score creation, measure inspection, and edits work headlessly without requiring a browser window to be open.
 - **On-Demand Browser Launch**: Agents call `open_ui` to open or activate a specific score in the user's browser whenever visual interaction or playback review is desired.
-- **Durable Local Storage**: Saves score documents and revisions directly into `~/.chorale/store.json` and mirrored ABC files in `~/.chorale/scores/`.
+- **Durable Local Storage**: Saves score documents and revisions directly into `~/.chorale/chorale.db` (SQLite via `node:sqlite`) and mirrored ABC files in `~/.chorale/scores/`.
 
 ---
 
 ## 2. Prerequisites & Quick Build
 
-Ensure you have **Node.js (v20+)** and **npm** installed.
+Ensure you have **Node.js (v22.5+)** and **npm** installed.
 
 ```bash
 # 1. Clone the repository
