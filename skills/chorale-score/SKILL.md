@@ -14,6 +14,7 @@ Use the local Chorale MCP server tools (`chorale`) as the primary interface for 
 For detailed rules, standards, and musical examples, consult the topic-specific references:
 
 - **[Basic MCP Usage & Workflows](references/basic-usage.md)**: Headless inspection, revision guards (`expectedRevision`), atomic measure mutations (`edit_measures`, `insert_measure`), annotations (`add_notation`), and view synchronization.
+- **[MIDI Instrument Assignment & Verification](references/midi-playback.md)**: abcjs directive scope, per-voice General MIDI programs, safe measure-one repairs, and synthesized-track verification. Read this when instrument names are correct but playback uses the wrong sounds.
 - **[ABC Syntax, Engraving & Ergonomics](references/abc-syntax-and-rules.md)**: ABC pitch octaves, key signature inheritance, metric beam grouping (no spaces in beams), phrasing, vocal/instrumental ranges (SATB), and piano hand-reach ergonomics.
 - **[Chord Progression Analysis & Syntax](references/chord-progression-analysis.md)**: Vertical sonority extraction, Roman numeral analysis, chord inversions (5/3, 6/3, 6/4, 7, 6/5, 4/3, 4/2), functional syntax (Tonic, Pre-Dominant, Dominant), secondary dominants/leading tones, chromatic chords (Neapolitan, Augmented 6ths), and pivot-chord modulation.
 - **[Voice Leading & General Score Analysis](references/voice-leading-and-general-analysis.md)**: Linear voice leading, leap recovery, contrapuntal motion types, comprehensive non-chord tone (NCT) taxonomy, period and sentence formal structures, textural categories, and motivic development.
@@ -25,8 +26,8 @@ For detailed rules, standards, and musical examples, consult the topic-specific 
 ## 2. Intent Routing for Common User Requests
 
 ### A. "start chorale" (Open UI in default browser)
-1. Call `open_ui` to ensure the server on port 1685 is active and launch the workspace in the user's browser.
-2. Call `get_workspace_state` to verify the connection and retrieve connected views.
+1. Call `open_ui` at most once per agent session to ensure the server on port 1685 is active and launch the workspace in the user's browser. Include `documentId` when the target score is already known.
+2. Call `get_workspace_state` to verify the connection and retrieve connected views. Reuse that connected view for the rest of the session; do not call `open_ui` again merely to focus or verify a score, because every call may create another browser tab.
 
 ### B. "start chorale and compose a new sheet"
 1. Call `open_ui` to ensure the workspace is launched in the browser.

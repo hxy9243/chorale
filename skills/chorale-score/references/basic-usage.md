@@ -142,6 +142,7 @@ Annotations enrich the score with harmonic, motivic, and structural insights dis
 
 ## 5. View & Workspace Synchronization
 
-1. **Focusing Scores**: When creating a new score with `create_new_file`, call `open_ui({ documentId: score.documentId })` to bring the score into view for the user.
-2. **Checking View Connections**: Call `get_workspace_state` to see if any browser tabs are currently connected (`connectedViews > 0`).
-3. **External Imports**: When importing files (`import_file`), MusicXML (.xml, .musicxml, .mxl) files are parsed and converted to canonical ABC automatically.
+1. **Open Once Per Session**: Call `open_ui` no more than once in an agent session. Pass the known `documentId` on that first call, then reuse the connected view; repeated calls can create duplicate browser tabs.
+2. **Focusing and Verification**: Use `get_workspace_state` plus authoritative score readback for later focus and verification checks. Do not call `open_ui` again merely to refresh, refocus, or prove visibility.
+3. **Checking View Connections**: Call `get_workspace_state` to see if any browser tabs are currently connected (`connectedViews > 0`).
+4. **External Imports**: When importing files (`import_file`), MusicXML (.xml, .musicxml, .mxl) files are parsed and converted to canonical ABC automatically.
