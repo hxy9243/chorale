@@ -22,7 +22,7 @@ The last header program, acoustic grand piano (`0`), becomes the global default.
 
 ## Safe per-voice pattern
 
-Use one header program as the first voice's default, then place inline information directives in the music body after selecting each later voice. An inline directive parsed after music has begun becomes an event in the current voice.
+Use one header program as the first voice's default. In each voice's music body, select the voice, repeat the current key as an inline field, and only then add the inline MIDI program. The same-key inline field moves abcjs into that voice's music context without adding duration, so the following program applies before the first sounding note.
 
 ```abc
 V:1 clef=treble name="Violin"
@@ -31,13 +31,13 @@ V:3 clef=treble name="Piano RH"
 V:4 clef=bass name="Piano LH"
 %%MIDI program 40
 K:A
-[V:1] [I:MIDI program 40] z8 | z8 | c4 e4 |
-[V:2] [I:MIDI program 42] z8 | z8 | A,4 E4 |
-[V:3] [I:MIDI program 0] C4 E4 | G4 C4 |
-[V:4] [I:MIDI program 0] C,4 G,4 | C,8 |
+[V:1] [K:A] [I:MIDI program 40] z8 | z8 | c4 e4 |]
+[V:2] [K:A] [I:MIDI program 42] z8 | z8 | A,4 E4 |]
+[V:3] [K:A] [I:MIDI program 0] C4 E4 | G4 C4 | z8 |]
+[V:4] [K:A] [I:MIDI program 0] C,4 G,4 | C,8 | z8 |]
 ```
 
-The first inline directive may still establish the tune default if it occurs before the first musical event; matching it to the header default makes that harmless. Once the first voice has music, subsequent `[I:MIDI program ...]` directives are attached to their selected voices.
+Do not put `[I:MIDI program ...]` immediately after `[V:n]` at the start of a voice. At that point abcjs can still treat it as tune-wide initialization, causing every track to inherit one program. Keep the repeated inline key identical to the score's current key.
 
 Common zero-based General MIDI programs used by abcjs are:
 
@@ -52,7 +52,7 @@ Do not infer playback sound from `name=` or `snm=`. Those fields label the engra
 ## Repairing an existing Chorale score
 
 1. Read measure 1 and note the current revision.
-2. Preserve every note and duration in the measure, adding `[I:MIDI program N]` immediately after each voice selector.
+2. Preserve every note and duration in the measure, adding `[K:<current key>] [I:MIDI program N]` immediately after each voice selector. The inline key must match the score's current key and must precede the MIDI directive.
 3. Apply the bounded change with `edit_measures` and the current `expectedRevision`.
 4. Re-read measures 1 and 2, because measure serialization can affect the following boundary.
 5. Call `list_files` and confirm that the total measure count is unchanged.
