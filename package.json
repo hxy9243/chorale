@@ -12,6 +12,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "package:codex": "npm run build && node tools/package-codex.mjs",
+    "package:antigravity": "node tools/package-antigravity.mjs",
+    "package": "npm run package:codex && npm run package:antigravity",
     "lint": "oxlint",
     "test": "node --test test/*.node.mjs && vitest run",
     "test:mcp": "node --test test/*.node.mjs",

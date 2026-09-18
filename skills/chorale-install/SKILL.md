@@ -48,20 +48,53 @@ chorale upgrade
 The stdio adapter (`chorale mcp`) ensures the background HTTP daemon is alive on port 1685 and forwards all tool calls to it. UI state, selection reads, and score mutations are therefore shared seamlessly between AI agents and the browser workspace.
 
 ### A. Google Antigravity (AGY)
-In Antigravity's MCP configuration (`.agents/mcp_config.json` or `~/.gemini/antigravity/mcp_config.json`):
+
+Skills and references are maintained centrally in `skills/`.
+
+**Option 1: Antigravity Plugin (Recommended)**
+Run the packaging command to automatically stage the skills into the plugin bundle, then install:
+```bash
+# 1. Package the plugin (automatically copies skills/ to plugins/antigravity/skills/)
+npm run package:antigravity
+
+# 2. Install the plugin into Antigravity
+agy plugin install plugins/antigravity
+```
+
+**Option 2: Global Configuration & Direct MCP**
+Copy or symlink the skills globally and register the MCP server:
+```bash
+# Auto-copy skills into global config
+mkdir -p ~/.gemini/config/skills
+cp -r skills/chorale-score ~/.gemini/config/skills/
+cp -r skills/chorale-install ~/.gemini/config/skills/
+```
+And add to `.agents/mcp_config.json` or `~/.gemini/antigravity/mcp_config.json`:
 ```json
 {
   "mcpServers": {
     "chorale": {
-      "command": "node",
-      "args": ["/path/to/chorale/bin/chorale.mjs", "mcp"],
-      "cwd": "/path/to/chorale"
+      "command": "chorale",
+      "args": ["mcp"]
     }
   }
 }
 ```
 
 ### B. OpenAI Codex
+
+**Option 1: Codex Plugin via Local Marketplace (Recommended)**
+Run the packaging script to automatically bundle the CLI, MCP server, and copy `skills/`:
+```bash
+# 1. Package the plugin (auto-copies skills/ into plugins/chorale-codex-plugin/skills/)
+npm run package:codex
+
+# 2. Register local marketplace and add plugin
+codex plugin marketplace add /path/to/chorale
+codex plugin add chorale-codex-plugin@chorale-local
+```
+
+**Option 2: Direct MCP Registration**
 Register the stdio adapter using the Codex CLI:
 ```bash
 codex mcp add chorale -- chorale mcp

@@ -123,26 +123,34 @@ When working within the Chorale repository, Antigravity automatically detects:
 }
 ```
 
-#### Global Machine Installation (Available Across All Workspaces)
-To make Chorale available in any workspace in Google Antigravity:
-1. Add the MCP server entry to `~/.gemini/antigravity/mcp_config.json`:
+#### Antigravity Plugin Installation (Recommended)
+Package the plugin (which automatically copies skills and references from `skills/` into `plugins/antigravity/skills/`), then install:
+```bash
+# 1. Package plugin (auto-copies skills/ into plugins/antigravity/skills/)
+npm run package:antigravity
+
+# 2. Install the plugin into Antigravity
+agy plugin install plugins/antigravity
+```
+
+#### Global Machine Installation (Direct Skills & MCP Config)
+To make Chorale available across all workspaces without the plugin wrapper:
+1. Register the MCP server in `~/.gemini/antigravity/mcp_config.json`:
    ```json
    {
      "mcpServers": {
        "chorale": {
-         "command": "node",
-         "args": [
-           "/absolute/path/to/chorale/bin/chorale.mjs",
-           "mcp"
-         ]
+         "command": "chorale",
+         "args": ["mcp"]
        }
      }
    }
    ```
-2. (Optional) Copy the score skill to your global Antigravity skills directory:
+2. Copy or symlink the skills into your global Antigravity skills directory:
    ```bash
-   mkdir -p ~/.gemini/config/skills/chorale-score
-   cp .agents/skills/chorale-score/SKILL.md ~/.gemini/config/skills/chorale-score/
+   mkdir -p ~/.gemini/config/skills
+   cp -r skills/chorale-score ~/.gemini/config/skills/
+   cp -r skills/chorale-install ~/.gemini/config/skills/
    ```
 
 ---
@@ -151,24 +159,24 @@ To make Chorale available in any workspace in Google Antigravity:
 
 Chorale can be registered in Codex using the MCP CLI adapter or installed via local plugin marketplace:
 
-#### Option 1: Direct MCP Registration (Recommended)
+#### Option 1: Codex Plugin via Local Marketplace (Recommended)
+Chorale includes a plugin manifest in [`.codex-plugin/plugin.json`](./.codex-plugin/plugin.json).
+```bash
+# 1. Build and package plugin (auto-bundles UI, MCP, and copies skills/)
+npm run package:codex
+
+# 2. Register repository as a local marketplace and install plugin
+codex plugin marketplace add /absolute/path/to/chorale
+codex plugin add chorale-codex-plugin@chorale-local
+```
+
+#### Option 2: Direct MCP Registration
 ```bash
 codex mcp add chorale -- chorale mcp
 ```
 Or with an absolute path for development checkouts without `npm link`:
 ```bash
 codex mcp add chorale -- node /absolute/path/to/chorale/bin/chorale.mjs mcp
-```
-
-#### Option 2: Codex Plugin via Local Marketplace
-Chorale includes a plugin manifest in [`.codex-plugin/plugin.json`](./.codex-plugin/plugin.json).
-```bash
-# 1. Build the production workspace
-npm run build
-
-# 2. Register repository as a local marketplace and install plugin
-codex plugin marketplace add /absolute/path/to/chorale
-codex plugin add chorale-codex-plugin@chorale-local
 ```
 
 ---

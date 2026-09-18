@@ -116,10 +116,10 @@ npm run test:unit
 
 Chorale is equipped with skills and MCP definitions ready for pair programming with autonomous agents:
 
-- **Google Antigravity**: Configured in `.agents/mcp_config.json` and detected via [`.agents/skills/chorale-score/SKILL.md`](./.agents/skills/chorale-score/SKILL.md).
+- **Google Antigravity**: Packaged via `npm run package:antigravity` (auto-copies skills into `plugins/antigravity/skills/`) and installed via `agy plugin install plugins/antigravity`, or detected directly in `.agents/skills/chorale-score/SKILL.md`.
 - **OpenAI Codex**: Manifest in [`.codex-plugin/plugin.json`](./.codex-plugin/plugin.json) and installable via local marketplace or `codex mcp add`.
 
-  Before a local marketplace installation, run `npm run package:codex` to generate the current self-contained plugin in `plugins/chorale-codex-plugin`. Rebuild and reinstall after source updates; start a new Codex task to load the updated tools.
+  Before a local marketplace installation, run `npm run package:codex` to generate the self-contained plugin in `plugins/chorale-codex-plugin` (auto-copying skills and bundled runtime). Rebuild and reinstall after source updates; start a new Codex task to load the updated tools.
 - **Claude Code & Claude Desktop**: Configurable via stdio (`chorale mcp`) or SSE (`http://127.0.0.1:1685/sse`).
 
 For complete, step-by-step agent installation guides and MCP configurations, see:  
