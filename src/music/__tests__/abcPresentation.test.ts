@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   analyzeRawAbcLines,
+  autoAdjustMeasureRests,
   buildAbcPresentation,
   resolvePlaybackMeasure,
   validateAbcHeaderEdit,
@@ -77,6 +78,64 @@ describe('ABC presentation feasibility contract', () => {
 
     const overfilled = validateAbcMeasureEdit(fourFour, 'voice-1:1', 'C D E F G |');
     expect(overfilled.ok).toBe(false);
+  });
+
+  it('allows editing measures that are all z or rests in measure source mode', () => {
+    const p1 = buildAbcPresentation('X:1\nM:4/4\nL:1/4\nK:C\nz4 |\n');
+    expect(p1.voices[0].cells[0]?.editable).toBe(true);
+
+    const p2 = buildAbcPresentation('X:1\nM:4/4\nL:1/4\nK:C\nz z z z |\n');
+    expect(p2.voices[0].cells[0]?.editable).toBe(true);
+
+    const p3 = buildAbcPresentation('X:1\nM:4/4\nL:1/4\nK:C\n| z4 |\n');
+    expect(p3.voices[0].cells[0]?.editable).toBe(true);
+
+    const p4 = buildAbcPresentation('X:1\nM:4/4\nL:1/4\nK:C\nz2 z2 |\n');
+    expect(p4.voices[0].cells[0]?.editable).toBe(true);
+
+    const p5 = buildAbcPresentation('X:1\nM:4/4\nL:1/4\nK:C\n| z |\n');
+    expect(p5.voices[0].cells[0]?.editable).toBe(true);
+
+    const p6 = buildAbcPresentation('X:1\nM:4/4\nL:1/4\nK:C\nZ |\n');
+    expect(p6.voices[0].cells[0]?.editable).toBe(true);
+
+    const p7 = buildAbcPresentation('X:1\nM:4/4\nL:1/4\nK:C\n[V:1] z4 |\n');
+    expect(p7.voices[0].cells[0]?.editable).toBe(true);
+
+    const p8 = buildAbcPresentation('X:1\nM:4/4\nL:1/4\nK:C\n[V:1] z |\n');
+    expect(p8.voices[0].cells[0]?.editable).toBe(true);
+  });
+
+  it('auto-adjusts rests and empty notes when filling notes in measure view', () => {
+    const quarterUnit = { numerator: 1, denominator: 4 };
+
+    expect(autoAdjustMeasureRests('| D2 Z4 |', '4/4', quarterUnit)).toBe('| D2 z2 |');
+    expect(autoAdjustMeasureRests('D2 Z4 |', '4/4', quarterUnit)).toBe('D2 z2 |');
+    expect(autoAdjustMeasureRests('| D2 Z4|', '4/4', quarterUnit)).toBe('| D2 z2|');
+    expect(autoAdjustMeasureRests('| D4 Z4 |', '4/4', quarterUnit)).toBe('| D4 |');
+    expect(autoAdjustMeasureRests('| D2 z4 |', '4/4', quarterUnit)).toBe('| D2 z2 |');
+    expect(autoAdjustMeasureRests('| D2 X4 |', '4/4', quarterUnit)).toBe('| D2 x2 |');
+    expect(autoAdjustMeasureRests('| D2 x4 |', '4/4', quarterUnit)).toBe('| D2 x2 |');
+    expect(autoAdjustMeasureRests('| D1 Z4 D1 |', '4/4', quarterUnit)).toBe('| D1 z2 D1 |');
+    expect(autoAdjustMeasureRests('| Z4 D2 |', '4/4', quarterUnit)).toBe('| z2 D2 |');
+    expect(autoAdjustMeasureRests('| D2 Z |', '4/4', quarterUnit)).toBe('| D2 z2 |');
+
+    // Notes alone exceed meter: does not adjust rests
+    expect(autoAdjustMeasureRests('| D6 Z4 |', '4/4', quarterUnit)).toBe('| D6 Z4 |');
+
+    // Integrated validateAbcMeasureEdit test: user edits measure cell with D2 Z4
+    const presentation = buildAbcPresentation('X:1\nM:4/4\nL:1/4\nK:C\nZ | G A B c |\n');
+    const result = validateAbcMeasureEdit(presentation, 'voice-1:1', 'D2 Z4 |');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.abc).toContain('D2 z2 |');
+    }
+
+    const fillResult = validateAbcMeasureEdit(presentation, 'voice-1:1', 'D4 Z4 |');
+    expect(fillResult.ok).toBe(true);
+    if (fillResult.ok) {
+      expect(fillResult.abc).toContain('D4 |');
+    }
   });
 
   it('maps simultaneous playback ranges only when they agree on one written measure', () => {

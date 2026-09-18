@@ -107,7 +107,18 @@ Source and produce a visible warning rather than being silently omitted.
 
 A formatted measure is editable only when abcjs maps it to one contiguous, single-line,
 measure-local source range. Bar and repeat boundaries, volta markers, comments, newlines,
-overlapping ranges, and structural or ambiguous fragments are read-only or Raw Source-only.
+overlapping ranges, compressed multimeasure rest spans spanning multiple measures (`multimeasureCount > 1`),
+and structural or ambiguous fragments are read-only or Raw Source-only. Single-measure rests
+and empty notes (such as `z4 |`, `z2 |`, `Z |`, or measures consisting entirely of rests) remain
+fully editable in Measure View.
+
+When editing a measure in Measure View that contains existing rests or empty notes (`Z`, `z`, `X`, `x`),
+filling notes into the measure automatically takes place in the time left from the empty space:
+- If newly entered notes completely fill the measure duration, trailing rests are removed entirely.
+- If newly entered notes partially fill the measure duration and total duration would exceed the active meter,
+  the existing rests/empty notes are automatically scaled down to match the remaining duration
+  (`z<remaining>` or `x<remaining>`) instead of complaining that the measure exceeds the active meter.
+- If non-rest notes alone exceed the measure's active meter, the overflow is preserved and rejected with an explicit error.
 
 An edit is committed only when the candidate:
 
@@ -119,6 +130,13 @@ An edit is committed only when the candidate:
 Invalid drafts remain local to the editor with an error state; they do not update the
 canonical ABC, score, revision history, autosave, or playback. A draft is cancelled if its
 document identity or base revision becomes stale.
+
+### 4.2 Measure display width stability and editing expansion
+
+When entering editing mode in Measure View:
+- The measure cell must retain its natural display width upon entering edit mode, preventing the measure card from collapsing, jumping scroll position, or hiding measure content.
+- An editing input is housed in an auto-sizing container (`.abc-measure-edit-wrapper`) with a hidden text-measuring sizer (`.abc-measure-edit-ghost`) matching the monospace typography of the measure notes.
+- The sizer dynamically scales with the draft value (maintaining at least the original measure text width plus caret buffer), ensuring long measures remain fully visible without horizontal clipping or scroll jumps, and expanding smoothly if additional notes are entered.
 
 ## 5. Selection, navigation, and playback
 

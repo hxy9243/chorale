@@ -7,6 +7,7 @@ import {
   addRationalDurations,
   compareRationalDurations,
   createRationalDuration,
+  createRationalDurationFromNumber,
   type RationalDuration,
 } from './rational';
 
@@ -90,6 +91,7 @@ type MutableCell = {
   maxEnd: number;
   ranges: AbcTextRange[];
   events: Array<{ range: AbcTextRange; start: number; duration: number }>;
+  isMultimeasure?: boolean;
 };
 
 type VoiceState = { measureNumber: number; hasEvents: boolean; elapsed: number };
@@ -310,6 +312,7 @@ export const buildAbcPresentation = (abc: string): AbcPresentation => {
                   maxEnd: range.end,
                   ranges: [range],
                   events: [],
+                  isMultimeasure: true,
                 };
                 cells.set(key, cell);
                 voiceCellsMap.get(voiceId)?.push(cell);
@@ -317,6 +320,7 @@ export const buildAbcPresentation = (abc: string): AbcPresentation => {
                 cell.ranges.push(range);
                 cell.minStart = Math.min(cell.minStart, range.start);
                 cell.maxEnd = Math.max(cell.maxEnd, range.end);
+                cell.isMultimeasure = true;
               }
               cell.events.push({ range, start: 0, duration: singleDuration });
             }
@@ -379,7 +383,7 @@ export const buildAbcPresentation = (abc: string): AbcPresentation => {
         text,
         duration: Math.max(0, ...events.map((event) => event.start + event.duration)),
         events,
-        editable: Boolean(text.trim()) && sameLine(abc, range) && !text.includes('%') && !/^[ZX]\d+[\s|]*$/i.test(text.trim()),
+        editable: Boolean(text.trim()) && sameLine(abc, range) && !text.includes('%') && !cell.isMultimeasure && !/^[ZX]\d+[\s|]*$/.test(text.trim()),
       };
     });
     return {
@@ -424,7 +428,7 @@ export type AbcMeasureEdit = Readonly<{
 }>;
 
 const literalRanges = (abc: string, ranges: readonly AbcTextRange[]) => (
-  ranges.map((range) => abc.slice(range.start, range.end))
+  ranges.map((range) => abc.slice(range.start, range.end).trim())
 );
 
 const allCells = (presentation: AbcPresentation) => presentation.voices.flatMap(({ cells }) => cells);
@@ -540,6 +544,98 @@ const normalizeCellDuration = (
   return `${before}${separator}${rest}${after}`;
 };
 
+export const autoAdjustMeasureRests = (
+  replacement: string,
+  meter: string,
+  unit: RationalDuration,
+  key = 'C',
+): string => {
+  try {
+    const expectedDuration = parseMeterDuration(meter);
+    if (!expectedDuration) return replacement;
+
+    const header = `X:1\nM:${meter}\nL:${unit.numerator}/${unit.denominator}\nK:${key}\n`;
+    const parsed = abcjs.parseOnly(header + replacement + '\n') as unknown as ParsedTune[];
+    const events = (parsed[0]?.lines?.[0]?.staff?.[0]?.voices?.[0] || []) as ParsedElement[];
+
+    const noteEvents: Array<{ event: ParsedElement; raw: string; duration: RationalDuration }> = [];
+    const restEvents: Array<{
+      event: ParsedElement;
+      raw: string;
+      duration: RationalDuration;
+      start: number;
+      end: number;
+    }> = [];
+
+    for (const e of events) {
+      if (e.el_type === 'note' && typeof e.duration === 'number') {
+        const start = Math.max(0, (e.startChar ?? header.length) - header.length);
+        const end = Math.min(replacement.length, (e.endChar ?? header.length) - header.length);
+        const raw = replacement.slice(start, end);
+        const duration = createRationalDurationFromNumber(e.duration);
+
+        if (e.rest) {
+          restEvents.push({ event: e, raw, duration, start, end });
+        } else {
+          noteEvents.push({ event: e, raw, duration });
+        }
+      }
+    }
+
+    if (restEvents.length === 0) return replacement;
+
+    const nonRestDuration = noteEvents.reduce(
+      (sum, n) => addRationalDurations(sum, n.duration),
+      createRationalDuration(0, 1),
+    );
+
+    const totalDuration = restEvents.reduce(
+      (sum, r) => addRationalDurations(sum, r.duration),
+      nonRestDuration,
+    );
+
+    if (compareRationalDurations(totalDuration, expectedDuration) <= 0) {
+      return replacement;
+    }
+
+    if (compareRationalDurations(nonRestDuration, expectedDuration) > 0) {
+      return replacement;
+    }
+
+    const remainingDuration = createRationalDuration(
+      expectedDuration.numerator * nonRestDuration.denominator - nonRestDuration.numerator * expectedDuration.denominator,
+      expectedDuration.denominator * nonRestDuration.denominator,
+    );
+
+    const primaryRest = restEvents[0];
+    const sortedRests = [...restEvents].sort((a, b) => b.start - a.start);
+
+    let result = replacement;
+    for (const r of sortedRests) {
+      if (r === primaryRest && compareRationalDurations(remainingDuration, createRationalDuration(0, 1)) > 0) {
+        const match = r.raw.match(/([ZzXx])/);
+        const isInvisible = match ? match[1].toLowerCase() === 'x' : false;
+        const restChar = isInvisible ? 'x' : 'z';
+        const suffix = restLengthSuffix(remainingDuration, unit);
+        const newRest = `${restChar}${suffix}`;
+        const leadingSpace = r.raw.match(/^(\s*)/)?.[1] || '';
+        const trailingSpace = r.raw.match(/(\s*)$/)?.[1] || '';
+        const replacementToken = `${leadingSpace}${newRest}${trailingSpace}`;
+        result = `${result.slice(0, r.start)}${replacementToken}${result.slice(r.end)}`;
+      } else {
+        const leadingSpace = r.raw.match(/^(\s*)/)?.[1] || '';
+        const trailingSpace = r.raw.match(/(\s*)$/)?.[1] || '';
+        const replacementToken = leadingSpace && trailingSpace ? ' ' : '';
+        result = `${result.slice(0, r.start)}${replacementToken}${result.slice(r.end)}`;
+      }
+    }
+
+    return result.replace(/[ \t]{2,}/g, ' ');
+  } catch {
+    return replacement;
+  }
+};
+
 export const applyAbcMeasureEdits = (
   presentation: AbcPresentation,
   edits: readonly AbcMeasureEdit[],
@@ -557,11 +653,20 @@ export const applyAbcMeasureEdits = (
     targets.set(edit.cellId, target);
   }
   try {
+    const score = extractScore(presentation.abc);
     let candidate = [...edits]
       .sort((left, right) => targets.get(right.cellId)!.range.start - targets.get(left.cellId)!.range.start)
       .reduce((source, edit) => {
         const target = targets.get(edit.cellId)!;
-        const replacement = cleanedReplacement(target, edit.replacement);
+        const targetMeasure = score.measures.find(({ measureNumber }) => measureNumber === target.measureNumber);
+        const activeMeter = targetMeasure?.activeMeter && targetMeasure.activeMeter !== 'none'
+          ? targetMeasure.activeMeter
+          : (presentation.abc.match(/^M:\s*(.+)$/m)?.[1]?.trim() || score.meter || '4/4');
+        const unit = defaultLength(presentation.abc, activeMeter);
+        const adjusted = normalize
+          ? autoAdjustMeasureRests(edit.replacement, activeMeter, unit, score.key || 'C')
+          : edit.replacement;
+        const replacement = cleanedReplacement(target, adjusted);
         return `${source.slice(0, target.range.start)}${replacement}${source.slice(target.range.end)}`;
       }, presentation.abc);
     validatePreservedPresentation(presentation, candidate, new Set(targets.keys()));

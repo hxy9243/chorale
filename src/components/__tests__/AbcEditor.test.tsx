@@ -608,5 +608,38 @@ C D E F G A |
     expect(localStorage.getItem('chorale.workspace.toolbeltHeight')).toBe('328');
     expect(resizer.getAttribute('aria-valuenow')).toBe('328');
   });
+
+  it('renders auto-sizing wrapper with ghost text for long measures in editing mode', () => {
+    const longMeasureAbc = `X:1
+T:Long Measure Test
+M:4/4
+L:1/16
+K:C
+V:1
+cdef gfed cdef gfed cdef gfed cdef gfed |
+`;
+    const { container } = render(
+      <AbcEditor abcCode={longMeasureAbc} onAbcChange={() => undefined} />,
+    );
+    const cellButton = screen.getByRole('button', { name: 'Edit 1, measure 1' });
+    fireEvent.click(cellButton);
+
+    const input = screen.getByRole('textbox', { name: 'Edit 1, measure 1' });
+    expect(input).toBeDefined();
+
+    const wrapper = container.querySelector('.abc-measure-edit-wrapper');
+    expect(wrapper).not.toBeNull();
+
+    const ghost = container.querySelector('.abc-measure-edit-ghost');
+    expect(ghost).not.toBeNull();
+    expect(ghost?.textContent).toContain('cdef gfed cdef gfed cdef gfed cdef gfed |');
+    expect(input.getAttribute('size')).toBe(String('cdef gfed cdef gfed cdef gfed cdef gfed |'.length));
+
+    // When typing additional characters, ghost expands to match
+    fireEvent.change(input, {
+      target: { value: 'cdef gfed cdef gfed cdef gfed cdef gfed cdef gfed |' },
+    });
+    expect(ghost?.textContent).toContain('cdef gfed cdef gfed cdef gfed cdef gfed cdef gfed |');
+  });
 });
 

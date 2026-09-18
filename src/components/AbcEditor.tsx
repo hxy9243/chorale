@@ -826,6 +826,9 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   ) => {
     const editing = draft?.cellId === cell.id;
     const beatValues = splitCellSourceByBeat(cell, beatCount);
+    const ghostText = editing
+      ? `${draft.value.length >= cell.text.length ? draft.value : cell.text} `
+      : "";
     return (
       <div
         className={`abc-timeline-voice${playingMeasure === cell.measureNumber ? " is-playing" : ""}${editing && draft.error ? " is-invalid" : ""}${editing ? " is-editing" : ""}`}
@@ -861,43 +864,49 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
           }}
         >
           {editing ? (
-            <input
-              ref={measureInputRef}
-              type="text"
-              className="abc-measure-edit-input"
-              aria-label={`Edit ${cell.voiceId}, measure ${cell.measureNumber}`}
-              value={draft.value}
-              autoFocus
-              readOnly={!cell.editable}
-              onChange={(event) => updateDraft(cell, event.target.value)}
-              onSelect={(event) => {
-                draftSelectionRef.current = {
-                  start: event.currentTarget.selectionStart || 0,
-                  end: event.currentTarget.selectionEnd || 0,
-                };
-              }}
-              onCompositionStart={() => {
-                composingRef.current = true;
-              }}
-              onCompositionEnd={() => {
-                composingRef.current = false;
-              }}
-              onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget)) {
-                  commitDraft(0, false);
-                }
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  setDraft(null);
-                  focusCell(cell.id);
-                } else if (event.key === "Enter" && !composingRef.current) {
-                  event.preventDefault();
-                  commitDraft(0, true);
-                }
-              }}
-            />
+            <div className="abc-measure-edit-wrapper">
+              <span className="abc-measure-edit-ghost" aria-hidden="true">
+                {ghostText || "\u00A0"}
+              </span>
+              <input
+                ref={measureInputRef}
+                type="text"
+                className="abc-measure-edit-input"
+                aria-label={`Edit ${cell.voiceId}, measure ${cell.measureNumber}`}
+                value={draft.value}
+                autoFocus
+                size={Math.max(draft.value.length, cell.text.length, 1)}
+                readOnly={!cell.editable}
+                onChange={(event) => updateDraft(cell, event.target.value)}
+                onSelect={(event) => {
+                  draftSelectionRef.current = {
+                    start: event.currentTarget.selectionStart || 0,
+                    end: event.currentTarget.selectionEnd || 0,
+                  };
+                }}
+                onCompositionStart={() => {
+                  composingRef.current = true;
+                }}
+                onCompositionEnd={() => {
+                  composingRef.current = false;
+                }}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) {
+                    commitDraft(0, false);
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    setDraft(null);
+                    focusCell(cell.id);
+                  } else if (event.key === "Enter" && !composingRef.current) {
+                    event.preventDefault();
+                    commitDraft(0, true);
+                  }
+                }}
+              />
+            </div>
           ) : (
             <div className="abc-source-beats">
               {beatValues.map((value, beatIndex) => (
