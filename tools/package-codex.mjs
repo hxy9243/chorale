@@ -9,10 +9,10 @@ export async function packageCodex(output = join(root, 'plugins/chorale-codex-pl
   await mkdir(dirname(output), { recursive: true });
   const staging = await mkdtemp(join(dirname(output), '.chorale-package-'));
   try {
-    await mkdir(join(staging, 'mcp'));
+    await mkdir(join(staging, 'server'));
     await build({
-      entryPoints: [join(root, 'mcp/cli.mjs')],
-      outfile: join(staging, 'mcp/cli.mjs'),
+      entryPoints: [join(root, 'server/cli.mjs')],
+      outfile: join(staging, 'server/cli.mjs'),
       bundle: true,
       platform: 'node',
       format: 'esm',

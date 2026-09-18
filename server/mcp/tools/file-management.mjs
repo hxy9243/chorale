@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import { z } from 'zod';
-import { scoreSummary } from '../store.mjs';
-import { musicXmlToAbc } from '../utils/music-xml.mjs';
+import { scoreSummary } from '../../store.mjs';
+import { musicXmlToAbc } from '../../utils/music-xml.mjs';
 
 const result = (structuredContent, text) => ({
   structuredContent,

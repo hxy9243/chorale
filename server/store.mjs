@@ -1,10 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { measureBodies } from './utils/measure-ops.mjs';
+
+export const generateDocumentId = () => `score-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+export const generateHistoryId = () => `hist-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
 
 export class PluginError extends Error {
   constructor(code, message) {
@@ -83,22 +86,12 @@ const rowToDocument = (row, versions = [], history = []) => {
 
 export class LocalDocumentStore {
   constructor(options = {}) {
+    this.strictMirror = Boolean(options.strictMirror);
     this.choraleDir = resolve(options.baseDir || process.env.CHORALE_HOME || join(homedir(), '.chorale'));
     this.scoresDir = join(this.choraleDir, 'scores');
     this.views = options.views || null;
     this.mutationTail = Promise.resolve();
-
-    const rawDbPath = options.dbPath || process.env.CHORALE_DB_PATH;
-    const legacyStorePath = options.storePath || process.env.CHORALE_STORE_PATH;
-    if (rawDbPath === ':memory:' || options.baseDir === ':memory:') {
-      this.dbPath = ':memory:';
-    } else if (rawDbPath) {
-      this.dbPath = resolve(rawDbPath);
-    } else if (legacyStorePath) {
-      this.dbPath = resolve(legacyStorePath.replace(/\.json$/i, '.db'));
-    } else {
-      this.dbPath = join(this.choraleDir, 'chorale.db');
-    }
+    this.dbPath = this.resolveDbPath(options);
 
     if (this.dbPath !== ':memory:') {
       mkdirSync(dirname(this.dbPath), { recursive: true });
@@ -113,6 +106,41 @@ export class LocalDocumentStore {
     this.initSchema();
   }
 
+  resolveDbPath(options = {}) {
+    const rawDbPath = options.dbPath || process.env.CHORALE_DB_PATH;
+    if (rawDbPath === ':memory:' || options.baseDir === ':memory:') {
+      return ':memory:';
+    }
+    if (rawDbPath) {
+      const resolved = resolve(rawDbPath);
+      try {
+        if (existsSync(resolved) && statSync(resolved).isDirectory()) {
+          return join(resolved, 'chorale.db');
+        }
+      } catch {}
+      return resolved;
+    }
+
+    const legacyStorePath = options.storePath || process.env.CHORALE_STORE_PATH;
+    if (legacyStorePath) {
+      const resolved = resolve(legacyStorePath);
+      try {
+        if (existsSync(resolved) && statSync(resolved).isDirectory()) {
+          return join(resolved, 'chorale.db');
+        }
+      } catch {}
+      if (/\.json$/i.test(resolved)) {
+        return resolved.replace(/\.json$/i, '.db');
+      }
+      if (/\.db$/i.test(resolved) || /\.sqlite$/i.test(resolved)) {
+        return resolved;
+      }
+      return join(resolved, 'chorale.db');
+    }
+
+    return join(this.choraleDir, 'chorale.db');
+  }
+
   get storePath() {
     return this.dbPath;
   }
@@ -125,6 +153,18 @@ export class LocalDocumentStore {
     if (this.db) {
       this.db.close();
     }
+  }
+
+  getMeta(key) {
+    const row = this.db.prepare('SELECT value FROM meta WHERE key = ?').get(key);
+    return row ? row.value : null;
+  }
+
+  setMeta(key, value) {
+    this.db.prepare(`
+      INSERT INTO meta (key, value) VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    `).run(key, String(value));
   }
 
   initSchema() {
@@ -183,6 +223,7 @@ export class LocalDocumentStore {
         sort_order INTEGER NOT NULL
       );
 
+      INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', '1');
       INSERT OR IGNORE INTO workspace (id, revision, preferences) VALUES (1, 0, '{}');
     `);
   }
@@ -198,8 +239,11 @@ export class LocalDocumentStore {
     try {
       await mkdir(this.scoresDir, { recursive: true });
       await writeFile(join(this.scoresDir, `${documentId}.abc`), abcSource, 'utf8');
-    } catch {
-      // Non-critical mirror failure
+    } catch (err) {
+      console.warn(`[Chorale Store] Failed to mirror ABC file for score "${documentId}":`, err instanceof Error ? err.message : err);
+      if (this.strictMirror) {
+        throw new PluginError('MIRROR_FAILED', `Failed to mirror ABC file for score "${documentId}": ${err.message}`);
+      }
     }
   }
 
@@ -207,8 +251,13 @@ export class LocalDocumentStore {
     if (!this.scoresDir || this.dbPath === ':memory:') return;
     try {
       await unlink(join(this.scoresDir, `${documentId}.abc`));
-    } catch {
-      // Ignored if missing
+    } catch (err) {
+      if (err && err.code !== 'ENOENT') {
+        console.warn(`[Chorale Store] Failed to remove mirrored ABC file for score "${documentId}":`, err instanceof Error ? err.message : err);
+        if (this.strictMirror) {
+          throw new PluginError('MIRROR_FAILED', `Failed to remove mirrored ABC file for score "${documentId}": ${err.message}`);
+        }
+      }
     }
   }
 
@@ -263,8 +312,10 @@ export class LocalDocumentStore {
 
   async read() {
     const ws = this.getWorkspaceSync();
+    const versionVal = this.getMeta('schema_version');
+    const schemaVersion = versionVal ? Number(versionVal) || 1 : 1;
     return {
-      schemaVersion: 1,
+      schemaVersion,
       documents: ws.documents,
       workspaceRevision: ws.revision,
       workspace: ws,
@@ -281,14 +332,28 @@ export class LocalDocumentStore {
     return this.serializeMutation(() => this.createUnsafe(input));
   }
 
-  async createUnsafe({ title = 'Untitled score', abcSource = '', composer = 'Anonymous', meter = '4/4', key = 'C' }) {
-    const documentId = `score-${randomUUID().slice(0, 8)}`;
+  async createUnsafe(input = {}) {
+    const { title = 'Untitled score', abcSource = '', composer = 'Anonymous', meter = '4/4', key = 'C' } = input;
+    let documentId = input.id;
+    if (!documentId) {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const candidate = generateDocumentId();
+        const existing = this.db.prepare('SELECT id FROM documents WHERE id = ?').get(candidate);
+        if (!existing) {
+          documentId = candidate;
+          break;
+        }
+      }
+      if (!documentId) {
+        documentId = `score-${randomUUID()}`;
+      }
+    }
     const source = abcSource.trim() || defaultPianoTemplate(title, composer, meter, key);
     const now = new Date().toISOString();
     const safeTitle = title || 'Untitled score';
     const name = safeTitle.endsWith('.abc') ? safeTitle : `${safeTitle}.abc`;
     const scoreInfo = { title: safeTitle, composer, meter, key };
-    const historyId = `hist-${randomUUID().slice(0, 8)}`;
+    const historyId = generateHistoryId();
     const historyEntry = {
       id: historyId,
       revision: 1,
@@ -309,6 +374,12 @@ export class LocalDocumentStore {
 
     this.db.exec('BEGIN IMMEDIATE;');
     try {
+      const existingDoc = this.db.prepare('SELECT id FROM documents WHERE id = ?').get(documentId);
+      if (existingDoc) {
+        this.db.exec('ROLLBACK;');
+        throw new PluginError('DOCUMENT_EXISTS', `Score document "${documentId}" already exists.`);
+      }
+
       const maxOrderRow = this.db.prepare('SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM workspace_documents').get();
       const nextOrder = (maxOrderRow?.max_order ?? -1) + 1;
 
@@ -337,8 +408,14 @@ export class LocalDocumentStore {
 
       this.db.exec('COMMIT;');
     } catch (err) {
-      try { this.db.exec('ROLLBACK;'); } catch {}
-      throw new PluginError('PERSISTENCE_FAILED', `Failed to create score: ${err.message}`);
+      if (!(err instanceof PluginError)) {
+        try { this.db.exec('ROLLBACK;'); } catch {}
+        if (err?.code === 'ERR_SQLITE_ERROR' && String(err.message).includes('UNIQUE constraint failed')) {
+          throw new PluginError('DOCUMENT_EXISTS', `Score document "${documentId}" already exists (ID collision).`);
+        }
+        throw new PluginError('PERSISTENCE_FAILED', `Failed to create score: ${err.message}`);
+      }
+      throw err;
     }
 
     await this.mirrorAbcFile(documentId, source);
@@ -434,7 +511,7 @@ export class LocalDocumentStore {
         `);
         updates.history.forEach((h, idx) => {
           insertHist.run(
-            h.id || `hist-${randomUUID().slice(0, 8)}`,
+            h.id || generateHistoryId(),
             documentId,
             h.revision || nextRevision,
             h.timestamp || now,
@@ -625,7 +702,7 @@ export class LocalDocumentStore {
           const insHist = this.db.prepare('INSERT INTO document_history (id, document_id, revision, timestamp, category, action_type, summary, abc_source, score_info, annotations, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
           doc.history.forEach((h, idx) => {
             insHist.run(
-              h.id || `hist-${randomUUID().slice(0, 8)}`,
+              h.id || generateHistoryId(),
               doc.id,
               h.revision || 1,
               h.timestamp || now,

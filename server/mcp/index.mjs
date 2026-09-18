@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { LocalDocumentStore } from './store.mjs';
-import { ViewSnapshotStore } from './views.mjs';
+import { LocalDocumentStore } from '../store.mjs';
+import { ViewSnapshotStore } from '../views.mjs';
 import { createFileManagementTools } from './tools/file-management.mjs';
 import { createSheetManagementTools } from './tools/sheet-management.mjs';
 import { createWorkspaceTools } from './tools/workspace.mjs';

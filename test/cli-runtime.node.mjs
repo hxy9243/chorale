@@ -10,15 +10,15 @@ import {
   readRuntime,
   runtimePaths,
   writeRuntime,
-} from '../mcp/runtime.mjs';
+} from '../server/runtime.mjs';
 import {
   HELP_TEXT,
   ensureDaemon,
   runCli,
   runDaemon,
   stopDaemon,
-} from '../mcp/cli.mjs';
-import { CHORALE_VERSION } from '../mcp/version.mjs';
+} from '../server/cli.mjs';
+import { CHORALE_VERSION } from '../server/version.mjs';
 
 test('runtime records daemon metadata atomically', async () => {
   const choraleHome = await mkdtemp(join(tmpdir(), 'chorale-runtime-'));

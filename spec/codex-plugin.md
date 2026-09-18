@@ -7,13 +7,13 @@ updated: 2026-09-13
 status: "implemented"
 source_files:
   - bin/chorale.mjs
-  - mcp/index.mjs
-  - mcp/server.mjs
-  - mcp/store.mjs
-  - mcp/views.mjs
-  - mcp/tools/file-management.mjs
-  - mcp/tools/sheet-management.mjs
-  - mcp/tools/workspace.mjs
+  - server/mcp/index.mjs
+  - server/api_server.mjs
+  - server/store.mjs
+  - server/views.mjs
+  - server/mcp/tools/file-management.mjs
+  - server/mcp/tools/sheet-management.mjs
+  - server/mcp/tools/workspace.mjs
   - .codex-plugin/plugin.json
   - .agents/plugins/marketplace.json
   - tools/package-codex.mjs

@@ -26,7 +26,7 @@ test('fresh Codex package uses the browser service and current library', async (
     await assert.rejects(access(join(output, 'server.mjs')));
     const manifest = JSON.parse(await readFile(join(output, '.codex-plugin/plugin.json'), 'utf8'));
     assert.equal(manifest.mcpServers, './.mcp.json');
-    const bundle = await readFile(join(output, 'mcp/cli.mjs'), 'utf8');
+    const bundle = await readFile(join(output, 'server/cli.mjs'), 'utf8');
     assert.equal(bundle.includes('codex-plugin-store.json'), false);
     assert.equal(bundle.includes('43171'), false);
 
@@ -35,7 +35,7 @@ test('fresh Codex package uses the browser service and current library', async (
     const port = reservation.address().port;
     await new Promise(resolve => reservation.close(resolve));
     process.env.CHORALE_HOME = join(temporary, 'home');
-    const moduleUrl = pathToFileURL(join(output, 'mcp/cli.mjs')).href;
+    const moduleUrl = pathToFileURL(join(output, 'server/cli.mjs')).href;
     const { runDaemon } = await import(moduleUrl);
     running = await runDaemon({ port });
 

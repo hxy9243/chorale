@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { PluginError } from '../store.mjs';
+import { PluginError } from '../../store.mjs';
 import {
   deleteMeasures as deleteMeasuresOps,
   insertMeasures as insertMeasuresOps,
   replaceMeasures as replaceMeasuresOps,
   sliceMeasureRange,
-} from '../utils/measure-ops.mjs';
+} from '../../utils/measure-ops.mjs';
 
 const result = (structuredContent, text) => ({
   structuredContent,

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { runCli } from '../mcp/cli.mjs';
+import { runCli } from '../server/cli.mjs';
 
 runCli({ entrypoint: process.argv[1] })
   .then((result) => {

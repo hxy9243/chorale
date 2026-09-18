@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { z } from 'zod';
-import { scoreSummary } from '../store.mjs';
+import { scoreSummary } from '../../store.mjs';
 
 const WORKSPACE_URI = 'ui://chorale/workspace-v1.html';
 
