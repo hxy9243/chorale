@@ -6,6 +6,9 @@
   "bin": {
     "chorale": "./bin/chorale.mjs"
   },
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "scripts": {
     "start": "node bin/chorale.mjs",
     "mcp": "node bin/chorale.mjs mcp",
