@@ -30,15 +30,14 @@ For detailed rules, standards, and musical examples, consult the topic-specific 
 2. Call `get_workspace_state` to verify the connection and retrieve connected views. Reuse that connected view for the rest of the session; do not call `open_ui` again merely to focus or verify a score, because every call may create another browser tab.
 
 ### B. "start chorale and compose a new sheet"
-1. Call `open_ui` to ensure the workspace is launched in the browser.
-2. Compose the requested piece following the [ABC Syntax & Engraving Guide](references/abc-syntax-and-rules.md) and [Styles Guide](references/styles-and-composers.md).
-3. Call `create_new_file` with `{ title, abcSource, composer, meter, key }` to persist the score to `~/.chorale/`.
-4. Call `open_ui` with `{ documentId: newScore.documentId }` so the sheet is focused immediately.
-5. If the user asked for annotations or harmonic analysis, call `add_notation`.
+1. Compose the requested piece following the [ABC Syntax & Engraving Guide](references/abc-syntax-and-rules.md) and [Styles Guide](references/styles-and-composers.md).
+2. Call `create_new_file` with `{ title, abcSource, composer, meter, key }` to persist the score to `~/.chorale/`.
+3. If `open_ui` has not been called in this agent session, call it once with `{ documentId: newScore.documentId }` so the new sheet opens directly. Otherwise, reuse the existing connected view and verify the saved score with `get_workspace_state` and authoritative score readback.
+4. If the user asked for annotations or harmonic analysis, call `add_notation`.
 
 ### C. "import this musicxml file and analyze it"
 1. Call `import_file` with `{ filePath }` or raw MusicXML `{ content }`. The server converts MusicXML/MXL to standard ABC and saves it in `~/.chorale/`.
-2. Call `open_ui` with `{ documentId: score.documentId }`.
+2. If `open_ui` has not been called in this agent session, call it once with `{ documentId: score.documentId }`. Otherwise, reuse the existing connected view.
 3. Inspect measures using `read_measure`.
 4. Formulate harmonic, motivic, and voice-leading analysis using the [Chord Progression Analysis Guide](references/chord-progression-analysis.md), [Voice Leading & General Analysis Guide](references/voice-leading-and-general-analysis.md), and [Counterpoint & Forms Guide](references/counterpoint-and-forms.md). Call `add_notation` with `{ startMeasure, endMeasure, label, body, kind, chordSymbol, romanNumeral }`.
 5. Return a clear analytical summary grounded in exact measure numbers and voice parts.
