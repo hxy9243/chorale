@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import abcjs from 'abcjs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -58,6 +59,35 @@ test('measure-ops: insertMeasures adds bars before or after', () => {
 test('measure-ops: replaceMeasures updates target range', () => {
   const replaced = replaceMeasures(sampleAbc, 1, 1, 'A2 B2 C2 |');
   assert.match(replaced, /A2 B2 C2/);
+});
+
+test('measure-ops: preserves final barlines and voice-local MIDI fields', () => {
+  const source = `X:1
+T:Strings
+M:4/4
+L:1/8
+V:1 name="Violin"
+V:2 name="Cello"
+K:C
+[V:1] C8 | D8 |]
+[V:2] E8 | F8 |]`;
+  const replacement = `[V:1] [K:C] [I:MIDI program 40] C8 |
+[V:2] [K:C] [I:MIDI program 42] E8 |`;
+
+  const replaced = replaceMeasures(source, 1, 1, replacement);
+  assert.doesNotMatch(replaced, /\n\s*\n/);
+  assert.doesNotMatch(replaced, /\|\]\s+\|/);
+  assert.equal((replaced.match(/\|\]/g) || []).length, 2);
+
+  const commented = replaceMeasures(`X:1\nT:Commented\nM:4/4\nK:C\n[V:1] C8 | D8 |] % ending comment`, 1, 1, `[V:1] E8 |`);
+  assert.doesNotMatch(commented, /\|\]\s+%[^\n]*\|/);
+  assert.doesNotMatch(commented, /\|\s*$/);
+
+  const tune = abcjs.parseOnly(replaced)[0];
+  assert.deepEqual(tune.warnings || [], []);
+  const tracks = tune.setUpAudio({}).tracks;
+  assert.deepEqual(tracks.map((track) => track.find((event) => event.cmd === 'program')?.instrument), [40, 42]);
+  assert.deepEqual(tracks.map((track) => track.find((event) => event.cmd === 'note')?.instrument), [40, 42]);
 });
 
 test('measure-ops: deleteMeasures removes target range', () => {

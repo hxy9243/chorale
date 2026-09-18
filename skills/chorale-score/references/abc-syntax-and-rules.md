@@ -150,3 +150,4 @@ When writing multi-part scores in ABC:
    [V:4] C,4 B,,4 | C,4 G,,4 | C,8 |]
    ```
 3. Always verify that each voice has the exact same number of beats in each measure matching the meter `M:`.
+4. End every voice exactly with `|]`; never emit `|] |`, which appends a stray bar after the final barline.

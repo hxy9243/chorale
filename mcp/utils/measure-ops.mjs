@@ -154,19 +154,19 @@ export const parseVoicesAndMeasures = (abcSource) => {
 
 const appendLineMeasures = (measureList, text, inlineComment = '') => {
   const initialLength = measureList.length;
-  const tokens = text.split(/(\[?\|[\|\]:]*|:\|)/).filter(Boolean);
+  const tokens = text.split(/(\[?\|[|\]:]*|:\|)/).filter(Boolean);
   let curBar = '';
   for (const tok of tokens) {
     curBar += tok;
-    if (/(\[?\|[\|\]:]*|:\|)$/.test(tok)) {
+    if (/(\[?\|[|\]:]*|:\|)$/.test(tok)) {
       const trimmed = curBar.trim();
-      if (trimmed && !/^(\|+|\:\||\|\]|\[\|)$/.test(trimmed)) {
+      if (trimmed && !/^(\|+|:\||\|\]|\[\|)$/.test(trimmed)) {
         measureList.push(trimmed);
         curBar = '';
       }
     }
   }
-  if (curBar.trim() && !/^(\|+|\:\||\|\]|\[\|)$/.test(curBar.trim())) {
+  if (curBar.trim() && !/^(\|+|:\||\|\]|\[\|)$/.test(curBar.trim())) {
     measureList.push(curBar.trim());
   }
   if (inlineComment) {
@@ -177,6 +177,8 @@ const appendLineMeasures = (measureList, text, inlineComment = '') => {
     }
   }
 };
+
+const hasTerminalBarline = (body) => /(?:\|\]|:\||\|:|\|\||\|)$/.test(body.replace(/%[^\r\n]*$/, '').trim());
 
 /**
  * Reads an exact range of written measures (1-indexed, inclusive).
@@ -276,12 +278,12 @@ const assembleAbc = (headers, voices, metadata = {}) => {
 
   if (entries.length === 1 && entries[0][0] === '1' && !voiceDeclarations.has('1')) {
     const body = entries[0][1].map((m) => m.trim()).filter(Boolean).join(' ');
-    parts.push(body.endsWith('|') ? body : `${body} |`);
+    parts.push(hasTerminalBarline(body) ? body : `${body} |`);
   } else {
     for (const [id, measures] of entries) {
       const body = measures.map((m) => m.trim()).filter(Boolean).join(' ');
       const declaration = voiceDeclarations.get(id) || `V:${id}`;
-      parts.push(`${declaration}\n${body.endsWith('|') ? body : `${body} |`}`);
+      parts.push(`${declaration}\n${hasTerminalBarline(body) ? body : `${body} |`}`);
     }
   }
 
@@ -289,5 +291,5 @@ const assembleAbc = (headers, voices, metadata = {}) => {
     parts.push(metadata.standaloneComments.join('\n'));
   }
 
-  return parts.filter(Boolean).join('\n\n');
+  return parts.filter(Boolean).join('\n');
 };
