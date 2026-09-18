@@ -154,19 +154,19 @@ export const parseVoicesAndMeasures = (abcSource) => {
 
 const appendLineMeasures = (measureList, text, inlineComment = '') => {
   const initialLength = measureList.length;
-  const tokens = text.split(/(\[?\|[\|\]:]*|:\|)/).filter(Boolean);
+  const tokens = text.split(/(\[?\|[|\]:]*|:\|)/).filter(Boolean);
   let curBar = '';
   for (const tok of tokens) {
     curBar += tok;
-    if (/(\[?\|[\|\]:]*|:\|)$/.test(tok)) {
+    if (/(\[?\|[|\]:]*|:\|)$/.test(tok)) {
       const trimmed = curBar.trim();
-      if (trimmed && !/^(\|+|\:\||\|\]|\[\|)$/.test(trimmed)) {
+      if (trimmed && !/^(\|+|:\||\|\]|\[\|)$/.test(trimmed)) {
         measureList.push(trimmed);
         curBar = '';
       }
     }
   }
-  if (curBar.trim() && !/^(\|+|\:\||\|\]|\[\|)$/.test(curBar.trim())) {
+  if (curBar.trim() && !/^(\|+|:\||\|\]|\[\|)$/.test(curBar.trim())) {
     measureList.push(curBar.trim());
   }
   if (inlineComment) {
@@ -178,7 +178,7 @@ const appendLineMeasures = (measureList, text, inlineComment = '') => {
   }
 };
 
-const hasTerminalBarline = (body) => /(?:\|\]|:\||\|:|\|\||\|)$/.test(body.trim());
+const hasTerminalBarline = (body) => /(?:\|\]|:\||\|:|\|\||\|)$/.test(body.replace(/%[^\r\n]*$/, '').trim());
 
 /**
  * Reads an exact range of written measures (1-indexed, inclusive).

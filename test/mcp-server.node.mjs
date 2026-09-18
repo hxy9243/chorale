@@ -79,6 +79,10 @@ K:C
   assert.doesNotMatch(replaced, /\|\]\s+\|/);
   assert.equal((replaced.match(/\|\]/g) || []).length, 2);
 
+  const commented = replaceMeasures(`X:1\nT:Commented\nM:4/4\nK:C\n[V:1] C8 | D8 |] % ending comment`, 1, 1, `[V:1] E8 |`);
+  assert.doesNotMatch(commented, /\|\]\s+%[^\n]*\|/);
+  assert.doesNotMatch(commented, /\|\s*$/);
+
   const tune = abcjs.parseOnly(replaced)[0];
   assert.deepEqual(tune.warnings || [], []);
   const tracks = tune.setUpAudio({}).tracks;
