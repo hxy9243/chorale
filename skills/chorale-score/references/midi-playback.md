@@ -73,4 +73,4 @@ track 3: program 0,  note instrument 0
 track 4: program 0,  note instrument 0
 ```
 
-Also require zero parser warnings, the original measure count, the expected new revision, and a focused connected Chorale view before reporting the repair complete.
+Also require zero parser warnings, the original measure count, and the expected new revision. If UI verification was requested, confirm a connected Chorale view without calling `open_ui` a second time; only claim that the target score is focused when the connected-view state proves it.
