@@ -9,6 +9,7 @@ source_files:
   - src/App.tsx
   - src/components/Header.tsx
   - src/components/FileRail.tsx
+  - src/components/DeleteFileConfirmModal.tsx
   - src/components/RightRail.tsx
   - src/components/ScoreMetadataHeader.tsx
   - src/components/ScoreCardHeader.tsx
@@ -18,6 +19,7 @@ source_files:
   - src/hooks/useWorkspaceLayout.ts
   - src/hooks/useResizablePanel.ts
   - src/styles/workspace-responsive.css
+  - tokens.css
 test_files:
   - src/App.test.tsx
   - src/components/__tests__/FileRail.test.tsx
@@ -148,3 +150,22 @@ Required behavior:
 - avoid turning desktop chat structure into an unusable narrow transcript
 
 Desktop remains the primary fidelity target until the product behavior is stable.
+
+## 7. Modal Dialogs and Stacking Scale
+
+All modal and confirmation dialogs (`DeleteFileConfirmModal`, `MeasureDraftingToolbar` delete confirmation, `EditingHistoryModal`, `SettingsModal`, `NewScoreModal`, `ScoreVideoExportModal`) must render at the root level via `createPortal` or directly in `WorkspaceModals` to escape ancestor stacking contexts (such as `file-rail`, pane cards, and toolbelts).
+
+The stacking scale strictly adheres to DESIGN.md §5:
+- `--z-content: 0`
+- `--z-base: 1`
+- `--z-raised: 10`
+- `--z-sticky: 20` (in-page sticky headers, below sidebars and modals)
+- `--z-sidebar: 30`
+- `--z-siderail: 40`
+- `--z-popover: 100`
+- `--z-dropdown: 100`
+- `--z-modal: 200` (dialogs and overlays)
+- `--z-toast: 300`
+- `--z-tooltip: 400`
+
+`--z-sticky` must never equal or exceed `--z-modal`, ensuring sticky headers and in-pane controls remain covered by dialog backdrops.

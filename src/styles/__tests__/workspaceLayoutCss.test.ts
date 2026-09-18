@@ -50,6 +50,16 @@ describe('workspace layout CSS contract', () => {
     );
   });
 
+  it('keeps sticky headers below modal backdrop in stacking scale', () => {
+    const zStickyMatch = tokensCss.match(/--z-sticky:\s*(\d+);/);
+    const zModalMatch = tokensCss.match(/--z-modal:\s*(\d+);/);
+    expect(zStickyMatch).not.toBeNull();
+    expect(zModalMatch).not.toBeNull();
+    const zSticky = Number.parseInt(zStickyMatch![1], 10);
+    const zModal = Number.parseInt(zModalMatch![1], 10);
+    expect(zSticky).toBeLessThan(zModal);
+  });
+
   it('preserves fade-away behavior for score display options without hardcoded opacity override', () => {
     expect(themeCss).not.toMatch(
       /\.workspace-pane\.score-pane\s+\.score-display-options\s*{[^}]*opacity:/s,

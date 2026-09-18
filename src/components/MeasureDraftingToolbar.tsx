@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ListMinus, ListPlus, X } from 'lucide-react';
 import type { MeasureSpan } from '../types/document';
 import {
@@ -114,7 +115,7 @@ export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
         </div>
       )}
 
-      {deleteConfirmOpen && (
+      {deleteConfirmOpen && typeof document !== 'undefined' && createPortal(
         <div className="score-drafting-modal-overlay" role="presentation">
           <div
             ref={dialogRef}
@@ -160,7 +161,8 @@ export const MeasureDraftingToolbar: React.FC<MeasureDraftingToolbarProps> = ({
               </footer>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

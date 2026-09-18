@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Trash2, X } from 'lucide-react';
 
 export interface DeleteFileConfirmModalProps {
@@ -28,9 +29,9 @@ export const DeleteFileConfirmModal: React.FC<DeleteFileConfirmModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [open, onCancel]);
 
-  if (!open) return null;
+  if (!open || typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <div className="delete-file-modal-overlay" onClick={onCancel} role="presentation">
       <div
         className="delete-file-modal-window"
@@ -85,7 +86,8 @@ export const DeleteFileConfirmModal: React.FC<DeleteFileConfirmModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 
