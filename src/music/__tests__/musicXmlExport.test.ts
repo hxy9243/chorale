@@ -111,8 +111,94 @@ K:C
       (note) => note.getElementsByTagName('staff')[0]?.textContent === '2',
     );
 
-    expect(lowerStaffNotes).toHaveLength(2);
-    expect(lowerStaffNotes.every((note) => note.getElementsByTagName('alter').length === 0)).toBe(true);
+    const lowerStaffPitchedNotes = lowerStaffNotes.filter(
+      (note) => note.getElementsByTagName('pitch').length > 0,
+    );
+
+    expect(lowerStaffPitchedNotes).toHaveLength(2);
+    expect(lowerStaffPitchedNotes.every((note) => note.getElementsByTagName('alter').length === 0)).toBe(true);
+    // Incomplete 2-beat measure in 4/4 is padded with rests to complete the 4-beat meter
+    expect(lowerStaffNotes.some((note) => note.getElementsByTagName('rest').length > 0)).toBe(true);
+  });
+
+  it('normalizes multi-staff scores by padding silent staves with whole-measure rests', () => {
+    const xml = exportToMusicXml({
+      abcSource: `X:1
+T:Sparse Multi-Staff
+M:3/4
+L:1/4
+%%score { 1 | 2 | 3 }
+V:1
+C D E | F G A | B c d | e f g |
+V:2
+C D E | F G A | | e f g |
+V:3 clef=bass
+C,, D,, E,, | | | e,, f,, g,, |`,
+    });
+    const doc = parseXml(xml);
+
+    // Find all measures in the part
+    const part = doc.getElementsByTagName('part')[0];
+    const measures = Array.from(part.getElementsByTagName('measure'));
+    expect(measures).toHaveLength(4);
+
+    // Measure 3: Staff 3 is silent -> must contain whole-measure rest for voice 3 on staff 3
+    const m3 = measures[2];
+    const m3Notes = Array.from(m3.getElementsByTagName('note'));
+    const staff3Rest = m3Notes.find(
+      (n) => n.getElementsByTagName('staff')[0]?.textContent === '3'
+        && n.querySelector('rest[measure="yes"]') !== null,
+    );
+    expect(staff3Rest).toBeDefined();
+    expect(staff3Rest?.getElementsByTagName('duration')[0]?.textContent).toBe('12');
+
+    // Measure 4: Staff 2 and Staff 3 are silent -> must contain whole-measure rests
+    const m4 = measures[3];
+    const m4Notes = Array.from(m4.getElementsByTagName('note'));
+    const staff2Rest = m4Notes.find(
+      (n) => n.getElementsByTagName('staff')[0]?.textContent === '2'
+        && n.querySelector('rest[measure="yes"]') !== null,
+    );
+    const m4Staff3Rest = m4Notes.find(
+      (n) => n.getElementsByTagName('staff')[0]?.textContent === '3'
+        && n.querySelector('rest[measure="yes"]') !== null,
+    );
+    expect(staff2Rest).toBeDefined();
+    expect(m4Staff3Rest).toBeDefined();
+  });
+
+  it('normalizes multi-part SATB scores with resting voices', () => {
+    const xml = exportToMusicXml({
+      abcSource: `X:1
+T:SATB Choral Score
+M:4/4
+L:1/4
+V:S name="Soprano"
+C D E F | G A B c | c B A G | F E D C |
+V:A name="Alto"
+C D E F | | | F E D C |
+V:T name="Tenor" clef=bass
+| | c B A G | F E D C |
+V:B name="Bass" clef=bass
+C,, D,, E,, F,, | | | C,, D,, E,, F,, |`,
+    });
+    const doc = parseXml(xml);
+    const parts = Array.from(doc.getElementsByTagName('part'));
+    expect(parts).toHaveLength(4);
+
+    // Every part must have 4 measures
+    for (const p of parts) {
+      const partMeasures = Array.from(p.getElementsByTagName('measure'));
+      expect(partMeasures).toHaveLength(4);
+    }
+
+    // Alto part (part 2): missing measures 3 and 4 are padded with whole-measure rests
+    const altoPart = parts[1];
+    const altoMeasures = Array.from(altoPart.getElementsByTagName('measure'));
+    expect(altoMeasures).toHaveLength(4);
+    expect(altoMeasures[2].querySelector('rest[measure="yes"]')).not.toBeNull();
+    expect(altoMeasures[3].querySelector('rest[measure="yes"]')).not.toBeNull();
+    expect(altoMeasures[2].querySelector('duration')?.textContent).toBe('16');
   });
 
   it('throws ScoreExportError for empty input', () => {

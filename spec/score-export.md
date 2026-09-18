@@ -3,10 +3,11 @@ title: "Score Export Spec"
 description: "Specification for exporting scores to external formats via the file sidebar context menu — MusicXML and PDF with annotations"
 category: "core-workspace"
 date: 2026-08-22
-updated: 2026-08-29
+updated: 2026-09-17
 status: "implemented"
 source_files:
   - src/music/musicXmlExport.ts
+  - src/music/musicXmlNormalization.ts
   - src/music/scorePdfExport.ts
   - src/components/FileRail.tsx
   - src/hooks/useScoreExport.ts
@@ -18,6 +19,7 @@ source_files:
   - src/types/fileBridge.ts
 test_files:
   - src/music/__tests__/musicXmlExport.test.ts
+  - src/music/__tests__/musicXmlNormalization.test.ts
   - src/music/__tests__/scorePdfExport.test.ts
   - src/components/__tests__/FileRail.test.tsx
   - src/hooks/__tests__/useScoreExport.test.ts
@@ -32,7 +34,7 @@ related_specs:
 # Score Export Spec
 
 Date: 2026-08-22  
-Updated: 2026-08-29  
+Updated: 2026-09-17  
 Source: `spec/score-export.md`
 
 ## 1. Goal
@@ -51,9 +53,14 @@ Let a musician export a score to interchange and presentation formats from a rig
 
 ### 3.1 MusicXML Pipeline (ABC → MusicXML)
 
-- Library: **`abc-utils`** (`abc2xml(abc, { fallbackTitle })`).
+- Conversion: **`abc-utils`** (`abc2xml(abc, { fallbackTitle })`).
+- Normalization: **`normalizeMusicXml`** (`src/music/musicXmlNormalization.ts`) pre-export pass:
+  - **Meter & Duration Tracking:** Computes the expected duration for every measure across all parts and staves based on the active time signature and divisions.
+  - **Missing Measure & Voice Infilling:** Synchronizes all parts against the master sequence of measure numbers; empty measures in silent staves/voices are padded with whole-measure rests (`<rest measure="yes"/>`).
+  - **Durational Rest Decomposition:** Partially filled measures/voices are padded with durational rests decomposed into standard musical note values (whole, half, quarter, eighth, etc. with `<dot/>`) to complete the expected meter duration.
+  - **Multi-Voice & Multi-Staff Synchronization:** Inserts `<backup>` elements of exact expected duration between consecutive voices and ensures no invalid trailing backups exist after the final voice of the measure.
 - Pure module: `src/music/musicXmlExport.ts`. Zero React/Electron dependencies.
-- Output: a MusicXML `<score-partwise>` document string.
+- Output: a normalized MusicXML `<score-partwise>` document string that passes standard validation (MuseScore, Sibelius, music21) without incomplete measure errors.
 
 ### 3.2 PDF Pipeline (Score & Annotation Rendering via Option E)
 
@@ -109,9 +116,10 @@ The renderer is sandboxed (`contextIsolation: true, sandbox: true`):
   - PDF: sanitized `FileDocument.name` + `.pdf`.
 
 ## 6. Testing
-
-- **Converter unit tests** (`src/music/__tests__/musicXmlExport.test.ts`): MusicXML XML structure and attributes.
-- **PDF generator unit tests** (`src/music/__tests__/scorePdfExport.test.ts`): HTML output, system row slicing, chord badges, expanded annotations, print styles.
+ 
+ - **Converter unit tests** (`src/music/__tests__/musicXmlExport.test.ts`): MusicXML XML structure and attributes.
+ - **Normalization unit tests** (`src/music/__tests__/musicXmlNormalization.test.ts`): validates padding of empty measures (`<rest measure="yes"/>`), durational rest decomposition, multi-staff/multi-voice backup synchronization, and time signature changes across measures.
+ - **PDF generator unit tests** (`src/music/__tests__/scorePdfExport.test.ts`): HTML output, system row slicing, chord badges, expanded annotations, print styles.
 - **File rail context menu tests** (`src/components/__tests__/FileRail.test.tsx`): export submenu items (both MusicXML and PDF enabled).
 - **Hook tests** (`src/hooks/__tests__/useScoreExport.test.ts`): MusicXML and PDF export calls, dialog cancellation handling.
 
