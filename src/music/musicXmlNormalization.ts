@@ -132,6 +132,21 @@ export function normalizeMusicXml(xmlString: string): string {
     let currentDivisions = globalDivisions;
     let currentMeter: MeterSignature = { ...globalMeter };
 
+    // Inspect part-level initial divisions and meter if declared
+    const firstPartDivisions = part.querySelector('attributes > divisions');
+    if (firstPartDivisions && firstPartDivisions.textContent) {
+      const d = parseInt(firstPartDivisions.textContent.trim(), 10);
+      if (!Number.isNaN(d) && d > 0) currentDivisions = d;
+    }
+    const firstPartTime = part.querySelector('attributes > time');
+    if (firstPartTime) {
+      const b = parseInt(firstPartTime.querySelector('beats')?.textContent || '', 10);
+      const bt = parseInt(firstPartTime.querySelector('beat-type')?.textContent || '', 10);
+      if (!Number.isNaN(b) && !Number.isNaN(bt) && b > 0 && bt > 0) {
+        currentMeter = { beats: b, beatType: bt };
+      }
+    }
+
     let declaredStaves = 1;
     for (const stavesEl of Array.from(part.getElementsByTagName('staves'))) {
       const s = parseInt(stavesEl.textContent?.trim() || '1', 10);
@@ -187,10 +202,18 @@ export function normalizeMusicXml(xmlString: string): string {
       if (!measureNode) {
         measureNode = doc.createElement('measure');
         measureNode.setAttribute('number', measureNum);
-        if (prevMeasureNode && prevMeasureNode.nextSibling) {
+        measureMap.set(measureNum, measureNode);
+        if (prevMeasureNode) {
           part.insertBefore(measureNode, prevMeasureNode.nextSibling);
         } else {
-          part.appendChild(measureNode);
+          // When infilling missing initial measure(s) before any known measure,
+          // insert before the first existing measure in the part rather than appending at the end.
+          const firstExisting = part.querySelector('measure');
+          if (firstExisting) {
+            part.insertBefore(measureNode, firstExisting);
+          } else {
+            part.appendChild(measureNode);
+          }
         }
       }
       prevMeasureNode = measureNode;
@@ -233,6 +256,10 @@ export function normalizeMusicXml(xmlString: string): string {
         const tagName = el.tagName.toLowerCase();
 
         if (tagName === 'attributes' || tagName === 'print') {
+          // Note: In abc2xml output, attributes (divisions, key, time, staves, clef) appear at the
+          // start of the measure. We hoist attributes to the preamble so measure setup precedes notes.
+          // If mid-measure inline attributes (e.g. mid-measure clef changes) ever occur, they will currently
+          // be positioned in the preamble ahead of notes.
           preamble.push(el);
           continue;
         }
@@ -249,6 +276,18 @@ export function normalizeMusicXml(xmlString: string): string {
 
         if (tagName === 'backup') {
           // Internal backup nodes are re-synthesized cleanly between voices
+          continue;
+        }
+
+        if (tagName === 'forward') {
+          const v = el.querySelector('voice')?.textContent?.trim() || currentVoiceForNonNotes;
+          if (!voiceElements.has(v)) {
+            voiceElements.set(v, []);
+            voiceDurations.set(v, 0);
+          }
+          voiceElements.get(v)!.push(el);
+          const d = parseInt(el.querySelector('duration')?.textContent || '0', 10);
+          voiceDurations.set(v, (voiceDurations.get(v) || 0) + (Number.isNaN(d) ? 0 : d));
           continue;
         }
 
@@ -368,6 +407,9 @@ export function normalizeMusicXml(xmlString: string): string {
         if (i < canonicalVoices.length - 1) {
           const backupEl = doc.createElement('backup');
           const durEl = doc.createElement('duration');
+          // Note: In standard MusicXML multi-voice measures, backup duration rewinds the voice stream
+          // by the expected measure duration to align the start of the next voice at tick 0.
+          // This assumes voice duration matches expectedDuration after padding.
           durEl.textContent = String(expectedDuration);
           backupEl.appendChild(durEl);
           measureNode.appendChild(backupEl);
@@ -376,6 +418,14 @@ export function normalizeMusicXml(xmlString: string): string {
 
       for (const el of epilogue) {
         measureNode.appendChild(el);
+      }
+    }
+
+    // Ensure all measure elements in the part strictly follow the master measureNumbers sequence in the DOM
+    for (const num of measureNumbers) {
+      const mNode = measureMap.get(num);
+      if (mNode && mNode.parentNode === part) {
+        part.appendChild(mNode);
       }
     }
   }

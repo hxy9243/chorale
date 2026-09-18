@@ -223,4 +223,122 @@ C4 |`).xml;
     const rests = notes.filter((n) => n.querySelector('rest') !== null);
     expect(rests).toHaveLength(0);
   });
+
+  it('infills missing initial measures in correct numeric order when a part enters late', () => {
+    const rawXml = `<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.0">
+  <part-list>
+    <score-part id="P1"><part-name>Voice 1</part-name></score-part>
+    <score-part id="P2"><part-name>Voice 2</part-name></score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes><divisions>4</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>16</duration><voice>1</voice></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>16</duration><voice>1</voice></note>
+    </measure>
+    <measure number="3">
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>16</duration><voice>1</voice></note>
+    </measure>
+  </part>
+  <part id="P2">
+    <measure number="2">
+      <attributes><divisions>4</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+      <note><pitch><step>F</step><octave>4</octave></pitch><duration>16</duration><voice>1</voice></note>
+    </measure>
+    <measure number="3">
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>16</duration><voice>1</voice></note>
+    </measure>
+  </part>
+</score-partwise>`;
+
+    const normalized = normalizeMusicXml(rawXml);
+    const doc = parseXml(normalized);
+    const p2 = doc.querySelector('part[id="P2"]') || doc.getElementsByTagName('part')[1];
+    expect(p2).toBeDefined();
+
+    const p2Measures = Array.from(p2.getElementsByTagName('measure'));
+    expect(p2Measures).toHaveLength(3);
+
+    const p2MeasureNumbers = p2Measures.map((m) => m.getAttribute('number'));
+    expect(p2MeasureNumbers).toEqual(['1', '2', '3']);
+
+    // Infilled measure 1 must have a whole-measure rest of 16 ticks
+    const m1Notes = Array.from(p2Measures[0].getElementsByTagName('note'));
+    expect(m1Notes).toHaveLength(1);
+    expect(m1Notes[0].querySelector('rest[measure="yes"]')).not.toBeNull();
+    expect(m1Notes[0].querySelector('duration')?.textContent).toBe('16');
+  });
+
+  it('infills multiple missing initial and mid-score measures in strict numeric sequence', () => {
+    const rawXml = `<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.0">
+  <part-list>
+    <score-part id="P1"><part-name>Voice 1</part-name></score-part>
+    <score-part id="P2"><part-name>Voice 2</part-name></score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes><divisions>2</divisions><time><beats>3</beats><beat-type>4</beat-type></time></attributes>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>6</duration><voice>1</voice></note>
+    </measure>
+    <measure number="2"><note><pitch><step>D</step><octave>4</octave></pitch><duration>6</duration><voice>1</voice></note></measure>
+    <measure number="3"><note><pitch><step>E</step><octave>4</octave></pitch><duration>6</duration><voice>1</voice></note></measure>
+    <measure number="4"><note><pitch><step>F</step><octave>4</octave></pitch><duration>6</duration><voice>1</voice></note></measure>
+    <measure number="5"><note><pitch><step>G</step><octave>4</octave></pitch><duration>6</duration><voice>1</voice></note></measure>
+  </part>
+  <part id="P2">
+    <measure number="3">
+      <attributes><divisions>2</divisions><time><beats>3</beats><beat-type>4</beat-type></time></attributes>
+      <note><pitch><step>A</step><octave>3</octave></pitch><duration>6</duration><voice>1</voice></note>
+    </measure>
+    <measure number="5">
+      <note><pitch><step>B</step><octave>3</octave></pitch><duration>6</duration><voice>1</voice></note>
+    </measure>
+  </part>
+</score-partwise>`;
+
+    const normalized = normalizeMusicXml(rawXml);
+    const doc = parseXml(normalized);
+    const p2 = doc.querySelector('part[id="P2"]') || doc.getElementsByTagName('part')[1];
+    const p2Measures = Array.from(p2.getElementsByTagName('measure'));
+    expect(p2Measures.map((m) => m.getAttribute('number'))).toEqual(['1', '2', '3', '4', '5']);
+
+    // Infilled measures 1, 2, and 4 must have whole-measure rests
+    for (const idx of [0, 1, 3]) {
+      const restNote = p2Measures[idx].querySelector('note rest[measure="yes"]');
+      expect(restNote).not.toBeNull();
+      expect(p2Measures[idx].querySelector('note duration')?.textContent).toBe('6');
+    }
+  });
+
+  it('accounts for forward element duration to prevent over-padding', () => {
+    const rawXml = `<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.0">
+  <part-list>
+    <score-part id="P1"><part-name>Voice 1</part-name></score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes><divisions>4</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+      <forward><duration>8</duration><voice>1</voice></forward>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice></note>
+    </measure>
+  </part>
+</score-partwise>`;
+
+    const normalized = normalizeMusicXml(rawXml);
+    const doc = parseXml(normalized);
+    const m1 = doc.getElementsByTagName('measure')[0];
+    const notes = Array.from(m1.getElementsByTagName('note'));
+
+    // Total measure is 16 ticks. Forward was 8 ticks, note was 4 ticks (total 12 ticks).
+    // Rest padding needed is exactly 4 ticks (1 quarter rest).
+    const rests = notes.filter((n) => n.querySelector('rest') !== null);
+    expect(rests).toHaveLength(1);
+    expect(rests[0].querySelector('type')?.textContent).toBe('quarter');
+    expect(rests[0].querySelector('duration')?.textContent).toBe('4');
+  });
 });
