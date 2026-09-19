@@ -1,12 +1,14 @@
 import type { MusicSample } from '../types/music';
+import { DEFAULT_SCORE_ANNOTATIONS } from './defaultScore';
 
 export const PRESET_SAMPLES: MusicSample[] = [
   {
-    id: 'fur-elise-mxl',
-    title: 'Für Elise (MXL Archive)',
-    composer: 'Ludwig van Beethoven',
-    filename: 'samples/fur_elise.mxl',
-    type: 'mxl',
+    id: 'bwv-371-abc',
+    title: 'J.S. Bach BWV 371',
+    composer: 'J.S. Bach',
+    filename: 'samples/bwv_371.abc',
+    type: 'abc',
+    initialAnnotations: DEFAULT_SCORE_ANNOTATIONS,
   },
   {
     id: 'moonlight-sonata-xml',
@@ -20,13 +22,6 @@ export const PRESET_SAMPLES: MusicSample[] = [
     title: 'Twinkle, Twinkle, Little Star',
     composer: 'Traditional / W.A. Mozart',
     filename: 'samples/twinkle_twinkle.xml',
-    type: 'xml',
-  },
-  {
-    id: 'fur-elise-xml',
-    title: 'Für Elise (MusicXML)',
-    composer: 'Ludwig van Beethoven',
-    filename: 'samples/fur_elise.xml',
     type: 'xml',
   },
 ];

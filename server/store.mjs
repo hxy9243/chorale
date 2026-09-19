@@ -1,10 +1,18 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { measureBodies } from './utils/measure-ops.mjs';
+import {
+  DEFAULT_SCORE_TITLE,
+  DEFAULT_SCORE_COMPOSER,
+  DEFAULT_SCORE_METER,
+  DEFAULT_SCORE_KEY,
+  DEFAULT_SCORE_ABC,
+  DEFAULT_SCORE_ANNOTATIONS,
+} from './default-score.mjs';
 
 export const generateDocumentId = () => `score-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
 export const generateHistoryId = () => `hist-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
@@ -104,6 +112,9 @@ export class LocalDocumentStore {
     this.db.exec('PRAGMA busy_timeout = 5000;');
 
     this.initSchema();
+    if (options.seedDefault && this.dbPath !== ':memory:') {
+      this.seedDefaultScoreSync();
+    }
   }
 
   resolveDbPath(options = {}) {
@@ -226,6 +237,64 @@ export class LocalDocumentStore {
       INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', '1');
       INSERT OR IGNORE INTO workspace (id, revision, preferences) VALUES (1, 0, '{}');
     `);
+  }
+
+  seedDefaultScoreSync() {
+    const count = this.db.prepare('SELECT COUNT(*) as cnt FROM documents').get()?.cnt ?? 0;
+    if (count === 0) {
+      const documentId = 'score-bwv371';
+      const now = new Date().toISOString();
+      const scoreInfo = {
+        title: DEFAULT_SCORE_TITLE,
+        composer: DEFAULT_SCORE_COMPOSER,
+        meter: DEFAULT_SCORE_METER,
+        key: DEFAULT_SCORE_KEY,
+      };
+      const historyId = generateHistoryId();
+      this.db.exec('BEGIN IMMEDIATE;');
+      try {
+        this.db.prepare(`
+          INSERT INTO documents (id, name, title, source_type, revision, abc_source, score_info, annotations, chats, history_index, created_at, updated_at)
+          VALUES (?, ?, ?, 'abc', 1, ?, ?, ?, '[]', 0, ?, ?)
+        `).run(
+          documentId,
+          `${DEFAULT_SCORE_TITLE}.abc`,
+          DEFAULT_SCORE_TITLE,
+          DEFAULT_SCORE_ABC,
+          JSON.stringify(scoreInfo),
+          JSON.stringify(DEFAULT_SCORE_ANNOTATIONS),
+          now,
+          now,
+        );
+        this.db.prepare('INSERT INTO workspace_documents (document_id, sort_order) VALUES (?, 0)').run(documentId);
+        this.db.prepare(`
+          INSERT INTO document_versions (document_id, revision, abc_source, created_at, reason)
+          VALUES (?, 1, ?, ?, 'import')
+        `).run(documentId, DEFAULT_SCORE_ABC, now);
+        this.db.prepare(`
+          INSERT INTO document_history (id, document_id, revision, timestamp, category, action_type, summary, abc_source, score_info, annotations, sort_order)
+          VALUES (?, ?, 1, ?, 'origin', 'initial', ?, ?, ?, ?, 0)
+        `).run(
+          historyId,
+          documentId,
+          now,
+          `Initial score: ${DEFAULT_SCORE_TITLE}`,
+          DEFAULT_SCORE_ABC,
+          JSON.stringify(scoreInfo),
+          JSON.stringify(DEFAULT_SCORE_ANNOTATIONS),
+        );
+        this.db.prepare('UPDATE workspace SET revision = revision + 1 WHERE id = 1').run();
+        this.db.exec('COMMIT;');
+        if (this.scoresDir && this.dbPath !== ':memory:') {
+          try {
+            writeFileSync(join(this.scoresDir, `${documentId}.abc`), DEFAULT_SCORE_ABC, 'utf8');
+          } catch {}
+        }
+      } catch (err) {
+        this.db.exec('ROLLBACK;');
+        throw err;
+      }
+    }
   }
 
   serializeMutation(operation) {
@@ -353,6 +422,7 @@ export class LocalDocumentStore {
     const safeTitle = title || 'Untitled score';
     const name = safeTitle.endsWith('.abc') ? safeTitle : `${safeTitle}.abc`;
     const scoreInfo = { title: safeTitle, composer, meter, key };
+    const annotations = Array.isArray(input.annotations) ? input.annotations : [];
     const historyId = generateHistoryId();
     const historyEntry = {
       id: historyId,
@@ -363,7 +433,7 @@ export class LocalDocumentStore {
       summary: `Initial score: ${safeTitle}`,
       abcSource: source,
       scoreInfo,
-      annotations: [],
+      annotations,
     };
     const version = {
       revision: 1,
@@ -385,8 +455,8 @@ export class LocalDocumentStore {
 
       this.db.prepare(`
         INSERT INTO documents (id, name, title, source_type, revision, abc_source, score_info, annotations, chats, history_index, created_at, updated_at)
-        VALUES (?, ?, ?, 'abc', 1, ?, ?, '[]', '[]', 0, ?, ?)
-      `).run(documentId, name, safeTitle, source, JSON.stringify(scoreInfo), now, now);
+        VALUES (?, ?, ?, 'abc', 1, ?, ?, ?, '[]', 0, ?, ?)
+      `).run(documentId, name, safeTitle, source, JSON.stringify(scoreInfo), JSON.stringify(annotations), now, now);
 
       this.db.prepare(`
         INSERT INTO workspace_documents (document_id, sort_order) VALUES (?, ?)
@@ -399,8 +469,8 @@ export class LocalDocumentStore {
 
       this.db.prepare(`
         INSERT INTO document_history (id, document_id, revision, timestamp, category, action_type, summary, abc_source, score_info, annotations, sort_order)
-        VALUES (?, ?, 1, ?, 'origin', 'initial', ?, ?, ?, '[]', 0)
-      `).run(historyId, documentId, now, historyEntry.summary, source, JSON.stringify(scoreInfo));
+        VALUES (?, ?, 1, ?, 'origin', 'initial', ?, ?, ?, ?, 0)
+      `).run(historyId, documentId, now, historyEntry.summary, source, JSON.stringify(scoreInfo), JSON.stringify(annotations));
 
       this.db.prepare(`
         UPDATE workspace SET revision = revision + 1 WHERE id = 1

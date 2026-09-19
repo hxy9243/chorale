@@ -1,9 +1,12 @@
+import type { Annotation } from './document';
+
 export interface MusicSample {
   id: string;
   title: string;
   composer: string;
   filename: string;
-  type: 'xml' | 'mxl';
+  type: 'xml' | 'mxl' | 'abc';
+  initialAnnotations?: readonly Annotation[] | Annotation[];
 }
 
 export interface ScoreMeta {

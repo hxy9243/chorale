@@ -452,6 +452,8 @@ export const useDocumentStore = () => {
         const buffer = await response.arrayBuffer();
         const xmlText = await extractMusicXml(buffer);
         abc = parseMusicXmlToAbc(xmlText);
+      } else if (sample.type === 'abc') {
+        abc = await response.text();
       } else {
         const text = await response.text();
         abc = parseMusicXmlToAbc(text);

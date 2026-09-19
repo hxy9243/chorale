@@ -53,7 +53,7 @@ const requestBody = async (request, limit = MAX_PAYLOAD_BYTES) => {
 
 export const startServer = async (options = {}) => {
   const port = typeof options.port === 'number' ? options.port : (Number(process.env.CHORALE_PORT) || CHORALE_PORT);
-  const store = options.store || new LocalDocumentStore();
+  const store = options.store || new LocalDocumentStore({ seedDefault: options.seedDefault ?? true });
   const views = options.views || new ViewSnapshotStore();
   let boundPort = port;
   const { server: mcpServer, handlers, schemas } = createMcpServer(store, views, () => boundPort);

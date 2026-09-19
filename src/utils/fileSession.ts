@@ -153,6 +153,7 @@ export function sampleToDocument(sample: MusicSample, abcSource: string): FileDo
       ...document.scoreInfo,
       composer: sample.composer || document.scoreInfo.composer,
     },
+    annotations: sample.initialAnnotations ? [...sample.initialAnnotations] : document.annotations,
   };
 }
 

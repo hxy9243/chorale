@@ -3,11 +3,13 @@ title: "File Workspace Architecture"
 description: "Architecture specification covering runtime layers, document store, shared music libraries, data contracts, and invariants"
 category: "architecture"
 date: 2026-08-05
-updated: 2026-09-03
+updated: 2026-09-19
 status: "implemented"
 source_files:
   - src/types/document.ts
   - src/types/music.ts
+  - src/data/defaultScore.ts
+  - src/data/samples.ts
   - src/music/documentSchema.ts
   - src/music/rational.ts
   - src/music/scoreSnapshot.ts
@@ -32,6 +34,7 @@ test_files:
   - src/utils/__tests__/fileHistory.test.ts
   - src/components/__tests__/ScoreMetadataHeader.test.tsx
   - src/components/__tests__/EditingHistoryModal.test.tsx
+  - src/components/__tests__/FileSelector.test.tsx
   - src/utils/__tests__/storageAdapter.test.ts
   - src/utils/__tests__/fileSession.test.ts
   - src/agent/__tests__/conversationStore.test.ts
@@ -180,10 +183,12 @@ The same canonical `Annotation` type crosses document, context, IPC validation, 
 - Deleting chat cannot delete accepted document annotations.
 - abcjs and React never own the same DOM subtree.
 
-## 5. Normalization and migration
+## 5. Normalization, migration, and default score installation
 
 - `storageAdapter.getDocuments()` invokes pure `normalizeFileDocument` for IndexedDB and memory paths.
 - `useDocumentStore` owns UI state and mutations, not schema migration.
+- Fresh workspace installations without existing documents initialize with **J.S. Bach BWV 371** (`bwv-371-abc`, `public/samples/bwv_371.abc`) as the default preset sample, pre-populated with 22 structured harmonic annotations (`src/data/defaultScore.ts`).
+- Standalone CLI/MCP daemon startups (`LocalDocumentStore`) automatically seed the same default score and annotations (`server/default-score.mjs`) when the database is empty (`seedDefault: true`).
 - Legacy annotation kinds normalize to the canonical four-kind model.
 - Conversation v2 and v3 migrate to v4 with ordered structured parts, normalized stopped status for
   interrupted streams, token usage, and a persisted pending queue. Legacy v3 data remains untouched.

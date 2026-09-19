@@ -36,7 +36,7 @@ describe('FileSelector Component', () => {
     );
 
     const select = screen.getByLabelText('Sample:');
-    fireEvent.change(select, { target: { value: 'fur-elise-xml' } });
+    fireEvent.change(select, { target: { value: 'bwv-371-abc' } });
 
     expect(onSampleSelected).toHaveBeenCalled();
   });
