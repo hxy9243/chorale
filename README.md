@@ -10,10 +10,12 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D20-blue.svg)](package.json)
 
 [Overview](#-overview) •
-[Features](#-features) •
 [Quick Start](#-quick-start) •
+[Contributing](#-contributing) •
 [Agent Setup](#-ai-agent-setup-codex-claude-antigravity) •
-[Documentation](#-documentation-index)
+[Features](#-features) •
+[Tech Stack](#-tech-stack) •
+[License](#-license)
 
 </div>
 
@@ -21,11 +23,96 @@
 
 ## 🌟 Overview
 
-**Chorale** is a music workspace, autonomous agent skill, and local Model Context Protocol (MCP) server engineered specifically for AI coding agents (**OpenAI Codex**, **Claude Code**, **Google Antigravity**). It provides deterministic score inspection, bounded measure reads, safe musical mutations, harmonic annotations, and an interactive browser workspace.
+**Chorale** is an AI agent companion for reading, analyzing, and composing music. Give your agent a score and it can explain what is happening, annotate chord progressions with chord symbols and Roman numerals, trace phrases and cadences, examine form and voice leading, or help turn a musical idea into a complete piece.
 
-Chorale unifies the score workspace and AI tools into a single local background daemon running on port **1685**, backed by durable local storage in `~/.chorale/`.
+Work with your agent directly on the music: create a new score, import an existing one, focus on a passage, and ask for targeted revisions. Chorale pairs interactive sheet music with hands-on ABC source editing, so you can review every suggestion, refine the notation yourself, transpose or play back the result, and keep composing together.
+
+<div align="center">
+
+![alt text](chorale.png)
+</div>
+
+## 🚀 Quick Start
+
+### Let your agent set it up
+
+Ask your coding agent to install Chorale's MCP/plugin integration. It can follow the complete, agent-specific instructions in [INSTALL.md](./INSTALL.md) and then use Chorale tools to create, inspect, and edit scores.
+
+Copy and paste this into your agent:
+
+```text
+Set up Chorale for me using its MCP server or plugin. Follow the installation instructions at https://github.com/hxy9243/chorale/blob/main/INSTALL.md, then confirm that Chorale is connected and ready to use.
+```
+
+### Example: Compose a Piano Piece
+
+Once Chorale is connected, ask your agent to create and open a score:
+
+```text
+Use Chorale to compose an original 16-measure piano piece inspired by Mozart's Classical-era style. Write it in C major, 4/4, at a moderate tempo, with a singable right-hand melody and an Alberti-bass accompaniment in the left hand. Use clear phrase structure, then open the finished score in Chorale so I can review and play it.
+```
+
+### Manual setup
+
+Install Chorale directly from GitHub (Node.js 22.5+ required):
+
+```bash
+npm install --global github:hxy9243/chorale
+```
+
+Start Chorale from the command line:
+
+```bash
+# Start the background service on port 1685 and open the workspace
+chorale
+```
+
+To start it from an agent, register its MCP command. The MCP adapter starts the same background service automatically:
+
+```bash
+codex mcp add chorale -- chorale mcp
+```
+
+For Codex plugin setup, Claude, Antigravity, and other MCP-client examples, see [INSTALL.md](./INSTALL.md).
 
 ---
+
+## 🤝 Contributing
+
+Pull the source and run the development workspace locally:
+
+```bash
+git clone https://github.com/hxy9243/chorale.git
+cd chorale
+npm install
+npm run dev
+```
+
+`npm run dev` starts the Vite development server at `http://localhost:5173/`. Before opening a pull request, run:
+
+```bash
+npm test
+npx tsc -b
+npm run lint
+```
+
+---
+
+## 🤖 AI Agent Setup (Codex, Claude, Antigravity)
+
+Chorale is equipped with skills and MCP definitions ready for pair programming with autonomous agents:
+
+- **Google Antigravity**: Packaged via `npm run package:antigravity` (auto-copies skills into `plugins/antigravity/skills/`) and installed via `agy plugin install plugins/antigravity`, or detected directly in `.agents/skills/chorale-score/SKILL.md`.
+- **OpenAI Codex**: Manifest in [`.codex-plugin/plugin.json`](./.codex-plugin/plugin.json) and installable via local marketplace or `codex mcp add`.
+
+  Before a local marketplace installation, run `npm run package:codex` to generate the self-contained plugin in `plugins/chorale-codex-plugin` (auto-copying skills and bundled runtime). Rebuild and reinstall after source updates; start a new Codex task to load the updated tools.
+- **Claude Code & Claude Desktop**: Configurable via stdio (`chorale mcp`) or SSE (`http://127.0.0.1:1685/sse`).
+
+For complete, step-by-step agent installation guides and MCP configurations, see:  
+👉 **[INSTALL.md](./INSTALL.md)**
+
+---
+
 
 ## ✨ Features
 
@@ -51,89 +138,6 @@ Chorale unifies the score workspace and AI tools into a single local background 
 - **Archive Extraction**: `jszip`
 - **Design Tokens**: Custom CSS Paper/Glassmorphism + `lucide-react`
 - **Testing**: Node Test Runner + Vitest + `@testing-library/react` + `jsdom`
-
----
-
-## 🚀 Quick Start
-
-### Install Dependencies & Build
-```bash
-# 1. Install dependencies
-npm install
-
-# 2. Build the production workspace
-npm run build
-
-# 3. (Optional) Link CLI globally so `chorale` is available in PATH
-npm link
-```
-
-### Launch Chorale & Web Workspace
-```bash
-# Launch server on port 1685 and open interactive workspace in default browser
-chorale
-# Or via npm
-npm start
-
-# Check server status
-chorale status
-
-# Show command line help
-chorale help
-
-# Connect via MCP stdio transport (for AI agents)
-chorale mcp
-# Or via npm
-npm run mcp
-
-# Gracefully stop the background daemon
-chorale stop
-```
-
-The local service owns both the UI and MCP state at `http://127.0.0.1:1685`.
-
-### Start Development Server
-```bash
-npm run dev
-# Opens Vite dev server on http://localhost:5173/
-```
-
-### Run Verification & Tests
-```bash
-# Run both MCP server tests and unit tests
-npm test
-
-# Run MCP server tests only
-npm run test:mcp
-
-# Run unit tests only
-npm run test:unit
-```
-
----
-
-## 🤖 AI Agent Setup (Codex, Claude, Antigravity)
-
-Chorale is equipped with skills and MCP definitions ready for pair programming with autonomous agents:
-
-- **Google Antigravity**: Packaged via `npm run package:antigravity` (auto-copies skills into `plugins/antigravity/skills/`) and installed via `agy plugin install plugins/antigravity`, or detected directly in `.agents/skills/chorale-score/SKILL.md`.
-- **OpenAI Codex**: Manifest in [`.codex-plugin/plugin.json`](./.codex-plugin/plugin.json) and installable via local marketplace or `codex mcp add`.
-
-  Before a local marketplace installation, run `npm run package:codex` to generate the self-contained plugin in `plugins/chorale-codex-plugin` (auto-copying skills and bundled runtime). Rebuild and reinstall after source updates; start a new Codex task to load the updated tools.
-- **Claude Code & Claude Desktop**: Configurable via stdio (`chorale mcp`) or SSE (`http://127.0.0.1:1685/sse`).
-
-For complete, step-by-step agent installation guides and MCP configurations, see:  
-👉 **[INSTALL.md](./INSTALL.md)**
-
----
-
-## 📚 Documentation Index
-
-- **[Installation & Configuration Guide](./INSTALL.md)**: Full agent setup, CLI details, and MCP tool reference.
-- **[Musical Workflow Skill (`skills/chorale-score/SKILL.md`)](./skills/chorale-score/SKILL.md)**: Musical composition, bounded reads, and analysis reference for AI agents.
-- **[Engineering Conventions (`AGENTS.md`)](./AGENTS.md)**: Spec-first workflow, invariants, and quality gates.
-- **[Design Language (`DESIGN.md`)](./DESIGN.md)**: Workspace paper surfaces, typography, and component specifications.
-- **[Design & Architecture Specifications (`spec/`)](./spec/design.md)**: Comprehensive architectural specifications.
 
 ---
 
