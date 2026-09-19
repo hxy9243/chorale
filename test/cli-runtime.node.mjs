@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -281,6 +281,27 @@ test('stopDaemon cleans up runtime.json upon stopping matching runtime', async (
 test('resolvePackageRoot resolves package root from entrypoint or fallback', () => {
   assert.equal(resolvePackageRoot('/custom/dir/bin/chorale.mjs'), '/custom/dir');
   assert.ok(resolvePackageRoot().endsWith('chorale'));
+});
+
+test('resolvePackageRoot resolves package root following symlinks', async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), 'chorale-symlink-'));
+  try {
+    const pkgDir = join(tempDir, 'pkg');
+    const binDir = join(pkgDir, 'bin');
+    await mkdir(binDir, { recursive: true });
+    await writeFile(join(pkgDir, 'package.json'), JSON.stringify({ name: 'test' }));
+    const targetScript = join(binDir, 'cli.mjs');
+    await writeFile(targetScript, '#!/usr/bin/env node');
+
+    const linkDir = join(tempDir, 'global-bin');
+    await mkdir(linkDir, { recursive: true });
+    const symlinkPath = join(linkDir, 'chorale');
+    await symlink(targetScript, symlinkPath);
+
+    assert.equal(resolvePackageRoot(symlinkPath), pkgDir);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
 });
 
 test('pullLatestRelease pulls git commits and builds workspace assets in a git repository', async () => {

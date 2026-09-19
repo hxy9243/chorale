@@ -1,5 +1,5 @@
 import { execFile, spawn } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -25,7 +25,16 @@ import { CHORALE_VERSION } from './version.mjs';
 
 export const resolvePackageRoot = (entrypoint) => {
   if (entrypoint) {
-    return resolve(dirname(entrypoint), '..');
+    try {
+      const realPath = realpathSync(entrypoint);
+      const candidate = resolve(dirname(realPath), '..');
+      if (existsSync(join(candidate, 'package.json'))) {
+        return candidate;
+      }
+      return resolve(dirname(entrypoint), '..');
+    } catch {
+      return resolve(dirname(entrypoint), '..');
+    }
   }
   const currentDir = dirname(fileURLToPath(import.meta.url));
   return resolve(currentDir, '..');
