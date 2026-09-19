@@ -28,8 +28,7 @@
 Work with your agent directly on the music: create a new score, import an existing one, focus on a passage, and ask for targeted revisions. Chorale pairs interactive sheet music with hands-on ABC source editing, so you can review every suggestion, refine the notation yourself, transpose or play back the result, and keep composing together.
 
 <div align="center">
-
-![alt text](chorale.png)
+<img src="./chorale.png" width="50%">
 </div>
 
 ## 🚀 Quick Start
