@@ -235,6 +235,216 @@ export const hasPickupMeasure = (abcSource) => {
   }
 };
 
+export const isRepeatEndBar = (barType) => {
+  if (!barType) return false;
+  return (
+    barType === 'bar_right_repeat' ||
+    barType === 'bar_double_repeat' ||
+    barType === 'bar_dbl_repeat' ||
+    barType.includes('right_repeat') ||
+    barType.includes('double_repeat') ||
+    barType.includes('dbl_repeat') ||
+    barType.includes(':|')
+  );
+};
+
+export const computeScoreMeasureMapping = (tune) => {
+  if (!tune) {
+    return {
+      isPickup: false,
+      firstMeasureNumber: 1,
+      totalMeasures: 1,
+      barToMeasure: [1],
+      measureToBars: new Map([[1, [0]]]),
+      splitMeasures: new Set(),
+    };
+  }
+  const durations = getFirstTwoMeasureDurations(tune);
+  const meterDuration = getMeterDuration(tune);
+  const isPickup = durations && durations.second
+    ? (durations.first.num * meterDuration.den - meterDuration.num * durations.first.den < 0 &&
+       durations.second.num * meterDuration.den - meterDuration.num * durations.second.den >= 0)
+    : false;
+  const firstMeasureNumber = isPickup ? 0 : 1;
+
+  const voiceElementMap = new Map();
+  for (const line of tune.lines || []) {
+    let voiceSlot = 0;
+    for (const staff of line.staff || []) {
+      for (const voice of staff.voices || []) {
+        const slot = voiceSlot++;
+        const list = voiceElementMap.get(slot) || [];
+        list.push(...voice);
+        voiceElementMap.set(slot, list);
+      }
+    }
+  }
+
+  let barCount = 0;
+  for (const [, elements] of voiceElementMap) {
+    let count = 0;
+    for (const el of elements) {
+      if (el.el_type === 'bar') count++;
+    }
+    if (count > barCount) barCount = count;
+  }
+
+  if (barCount === 0) {
+    return {
+      isPickup,
+      firstMeasureNumber,
+      totalMeasures: 1,
+      barToMeasure: [firstMeasureNumber],
+      measureToBars: new Map([[firstMeasureNumber, [0]]]),
+      splitMeasures: new Set(),
+    };
+  }
+
+  const barDurations = Array.from({ length: barCount }, () => ({ num: 0, den: 1 }));
+  const barTypes = Array.from({ length: barCount }, () => '');
+  const barMeterDurations = Array.from({ length: barCount }, () => meterDuration);
+  const barMultimeasures = Array.from({ length: barCount }, () => 1);
+
+  for (const [, elements] of voiceElementMap) {
+    let b = 0;
+    let curNum = 0;
+    let curDen = 1;
+    let multiplier = 1;
+    let activeMeter = meterDuration;
+
+    for (const el of elements) {
+      if (el.el_type === 'meter') {
+        const part = el.value?.[0];
+        if (part?.num !== undefined && part?.den !== undefined) {
+          activeMeter = simplifyFraction(Number(part.num), Number(part.den));
+        }
+      }
+      if (el.el_type === 'bar') {
+        if (b < barCount) {
+          const curVal = curNum / curDen;
+          const prevVal = barDurations[b].num / barDurations[b].den;
+          if (curVal > prevVal) {
+            barDurations[b] = { num: curNum, den: curDen };
+          }
+          if (el.type) barTypes[b] = el.type;
+          barMeterDurations[b] = activeMeter;
+        }
+        b++;
+        curNum = 0;
+        curDen = 1;
+        continue;
+      }
+      if (el.el_type !== 'note' || typeof el.duration !== 'number') continue;
+
+      if (el.startTriplet && el.tripletMultiplier) {
+        multiplier = el.tripletMultiplier;
+      }
+
+      const rawRestText = el.rest?.text;
+      const restCount = typeof rawRestText === 'number'
+        ? rawRestText
+        : typeof rawRestText === 'string' && /^\d+$/.test(rawRestText)
+          ? Number(rawRestText)
+          : 1;
+      const multimeasureCount = el.rest?.type === 'multimeasure'
+        && Number.isSafeInteger(restCount)
+        && restCount > 1
+        ? restCount
+        : 1;
+
+      if (multimeasureCount > 1) {
+        barMultimeasures[b] = Math.max(barMultimeasures[b] || 1, multimeasureCount);
+      }
+
+      const elemNum = Math.round(el.duration * multiplier * 1920);
+      const elemDen = 1920;
+      const common = curDen * elemDen;
+      curNum = curNum * elemDen + elemNum * curDen;
+      curDen = common;
+      const simplified = simplifyFraction(curNum, curDen);
+      curNum = simplified.num;
+      curDen = simplified.den;
+      if (el.endTriplet) multiplier = 1;
+    }
+  }
+
+  const barToMeasure = [];
+  const measureToBars = new Map();
+  const splitMeasures = new Set();
+
+  let currentMeasure = firstMeasureNumber;
+  let prevBarIncomplete = false;
+  let prevBarDuration = { num: 0, den: 1 };
+  let prevBarRepeat = false;
+
+  for (let b = 0; b < barCount; b++) {
+    const barDur = barDurations[b];
+    const barType = barTypes[b];
+    const meterDur = barMeterDurations[b];
+    const multiCount = barMultimeasures[b] || 1;
+
+    if (b === 0 && isPickup) {
+      barToMeasure[b] = 0;
+      currentMeasure = 1;
+      prevBarIncomplete = false;
+      prevBarRepeat = false;
+      prevBarDuration = { num: 0, den: 1 };
+    } else {
+      const sumNum = prevBarDuration.num * barDur.den + barDur.num * prevBarDuration.den;
+      const sumDen = prevBarDuration.den * barDur.den;
+      const sumSimplified = simplifyFraction(sumNum, sumDen);
+      const sumDiff = sumSimplified.num * meterDur.den - meterDur.num * sumSimplified.den;
+      const barDiff = barDur.num * meterDur.den - meterDur.num * barDur.den;
+
+      const isContinuation =
+        prevBarIncomplete &&
+        prevBarRepeat &&
+        barDiff < 0 &&
+        sumDiff === 0;
+
+      if (isContinuation) {
+        const prevMeasure = barToMeasure[b - 1];
+        barToMeasure[b] = prevMeasure;
+        splitMeasures.add(prevMeasure);
+        prevBarIncomplete = false;
+        prevBarRepeat = false;
+        prevBarDuration = { num: 0, den: 1 };
+      } else {
+        barToMeasure[b] = currentMeasure;
+        currentMeasure += multiCount;
+
+        const isShort = barDiff < 0;
+        const isRepeat = isRepeatEndBar(barType);
+        if (isShort && isRepeat) {
+          prevBarIncomplete = true;
+          prevBarRepeat = true;
+          prevBarDuration = barDur;
+        } else {
+          prevBarIncomplete = false;
+          prevBarRepeat = false;
+          prevBarDuration = { num: 0, den: 1 };
+        }
+      }
+    }
+
+    const m = barToMeasure[b];
+    const list = measureToBars.get(m) || [];
+    list.push(b);
+    measureToBars.set(m, list);
+  }
+
+  const totalMeasures = currentMeasure - (isPickup ? 1 : 0);
+
+  return {
+    isPickup,
+    firstMeasureNumber,
+    totalMeasures,
+    barToMeasure,
+    measureToBars,
+    splitMeasures,
+  };
+};
+
 /**
  * Returns an array of measure text strings across the tune.
  */
@@ -335,6 +545,28 @@ export const parseVoicesAndMeasures = (abcSource) => {
     voices.set('1', []);
   }
 
+  try {
+    const tunes = abcjs.parseOnly(abcSource);
+    const tune = tunes?.[0];
+    if (tune) {
+      const mapping = computeScoreMeasureMapping(tune);
+      if (mapping && mapping.splitMeasures && mapping.splitMeasures.size > 0) {
+        for (const measureList of voices.values()) {
+          if (measureList.length === mapping.barToMeasure.length) {
+            for (let i = mapping.barToMeasure.length - 1; i >= 1; i--) {
+              if (mapping.barToMeasure[i] === mapping.barToMeasure[i - 1]) {
+                measureList[i - 1] = `${measureList[i - 1]} ${measureList[i]}`;
+                measureList.splice(i, 1);
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore parse errors
+  }
+
   return {
     headers: headers.join('\n'),
     voices,
@@ -358,8 +590,10 @@ const appendLineMeasures = (measureList, text, inlineComment = '') => {
       }
     }
   }
-  if (curBar.trim() && !/^(\|+|:\||\|\]|\[\|)$/.test(curBar.trim())) {
+  if (curBar.trim() && !/^(\|+|:\||\|\]|\[\||[$\\]+)$/.test(curBar.trim())) {
     measureList.push(curBar.trim());
+  } else if (/^[$\\]+$/.test(curBar.trim()) && measureList.length > initialLength) {
+    measureList[measureList.length - 1] += ` ${curBar.trim()}`;
   }
   if (inlineComment) {
     if (measureList.length > initialLength) {

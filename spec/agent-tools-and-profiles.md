@@ -152,6 +152,7 @@ type ReadMeasureRangeResult = {
 Rules:
 
 - Measures are written and inclusive; when the first measure is shorter than the full length of the measure (pickup measure), it is measure 0, and the first complete measure is measure 1; otherwise measures begin at measure 1.
+- Mid-measure repeats (split measures): when a repeat barline occurs mid-measure such that the bar before the repeat and the pickup bar after the repeat sum to the nominal meter duration, both fragments share the same measure number, and the subsequent complete bar advances to the next measure number.
 - `endMeasure >= startMeasure`.
 - One call may return any continuous written-measure range within the score.
 - A failed call records no read authorization; authorization is committed only after every requested

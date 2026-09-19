@@ -36,7 +36,7 @@ import {
 } from '../utils/scoreSceneSizing';
 import { AnnotationRail } from './AnnotationRail';
 import type { MeasureSystemsSnapshot } from '../music/abcPresentation';
-import { isFirstMeasurePickupAbc } from '../music/scoreSnapshot';
+import { getScoreMeasureMappingAbc, type ScoreMeasureMapping } from '../music/scoreSnapshot';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const AUTO_SCROLL_DURATION_MS = 200;
@@ -201,12 +201,19 @@ const resolveClickedMeasure = (
   abcElem: { measureNumber?: number } | null | undefined,
   classes = '',
   analysis?: { measure?: number },
-  firstMeasureNumber = 1,
+  mapping?: ScoreMeasureMapping | number,
 ): number | null => {
+  const firstMeasureNumber = typeof mapping === 'number' ? mapping : (mapping?.firstMeasureNumber ?? 1);
+  const mapBar = (barIndex: number): number => {
+    if (mapping && typeof mapping === 'object' && Array.isArray(mapping.barToMeasure)) {
+      return mapping.barToMeasure[barIndex] ?? (barIndex + firstMeasureNumber);
+    }
+    return barIndex + firstMeasureNumber;
+  };
   const globalMeasure = classes.match(/(?:^|\s)abcjs-mm(\d+)(?:\s|$)/);
-  if (globalMeasure) return Number(globalMeasure[1]) + firstMeasureNumber;
-  if (typeof analysis?.measure === 'number') return analysis.measure + firstMeasureNumber;
-  if (typeof abcElem?.measureNumber === 'number') return abcElem.measureNumber + firstMeasureNumber;
+  if (globalMeasure) return mapBar(Number(globalMeasure[1]));
+  if (typeof analysis?.measure === 'number') return mapBar(analysis.measure);
+  if (typeof abcElem?.measureNumber === 'number') return mapBar(abcElem.measureNumber);
   // Cannot resolve measure — returning null prevents clobbering selectionOriginRef
   // with a bogus measure 1 when clicking on staff lines, barlines, or whitespace.
   return null;
@@ -215,35 +222,47 @@ const resolveClickedMeasure = (
 const highlightMeasures = (
   container: HTMLDivElement,
   anchor: ScoreAnchor | null,
-  firstMeasureNumber = 1,
+  mapping?: ScoreMeasureMapping | number,
 ) => {
   container.querySelectorAll('.abcjs-measure-highlight').forEach((element) => element.remove());
   if (!anchor) return;
 
+  const firstMeasureNumber = typeof mapping === 'number' ? mapping : (mapping?.firstMeasureNumber ?? 1);
+
   for (let measure = anchor.startMeasure; measure <= anchor.endMeasure; measure += 1) {
-    const measureIndex = measure - firstMeasureNumber;
-    if (measureIndex < 0) continue;
-    const elements = Array.from(container.querySelectorAll<SVGGraphicsElement>(
-      `.abcjs-mm${measureIndex}`,
-    )).filter((element) => typeof element.getBBox === 'function');
-    if (elements.length === 0) continue;
+    let barIndexes: number[] = [];
+    if (mapping && typeof mapping === 'object' && mapping.measureToBars) {
+      const bars = mapping.measureToBars.get(measure);
+      if (bars && bars.length > 0) barIndexes = [...bars];
+    }
+    if (barIndexes.length === 0) {
+      const idx = measure - firstMeasureNumber;
+      if (idx >= 0) barIndexes = [idx];
+    }
 
-    const bounds = measureHighlightBounds(container, measureIndex, elements);
-    const svg = elements[0].ownerSVGElement;
-    if (!svg) continue;
+    for (const measureIndex of barIndexes) {
+      const elements = Array.from(container.querySelectorAll<SVGGraphicsElement>(
+        `.abcjs-mm${measureIndex}`,
+      )).filter((element) => typeof element.getBBox === 'function');
+      if (elements.length === 0) continue;
 
-    const highlight = document.createElementNS(SVG_NAMESPACE, 'rect');
-    highlight.classList.add('abcjs-measure-highlight');
-    highlight.dataset.measure = String(measure);
-    highlight.setAttribute('x', String(bounds.x));
-    highlight.setAttribute('y', String(bounds.y));
-    highlight.setAttribute('width', String(bounds.width));
-    highlight.setAttribute('height', String(bounds.height));
-    highlight.setAttribute('rx', '2');
-    highlight.setAttribute('aria-hidden', 'true');
-    const firstScoreElement = Array.from(svg.children)
-      .find((element) => !element.classList.contains('abcjs-measure-highlight'));
-    svg.insertBefore(highlight, firstScoreElement || null);
+      const bounds = measureHighlightBounds(container, measureIndex, elements);
+      const svg = elements[0].ownerSVGElement;
+      if (!svg) continue;
+
+      const highlight = document.createElementNS(SVG_NAMESPACE, 'rect');
+      highlight.classList.add('abcjs-measure-highlight');
+      highlight.dataset.measure = String(measure);
+      highlight.setAttribute('x', String(bounds.x));
+      highlight.setAttribute('y', String(bounds.y));
+      highlight.setAttribute('width', String(bounds.width));
+      highlight.setAttribute('height', String(bounds.height));
+      highlight.setAttribute('rx', '2');
+      highlight.setAttribute('aria-hidden', 'true');
+      const firstScoreElement = Array.from(svg.children)
+        .find((element) => !element.classList.contains('abcjs-measure-highlight'));
+      svg.insertBefore(highlight, firstScoreElement || null);
+    }
   }
 };
 
@@ -267,8 +286,9 @@ const renderedMeasureIndex = (element: Element): number | null => {
 
 const collectRenderedMeasureSystems = (
   container: HTMLDivElement,
-  firstMeasureNumber = 1,
+  mapping?: ScoreMeasureMapping | number,
 ): readonly (readonly number[])[] => {
+  const firstMeasureNumber = typeof mapping === 'number' ? mapping : (mapping?.firstMeasureNumber ?? 1);
   const lineClasses = new Set<string>();
   container.querySelectorAll('.abcjs-staff').forEach((staff) => {
     Array.from(staff.classList).forEach((className) => {
@@ -280,7 +300,11 @@ const collectRenderedMeasureSystems = (
     .map((lineClass) => Object.freeze(Array.from(new Set(
       Array.from(container.querySelectorAll(`.abcjs-bar.${lineClass}`)).flatMap((bar) => {
         const index = renderedMeasureIndex(bar);
-        return index === null ? [] : [index + firstMeasureNumber];
+        if (index === null) return [];
+        if (mapping && typeof mapping === 'object' && Array.isArray(mapping.barToMeasure)) {
+          return [mapping.barToMeasure[index] ?? (index + firstMeasureNumber)];
+        }
+        return [index + firstMeasureNumber];
       }),
     )).sort((left, right) => left - right)))
     .filter((system) => system.length > 0));
@@ -288,10 +312,11 @@ const collectRenderedMeasureSystems = (
 
 const installLineStartMeasureNumbers = (
   container: HTMLDivElement,
-  firstMeasureNumber = 1,
+  mapping?: ScoreMeasureMapping | number,
 ) => {
   container.querySelectorAll('.chorale-line-measure-number').forEach((element) => element.remove());
 
+  const firstMeasureNumber = typeof mapping === 'number' ? mapping : (mapping?.firstMeasureNumber ?? 1);
   const lineClasses = new Set<string>();
   container.querySelectorAll('.abcjs-staff').forEach((staff) => {
     Array.from(staff.classList).forEach((className) => {
@@ -316,7 +341,17 @@ const installLineStartMeasureNumbers = (
       const svg = staffElements[0].ownerSVGElement;
       if (!svg) return;
       const staffBoxes = staffElements.map((element) => element.getBBox());
-      const measure = Math.min(...measureIndexes) + firstMeasureNumber;
+      const minBarIndex = Math.min(...measureIndexes);
+      let measure: number;
+      if (mapping && typeof mapping === 'object' && Array.isArray(mapping.barToMeasure)) {
+        if (minBarIndex > 0 && mapping.barToMeasure[minBarIndex] === mapping.barToMeasure[minBarIndex - 1]) {
+          measure = mapping.barToMeasure[minBarIndex + 1] ?? (minBarIndex + firstMeasureNumber);
+        } else {
+          measure = mapping.barToMeasure[minBarIndex] ?? (minBarIndex + firstMeasureNumber);
+        }
+      } else {
+        measure = minBarIndex + firstMeasureNumber;
+      }
       const label = document.createElementNS(SVG_NAMESPACE, 'text');
       label.classList.add('chorale-line-measure-number', lineClass);
       label.dataset.measure = String(measure);
@@ -421,13 +456,16 @@ const resolveMeasureFromClientXY = (
 const installMeasureHitAreas = (
   container: HTMLDivElement,
   onSelectMeasure: (measure: number, modifiers: SelectionModifiers) => void,
-  firstMeasureNumber = 1,
+  mapping?: ScoreMeasureMapping | number,
 ) => {
   container.querySelectorAll('.abcjs-measure-hit-area').forEach((element) => element.remove());
   const measureCount = getRenderedMeasureCount(container);
+  const firstMeasureNumber = typeof mapping === 'number' ? mapping : (mapping?.firstMeasureNumber ?? 1);
 
   for (let index = 0; index < measureCount; index += 1) {
-    const measure = index + firstMeasureNumber;
+    const measure = mapping && typeof mapping === 'object' && Array.isArray(mapping.barToMeasure)
+      ? (mapping.barToMeasure[index] ?? (index + firstMeasureNumber))
+      : (index + firstMeasureNumber);
     const elements = Array.from(container.querySelectorAll<SVGGraphicsElement>(
       `.abcjs-mm${index}`,
     )).filter((element) => typeof element.getBBox === 'function');
@@ -517,8 +555,8 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   onUpdateAnnotation,
   onDeleteAnnotation,
 }) => {
-  const isPickup = React.useMemo(() => isFirstMeasurePickupAbc(abcCode), [abcCode]);
-  const firstMeasureNumber = isPickup ? 0 : 1;
+  const measureMapping = React.useMemo(() => getScoreMeasureMappingAbc(abcCode), [abcCode]);
+  const firstMeasureNumber = measureMapping.firstMeasureNumber;
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const sheetViewportRef = useRef<HTMLDivElement>(null);
@@ -834,7 +872,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
           const modifiersToUse = capturedModifiers;
           capturedModifiers = NO_SELECTION_MODIFIERS;
           if (!abcElem) return;
-          const measure = resolveClickedMeasure(abcElem, classes, analysis, firstMeasureNumber);
+          const measure = resolveClickedMeasure(abcElem, classes, analysis, measureMapping);
           if (measure === null) return;
           selectMeasure(measure, abcElem.startChar, modifiersToUse);
         },
@@ -853,16 +891,16 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       }
       hideSyntheticTupletRests(abcCode, tunes);
       configureAudioPlayback(abcCode, tunes);
-      measureOccurrencesRef.current = renderedTune ? buildMeasureOccurrences(renderedTune, firstMeasureNumber) : [];
-      installLineStartMeasureNumbers(containerRef.current, firstMeasureNumber);
+      measureOccurrencesRef.current = renderedTune ? buildMeasureOccurrences(renderedTune, measureMapping) : [];
+      installLineStartMeasureNumbers(containerRef.current, measureMapping);
       installAboveStaffContentOffsets(containerRef.current);
       installMeasureHitAreas(containerRef.current, (measure, modifiers) => {
         // Mark that the hit area handled this click so the abcjs clickListener
         // (which may fire after with wrong SVG-space coordinates) gets skipped.
         hitAreaJustHandled = true;
         selectMeasure(measure, undefined, modifiers);
-      }, firstMeasureNumber);
-      const systems = collectRenderedMeasureSystems(containerRef.current, firstMeasureNumber);
+      }, measureMapping);
+      const systems = collectRenderedMeasureSystems(containerRef.current, measureMapping);
       const measureCount = getRenderedMeasureCount(containerRef.current);
       onMeasureSystemsChange?.(documentId && systems.length > 0 ? Object.freeze({
         documentId,
@@ -906,11 +944,11 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       renderedContainer.removeEventListener('click', captureModifiers, true);
       renderedContainer.removeEventListener('click', handleContainerFallbackClick, false);
     };
-  }, [abcCode, documentId, firstMeasureNumber, onMeasureSystemsChange, onSelectAnchor, onTuneRendered, resolvePlaybackAnchor, revision, transpose]);
+  }, [abcCode, documentId, firstMeasureNumber, measureMapping, onMeasureSystemsChange, onSelectAnchor, onTuneRendered, resolvePlaybackAnchor, revision, transpose]);
 
   useEffect(() => {
     if (!containerRef.current) return;
-    highlightMeasures(containerRef.current, activeAnchor, firstMeasureNumber);
+    highlightMeasures(containerRef.current, activeAnchor, measureMapping);
     updateMeasureHitAreaSelection(containerRef.current, activeAnchor);
     // Keep selectionOriginRef consistent with the displayed anchor so that
     // shift-clicks always extend from the correct measure even after external
@@ -931,7 +969,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         };
       }
     }
-  }, [abcCode, activeAnchor, firstMeasureNumber, transpose]);
+  }, [abcCode, activeAnchor, firstMeasureNumber, measureMapping, transpose]);
 
   useEffect(() => {
     const container = containerRef.current;

@@ -59,7 +59,7 @@ This document specifies rendering, layout, interaction, and accessibility behavi
 - Save and build status pills (`Auto-saved`, `SVG ready`, `Music ready`) are hosted in the global application header so they remain permanently visible regardless of score scroll position.
 - Floating score display options (`ScoreCardHeader`) float over the top-center of the score paper with scroll-reactive translucency (`is-scrolling`), providing synchronized zoom controls (−, %, +, Fit).
 - Score zoom remains independently persisted and centered without clipping.
-- Line-start measure numbers (`.chorale-line-measure-number`) are rendered above the start of each staff system for rapid orientation.
+- Line-start measure numbers (`.chorale-line-measure-number`) are rendered above the start of each staff system for rapid orientation. When a line starts with the second half of a split measure (e.g. an anacrusis across a section or repeat boundary), the line-start measure number displays the first complete measure on that system.
 - Playback auto-centering and its manual-scroll pause behavior remain intact.
 - Existing transpose, playback cursor, repeat selection, and first-click hit-area behavior must not regress.
 
@@ -68,6 +68,8 @@ This document specifies rendering, layout, interaction, and accessibility behavi
 - Single click selects one written measure.
 - Shift-click and the keyboard equivalent extend one inclusive continuous range.
 - Reverse selection normalizes to `startMeasure <= endMeasure`.
+- Mid-measure repeats (split measures): when a repeat barline occurs mid-measure such that the bar before the repeat and the pickup bar after the repeat sum to the nominal meter duration, both fragments share the same measure number. The subsequent complete bar advances to the next measure number.
+- Selecting a split measure creates a highlight rectangle (`.abcjs-measure-highlight`) over all constituent bar fragments of that measure, including fragments residing on different system lines across line breaks.
 - Each selected measure receives a highlight rectangle (`.abcjs-measure-highlight`), including across system wraps.
 - Highlight geometry accurately computes measure bounding boxes strictly from measure wall boundaries (opening barline right edge / staff start to closing barline left edge / staff end; system staff top to bottom).
 - Interfering decorative and annotation elements (hairpins, dynamics, ABC text annotations, slurs, ties, chords, voltas) are excluded when calculating measure bounding boxes and system line identity so they never distort selection boundaries.

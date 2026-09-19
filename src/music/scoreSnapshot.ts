@@ -129,6 +129,15 @@ export type ReadonlyLookup<Key, Value> = Readonly<{
   [Symbol.iterator](): IterableIterator<[Key, Value]>;
 }>;
 
+export type ScoreMeasureMapping = Readonly<{
+  isPickup: boolean;
+  firstMeasureNumber: number;
+  totalMeasures: number;
+  barToMeasure: readonly number[];
+  measureToBars: ReadonlyMap<number, readonly number[]>;
+  splitMeasures: ReadonlySet<number>;
+}>;
+
 export type ScoreSnapshot = ExtractedScore & Readonly<{
   snapshotId: string;
   documentId: string;
@@ -210,6 +219,7 @@ type MutableMeasure = {
 
 type VoiceState = {
   measureNumber: number;
+  barIndex: number;
   offset: RationalDuration;
   tupletMultiplier: number;
   hasEvents: boolean;
@@ -389,6 +399,217 @@ export const isFirstMeasurePickupAbc = (abc: string): boolean => {
     return tune ? isFirstMeasurePickup(tune) : false;
   } catch {
     return false;
+  }
+};
+
+export const isRepeatEndBar = (barType?: string): boolean => {
+  if (!barType) return false;
+  return (
+    barType === 'bar_right_repeat' ||
+    barType === 'bar_double_repeat' ||
+    barType === 'bar_dbl_repeat' ||
+    barType.includes('right_repeat') ||
+    barType.includes('double_repeat') ||
+    barType.includes('dbl_repeat') ||
+    barType.includes(':|')
+  );
+};
+
+export const computeScoreMeasureMapping = (tune: ParsedTune): ScoreMeasureMapping => {
+  const isPickup = isFirstMeasurePickup(tune);
+  const firstMeasureNumber = isPickup ? 0 : 1;
+  const expectedMeter = getMeterDuration(tune);
+
+  const voiceElementMap = new Map<number, ParsedElement[]>();
+  for (const line of tune.lines || []) {
+    let voiceSlot = 0;
+    for (const staff of line.staff || []) {
+      for (const voice of staff.voices || []) {
+        const slot = voiceSlot++;
+        const list = voiceElementMap.get(slot) || [];
+        list.push(...voice);
+        voiceElementMap.set(slot, list);
+      }
+    }
+  }
+
+  let barCount = 0;
+  for (const [, elements] of voiceElementMap) {
+    let count = 0;
+    let hasEvents = false;
+    for (const el of elements) {
+      if (el.el_type === 'note') hasEvents = true;
+      if (el.el_type === 'bar') {
+        if (hasEvents) {
+          count++;
+          hasEvents = false;
+        }
+      }
+    }
+    if (hasEvents) count++;
+    if (count > barCount) barCount = count;
+  }
+
+  if (barCount === 0) {
+    return Object.freeze({
+      isPickup,
+      firstMeasureNumber,
+      totalMeasures: 1,
+      barToMeasure: Object.freeze([firstMeasureNumber]),
+      measureToBars: new Map([[firstMeasureNumber, [0]]]),
+      splitMeasures: new Set<number>(),
+    });
+  }
+
+  const barDurations: RationalDuration[] = Array.from({ length: barCount }, () => ZERO_DURATION);
+  const barTypes: string[] = Array.from({ length: barCount }, () => '');
+  const barMeterDurations: RationalDuration[] = Array.from({ length: barCount }, () => expectedMeter);
+
+  for (const [, elements] of voiceElementMap) {
+    let b = 0;
+    let curDur = ZERO_DURATION;
+    let tupletMultiplier = 1;
+    let activeMeter = expectedMeter;
+    let hasEvents = false;
+
+    for (const el of elements) {
+      if (el.el_type === 'meter') {
+        const part = el.value?.[0];
+        if (part?.num !== undefined && part?.den !== undefined) {
+          activeMeter = createRationalDuration(Number(part.num), Number(part.den));
+        }
+      }
+      if (el.el_type === 'bar') {
+        if (hasEvents) {
+          if (b < barCount) {
+            if (compareRationalDurations(curDur, barDurations[b]) > 0) {
+              barDurations[b] = curDur;
+            }
+            if (el.type) barTypes[b] = el.type;
+            barMeterDurations[b] = activeMeter;
+          }
+          b++;
+          curDur = ZERO_DURATION;
+          hasEvents = false;
+        }
+        continue;
+      }
+      if (el.el_type !== 'note' || typeof el.duration !== 'number') continue;
+
+      if (el.startTriplet && el.tripletMultiplier) {
+        tupletMultiplier = el.tripletMultiplier;
+      }
+
+      const duration = createRationalDurationFromNumber(el.duration * tupletMultiplier);
+      curDur = addRationalDurations(curDur, duration);
+      hasEvents = true;
+      if (el.endTriplet) tupletMultiplier = 1;
+    }
+  }
+
+  const barToMeasure: number[] = [];
+  const measureToBars = new Map<number, number[]>();
+  const splitMeasures = new Set<number>();
+
+  let currentMeasure = firstMeasureNumber;
+  let prevBarIncomplete = false;
+  let prevBarDuration = ZERO_DURATION;
+  let prevBarRepeat = false;
+
+  for (let b = 0; b < barCount; b++) {
+    const barDur = barDurations[b];
+    const barType = barTypes[b];
+    const meterDur = barMeterDurations[b];
+
+    if (b === 0 && isPickup) {
+      barToMeasure[b] = 0;
+      currentMeasure = 1;
+      prevBarIncomplete = false;
+      prevBarRepeat = false;
+      prevBarDuration = ZERO_DURATION;
+    } else {
+      const sumWithPrev = addRationalDurations(prevBarDuration, barDur);
+      const isContinuation =
+        prevBarIncomplete &&
+        prevBarRepeat &&
+        compareRationalDurations(barDur, meterDur) < 0 &&
+        compareRationalDurations(sumWithPrev, meterDur) === 0;
+
+      if (isContinuation) {
+        const prevMeasure = barToMeasure[b - 1];
+        barToMeasure[b] = prevMeasure;
+        splitMeasures.add(prevMeasure);
+        prevBarIncomplete = false;
+        prevBarRepeat = false;
+        prevBarDuration = ZERO_DURATION;
+      } else {
+        barToMeasure[b] = currentMeasure;
+        currentMeasure += 1;
+
+        const isShort = compareRationalDurations(barDur, meterDur) < 0;
+        const isRepeat = isRepeatEndBar(barType);
+        if (isShort && isRepeat) {
+          prevBarIncomplete = true;
+          prevBarRepeat = true;
+          prevBarDuration = barDur;
+        } else {
+          prevBarIncomplete = false;
+          prevBarRepeat = false;
+          prevBarDuration = ZERO_DURATION;
+        }
+      }
+    }
+
+    const m = barToMeasure[b];
+    const list = measureToBars.get(m) || [];
+    list.push(b);
+    measureToBars.set(m, list);
+  }
+
+  const totalMeasures = currentMeasure - 1;
+
+  return Object.freeze({
+    isPickup,
+    firstMeasureNumber,
+    totalMeasures,
+    barToMeasure: Object.freeze(barToMeasure),
+    measureToBars,
+    splitMeasures,
+  });
+};
+
+export const getScoreMeasureMappingAbc = (abc: string): ScoreMeasureMapping => {
+  if (!abc.trim()) {
+    return Object.freeze({
+      isPickup: false,
+      firstMeasureNumber: 1,
+      totalMeasures: 1,
+      barToMeasure: Object.freeze([1]),
+      measureToBars: new Map([[1, [0]]]),
+      splitMeasures: new Set<number>(),
+    });
+  }
+  try {
+    const { prepared } = prepareAbcWithMap(abc);
+    const parsed = abcjs.parseOnly(prepared) as unknown as ParsedTune[];
+    const tune = parsed[0];
+    return tune ? computeScoreMeasureMapping(tune) : Object.freeze({
+      isPickup: false,
+      firstMeasureNumber: 1,
+      totalMeasures: 1,
+      barToMeasure: Object.freeze([1]),
+      measureToBars: new Map([[1, [0]]]),
+      splitMeasures: new Set<number>(),
+    });
+  } catch {
+    return Object.freeze({
+      isPickup: false,
+      firstMeasureNumber: 1,
+      totalMeasures: 1,
+      barToMeasure: Object.freeze([1]),
+      measureToBars: new Map([[1, [0]]]),
+      splitMeasures: new Set<number>(),
+    });
   }
 };
 
@@ -687,8 +908,8 @@ export const extractScore = (abc: string): ExtractedScore => {
   const measures = new Map<number, MutableMeasure>();
   let voiceSlot = 0;
 
-  const isPickup = isFirstMeasurePickup(tune);
-  const initialMeasureNumber = isPickup ? 0 : 1;
+  const mapping = computeScoreMeasureMapping(tune);
+  const initialMeasureNumber = mapping.firstMeasureNumber;
 
   const getMeasure = (measureNumber: number) => {
     let measure = measures.get(measureNumber);
@@ -722,7 +943,8 @@ export const extractScore = (abc: string): ExtractedScore => {
         || declaredVoiceIds[voiceSlot]
         || `voice-${voiceSlot + 1}`;
       const stateBeforeStaff = voiceStates.get(firstVoiceIdOnStaff) || {
-        measureNumber: initialMeasureNumber,
+        measureNumber: mapping.barToMeasure[0] ?? initialMeasureNumber,
+        barIndex: 0,
         offset: ZERO_DURATION,
         tupletMultiplier: 1,
         hasEvents: false,
@@ -746,7 +968,8 @@ export const extractScore = (abc: string): ExtractedScore => {
       for (const { voice, voiceId } of resolvedVoices) {
         if (!encounteredVoiceIds.includes(voiceId)) encounteredVoiceIds.push(voiceId);
         const state = voiceStates.get(voiceId) || {
-          measureNumber: initialMeasureNumber,
+          measureNumber: mapping.barToMeasure[0] ?? initialMeasureNumber,
+          barIndex: 0,
           offset: ZERO_DURATION,
           tupletMultiplier: 1,
           hasEvents: false,
@@ -756,8 +979,13 @@ export const extractScore = (abc: string): ExtractedScore => {
           const measure = getMeasure(state.measureNumber);
           if (element.el_type === 'bar') {
             addElementRange(measure, voiceId, element, toOriginalOffset);
-            if (state.hasEvents) {
-              state.measureNumber += 1;
+            if (!state.hasEvents) {
+              continue;
+            }
+            state.barIndex += 1;
+            const nextMeasureNumber = mapping.barToMeasure[state.barIndex] ?? (state.measureNumber + 1);
+            if (nextMeasureNumber !== state.measureNumber) {
+              state.measureNumber = nextMeasureNumber;
               state.offset = ZERO_DURATION;
               state.hasEvents = false;
             }
@@ -818,6 +1046,7 @@ export const extractScore = (abc: string): ExtractedScore => {
               addElementRange(currentMeasure, voiceId, element, toOriginalOffset);
             }
             state.measureNumber += multimeasureCount - 1;
+            state.barIndex += multimeasureCount - 1;
             state.hasEvents = true;
             state.offset = singleDuration;
             if (element.endTriplet) state.tupletMultiplier = 1;

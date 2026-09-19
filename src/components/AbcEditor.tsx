@@ -375,7 +375,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   }, [draftCellId, draftValue, presentation]);
 
   useEffect(() => {
-    if (view !== "measures" || !activeAnchor?.startMeasure) return;
+    if (view !== "measures" || activeAnchor?.startMeasure === undefined) return;
     const body = editorBodyRef.current;
     if (!body) return;
     const frame = window.requestAnimationFrame(() => {
@@ -399,7 +399,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   }, [activeAnchor?.startMeasure, view]);
 
   useEffect(() => {
-    if (view !== "measures" || !playingMeasure) return;
+    if (view !== "measures" || playingMeasure == null) return;
     const body = editorBodyRef.current;
     if (!body) return;
     const frame = window.requestAnimationFrame(() => {

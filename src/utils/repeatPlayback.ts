@@ -22,7 +22,7 @@ export interface PlaybackPosition {
  */
 export const buildMeasureOccurrences = (
   tune: abcjs.TuneObject,
-  firstMeasureNumber = 1,
+  mappingOrFirst: number | { firstMeasureNumber: number; barToMeasure: readonly number[] } = 1,
 ): MeasureOccurrence[] => {
   if (!tune || typeof tune.setTiming !== 'function') return [];
   try {
@@ -31,6 +31,14 @@ export const buildMeasureOccurrences = (
     // If setTiming fails (e.g. tune not drawn yet), return empty
     return [];
   }
+
+  const firstMeasureNumber = typeof mappingOrFirst === 'number' ? mappingOrFirst : (mappingOrFirst?.firstMeasureNumber ?? 1);
+  const mapBar = (barIndex: number): number => {
+    if (typeof mappingOrFirst === 'object' && Array.isArray(mappingOrFirst.barToMeasure)) {
+      return mappingOrFirst.barToMeasure[barIndex] ?? (barIndex + firstMeasureNumber);
+    }
+    return barIndex + firstMeasureNumber;
+  };
 
   // setTiming produces the same unrolled event sequence used by SynthController,
   // with timestamps already expressed in real milliseconds. Using setUpAudio track
@@ -49,7 +57,7 @@ export const buildMeasureOccurrences = (
   let playbackPass = 0;
 
   events.forEach((event) => {
-    const measure = event.measureNumber! + firstMeasureNumber;
+    const measure = mapBar(event.measureNumber!);
     const startsMeasure = event.measureStart === true || measure !== lastTimingMeasure;
     lastTimingMeasure = measure;
     if (!startsMeasure) return;

@@ -234,7 +234,7 @@ export const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
             Measure
             <input
               type="number"
-              min={startMeasure || 1}
+              min={startMeasure ?? 1}
               max={endMeasure || undefined}
               value={positionMeasure}
               onChange={(event) => setPositionMeasure(Number(event.target.value))}

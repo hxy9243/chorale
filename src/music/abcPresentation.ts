@@ -2,7 +2,7 @@ import abcjs from 'abcjs';
 import { parseKeySignature } from 'abc-utils';
 
 import { prepareAbcWithMap } from '../utils/abcAudio';
-import { extractScore, isFirstMeasurePickup } from './scoreSnapshot';
+import { computeScoreMeasureMapping, extractScore } from './scoreSnapshot';
 import {
   addRationalDurations,
   compareRationalDurations,
@@ -94,7 +94,7 @@ type MutableCell = {
   isMultimeasure?: boolean;
 };
 
-type VoiceState = { measureNumber: number; hasEvents: boolean; elapsed: number };
+type VoiceState = { measureNumber: number; barIndex: number; hasEvents: boolean; elapsed: number };
 
 const FATAL_WARNING = /meter|chord|key|parse|unclosed|cannot|invalid|bad|error|illegal/i;
 
@@ -243,8 +243,8 @@ export const buildAbcPresentation = (abc: string): AbcPresentation => {
   const boundaryRanges: AbcTextRange[] = [];
   let voiceSlot = 0;
 
-  const isPickup = isFirstMeasurePickup(tune as any);
-  const initialMeasureNumber = isPickup ? 0 : 1;
+  const mapping = computeScoreMeasureMapping(tune as any);
+  const initialMeasureNumber = mapping.firstMeasureNumber;
 
   for (const line of tune.lines || []) {
     voiceSlot = 0;
@@ -255,7 +255,12 @@ export const buildAbcPresentation = (abc: string): AbcPresentation => {
           encounteredVoiceIds.push(voiceId);
           voiceCellsMap.set(voiceId, []);
         }
-        const state = states.get(voiceId) || { measureNumber: initialMeasureNumber, hasEvents: false, elapsed: 0 };
+        const state = states.get(voiceId) || {
+          measureNumber: mapping.barToMeasure[0] ?? initialMeasureNumber,
+          barIndex: 0,
+          hasEvents: false,
+          elapsed: 0,
+        };
         for (const element of voice) {
           const range = sourceRange(element, toOriginalOffset);
           if (element.el_type === 'bar') {
@@ -280,8 +285,13 @@ export const buildAbcPresentation = (abc: string): AbcPresentation => {
                 cell.maxEnd = Math.max(cell.maxEnd, range.end);
               }
             }
-            if (state.hasEvents) {
-              state.measureNumber += 1;
+            if (!state.hasEvents) {
+              continue;
+            }
+            state.barIndex += 1;
+            const nextMeasureNumber = mapping.barToMeasure[state.barIndex] ?? (state.measureNumber + 1);
+            if (nextMeasureNumber !== state.measureNumber) {
+              state.measureNumber = nextMeasureNumber;
               state.hasEvents = false;
               state.elapsed = 0;
             }
@@ -328,6 +338,7 @@ export const buildAbcPresentation = (abc: string): AbcPresentation => {
               cell.events.push({ range, start: 0, duration: singleDuration });
             }
             state.measureNumber += multimeasureCount - 1;
+            state.barIndex += multimeasureCount - 1;
             state.hasEvents = true;
             state.elapsed = singleDuration;
             continue;
@@ -1089,7 +1100,7 @@ export const analyzeRawAbcLines = (
       activeAnchor && m >= activeAnchor.startMeasure && m <= activeAnchor.endMeasure,
     ));
     const isPlaying = measureNumbers.some((m) => Boolean(
-      playingMeasure && m === playingMeasure,
+      playingMeasure != null && m === playingMeasure,
     ));
 
     const segments: RawLineSegment[] = [];
