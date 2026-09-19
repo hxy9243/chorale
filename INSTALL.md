@@ -83,7 +83,7 @@ chorale status
 # Gracefully stop only the verified Chorale daemon recorded in ~/.chorale/runtime.json
 chorale stop
 
-# Restart the verified daemon after a package update, preserving score data
+# Pull the latest release and restart the verified daemon, preserving score data
 chorale upgrade
 
 # Show command line help and available options
@@ -98,7 +98,7 @@ chorale mcp
 - `chorale mcp`: Starts the MCP stdio adapter. Ensures the background service is running on port 1685 and proxies all score tool calls to it.
 - `chorale status`: Reports health, port, and PID from recorded runtime metadata without starting a daemon.
 - `chorale stop`: Stops only the healthy daemon whose PID and port match `~/.chorale/runtime.json`.
-- `chorale upgrade`: Stops the verified daemon, spawns the updated version, and preserves score data in `~/.chorale/`.
+- `chorale upgrade`: Automatically pulls the latest release (pulling git updates and rebuilding workspace assets when run in a source checkout, or updating via npm for package installs), gracefully restarts the verified daemon, and preserves score data in `~/.chorale/`. (Supports `--skip-pull` if you only want to restart).
 - `chorale help`: Displays usage guidance, available commands, and options.
 
 ---
@@ -213,21 +213,21 @@ If you prefer connecting over HTTP Server-Sent Events to an already active Chora
 
 ## 5. Upgrade Process
 
-To upgrade Chorale after installing a newer package or pulling latest changes:
+To upgrade Chorale to the latest release:
 
 ```bash
-# For global npm package:
-npm update --global @chorale/cli
-chorale upgrade
-
-# For source repository:
-git pull origin main
-npm install
-npm run build
 chorale upgrade
 ```
 
-`chorale upgrade` preserves all score files and history in `~/.chorale/`. Start a new agent task when tool definitions are updated.
+`chorale upgrade` automatically:
+1. Pulls the latest release (running `git pull` and rebuilding workspace assets when run in a source/linked checkout, or updating via npm for global package installs).
+2. Gracefully restarts the verified Chorale daemon.
+3. Preserves all score files and history in `~/.chorale/`.
+
+If you already updated the repository manually or only want to restart the daemon, pass `--skip-pull`:
+```bash
+chorale upgrade --skip-pull
+```
 
 ---
 

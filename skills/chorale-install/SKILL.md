@@ -34,14 +34,14 @@ chorale status
 # Gracefully stop the verified daemon
 chorale stop
 
-# Restart the verified daemon after an update
+# Pull latest release and restart the verified daemon
 chorale upgrade
 ```
 
 - `chorale` is idempotent: it starts the daemon in the background only when its health endpoint is unavailable, then opens the browser workspace. Never start a second server or choose a fallback port.
 - `chorale status` does not launch a daemon. It reports the healthy process and its runtime metadata.
 - `chorale stop` terminates only the daemon whose PID and port match `~/.chorale/runtime.json`.
-- `chorale upgrade` gracefully stops the running daemon and starts the updated executable while preserving score data in `~/.chorale/`.
+- `chorale upgrade` pulls the latest release (fetching git commits and rebuilding workspace assets, or updating via npm) and gracefully restarts the running daemon while preserving score data in `~/.chorale/`. Use `--skip-pull` to only restart.
 
 ## 3. Agent MCP Integration
 
@@ -132,13 +132,13 @@ Add Chorale to your Claude MCP configuration (e.g. `~/.config/Claude/claude_desk
 
 ## 4. Upgrade Process
 
-After pulling latest changes or upgrading the package:
+To upgrade Chorale to the latest release:
 
 ```bash
 chorale upgrade
 ```
 
-`chorale upgrade` preserves all score files in `~/.chorale/`. Start a new Codex or agent task when the tool catalog changes.
+`chorale upgrade` automatically pulls the latest release (pulling git changes and rebuilding workspace assets, or updating via npm) and restarts the background daemon while preserving all score files in `~/.chorale/`. If you only want to restart without pulling, use `chorale upgrade --skip-pull`. Start a new Codex or agent task when the tool catalog changes.
 
 ## 5. Verification
 

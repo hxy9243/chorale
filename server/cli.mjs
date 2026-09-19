@@ -1,4 +1,8 @@
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createMcpServer } from './mcp/index.mjs';
 import { proxyDaemonTools } from './daemon-mutations.mjs';
@@ -18,6 +22,84 @@ import { LocalDocumentStore } from './store.mjs';
 import { openBrowser } from './mcp/tools/workspace.mjs';
 import { ViewSnapshotStore } from './views.mjs';
 import { CHORALE_VERSION } from './version.mjs';
+
+export const resolvePackageRoot = (entrypoint) => {
+  if (entrypoint) {
+    return resolve(dirname(entrypoint), '..');
+  }
+  const currentDir = dirname(fileURLToPath(import.meta.url));
+  return resolve(currentDir, '..');
+};
+
+export const defaultExecCommand = async (cmd, args = [], options = {}) => {
+  const execFileAsync = promisify(execFile);
+  const result = await execFileAsync(cmd, args, {
+    cwd: options.cwd,
+    env: options.env || process.env,
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  return {
+    stdout: result.stdout?.toString() ?? '',
+    stderr: result.stderr?.toString() ?? '',
+  };
+};
+
+export const pullLatestRelease = async (options = {}) => {
+  const logger = options.logger || console;
+  const entrypoint = options.entrypoint;
+  const packageRoot = options.packageRoot || resolvePackageRoot(entrypoint);
+  const runCommand = options.execCommand || defaultExecCommand;
+
+  let isGit = options.isGit;
+  if (typeof isGit === 'function') {
+    isGit = await isGit(packageRoot);
+  } else if (typeof isGit !== 'boolean') {
+    if (existsSync(join(packageRoot, '.git'))) {
+      isGit = true;
+    } else {
+      try {
+        const res = await runCommand('git', ['rev-parse', '--is-inside-work-tree'], { cwd: packageRoot });
+        isGit = res.stdout.trim() === 'true';
+      } catch {
+        isGit = false;
+      }
+    }
+  }
+
+  if (isGit) {
+    logger.log('Pulling latest release from git...');
+    const pullResult = await runCommand('git', ['pull'], { cwd: packageRoot });
+    if (pullResult.stdout?.trim()) {
+      logger.log(pullResult.stdout.trim());
+    }
+
+    logger.log('Building workspace assets...');
+    const buildResult = await runCommand('npm', ['run', 'build'], { cwd: packageRoot });
+    if (buildResult.stderr && !buildResult.stdout) {
+      logger.log(buildResult.stderr.trim());
+    }
+
+    return { updated: true, strategy: 'git' };
+  }
+
+  let pkgJson;
+  try {
+    const pkgPath = join(packageRoot, 'package.json');
+    if (existsSync(pkgPath)) {
+      pkgJson = JSON.parse(readFileSync(pkgPath, 'utf8'));
+    }
+  } catch {}
+
+  const packageName = options.packageName || pkgJson?.name;
+  if (packageName && !pkgJson?.private) {
+    logger.log(`Updating ${packageName} via npm...`);
+    await runCommand('npm', ['install', '-g', `${packageName}@latest`]);
+    return { updated: true, strategy: 'npm' };
+  }
+
+  logger.log('No git repository or publishable package detected; skipping release pull.');
+  return { updated: false, strategy: 'none' };
+};
 
 export const ensureDaemon = async (options = {}) => {
   const port = options.port || CHORALE_PORT;
@@ -187,7 +269,7 @@ Commands:
   start            Start the Chorale background daemon and open the workspace in browser (default)
   status           Show status and runtime metadata of the running Chorale daemon
   stop             Gracefully stop the running Chorale daemon
-  upgrade          Restart the verified daemon after a package update, preserving score data
+  upgrade          Pull the latest release and restart the verified daemon, preserving score data
   mcp              Start the MCP stdio server adapter for AI coding agents
   help             Display this help message
   version          Display version information
@@ -197,6 +279,7 @@ Options:
   -v, --version    Show version number
       --stdio      Start MCP server over stdio (alias for 'mcp')
       --serve      Run daemon in foreground (internal)
+      --skip-pull  Skip pulling the latest release during upgrade
 `;
 
 export const runCli = async (options = {}) => {
@@ -251,6 +334,16 @@ export const runCli = async (options = {}) => {
   }
 
   if (command === 'upgrade') {
+    const skipPull = args.includes('--skip-pull') || args.includes('--no-pull');
+    if (!skipPull) {
+      try {
+        const pull = options.pullLatest || pullLatestRelease;
+        await pull({ ...options, entrypoint, logger });
+      } catch (error) {
+        logger.error(`Failed to pull latest release: ${error.message}`);
+        return { statusCode: 1, error: error.message };
+      }
+    }
     const stopped = await (options.stopDaemon || stopDaemon)({ ...options, port });
     const ensured = await ensure({ ...options, port, entrypoint });
     logger.log(stopped.stopped

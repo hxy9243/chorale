@@ -14,6 +14,8 @@ import {
 import {
   HELP_TEXT,
   ensureDaemon,
+  pullLatestRelease,
+  resolvePackageRoot,
   runCli,
   runDaemon,
   stopDaemon,
@@ -275,5 +277,186 @@ test('stopDaemon cleans up runtime.json upon stopping matching runtime', async (
     await rm(choraleHome, { recursive: true, force: true });
   }
 });
+
+test('resolvePackageRoot resolves package root from entrypoint or fallback', () => {
+  assert.equal(resolvePackageRoot('/custom/dir/bin/chorale.mjs'), '/custom/dir');
+  assert.ok(resolvePackageRoot().endsWith('chorale'));
+});
+
+test('pullLatestRelease pulls git commits and builds workspace assets in a git repository', async () => {
+  const commands = [];
+  const logs = [];
+  const logger = { log: (msg) => logs.push(msg), error: () => {} };
+  const result = await pullLatestRelease({
+    packageRoot: '/test/repo',
+    isGit: true,
+    logger,
+    execCommand: async (cmd, args, opts) => {
+      commands.push({ cmd, args, opts });
+      if (cmd === 'git') return { stdout: 'Updating abc123..def456\nFast-forward\n' };
+      if (cmd === 'npm') return { stdout: 'dist/index.html 0.90 kB\nbuilt in 1.2s' };
+      return { stdout: '' };
+    },
+  });
+
+  assert.equal(result.updated, true);
+  assert.equal(result.strategy, 'git');
+  assert.equal(commands.length, 2);
+  assert.deepEqual(commands[0], { cmd: 'git', args: ['pull'], opts: { cwd: '/test/repo' } });
+  assert.deepEqual(commands[1], { cmd: 'npm', args: ['run', 'build'], opts: { cwd: '/test/repo' } });
+  assert.ok(logs.some((l) => l.includes('Pulling latest release from git')));
+  assert.ok(logs.some((l) => l.includes('Building workspace assets')));
+});
+
+test('pullLatestRelease updates package via npm when not in a git repo and package is public', async () => {
+  const commands = [];
+  const logs = [];
+  const logger = { log: (msg) => logs.push(msg), error: () => {} };
+  const result = await pullLatestRelease({
+    packageRoot: '/test/npm-pkg',
+    isGit: false,
+    packageName: '@chorale/cli',
+    logger,
+    execCommand: async (cmd, args, opts) => {
+      commands.push({ cmd, args, opts });
+      return { stdout: '' };
+    },
+  });
+
+  assert.equal(result.updated, true);
+  assert.equal(result.strategy, 'npm');
+  assert.equal(commands.length, 1);
+  assert.deepEqual(commands[0].args, ['install', '-g', '@chorale/cli@latest']);
+  assert.ok(logs.some((l) => l.includes('Updating @chorale/cli via npm')));
+});
+
+test('pullLatestRelease skips pulling when not in git and no public package name', async () => {
+  const commands = [];
+  const logs = [];
+  const logger = { log: (msg) => logs.push(msg), error: () => {} };
+  const result = await pullLatestRelease({
+    packageRoot: '/test/unknown',
+    isGit: false,
+    packageName: null,
+    logger,
+    execCommand: async (cmd, args, opts) => {
+      commands.push({ cmd, args, opts });
+      return { stdout: '' };
+    },
+  });
+
+  assert.equal(result.updated, false);
+  assert.equal(result.strategy, 'none');
+  assert.equal(commands.length, 0);
+  assert.ok(logs.some((l) => l.includes('skipping release pull')));
+});
+
+test('runCli upgrade pulls latest release and restarts running server', async () => {
+  const calls = [];
+  const logs = [];
+  const logger = { log: (msg) => logs.push(msg), error: () => {} };
+  const result = await runCli({
+    args: ['upgrade'],
+    logger,
+    pullLatest: async () => {
+      calls.push('pull');
+      return { updated: true, strategy: 'git' };
+    },
+    stopDaemon: async () => {
+      calls.push('stop');
+      return { stopped: true };
+    },
+    ensureDaemon: async () => {
+      calls.push('ensure');
+      return { health: { version: '1.2.3', port: 1685 }, started: true };
+    },
+  });
+
+  assert.deepEqual(calls, ['pull', 'stop', 'ensure']);
+  assert.equal(result.stopped, true);
+  assert.equal(result.health.version, '1.2.3');
+  assert.ok(logs.some((l) => l.includes('Chorale service restarted at version 1.2.3.')));
+});
+
+test('runCli upgrade pulls latest release and starts server if daemon was not running', async () => {
+  const calls = [];
+  const logs = [];
+  const logger = { log: (msg) => logs.push(msg), error: () => {} };
+  const result = await runCli({
+    args: ['upgrade'],
+    logger,
+    pullLatest: async () => {
+      calls.push('pull');
+      return { updated: true, strategy: 'git' };
+    },
+    stopDaemon: async () => {
+      calls.push('stop');
+      return { stopped: false };
+    },
+    ensureDaemon: async () => {
+      calls.push('ensure');
+      return { health: { version: '2.0.0', port: 1685 }, started: true };
+    },
+  });
+
+  assert.deepEqual(calls, ['pull', 'stop', 'ensure']);
+  assert.equal(result.stopped, false);
+  assert.equal(result.health.version, '2.0.0');
+  assert.ok(logs.some((l) => l.includes('Chorale service started at version 2.0.0.')));
+});
+
+test('runCli upgrade respects --skip-pull and --no-pull flags', async () => {
+  for (const flag of ['--skip-pull', '--no-pull']) {
+    const calls = [];
+    const logs = [];
+    const logger = { log: (msg) => logs.push(msg), error: () => {} };
+    const result = await runCli({
+      args: ['upgrade', flag],
+      logger,
+      pullLatest: async () => {
+        calls.push('pull');
+      },
+      stopDaemon: async () => {
+        calls.push('stop');
+        return { stopped: true };
+      },
+      ensureDaemon: async () => {
+        calls.push('ensure');
+        return { health: { version: '1.0.0' } };
+      },
+    });
+
+    assert.deepEqual(calls, ['stop', 'ensure']);
+    assert.equal(result.stopped, true);
+  }
+});
+
+test('runCli upgrade aborts without stopping running server when pull fails', async () => {
+  const calls = [];
+  const errors = [];
+  const logger = { log: () => {}, error: (msg) => errors.push(msg) };
+  const result = await runCli({
+    args: ['upgrade'],
+    logger,
+    pullLatest: async () => {
+      calls.push('pull');
+      throw new Error('Connection refused to git remote');
+    },
+    stopDaemon: async () => {
+      calls.push('stop');
+      return { stopped: true };
+    },
+    ensureDaemon: async () => {
+      calls.push('ensure');
+      return { health: { version: '1.0.0' } };
+    },
+  });
+
+  assert.deepEqual(calls, ['pull']);
+  assert.equal(result.statusCode, 1);
+  assert.match(result.error, /Connection refused to git remote/);
+  assert.ok(errors.some((e) => e.includes('Failed to pull latest release: Connection refused to git remote')));
+});
+
 
 
