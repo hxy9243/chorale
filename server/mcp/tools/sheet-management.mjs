@@ -61,8 +61,8 @@ export const createSheetManagementTools = (store, views) => {
           }, `Read selected measures ${view.selection.startMeasure}–${view.selection.endMeasure} from view.`);
         }
 
-        const start = startMeasure || 1;
-        const end = endMeasure || start;
+        const start = Number.isInteger(startMeasure) ? startMeasure : 1;
+        const end = Number.isInteger(endMeasure) ? endMeasure : start;
         const sliced = sliceMeasureRange(doc.abcSource, start, end, voiceId);
 
         const scoreTitle = doc.title || doc.scoreInfo?.title || doc.name || 'Untitled score';
@@ -153,8 +153,8 @@ export const createSheetManagementTools = (store, views) => {
           const startMeasure = Number.isInteger(notation.startMeasure) ? notation.startMeasure : undefined;
           const endMeasure = Number.isInteger(notation.endMeasure) ? notation.endMeasure : startMeasure;
 
-          if (startMeasure === undefined || startMeasure <= 0 || endMeasure === undefined || endMeasure < startMeasure) {
-            throw new PluginError('INVALID_NOTATION', 'Invalid measure bounds: startMeasure must be >= 1 and endMeasure >= startMeasure.');
+          if (startMeasure === undefined || startMeasure < 0 || endMeasure === undefined || endMeasure < startMeasure) {
+            throw new PluginError('INVALID_NOTATION', 'Invalid measure bounds: startMeasure must be >= 0 and endMeasure >= startMeasure.');
           }
 
           const kind = notation.kind || (notation.chordSymbol ? 'chord' : 'explanation');
@@ -222,11 +222,11 @@ export const createSheetManagementTools = (store, views) => {
           throw new PluginError('NOTATION_NOT_FOUND', `Notation "${notationId}" was not found.`);
         }
 
-        if (updates.startMeasure !== undefined && (!Number.isInteger(updates.startMeasure) || updates.startMeasure <= 0)) {
-          throw new PluginError('INVALID_NOTATION', 'startMeasure must be a positive integer.');
+        if (updates.startMeasure !== undefined && (!Number.isInteger(updates.startMeasure) || updates.startMeasure < 0)) {
+          throw new PluginError('INVALID_NOTATION', 'startMeasure must be a non-negative integer.');
         }
-        if (updates.endMeasure !== undefined && (!Number.isInteger(updates.endMeasure) || updates.endMeasure <= 0)) {
-          throw new PluginError('INVALID_NOTATION', 'endMeasure must be a positive integer.');
+        if (updates.endMeasure !== undefined && (!Number.isInteger(updates.endMeasure) || updates.endMeasure < 0)) {
+          throw new PluginError('INVALID_NOTATION', 'endMeasure must be a non-negative integer.');
         }
 
         const now = new Date().toISOString();
@@ -296,10 +296,10 @@ export const createSheetManagementTools = (store, views) => {
         let annotations = Array.isArray(doc.annotations) ? doc.annotations : [];
 
         if (startMeasure !== undefined) {
-          const end = endMeasure || startMeasure;
+          const end = Number.isInteger(endMeasure) ? endMeasure : startMeasure;
           annotations = annotations.filter((ann) => {
-            const aStart = ann.startMeasure || ann.span?.startMeasure || 1;
-            const aEnd = ann.endMeasure || ann.span?.endMeasure || aStart;
+            const aStart = Number.isInteger(ann.startMeasure) ? ann.startMeasure : (ann.span?.startMeasure ?? 1);
+            const aEnd = Number.isInteger(ann.endMeasure) ? ann.endMeasure : (ann.span?.endMeasure ?? aStart);
             return aStart <= end && aEnd >= startMeasure;
           });
         }
@@ -323,8 +323,8 @@ export const createSheetManagementTools = (store, views) => {
       description: 'Read written ABC notation for specific measure(s) or the current user selection in the active view.',
       inputSchema: {
         documentId: z.string().optional().describe('Score document ID (optional; defaults to active document)'),
-        startMeasure: z.number().int().min(1).optional().describe('1-indexed starting measure number'),
-        endMeasure: z.number().int().min(1).optional().describe('1-indexed ending measure number (defaults to startMeasure)'),
+        startMeasure: z.number().int().min(0).optional().describe('Starting measure number (0 for pickup, 1-indexed otherwise)'),
+        endMeasure: z.number().int().min(0).optional().describe('Ending measure number (defaults to startMeasure)'),
         voiceId: z.string().optional().describe('Optional voice ID filter'),
         viewId: z.string().optional().describe('Optional view ID to read active selection from'),
       },
@@ -335,7 +335,7 @@ export const createSheetManagementTools = (store, views) => {
       description: 'Insert new measure(s) before or after a measure in the score.',
       inputSchema: {
         documentId: z.string().min(1).describe('The unique score document ID'),
-        targetMeasure: z.number().int().min(1).describe('1-indexed target measure number'),
+        targetMeasure: z.number().int().min(0).describe('Target measure number (0 for pickup, 1-indexed otherwise)'),
         position: z.enum(['before', 'after']).optional().describe('Insertion position relative to target measure (default "after")'),
         count: z.number().int().min(1).max(64).optional().describe('Number of measures to insert (default 1)'),
         abcContent: z.string().optional().describe('Optional ABC notation content for the inserted measures'),
@@ -348,8 +348,8 @@ export const createSheetManagementTools = (store, views) => {
       description: 'Replace written measures across a specified span with new ABC notation (supports variable measure lengths).',
       inputSchema: {
         documentId: z.string().min(1).describe('The unique score document ID'),
-        startMeasure: z.number().int().min(1).describe('1-indexed start measure number'),
-        endMeasure: z.number().int().min(1).describe('1-indexed end measure number'),
+        startMeasure: z.number().int().min(0).describe('Start measure number (0 for pickup, 1-indexed otherwise)'),
+        endMeasure: z.number().int().min(0).describe('End measure number'),
         replacementAbc: z.string().min(1).describe('Replacement ABC notation for the measures'),
         summary: z.string().optional().describe('Brief description of musical edits made'),
         expectedRevision: z.number().int().positive().describe('Expected current score revision'),
@@ -361,8 +361,8 @@ export const createSheetManagementTools = (store, views) => {
       description: 'Replace written measures across a specified span with new ABC notation (alias of edit_measures).',
       inputSchema: {
         documentId: z.string().min(1).describe('The unique score document ID'),
-        startMeasure: z.number().int().min(1).describe('1-indexed start measure number'),
-        endMeasure: z.number().int().min(1).describe('1-indexed end measure number'),
+        startMeasure: z.number().int().min(0).describe('Start measure number (0 for pickup, 1-indexed otherwise)'),
+        endMeasure: z.number().int().min(0).describe('End measure number'),
         replacementAbc: z.string().min(1).describe('Replacement ABC notation for the measures'),
         summary: z.string().optional().describe('Brief description of musical edits made'),
         expectedRevision: z.number().int().positive().describe('Expected current score revision'),
@@ -374,8 +374,8 @@ export const createSheetManagementTools = (store, views) => {
       description: 'Delete a range of measures from the score.',
       inputSchema: {
         documentId: z.string().min(1).describe('The unique score document ID'),
-        startMeasure: z.number().int().min(1).describe('1-indexed start measure number'),
-        endMeasure: z.number().int().min(1).describe('1-indexed end measure number'),
+        startMeasure: z.number().int().min(0).describe('Start measure number (0 for pickup, 1-indexed otherwise)'),
+        endMeasure: z.number().int().min(0).describe('End measure number'),
         expectedRevision: z.number().int().positive().describe('Expected current score revision'),
       },
     },
@@ -387,8 +387,8 @@ export const createSheetManagementTools = (store, views) => {
         documentId: z.string().min(1).describe('The unique score document ID'),
         expectedRevision: z.number().int().positive().describe('Expected current score revision'),
         notations: z.array(z.object({
-          startMeasure: z.number().int().min(1).describe('Start measure (1-indexed, inclusive)'),
-          endMeasure: z.number().int().min(1).optional().describe('End measure (1-indexed, inclusive)'),
+          startMeasure: z.number().int().min(0).describe('Start measure (0 for pickup, 1-indexed otherwise, inclusive)'),
+          endMeasure: z.number().int().min(0).optional().describe('End measure (inclusive)'),
           label: z.string().max(100).describe('Short label or title'),
           body: z.string().max(2000).optional().describe('Analytical note or description'),
           kind: z.enum(['chord', 'modulation', 'voice-leading', 'explanation']).optional().describe('Kind of notation'),
@@ -406,8 +406,8 @@ export const createSheetManagementTools = (store, views) => {
         expectedRevision: z.number().int().positive().describe('Expected current score revision'),
         notationId: z.string().min(1).describe('The unique notation ID to edit'),
         updates: z.object({
-          startMeasure: z.number().int().min(1).optional(),
-          endMeasure: z.number().int().min(1).optional(),
+          startMeasure: z.number().int().min(0).optional(),
+          endMeasure: z.number().int().min(0).optional(),
           label: z.string().max(100).optional(),
           body: z.string().max(2000).optional(),
           kind: z.enum(['chord', 'modulation', 'voice-leading', 'explanation']).optional(),
@@ -432,8 +432,8 @@ export const createSheetManagementTools = (store, views) => {
       description: 'List all notations for a score document or within a measure span.',
       inputSchema: {
         documentId: z.string().min(1).describe('The unique score document ID'),
-        startMeasure: z.number().int().min(1).optional().describe('Optional start measure filter'),
-        endMeasure: z.number().int().min(1).optional().describe('Optional end measure filter'),
+        startMeasure: z.number().int().min(0).optional().describe('Optional start measure filter'),
+        endMeasure: z.number().int().min(0).optional().describe('Optional end measure filter'),
       },
     },
   };

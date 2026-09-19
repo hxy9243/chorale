@@ -36,6 +36,7 @@ import {
 } from '../utils/scoreSceneSizing';
 import { AnnotationRail } from './AnnotationRail';
 import type { MeasureSystemsSnapshot } from '../music/abcPresentation';
+import { isFirstMeasurePickupAbc } from '../music/scoreSnapshot';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const AUTO_SCROLL_DURATION_MS = 200;
@@ -55,37 +56,107 @@ type SvgBounds = {
   height: number;
 };
 
+const isInterferingElement = (element: Element): boolean => {
+  const classes = element.classList;
+  return (
+    classes.contains('abcjs-dynamics')
+    || classes.contains('abcjs-decoration')
+    || classes.contains('abcjs-hairpin')
+    || classes.contains('abcjs-annotation')
+    || classes.contains('abcjs-chord')
+    || classes.contains('abcjs-tempo')
+    || classes.contains('abcjs-part')
+    || classes.contains('abcjs-lyric')
+    || classes.contains('abcjs-slur')
+    || classes.contains('abcjs-tie')
+    || classes.contains('abcjs-ending')
+    || classes.contains('abcjs-measure-highlight')
+    || classes.contains('abcjs-measure-hit-area')
+    || classes.contains('chorale-line-measure-number')
+    || classes.contains('chorale-above-staff-content')
+  );
+};
+
+const resolveMeasureLineClass = (
+  elements: readonly SVGGraphicsElement[],
+): string | undefined => {
+  // 1. Prefer barlines belonging to this measure
+  for (const element of elements) {
+    if (element.classList.contains('abcjs-bar')) {
+      const lineClass = Array.from(element.classList).find((className) => /^abcjs-l\d+$/.test(className));
+      if (lineClass) return lineClass;
+    }
+  }
+  // 2. Prefer notes or rests belonging to this measure
+  for (const element of elements) {
+    if (element.classList.contains('abcjs-note') || element.classList.contains('abcjs-rest')) {
+      const lineClass = Array.from(element.classList).find((className) => /^abcjs-l\d+$/.test(className));
+      if (lineClass) return lineClass;
+    }
+  }
+  // 3. Prefer non-interfering structural elements
+  for (const element of elements) {
+    if (!isInterferingElement(element)) {
+      const lineClass = Array.from(element.classList).find((className) => /^abcjs-l\d+$/.test(className));
+      if (lineClass) return lineClass;
+    }
+  }
+  // 4. Fallback to any lineClass on elements
+  return elements
+    .flatMap((element) => Array.from(element.classList))
+    .find((className) => /^abcjs-l\d+$/.test(className));
+};
+
 const measureHighlightBounds = (
   container: HTMLDivElement,
   measureIndex: number,
   elements: SVGGraphicsElement[],
 ): SvgBounds => {
-  const contentBoxes = elements.map((element) => element.getBBox());
+  const lineClass = resolveMeasureLineClass(elements);
+
+  // Filter elements to this measure's system line when known, so decorations (e.g. hairpins)
+  // that started on or crossed from another system line are completely ignored.
+  const lineElements = lineClass
+    ? elements.filter((element) => element.classList.contains(lineClass))
+    : elements;
+
+  // Clean elements exclude interfering decorations, hairpins, annotations, chords, voltas, etc.
+  const cleanElements = lineElements.filter((element) => !isInterferingElement(element));
+  const fallbackElements = cleanElements.length > 0
+    ? cleanElements
+    : lineElements.length > 0
+      ? lineElements
+      : elements;
+
+  const contentBoxes = fallbackElements.map((element) => element.getBBox());
   const contentLeft = Math.min(...contentBoxes.map((box) => box.x));
   const contentTop = Math.min(...contentBoxes.map((box) => box.y));
   const contentRight = Math.max(...contentBoxes.map((box) => box.x + box.width));
   const contentBottom = Math.max(...contentBoxes.map((box) => box.y + box.height));
-  const lineClass = elements
-    .flatMap((element) => Array.from(element.classList))
-    .find((className) => /^abcjs-l\d+$/.test(className));
-  const endBarBoxes = elements
+
+  const endBarBoxes = (lineClass ? lineElements : elements)
     .filter((element) => element.classList.contains('abcjs-bar'))
     .map((element) => element.getBBox());
+
   const staffBoxes = lineClass
     ? Array.from(container.querySelectorAll<SVGGraphicsElement>(`.abcjs-staff.${lineClass}`))
       .filter((element) => typeof element.getBBox === 'function')
       .map((element) => element.getBBox())
     : [];
-  const previousBarBoxes = measureIndex > 0 && lineClass
-    ? Array.from(container.querySelectorAll<SVGGraphicsElement>(
-      `.abcjs-mm${measureIndex - 1}.abcjs-bar.${lineClass}`,
-    ))
+
+  const previousBarSelector = lineClass
+    ? `.abcjs-mm${measureIndex - 1}.abcjs-bar.${lineClass}`
+    : `.abcjs-mm${measureIndex - 1}.abcjs-bar`;
+  const previousBarBoxes = measureIndex > 0
+    ? Array.from(container.querySelectorAll<SVGGraphicsElement>(previousBarSelector))
       .filter((element) => typeof element.getBBox === 'function')
       .map((element) => element.getBBox())
     : [];
+
   const endingBarLeft = endBarBoxes.length > 0
     ? Math.max(...endBarBoxes.map((box) => box.x))
     : null;
+
   const openingBarBoxes = endingBarLeft === null
     ? []
     : endBarBoxes.filter((box) => box.x + box.width < endingBarLeft - 1);
@@ -97,23 +168,29 @@ const measureHighlightBounds = (
       : staffBoxes.length > 0
         ? Math.min(...staffBoxes.map((box) => box.x))
         : contentLeft;
+
   const right = endingBarLeft !== null
     ? endingBarLeft
-    : contentRight;
-  const verticalBoxes = endBarBoxes.length > 0
-    ? endBarBoxes
     : staffBoxes.length > 0
-      ? staffBoxes
+      ? Math.max(...staffBoxes.map((box) => box.x + box.width))
+      : contentRight;
+
+  // Prefer staff lines for vertical boundaries so decorations above/below staff never stretch height.
+  // Fall back to barlines, then contentBoxes if staff lines are absent.
+  const verticalBoxes = staffBoxes.length > 0
+    ? staffBoxes
+    : endBarBoxes.length > 0
+      ? endBarBoxes
       : contentBoxes;
   const top = Math.min(...verticalBoxes.map((box) => box.y));
   const bottom = Math.max(...verticalBoxes.map((box) => box.y + box.height));
 
   if (right <= left || bottom <= top) {
     return {
-      x: contentLeft,
-      y: contentTop,
-      width: contentRight - contentLeft,
-      height: contentBottom - contentTop,
+      x: left < right ? left : contentLeft,
+      y: top < bottom ? top : contentTop,
+      width: Math.max(1, right > left ? right - left : contentRight - contentLeft),
+      height: Math.max(1, bottom > top ? bottom - top : contentBottom - contentTop),
     };
   }
 
@@ -124,22 +201,28 @@ const resolveClickedMeasure = (
   abcElem: { measureNumber?: number } | null | undefined,
   classes = '',
   analysis?: { measure?: number },
+  firstMeasureNumber = 1,
 ): number | null => {
   const globalMeasure = classes.match(/(?:^|\s)abcjs-mm(\d+)(?:\s|$)/);
-  if (globalMeasure) return Number(globalMeasure[1]) + 1;
-  if (typeof analysis?.measure === 'number') return analysis.measure + 1;
-  if (typeof abcElem?.measureNumber === 'number') return abcElem.measureNumber + 1;
+  if (globalMeasure) return Number(globalMeasure[1]) + firstMeasureNumber;
+  if (typeof analysis?.measure === 'number') return analysis.measure + firstMeasureNumber;
+  if (typeof abcElem?.measureNumber === 'number') return abcElem.measureNumber + firstMeasureNumber;
   // Cannot resolve measure — returning null prevents clobbering selectionOriginRef
   // with a bogus measure 1 when clicking on staff lines, barlines, or whitespace.
   return null;
 };
 
-const highlightMeasures = (container: HTMLDivElement, anchor: ScoreAnchor | null) => {
+const highlightMeasures = (
+  container: HTMLDivElement,
+  anchor: ScoreAnchor | null,
+  firstMeasureNumber = 1,
+) => {
   container.querySelectorAll('.abcjs-measure-highlight').forEach((element) => element.remove());
   if (!anchor) return;
 
   for (let measure = anchor.startMeasure; measure <= anchor.endMeasure; measure += 1) {
-    const measureIndex = Math.max(0, measure - 1);
+    const measureIndex = measure - firstMeasureNumber;
+    if (measureIndex < 0) continue;
     const elements = Array.from(container.querySelectorAll<SVGGraphicsElement>(
       `.abcjs-mm${measureIndex}`,
     )).filter((element) => typeof element.getBBox === 'function');
@@ -182,7 +265,10 @@ const renderedMeasureIndex = (element: Element): number | null => {
   return null;
 };
 
-const collectRenderedMeasureSystems = (container: HTMLDivElement): readonly (readonly number[])[] => {
+const collectRenderedMeasureSystems = (
+  container: HTMLDivElement,
+  firstMeasureNumber = 1,
+): readonly (readonly number[])[] => {
   const lineClasses = new Set<string>();
   container.querySelectorAll('.abcjs-staff').forEach((staff) => {
     Array.from(staff.classList).forEach((className) => {
@@ -194,13 +280,16 @@ const collectRenderedMeasureSystems = (container: HTMLDivElement): readonly (rea
     .map((lineClass) => Object.freeze(Array.from(new Set(
       Array.from(container.querySelectorAll(`.abcjs-bar.${lineClass}`)).flatMap((bar) => {
         const index = renderedMeasureIndex(bar);
-        return index === null ? [] : [index + 1];
+        return index === null ? [] : [index + firstMeasureNumber];
       }),
     )).sort((left, right) => left - right)))
     .filter((system) => system.length > 0));
 };
 
-const installLineStartMeasureNumbers = (container: HTMLDivElement) => {
+const installLineStartMeasureNumbers = (
+  container: HTMLDivElement,
+  firstMeasureNumber = 1,
+) => {
   container.querySelectorAll('.chorale-line-measure-number').forEach((element) => element.remove());
 
   const lineClasses = new Set<string>();
@@ -227,7 +316,7 @@ const installLineStartMeasureNumbers = (container: HTMLDivElement) => {
       const svg = staffElements[0].ownerSVGElement;
       if (!svg) return;
       const staffBoxes = staffElements.map((element) => element.getBBox());
-      const measure = Math.min(...measureIndexes) + 1;
+      const measure = Math.min(...measureIndexes) + firstMeasureNumber;
       const label = document.createElementNS(SVG_NAMESPACE, 'text');
       label.classList.add('chorale-line-measure-number', lineClass);
       label.dataset.measure = String(measure);
@@ -323,7 +412,7 @@ const resolveMeasureFromClientXY = (
       && clientY >= rect.top && clientY <= rect.bottom
     ) {
       const measure = Number(hitArea.dataset.measure);
-      return Number.isFinite(measure) && measure > 0 ? measure : null;
+      return Number.isFinite(measure) && measure >= 0 ? measure : null;
     }
   }
   return null;
@@ -332,31 +421,28 @@ const resolveMeasureFromClientXY = (
 const installMeasureHitAreas = (
   container: HTMLDivElement,
   onSelectMeasure: (measure: number, modifiers: SelectionModifiers) => void,
+  firstMeasureNumber = 1,
 ) => {
   container.querySelectorAll('.abcjs-measure-hit-area').forEach((element) => element.remove());
   const measureCount = getRenderedMeasureCount(container);
 
-  for (let measure = 1; measure <= measureCount; measure += 1) {
+  for (let index = 0; index < measureCount; index += 1) {
+    const measure = index + firstMeasureNumber;
     const elements = Array.from(container.querySelectorAll<SVGGraphicsElement>(
-      `.abcjs-mm${measure - 1}`,
+      `.abcjs-mm${index}`,
     )).filter((element) => typeof element.getBBox === 'function');
     if (elements.length === 0) continue;
-
-    const boxes = elements.map((element) => element.getBBox());
-    const left = Math.min(...boxes.map((box) => box.x));
-    const top = Math.min(...boxes.map((box) => box.y));
-    const right = Math.max(...boxes.map((box) => box.x + box.width));
-    const bottom = Math.max(...boxes.map((box) => box.y + box.height));
+    const bounds = measureHighlightBounds(container, index, elements);
     const svg = elements[0].ownerSVGElement;
     if (!svg) continue;
 
     const hitArea = document.createElementNS(SVG_NAMESPACE, 'rect');
     hitArea.classList.add('abcjs-measure-hit-area');
     hitArea.dataset.measure = String(measure);
-    hitArea.setAttribute('x', String(left - 8));
-    hitArea.setAttribute('y', String(top - 12));
-    hitArea.setAttribute('width', String(right - left + 16));
-    hitArea.setAttribute('height', String(bottom - top + 24));
+    hitArea.setAttribute('x', String(bounds.x));
+    hitArea.setAttribute('y', String(bounds.y - 12));
+    hitArea.setAttribute('width', String(bounds.width));
+    hitArea.setAttribute('height', String(bounds.height + 24));
     hitArea.setAttribute('rx', '6');
     hitArea.setAttribute('role', 'button');
     hitArea.setAttribute('tabindex', '0');
@@ -431,6 +517,8 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   onUpdateAnnotation,
   onDeleteAnnotation,
 }) => {
+  const isPickup = React.useMemo(() => isFirstMeasurePickupAbc(abcCode), [abcCode]);
+  const firstMeasureNumber = isPickup ? 0 : 1;
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const sheetViewportRef = useRef<HTMLDivElement>(null);
@@ -646,7 +734,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     const measureCount = containerRef.current
       ? getRenderedMeasureCount(containerRef.current)
       : 1;
-    const fallbackFraction = Math.max(0, Math.min(1, (startMeasure - 1) / measureCount));
+    const fallbackFraction = Math.max(0, Math.min(1, (startMeasure - firstMeasureNumber) / measureCount));
     const tune = renderedTuneRef.current;
     tune?.setTiming?.(tune.getBpm?.());
     const totalTime = tune?.getTotalTime?.();
@@ -664,7 +752,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       playbackFraction: selected?.playbackFraction ?? fallbackFraction,
       ...(playbackSeconds !== undefined ? { playbackSeconds } : {}),
     };
-  }, [getPlaybackPosition]);
+  }, [getPlaybackPosition, firstMeasureNumber]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -746,7 +834,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
           const modifiersToUse = capturedModifiers;
           capturedModifiers = NO_SELECTION_MODIFIERS;
           if (!abcElem) return;
-          const measure = resolveClickedMeasure(abcElem, classes, analysis);
+          const measure = resolveClickedMeasure(abcElem, classes, analysis, firstMeasureNumber);
           if (measure === null) return;
           selectMeasure(measure, abcElem.startChar, modifiersToUse);
         },
@@ -759,18 +847,22 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       });
       renderedTune = tunes?.[0] || null;
       renderedTuneRef.current = renderedTune;
+      const renderedSvg = containerRef.current.querySelector('svg');
+      if (renderedSvg) {
+        renderedSvg.setAttribute('data-first-measure-number', String(firstMeasureNumber));
+      }
       hideSyntheticTupletRests(abcCode, tunes);
       configureAudioPlayback(abcCode, tunes);
-      measureOccurrencesRef.current = renderedTune ? buildMeasureOccurrences(renderedTune) : [];
-      installLineStartMeasureNumbers(containerRef.current);
+      measureOccurrencesRef.current = renderedTune ? buildMeasureOccurrences(renderedTune, firstMeasureNumber) : [];
+      installLineStartMeasureNumbers(containerRef.current, firstMeasureNumber);
       installAboveStaffContentOffsets(containerRef.current);
       installMeasureHitAreas(containerRef.current, (measure, modifiers) => {
         // Mark that the hit area handled this click so the abcjs clickListener
         // (which may fire after with wrong SVG-space coordinates) gets skipped.
         hitAreaJustHandled = true;
         selectMeasure(measure, undefined, modifiers);
-      });
-      const systems = collectRenderedMeasureSystems(containerRef.current);
+      }, firstMeasureNumber);
+      const systems = collectRenderedMeasureSystems(containerRef.current, firstMeasureNumber);
       const measureCount = getRenderedMeasureCount(containerRef.current);
       onMeasureSystemsChange?.(documentId && systems.length > 0 ? Object.freeze({
         documentId,
@@ -814,11 +906,11 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       renderedContainer.removeEventListener('click', captureModifiers, true);
       renderedContainer.removeEventListener('click', handleContainerFallbackClick, false);
     };
-  }, [abcCode, documentId, onMeasureSystemsChange, onSelectAnchor, onTuneRendered, resolvePlaybackAnchor, revision, transpose]);
+  }, [abcCode, documentId, firstMeasureNumber, onMeasureSystemsChange, onSelectAnchor, onTuneRendered, resolvePlaybackAnchor, revision, transpose]);
 
   useEffect(() => {
     if (!containerRef.current) return;
-    highlightMeasures(containerRef.current, activeAnchor);
+    highlightMeasures(containerRef.current, activeAnchor, firstMeasureNumber);
     updateMeasureHitAreaSelection(containerRef.current, activeAnchor);
     // Keep selectionOriginRef consistent with the displayed anchor so that
     // shift-clicks always extend from the correct measure even after external
@@ -839,7 +931,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         };
       }
     }
-  }, [abcCode, activeAnchor, transpose]);
+  }, [abcCode, activeAnchor, firstMeasureNumber, transpose]);
 
   useEffect(() => {
     const container = containerRef.current;

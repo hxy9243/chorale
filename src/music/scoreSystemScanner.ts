@@ -172,7 +172,7 @@ export function extractBBoxFromElement(el: Element): BBox | null {
  * Scans an SVG element or container for rendered abcjs systems (`abcjs-l\d+`),
  * measures (`abcjs-mm\d+`), and bounding boxes for staves and musical elements.
  */
-export function scanScoreSystems(root: Element): ScannedScoreSystem[] {
+export function scanScoreSystems(root: Element, firstMeasureNumber = 1): ScannedScoreSystem[] {
   const lineClassSet = new Set<string>();
   root.querySelectorAll<SVGGraphicsElement>('[class*="abcjs-l"]').forEach((el) => {
     Array.from(el.classList).forEach((className) => {
@@ -200,13 +200,13 @@ export function scanScoreSystems(root: Element): ScannedScoreSystem[] {
       Array.from(el.classList).forEach((cls) => {
         const match = cls.match(/^abcjs-mm(\d+)$/);
         if (match) {
-          measuresInLine.push(Number(match[1]) + 1);
+          measuresInLine.push(Number(match[1]) + firstMeasureNumber);
         }
       });
     });
 
     const uniqueMeasures = Array.from(new Set(measuresInLine)).sort((a, b) => a - b);
-    const minMeasure = uniqueMeasures.length > 0 ? uniqueMeasures[0] : index + 1;
+    const minMeasure = uniqueMeasures.length > 0 ? uniqueMeasures[0] : index + firstMeasureNumber;
     const maxMeasure = uniqueMeasures.length > 0 ? uniqueMeasures[uniqueMeasures.length - 1] : minMeasure;
 
     // Staff bounding box

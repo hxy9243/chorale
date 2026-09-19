@@ -224,10 +224,172 @@ const formatKey = (key: { root?: string; acc?: string; mode?: string } | undefin
 };
 
 const formatMeter = (meter: ParsedElement | undefined) => {
+  if (meter?.type === 'common_time') return '4/4';
+  if (meter?.type === 'cut_time') return '2/2';
   const part = meter?.value?.[0];
   return part?.num !== undefined && part.den !== undefined
     ? `${part.num}/${part.den}`
     : undefined;
+};
+
+export const getMeterDuration = (tune: ParsedTune): RationalDuration => {
+  const meterElem = tune.getMeter?.() || tune.lines?.[0]?.staff?.[0]?.meter;
+  if (meterElem?.type === 'common_time') return createRationalDuration(1, 1);
+  if (meterElem?.type === 'cut_time') return createRationalDuration(1, 1);
+  const part = meterElem?.value?.[0];
+  if (part?.num !== undefined && part?.den !== undefined) {
+    const numStr = String(part.num);
+    const den = Number(part.den);
+    const num = numStr.includes('+')
+      ? numStr.split('+').reduce((sum, n) => sum + Number(n), 0)
+      : Number(numStr);
+    if (Number.isSafeInteger(num) && Number.isSafeInteger(den) && num > 0 && den > 0) {
+      return createRationalDuration(num, den);
+    }
+  }
+  return createRationalDuration(1, 1);
+};
+
+const getVoiceMeasureDurations = (
+  elements: ParsedElement[],
+): { first: RationalDuration; second?: RationalDuration } | null => {
+  const measureDurations: RationalDuration[] = [];
+  let currentDuration = ZERO_DURATION;
+  let tupletMultiplier = 1;
+  let hasEvents = false;
+
+  for (const element of elements) {
+    if (element.el_type === 'bar') {
+      if (hasEvents) {
+        measureDurations.push(currentDuration);
+        currentDuration = ZERO_DURATION;
+        hasEvents = false;
+        if (measureDurations.length >= 2) break;
+      }
+      continue;
+    }
+
+    if (element.el_type !== 'note' || typeof element.duration !== 'number') {
+      continue;
+    }
+
+    if (element.startTriplet && element.tripletMultiplier) {
+      tupletMultiplier = element.tripletMultiplier;
+    }
+
+    const rawRestText = element.rest?.text;
+    const restCount = typeof rawRestText === 'number'
+      ? rawRestText
+      : typeof rawRestText === 'string' && /^\d+$/.test(rawRestText)
+        ? Number(rawRestText)
+        : 1;
+    const multimeasureCount = element.rest?.type === 'multimeasure'
+      && Number.isSafeInteger(restCount)
+      && restCount > 1
+      ? restCount
+      : 1;
+
+    if (multimeasureCount > 1) {
+      const singleDuration = createRationalDurationFromNumber(
+        (element.duration * tupletMultiplier) / multimeasureCount,
+      );
+      currentDuration = addRationalDurations(currentDuration, singleDuration);
+      hasEvents = true;
+      if (element.endTriplet) tupletMultiplier = 1;
+      measureDurations.push(currentDuration);
+      currentDuration = ZERO_DURATION;
+      hasEvents = false;
+      if (measureDurations.length >= 2) break;
+      continue;
+    }
+
+    const duration = createRationalDurationFromNumber(
+      element.duration * tupletMultiplier,
+    );
+    currentDuration = addRationalDurations(currentDuration, duration);
+    hasEvents = true;
+    if (element.endTriplet) tupletMultiplier = 1;
+  }
+
+  if (hasEvents && measureDurations.length < 2) {
+    measureDurations.push(currentDuration);
+  }
+
+  if (measureDurations.length === 0) return null;
+  return {
+    first: measureDurations[0],
+    second: measureDurations[1],
+  };
+};
+
+export const getFirstTwoMeasureDurations = (
+  tune: ParsedTune,
+): { first: RationalDuration; second?: RationalDuration } | null => {
+  const voiceElementMap = new Map<number, ParsedElement[]>();
+  for (const line of tune.lines || []) {
+    let voiceSlot = 0;
+    for (const staff of line.staff || []) {
+      for (const voice of staff.voices || []) {
+        const slot = voiceSlot++;
+        const list = voiceElementMap.get(slot) || [];
+        list.push(...voice);
+        voiceElementMap.set(slot, list);
+      }
+    }
+  }
+
+  if (voiceElementMap.size === 0) return null;
+
+  let maxFirst: RationalDuration | null = null;
+  let maxSecond: RationalDuration | null = null;
+
+  for (const [, elements] of voiceElementMap) {
+    const durations = getVoiceMeasureDurations(elements);
+    if (!durations) continue;
+    if (!maxFirst || compareRationalDurations(durations.first, maxFirst) > 0) {
+      maxFirst = durations.first;
+    }
+    if (durations.second) {
+      if (!maxSecond || compareRationalDurations(durations.second, maxSecond) > 0) {
+        maxSecond = durations.second;
+      }
+    }
+  }
+
+  if (!maxFirst) return null;
+  return {
+    first: maxFirst,
+    ...(maxSecond ? { second: maxSecond } : {}),
+  };
+};
+
+export const getFirstMeasureDuration = (tune: ParsedTune): RationalDuration | null => {
+  const result = getFirstTwoMeasureDurations(tune);
+  return result ? result.first : null;
+};
+
+export const isFirstMeasurePickup = (tune: ParsedTune): boolean => {
+  const durations = getFirstTwoMeasureDurations(tune);
+  if (!durations || !durations.second) {
+    return false;
+  }
+  const expectedMeter = getMeterDuration(tune);
+  return (
+    compareRationalDurations(durations.first, expectedMeter) < 0 &&
+    compareRationalDurations(durations.second, expectedMeter) >= 0
+  );
+};
+
+export const isFirstMeasurePickupAbc = (abc: string): boolean => {
+  if (!abc.trim()) return false;
+  try {
+    const { prepared } = prepareAbcWithMap(abc);
+    const parsed = abcjs.parseOnly(prepared) as unknown as ParsedTune[];
+    const tune = parsed[0];
+    return tune ? isFirstMeasurePickup(tune) : false;
+  } catch {
+    return false;
+  }
 };
 
 const collectDeclaredVoiceIds = (abc: string): string[] => {
@@ -525,6 +687,9 @@ export const extractScore = (abc: string): ExtractedScore => {
   const measures = new Map<number, MutableMeasure>();
   let voiceSlot = 0;
 
+  const isPickup = isFirstMeasurePickup(tune);
+  const initialMeasureNumber = isPickup ? 0 : 1;
+
   const getMeasure = (measureNumber: number) => {
     let measure = measures.get(measureNumber);
     if (!measure) {
@@ -557,7 +722,7 @@ export const extractScore = (abc: string): ExtractedScore => {
         || declaredVoiceIds[voiceSlot]
         || `voice-${voiceSlot + 1}`;
       const stateBeforeStaff = voiceStates.get(firstVoiceIdOnStaff) || {
-        measureNumber: 1,
+        measureNumber: initialMeasureNumber,
         offset: ZERO_DURATION,
         tupletMultiplier: 1,
         hasEvents: false,
@@ -581,7 +746,7 @@ export const extractScore = (abc: string): ExtractedScore => {
       for (const { voice, voiceId } of resolvedVoices) {
         if (!encounteredVoiceIds.includes(voiceId)) encounteredVoiceIds.push(voiceId);
         const state = voiceStates.get(voiceId) || {
-          measureNumber: 1,
+          measureNumber: initialMeasureNumber,
           offset: ZERO_DURATION,
           tupletMultiplier: 1,
           hasEvents: false,

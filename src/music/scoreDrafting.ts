@@ -61,7 +61,10 @@ export const applyWholeScoreReplacement = (
     return {
       status: 'valid',
       abcSource: replacementAbc,
-      affectedSpan: { startMeasure: 1, endMeasure: replacement.measures.length },
+      affectedSpan: {
+        startMeasure: replacement.measures[0]?.measureNumber ?? 1,
+        endMeasure: replacement.measures.at(-1)?.measureNumber ?? replacement.measures.length,
+      },
     };
   } catch (error) {
     return {
@@ -154,12 +157,12 @@ type SourceEdit = Readonly<{ start: number; end: number; replacement: string }>;
 
 const plainBarTypes = new Set(['bar_thin', 'bar_thin_thick', 'bar_thin_thin']);
 
-const validateSpan = (span: MeasureSpan, totalMeasures: number): string | null => {
+const validateSpan = (span: MeasureSpan, firstMeasure: number, lastMeasure: number): string | null => {
   if (!Number.isInteger(span.startMeasure) || !Number.isInteger(span.endMeasure)) {
     return 'Measure numbers must be whole numbers.';
   }
-  if (span.startMeasure < 1 || span.endMeasure < span.startMeasure || span.endMeasure > totalMeasures) {
-    return `Select measures within 1–${totalMeasures}.`;
+  if (span.startMeasure < firstMeasure || span.endMeasure < span.startMeasure || span.endMeasure > lastMeasure) {
+    return `Select measures within ${firstMeasure}–${lastMeasure}.`;
   }
   return null;
 };
@@ -380,9 +383,13 @@ export const applyMeasureMutation = (
     return { status: 'invalid', errors: [error instanceof Error ? error.message : 'The score ABC is invalid.'] };
   }
 
-  const spanError = validateSpan(mutation.span, score.measures.length);
+  const firstMeasure = score.measures[0]?.measureNumber ?? 1;
+  const lastMeasure = score.measures.at(-1)?.measureNumber ?? score.measures.length;
+  const spanError = validateSpan(mutation.span, firstMeasure, lastMeasure);
   if (spanError) return { status: 'invalid', errors: [spanError] };
-  const selectedMeasures = score.measures.slice(mutation.span.startMeasure - 1, mutation.span.endMeasure);
+  const startIndex = mutation.span.startMeasure - firstMeasure;
+  const endIndex = mutation.span.endMeasure - firstMeasure + 1;
+  const selectedMeasures = score.measures.slice(startIndex, endIndex);
   const sourceErrors = validateWritableSource(
     selectedMeasures,
     score.voices,
@@ -399,7 +406,7 @@ export const applyMeasureMutation = (
     const countError = validateIntegerRange(mutation.count, 'Measures', MIN_DRAFT_MEASURES, MAX_DRAFT_MEASURES);
     if (countError) return { status: 'invalid', errors: [countError] };
     const boundaryMeasure = mutation.position === 'before' ? selectedMeasures[0] : selectedMeasures.at(-1)!;
-    const insertingAtScoreEnd = mutation.position === 'after' && mutation.span.endMeasure === score.measures.length;
+    const insertingAtScoreEnd = mutation.position === 'after' && mutation.span.endMeasure === lastMeasure;
     for (const voiceId of score.voices) {
       const source = sourceForVoice(boundaryMeasure, voiceId)!;
       const rests = Array.from({ length: mutation.count }, () => 'Z |').join(' ');
@@ -624,9 +631,13 @@ export const readMeasureReplacementAbc = (
   span: MeasureSpan,
 ): string => {
   const score = extractScore(abcSource);
-  const spanError = validateSpan(span, score.measures.length);
+  const firstMeasure = score.measures[0]?.measureNumber ?? 1;
+  const lastMeasure = score.measures.at(-1)?.measureNumber ?? score.measures.length;
+  const spanError = validateSpan(span, firstMeasure, lastMeasure);
   if (spanError) throw new Error(spanError);
-  const measures = score.measures.slice(span.startMeasure - 1, span.endMeasure);
+  const startIndex = span.startMeasure - firstMeasure;
+  const endIndex = span.endMeasure - firstMeasure + 1;
+  const measures = score.measures.slice(startIndex, endIndex);
   const errors = validateWritableSource(measures, score.voices, 'content');
   if (errors.length > 0) throw new Error(errors.join(' '));
   const sections = score.voices.map((voiceId) => {

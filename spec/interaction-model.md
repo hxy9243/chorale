@@ -64,7 +64,7 @@ type ScoreAnchor = {
 };
 ```
 
-Measures are one-based, written, and inclusive. A single-measure selection sets both fields to the same value. Playback, chat, score focus, and annotation spans share this anchor; ranged playback starts or seeks from `startMeasure`. Existing optional beat, voice, ABC-offset, and playback hints remain available.
+Measures are written and inclusive (measure 0 for pickup measures, 1-based for standard complete measures). A single-measure selection sets both fields to the same value. Playback, chat, score focus, and annotation spans share this anchor; ranged playback starts or seeks from `startMeasure`. Existing optional beat, voice, ABC-offset, and playback hints remain available.
 
 Chord onset is not stored as a layout field on `ScoreAnchor`. Chord annotations use a separate `MusicalPosition` containing written measure plus exact rational offset from the barline.
 

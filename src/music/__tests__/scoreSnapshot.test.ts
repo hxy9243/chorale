@@ -40,8 +40,11 @@ describe('score snapshot extraction', () => {
       const abc = readFixture(filename);
       const score = extractScore(abc);
 
+      const expected = filename === '02-pickup.abc'
+        ? score.measures.map((_, index) => index)
+        : score.measures.map((_, index) => index + 1);
       expect(score.measures.map((measure) => measure.measureNumber), filename)
-        .toEqual(score.measures.map((_, index) => index + 1));
+        .toEqual(expected);
       for (const measure of score.measures) {
         if (score.voices.length <= 1) {
           expect(measure.abcSlice, filename).toBe(abc.slice(measure.abcRange.start, measure.abcRange.end));
@@ -199,7 +202,7 @@ describe('score snapshot extraction', () => {
     });
   });
 
-  it('treats a pickup as written measure one and aligns with abcjs global classes', () => {
+  it('treats a pickup as written measure zero and aligns with abcjs global classes', () => {
     const score = extractScore([
       'X:1',
       'M:4/4',
@@ -210,28 +213,28 @@ describe('score snapshot extraction', () => {
 
     expect(score.measures.map((measure) => ({
       writtenMeasure: measure.measureNumber,
-      abcjsGlobalClass: `abcjs-mm${measure.measureNumber - 1}`,
+      abcjsGlobalClass: `abcjs-mm${measure.measureNumber}`,
       eventOffsets: measure.events.map((event) => event.position),
     }))).toEqual([
       {
-        writtenMeasure: 1,
+        writtenMeasure: 0,
         abcjsGlobalClass: 'abcjs-mm0',
-        eventOffsets: [{ measure: 1, offset: { numerator: 0, denominator: 1 } }],
+        eventOffsets: [{ measure: 0, offset: { numerator: 0, denominator: 1 } }],
       },
       {
-        writtenMeasure: 2,
+        writtenMeasure: 1,
         abcjsGlobalClass: 'abcjs-mm1',
         eventOffsets: [
-          { measure: 2, offset: { numerator: 0, denominator: 1 } },
-          { measure: 2, offset: { numerator: 1, denominator: 4 } },
-          { measure: 2, offset: { numerator: 1, denominator: 2 } },
-          { measure: 2, offset: { numerator: 3, denominator: 4 } },
+          { measure: 1, offset: { numerator: 0, denominator: 1 } },
+          { measure: 1, offset: { numerator: 1, denominator: 4 } },
+          { measure: 1, offset: { numerator: 1, denominator: 2 } },
+          { measure: 1, offset: { numerator: 3, denominator: 4 } },
         ],
       },
       {
-        writtenMeasure: 3,
+        writtenMeasure: 2,
         abcjsGlobalClass: 'abcjs-mm2',
-        eventOffsets: [{ measure: 3, offset: { numerator: 0, denominator: 1 } }],
+        eventOffsets: [{ measure: 2, offset: { numerator: 0, denominator: 1 } }],
       },
     ]);
   });
@@ -482,6 +485,57 @@ describe('score snapshot extraction', () => {
         }
       }
     }
+  });
+
+  it('correctly identifies pickup in 3/4 time', () => {
+    const abcWithPickup = [
+      'X:1',
+      'M:3/4',
+      'L:1/4',
+      'K:G',
+      'D | G2 A | B2 c | d3 |]',
+    ].join('\n');
+    const score = extractScore(abcWithPickup);
+    expect(score.measures.map((m) => m.measureNumber)).toEqual([0, 1, 2, 3]);
+  });
+
+  it('correctly identifies full first measure in 3/4 time as measure 1', () => {
+    const abcFull = [
+      'X:1',
+      'M:3/4',
+      'L:1/4',
+      'K:G',
+      'G A B | c d e | d3 |]',
+    ].join('\n');
+    const score = extractScore(abcFull);
+    expect(score.measures.map((m) => m.measureNumber)).toEqual([1, 2, 3]);
+  });
+
+  it('correctly identifies pickup in 6/8 time', () => {
+    const abcWithPickup = [
+      'X:1',
+      'M:6/8',
+      'L:1/8',
+      'K:D',
+      'A | d2 e f2 g | a3- a2 |]',
+    ].join('\n');
+    const score = extractScore(abcWithPickup);
+    expect(score.measures.map((m) => m.measureNumber)).toEqual([0, 1, 2]);
+  });
+
+  it('correctly identifies pickup in multi-voice score', () => {
+    const abcMultiVoice = [
+      'X:1',
+      'M:4/4',
+      'L:1/4',
+      'K:C',
+      'V:1',
+      'G | c2 d2 | e4 |]',
+      'V:2',
+      'E | G2 B2 | c4 |]',
+    ].join('\n');
+    const score = extractScore(abcMultiVoice);
+    expect(score.measures.map((m) => m.measureNumber)).toEqual([0, 1, 2]);
   });
 });
 

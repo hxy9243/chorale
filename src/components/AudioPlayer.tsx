@@ -7,6 +7,7 @@ import { formatAnchorLabel } from '../utils/anchor';
 import type { PlaybackPosition } from '../utils/repeatPlayback';
 import type { PlaybackSourceRanges } from '../music/abcPresentation';
 import { initAbcjsSynth } from '../utils/abcAudio';
+import { isFirstMeasurePickup } from '../music/scoreSnapshot';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const PLAYBACK_CURSOR_SELECTOR = '.abcjs-playback-cursor';
@@ -202,6 +203,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         // Create audio synth controller
         synthControl = new synthApi.SynthController();
         synthControllerRef.current = synthControl;
+        const isPickup = currentTune ? isFirstMeasurePickup(currentTune as any) : false;
+        const firstMeasureNumber = isPickup ? 0 : 1;
 
         if (audioContainerRef.current) {
           audioContainerRef.current.innerHTML = '';
@@ -212,7 +215,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                 if (event) {
                   updatePlaybackCursor(event);
                   if (isFiniteNumber(event.measureNumber)) {
-                    setCurrentMeasure(event.measureNumber + 1);
+                    setCurrentMeasure(event.measureNumber + firstMeasureNumber);
                   }
                   const starts = event.startCharArray || (typeof event.startChar === 'number' ? [event.startChar] : []);
                   const ends = event.endCharArray || (typeof event.endChar === 'number' ? [event.endChar] : []);
@@ -222,7 +225,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
               onBeat: (beatNumber: number, totalBeats: number, totalTime: number) => {
                 const beatsPerMeasure = currentTune.getBeatsPerMeasure?.() || 0;
                 if (beatsPerMeasure > 0) {
-                  setCurrentMeasure(Math.max(1, Math.floor(beatNumber / beatsPerMeasure) + 1));
+                  setCurrentMeasure(Math.max(firstMeasureNumber, Math.floor(beatNumber / beatsPerMeasure) + firstMeasureNumber));
                 }
                 updatePlaybackPosition({
                   progress: totalBeats > 0 ? beatNumber / totalBeats : 0,

@@ -292,9 +292,16 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
       presentation?.voices.flatMap(({ cells: voiceCells }) => voiceCells) || [],
     [presentation],
   );
-  const expectedMeasureDomain = presentation
-    ? Array.from({ length: presentation.measureCount }, (_, index) => index + 1)
-    : [];
+  const expectedMeasureDomain = useMemo(() => {
+    if (!presentation) return [];
+    const measureNumbers = new Set<number>();
+    for (const voice of presentation.voices) {
+      for (const cell of voice.cells) {
+        measureNumbers.add(cell.measureNumber);
+      }
+    }
+    return Array.from(measureNumbers).sort((a, b) => a - b);
+  }, [presentation]);
   const beatCount = meterBeatCount(
     presentation?.headers.find(({ tag }) => tag === "M")?.value,
   );

@@ -13,6 +13,7 @@ import {
 } from './scoreVideoRenderer';
 import { hideSyntheticTupletRests, initAbcjsSynth, prepareAbcForPlayback } from '../utils/abcAudio';
 import { scanScoreSystems } from './scoreSystemScanner';
+import { isFirstMeasurePickup, isFirstMeasurePickupAbc } from './scoreSnapshot';
 
 export interface ScoreVideoExportProgress {
   currentSec: number;
@@ -303,8 +304,17 @@ export async function extractScoreSystems(
   const viewBox = svgElement.viewBox.baseVal;
   const svgWidth = viewBox && viewBox.width > 0 ? viewBox.width : 800;
 
+  const isPickup = typeof source === 'string'
+    ? isFirstMeasurePickupAbc(source)
+    : (activeTune
+        ? isFirstMeasurePickup(activeTune)
+        : (svgElement.dataset?.firstMeasureNumber !== undefined
+            ? Number(svgElement.dataset.firstMeasureNumber) === 0
+            : false));
+  const firstMeasureNumber = isPickup ? 0 : 1;
+
   // Phase 1: Scan all systems to compute bounding ranges via shared scanner
-  const scannedSystems = scanScoreSystems(svgElement);
+  const scannedSystems = scanScoreSystems(svgElement, firstMeasureNumber);
   const rawSystems = scannedSystems.map((s) => ({
     lineClass: s.lineClass,
     minMeasure: s.minMeasure,
@@ -458,7 +468,7 @@ export async function extractScoreSystems(
               timeSec: ev.milliseconds / 1000,
               durationSec: ev.millisecondsPerMeasure ? ev.millisecondsPerMeasure / 1000 : 0.5,
               systemIndex: sysIdx,
-              measureNumber: (ev.measureNumber ?? 0) + 1,
+              measureNumber: (ev.measureNumber ?? 0) + firstMeasureNumber,
               x: ev.left ?? 50,
               endX: ev.endX,
               y: ev.top ?? 50,
@@ -493,10 +503,10 @@ export async function extractScoreSystems(
         }
       });
 
-      let measure = 1;
+      let measure = firstMeasureNumber;
       noteEl.classList.forEach((cls) => {
         const match = cls.match(/^abcjs-mm(\d+)$/);
-        if (match) measure = Number(match[1]) + 1;
+        if (match) measure = Number(match[1]) + firstMeasureNumber;
       });
 
       let x = 50;

@@ -20,12 +20,13 @@ export interface PlaybackPosition {
  * Builds an array of visual measure occurrences in chronological audio playback order,
  * properly accounting for unrolled repeats, endings, and multi-track voices.
  */
-export function buildMeasureOccurrences(tune: abcjs.TuneObject): MeasureOccurrence[] {
-  if (!tune) return [];
-
-  const bpm = tune.getBpm?.() || 120;
+export const buildMeasureOccurrences = (
+  tune: abcjs.TuneObject,
+  firstMeasureNumber = 1,
+): MeasureOccurrence[] => {
+  if (!tune || typeof tune.setTiming !== 'function') return [];
   try {
-    tune.setTiming?.(bpm);
+    tune.setTiming(tune.getBpm?.());
   } catch {
     // If setTiming fails (e.g. tune not drawn yet), return empty
     return [];
@@ -48,7 +49,7 @@ export function buildMeasureOccurrences(tune: abcjs.TuneObject): MeasureOccurren
   let playbackPass = 0;
 
   events.forEach((event) => {
-    const measure = event.measureNumber! + 1;
+    const measure = event.measureNumber! + firstMeasureNumber;
     const startsMeasure = event.measureStart === true || measure !== lastTimingMeasure;
     lastTimingMeasure = measure;
     if (!startsMeasure) return;

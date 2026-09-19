@@ -241,7 +241,7 @@ The runtime exposes one routing tool and six score tools:
 Tool invariants:
 
 - Tools operate only on the run's immutable `ScoreSnapshot`.
-- Written-measure numbers are one-based and inclusive. A pickup is the first written measure.
+- Measure numbers are zero-based for pickup measures (measure 0) and one-based for complete measures (measure 1 onwards). When the first measure does not have the full length of the measure (pickup measure), it is measure 0, and the first complete measure is measure 1.
 - `read_measure_range` may return any continuous written-measure range within the score.
 - All tool inputs and outputs use normalized rational durations.
 - Invalid payloads return structured errors and never mutate renderer state.

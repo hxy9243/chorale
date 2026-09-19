@@ -3,7 +3,7 @@ title: "Score Surface Spec"
 description: "Specification for score rendering, continuous range selection, chord overlays, range annotation rail, line measure numbers, and auto-centering playback"
 category: "core-workspace"
 date: 2026-08-05
-updated: 2026-09-12
+updated: 2026-09-19
 status: "implemented"
 source_files:
   - src/components/SheetMusicView.tsx
@@ -37,26 +37,22 @@ test_files:
   - src/music/__tests__/annotationLayout.test.ts
 related_specs:
   - spec/design.md
-  - spec/workspace-layout.md
-  - spec/interaction-model.md
-  - spec/annotations-and-proposals.md
+  - spec/score-drafting.md
   - spec/playback-dock.md
 ---
 
 # Score Surface Spec
 
-Date: 2026-08-05  
-Updated: 2026-08-21  
-Source: `spec/agent-analysis-and-annotations.md`
+## 1. Scope and purpose
 
-## 1. Goal
+This document specifies rendering, layout, interaction, and accessibility behaviors for the score surface, including score presentation, continuous range selection, chord overlays, line-start measure numbers, and auto-centering playback tracking.
 
-Keep the score the primary reading surface while adding continuous passage selection, chat navigation, line-start measure numbers, lightweight annotation overlays, and visual score metadata presentation with inline ABC header editing.
+## 2. Layout, sizing, and typography
 
-## 2. Existing presentation invariants
-
-- abcjs renders responsive continuous SVG systems with smooth rendering transitions on a continuous full-page pure-CSS paper surface (`.sheet-viewport`).
-- Score title is displayed in centered classical serif typography (`--font-serif`), providing an authentic engraving appearance.
+- Score container is fluid and responsive; abcjs renders to SVG with `responsive: 'resize'`.
+- ABC text is sanitized and normalized prior to engraving so that inline directives (`[Q:...]`, `[I:staff ...]`, synthetic rests) do not distort SVG and audio synchronization.
+- Transpose controls are located in the floating score header and update the visual score and audio playback simultaneously.
+- Header alignment: title and subtitle are horizontally centered within the notation column above the score paper.
 - Secondary score metadata (composer, author/lyricist, subtitle, origin, rhythm) is right-aligned to match the right edge of the rendered sheet music.
 - Musical attributes (Key, Meter, Tempo) are presented as centered interactive metadata chips beneath the title block.
 - Clean score engraving in view mode: ABC tag badges (`T:`, `C:`, etc.) are hidden during normal reading and only displayed when an input is actively being edited.
@@ -73,7 +69,9 @@ Keep the score the primary reading surface while adding continuous passage selec
 - Shift-click and the keyboard equivalent extend one inclusive continuous range.
 - Reverse selection normalizes to `startMeasure <= endMeasure`.
 - Each selected measure receives a highlight rectangle (`.abcjs-measure-highlight`), including across system wraps.
-- Highlight geometry accurately computes measure bounding boxes across standard barlines, opening repeats, and system boundaries.
+- Highlight geometry accurately computes measure bounding boxes strictly from measure wall boundaries (opening barline right edge / staff start to closing barline left edge / staff end; system staff top to bottom).
+- Interfering decorative and annotation elements (hairpins, dynamics, ABC text annotations, slurs, ties, chords, voltas) are excluded when calculating measure bounding boxes and system line identity so they never distort selection boundaries.
+- Hit areas (`.abcjs-measure-hit-area`) tile seamlessly along measure walls without overlapping adjacent measures or distorting when hairpins or annotations extend outside the measure.
 - Hit areas continue to work on notation and staff whitespace.
 - Selection seeks or starts playback from `startMeasure` using the current repeat-aware occurrence.
 - File switch clears the active range; disconnected ranges are unsupported.

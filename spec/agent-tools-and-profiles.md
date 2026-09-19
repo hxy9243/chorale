@@ -151,7 +151,7 @@ type ReadMeasureRangeResult = {
 
 Rules:
 
-- Measures are one-based, written, and inclusive; a pickup is measure 1.
+- Measures are written and inclusive; when the first measure is shorter than the full length of the measure (pickup measure), it is measure 0, and the first complete measure is measure 1; otherwise measures begin at measure 1.
 - `endMeasure >= startMeasure`.
 - One call may return any continuous written-measure range within the score.
 - A failed call records no read authorization; authorization is committed only after every requested

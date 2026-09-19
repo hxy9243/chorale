@@ -8,6 +8,9 @@ vi.mock('abcjs', () => ({
     parseOnly: vi.fn().mockReturnValue([{
       lines: [{ staff: [{ voices: [[
         { el_type: 'note', duration: 0.25, startChar: 30, endChar: 31, pitches: [{ pitch: 0 }] },
+        { el_type: 'note', duration: 0.25, startChar: 32, endChar: 33, pitches: [{ pitch: 2 }] },
+        { el_type: 'note', duration: 0.25, startChar: 34, endChar: 35, pitches: [{ pitch: 4 }] },
+        { el_type: 'note', duration: 0.25, startChar: 36, endChar: 37, pitches: [{ pitch: 5 }] },
         { el_type: 'bar', startChar: 38, endChar: 39 },
       ]] }] }],
       getMeter: () => ({ value: [{ num: '4', den: '4' }] }),
@@ -585,11 +588,11 @@ describe('SheetMusicView Component', () => {
     vi.mocked(abcjs.parseOnly).mockImplementation(() => ([{
       lines: [
         { staff: [{ voices: [[
-          { el_type: 'note', duration: 0.25, startChar: 40, endChar: 41, pitches: [{ pitch: 0 }] },
+          { el_type: 'note', duration: 1.0, startChar: 40, endChar: 41, pitches: [{ pitch: 0 }] },
           { el_type: 'bar', startChar: 50, endChar: 51 },
         ]] }] },
         { staff: [{ voices: [[
-          { el_type: 'note', duration: 0.25, startChar: 60, endChar: 61, pitches: [{ pitch: 1 }] },
+          { el_type: 'note', duration: 1.0, startChar: 60, endChar: 61, pitches: [{ pitch: 1 }] },
           { el_type: 'bar', startChar: 70, endChar: 71 },
         ]] }] },
       ],
@@ -837,6 +840,149 @@ describe('SheetMusicView Component', () => {
     expect(highlight?.getAttribute('x')).toBe('15');
     expect(highlight?.getAttribute('y')).toBe('100');
     expect(highlight?.getAttribute('width')).toBe('145');
+    expect(highlight?.getAttribute('height')).toBe('40');
+  });
+
+  it('isolates hairpins and ABC annotations from distorting measure selection highlights and hit areas', () => {
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
+      if (element && typeof element !== 'string') {
+        element.innerHTML = `
+          <svg>
+            <g class="abcjs-staff abcjs-l0"></g>
+            <g class="abcjs-note abcjs-l0 abcjs-mm0"></g>
+            <text class="abcjs-annotation abcjs-l0 abcjs-mm0">Allegro molto maestoso</text>
+            <g class="abcjs-bar abcjs-l0 abcjs-mm0"></g>
+            <g class="abcjs-note abcjs-l0 abcjs-mm1"></g>
+            <path class="abcjs-dynamics abcjs-decoration abcjs-l0 abcjs-mm1"></path>
+            <g class="abcjs-bar abcjs-l0 abcjs-mm1"></g>
+          </svg>
+        `;
+        const staff = element.querySelector<SVGGraphicsElement>('.abcjs-staff')!;
+        const noteM0 = element.querySelector<SVGGraphicsElement>('.abcjs-note.abcjs-mm0')!;
+        const annotationM0 = element.querySelector<SVGGraphicsElement>('.abcjs-annotation.abcjs-mm0')!;
+        const barM0 = element.querySelector<SVGGraphicsElement>('.abcjs-bar.abcjs-mm0')!;
+        const noteM1 = element.querySelector<SVGGraphicsElement>('.abcjs-note.abcjs-mm1')!;
+        const hairpinM1 = element.querySelector<SVGGraphicsElement>('.abcjs-dynamics.abcjs-mm1')!;
+        const barM1 = element.querySelector<SVGGraphicsElement>('.abcjs-bar.abcjs-mm1')!;
+
+        Object.defineProperty(staff, 'getBBox', {
+          value: () => ({ x: 10, y: 20, width: 300, height: 40 }),
+        });
+        Object.defineProperty(noteM0, 'getBBox', {
+          value: () => ({ x: 20, y: 30, width: 20, height: 20 }),
+        });
+        // Annotation extends 250px right (way past barline at 120) and 30px above staff (y: -10)
+        Object.defineProperty(annotationM0, 'getBBox', {
+          value: () => ({ x: 20, y: -10, width: 250, height: 20 }),
+        });
+        Object.defineProperty(barM0, 'getBBox', {
+          value: () => ({ x: 120, y: 20, width: 2, height: 40 }),
+        });
+        Object.defineProperty(noteM1, 'getBBox', {
+          value: () => ({ x: 140, y: 30, width: 20, height: 20 }),
+        });
+        // Hairpin starts at x: 50 (in measure 1) and sits below staff at y: 70
+        Object.defineProperty(hairpinM1, 'getBBox', {
+          value: () => ({ x: 50, y: 70, width: 180, height: 15 }),
+        });
+        Object.defineProperty(barM1, 'getBBox', {
+          value: () => ({ x: 250, y: 20, width: 2, height: 40 }),
+        });
+      }
+      return [{ getBpm: () => 120 }] as any;
+    });
+
+    const { container, rerender } = render(
+      <SheetMusicView abcCode={sampleAbc} activeAnchor={{ startMeasure: 1, endMeasure: 1 }} />,
+    );
+
+    // Measure 1 selection must align with staff start (10) and barline (120), ignoring the protruding annotation
+    const highlight1 = container.querySelector('.abcjs-measure-highlight');
+    expect(highlight1?.getAttribute('x')).toBe('10');
+    expect(highlight1?.getAttribute('y')).toBe('20');
+    expect(highlight1?.getAttribute('width')).toBe('110');
+    expect(highlight1?.getAttribute('height')).toBe('40');
+
+    // Measure 1 hit area must align horizontally with measure 1 walls (10 to 120)
+    const hitArea1 = container.querySelector('.abcjs-measure-hit-area[data-measure="1"]');
+    expect(hitArea1?.getAttribute('x')).toBe('10');
+    expect(hitArea1?.getAttribute('width')).toBe('110');
+
+    // Select measure 2
+    rerender(
+      <SheetMusicView abcCode={sampleAbc} activeAnchor={{ startMeasure: 2, endMeasure: 2 }} />,
+    );
+
+    // Measure 2 selection must align with previous barline (122) and ending barline (250), ignoring hairpin extending to x: 50
+    const highlight2 = container.querySelector('.abcjs-measure-highlight');
+    expect(highlight2?.getAttribute('x')).toBe('122');
+    expect(highlight2?.getAttribute('y')).toBe('20');
+    expect(highlight2?.getAttribute('width')).toBe('128');
+    expect(highlight2?.getAttribute('height')).toBe('40');
+
+    // Measure 2 hit area must align horizontally with measure 2 walls (122 to 250)
+    const hitArea2 = container.querySelector('.abcjs-measure-hit-area[data-measure="2"]');
+    expect(hitArea2?.getAttribute('x')).toBe('122');
+    expect(hitArea2?.getAttribute('width')).toBe('128');
+  });
+
+  it('prevents cross-system hairpins from corrupting line assignment and highlight bounds', () => {
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
+      if (element && typeof element !== 'string') {
+        element.innerHTML = `
+          <svg>
+            <g class="abcjs-staff abcjs-l0"></g>
+            <g class="abcjs-bar abcjs-l0 abcjs-mm0"></g>
+            <path class="abcjs-dynamics abcjs-decoration abcjs-l0 abcjs-mm1"></path>
+            <g class="abcjs-staff abcjs-l1"></g>
+            <g class="abcjs-note abcjs-l1 abcjs-mm1"></g>
+            <path class="abcjs-dynamics abcjs-decoration abcjs-l1 abcjs-mm1"></path>
+            <g class="abcjs-bar abcjs-l1 abcjs-mm1"></g>
+          </svg>
+        `;
+        const staffL0 = element.querySelector<SVGGraphicsElement>('.abcjs-staff.abcjs-l0')!;
+        const barM0 = element.querySelector<SVGGraphicsElement>('.abcjs-bar.abcjs-l0.abcjs-mm0')!;
+        const hairpinL0 = element.querySelector<SVGGraphicsElement>('.abcjs-dynamics.abcjs-l0.abcjs-mm1')!;
+        const staffL1 = element.querySelector<SVGGraphicsElement>('.abcjs-staff.abcjs-l1')!;
+        const noteM1 = element.querySelector<SVGGraphicsElement>('.abcjs-note.abcjs-l1.abcjs-mm1')!;
+        const hairpinL1 = element.querySelector<SVGGraphicsElement>('.abcjs-dynamics.abcjs-l1.abcjs-mm1')!;
+        const barM1 = element.querySelector<SVGGraphicsElement>('.abcjs-bar.abcjs-l1.abcjs-mm1')!;
+
+        Object.defineProperty(staffL0, 'getBBox', {
+          value: () => ({ x: 10, y: 20, width: 300, height: 40 }),
+        });
+        Object.defineProperty(barM0, 'getBBox', {
+          value: () => ({ x: 120, y: 20, width: 2, height: 40 }),
+        });
+        // Hairpin segment on line 0 tagged with mm1 (y: 70)
+        Object.defineProperty(hairpinL0, 'getBBox', {
+          value: () => ({ x: 80, y: 70, width: 40, height: 10 }),
+        });
+        Object.defineProperty(staffL1, 'getBBox', {
+          value: () => ({ x: 10, y: 120, width: 300, height: 40 }),
+        });
+        Object.defineProperty(noteM1, 'getBBox', {
+          value: () => ({ x: 30, y: 130, width: 20, height: 20 }),
+        });
+        Object.defineProperty(hairpinL1, 'getBBox', {
+          value: () => ({ x: 30, y: 170, width: 60, height: 10 }),
+        });
+        Object.defineProperty(barM1, 'getBBox', {
+          value: () => ({ x: 150, y: 120, width: 2, height: 40 }),
+        });
+      }
+      return [{ getBpm: () => 120 }] as any;
+    });
+
+    const { container } = render(
+      <SheetMusicView abcCode={sampleAbc} activeAnchor={{ startMeasure: 2, endMeasure: 2 }} />,
+    );
+
+    // Measure 2 is on line 1, so its selection highlight must be on line 1 (y: 120), not pulled to line 0
+    const highlight = container.querySelector('.abcjs-measure-highlight');
+    expect(highlight?.getAttribute('x')).toBe('10');
+    expect(highlight?.getAttribute('y')).toBe('120');
+    expect(highlight?.getAttribute('width')).toBe('140');
     expect(highlight?.getAttribute('height')).toBe('40');
   });
 

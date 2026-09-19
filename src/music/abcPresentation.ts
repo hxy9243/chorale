@@ -2,7 +2,7 @@ import abcjs from 'abcjs';
 import { parseKeySignature } from 'abc-utils';
 
 import { prepareAbcWithMap } from '../utils/abcAudio';
-import { extractScore } from './scoreSnapshot';
+import { extractScore, isFirstMeasurePickup } from './scoreSnapshot';
 import {
   addRationalDurations,
   compareRationalDurations,
@@ -243,6 +243,9 @@ export const buildAbcPresentation = (abc: string): AbcPresentation => {
   const boundaryRanges: AbcTextRange[] = [];
   let voiceSlot = 0;
 
+  const isPickup = isFirstMeasurePickup(tune as any);
+  const initialMeasureNumber = isPickup ? 0 : 1;
+
   for (const line of tune.lines || []) {
     voiceSlot = 0;
     for (const staff of line.staff || []) {
@@ -252,7 +255,7 @@ export const buildAbcPresentation = (abc: string): AbcPresentation => {
           encounteredVoiceIds.push(voiceId);
           voiceCellsMap.set(voiceId, []);
         }
-        const state = states.get(voiceId) || { measureNumber: 1, hasEvents: false, elapsed: 0 };
+        const state = states.get(voiceId) || { measureNumber: initialMeasureNumber, hasEvents: false, elapsed: 0 };
         for (const element of voice) {
           const range = sourceRange(element, toOriginalOffset);
           if (element.el_type === 'bar') {
@@ -405,7 +408,8 @@ export const buildAbcPresentation = (abc: string): AbcPresentation => {
     ...cellRanges,
     ...boundaryRanges,
   ]);
-  const measureCount = Math.max(0, ...voices.map(({ cells: voiceCells }) => voiceCells.at(-1)?.measureNumber || 0));
+  const allMeasureNumbers = new Set(voices.flatMap(({ cells: voiceCells }) => voiceCells.map(({ measureNumber }) => measureNumber)));
+  const measureCount = allMeasureNumbers.size;
 
   return Object.freeze({
     abc,

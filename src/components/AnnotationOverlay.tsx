@@ -120,6 +120,7 @@ const measureBounds = (
   svg: SVGSVGElement,
   measureNumber: number,
   elements: readonly SVGGraphicsElement[],
+  firstMeasureNumber = 1,
 ): Readonly<{ bounds: SvgLocalBounds; lineId?: string }> | null => {
   const endBar = elements
     .filter((element) => element.classList.contains('abcjs-bar'))
@@ -148,9 +149,9 @@ const measureBounds = (
       })
       .sort((left, right) => left.y - right.y)[0]
     : null;
-  const previousBar = lineId && measureNumber > 1
+  const previousBar = lineId && measureNumber > firstMeasureNumber
     ? svg.querySelector<SVGGraphicsElement>(
-        `.abcjs-mm${measureNumber - 2}.abcjs-bar.${lineId}`,
+        `.abcjs-mm${measureNumber - firstMeasureNumber - 1}.abcjs-bar.${lineId}`,
       )
     : null;
   const previousBounds = previousBar ? safeBounds(previousBar) : null;
@@ -233,13 +234,14 @@ const captureScoreGeometry = (
       })
   ));
 
+  const firstMeasureNumber = score.measures[0]?.measureNumber ?? 1;
   const measures: RenderedMeasureGeometry[] = [];
   for (const measure of score.measures) {
     for (const [index, svg] of sourceSvgs.entries()) {
       const elements = Array.from(svg.querySelectorAll<SVGGraphicsElement>(
-        `.abcjs-mm${measure.measureNumber - 1}`,
+        `.abcjs-mm${measure.measureNumber - firstMeasureNumber}`,
       ));
-      const geometry = measureBounds(svg, measure.measureNumber, elements);
+      const geometry = measureBounds(svg, measure.measureNumber, elements, firstMeasureNumber);
       if (geometry) {
         measures.push({
           measure: measure.measureNumber,
@@ -280,7 +282,7 @@ const captureScoreGeometry = (
       const svg = system ? sourceSvgs[systems.indexOf(system)] : undefined;
       if (!renderedMeasure || !svg) continue;
       const noteBounds = Array.from(svg.querySelectorAll<SVGGraphicsElement>(
-        `.abcjs-mm${measure.measureNumber - 1}.abcjs-note`,
+        `.abcjs-mm${measure.measureNumber - firstMeasureNumber}.abcjs-note`,
       )).flatMap((element) => {
         const bounds = safeBounds(element);
         return bounds ? [bounds] : [];
