@@ -344,7 +344,9 @@ const installLineStartMeasureNumbers = (
       const minBarIndex = Math.min(...measureIndexes);
       let measure: number;
       if (mapping && typeof mapping === 'object' && Array.isArray(mapping.barToMeasure)) {
-        if (minBarIndex > 0 && mapping.barToMeasure[minBarIndex] === mapping.barToMeasure[minBarIndex - 1]) {
+        if (minBarIndex === 0 && mapping.firstMeasureNumber === 0) {
+          measure = mapping.barToMeasure[1] ?? 1;
+        } else if (minBarIndex > 0 && mapping.barToMeasure[minBarIndex] === mapping.barToMeasure[minBarIndex - 1]) {
           measure = mapping.barToMeasure[minBarIndex + 1] ?? (minBarIndex + firstMeasureNumber);
         } else {
           measure = mapping.barToMeasure[minBarIndex] ?? (minBarIndex + firstMeasureNumber);
