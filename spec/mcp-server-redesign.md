@@ -98,7 +98,7 @@ Chorale is redesigned from a monolithic script and fragmented plugin wrappers in
 - Root directory: `~/.chorale/` (overrideable via `CHORALE_HOME`, `CHORALE_DB_PATH`, or `CHORALE_STORE_PATH`).
 - Storage engine:
   - `~/.chorale/chorale.db`: Local SQLite database powered by Node.js standard library `node:sqlite` (`DatabaseSync`), operating in WAL mode with foreign keys enabled.
-  - Relational schema: `documents`, `workspace_documents` (preserves file rail ordering), `document_versions`, `document_history`, and `workspace` (singleton tracking revision and layout preferences).
+  - Relational schema: `documents`, `workspace_documents` (preserves file rail ordering; newly created or imported scores insert at sort_order 0 so they appear at the top by default), `document_versions`, `document_history`, and `workspace` (singleton tracking revision and layout preferences).
   - `~/.chorale/scores/`: Raw exported/mirrored ABC files (`${documentId}.abc`).
 - ACID transactions: Granular updates to documents, versions, history entries, and workspace preferences run inside immediate SQLite transactions with WAL concurrency safety.
 

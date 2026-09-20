@@ -344,7 +344,7 @@ export const useDocumentStore = () => {
       const sourceType = fileName.endsWith('.mxl') ? 'mxl' : fileName.endsWith('.abc') ? 'abc' : 'musicxml';
       const newDoc = createDocumentFromAbc(fileName, sourceType, abc);
 
-      setDocuments((prevDocs) => [...prevDocs.filter((doc) => doc.name !== fileName), newDoc]);
+      setDocuments((prevDocs) => [newDoc, ...prevDocs.filter((doc) => doc.name !== fileName)]);
       setActiveFileId(newDoc.id);
       setActiveAnchor(null);
     } catch (caught) {
@@ -360,7 +360,7 @@ export const useDocumentStore = () => {
   const handleCreateDocument = useCallback((abcSource: string, title: string) => {
     const safeFileName = `${title.trim() || 'Untitled score'}.abc`;
     const newDocument = createDocumentFromAbc(safeFileName, 'abc', abcSource, title);
-    setDocuments((current) => [...current, newDocument]);
+    setDocuments((current) => [newDocument, ...current]);
     setActiveFileId(newDocument.id);
     setActiveAnchor(null);
     setError(null);

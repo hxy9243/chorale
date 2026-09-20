@@ -558,5 +558,19 @@ describe('FileRail Component', () => {
     expect(screen.queryByText('Beethoven Ode')).toBeNull();
     expect(screen.getByText('No scores match “Chopin”')).toBeDefined();
   });
+
+  it('displays newly created or imported scores at the top of the file list', () => {
+    const { container, rerender } = render(<FileRail {...defaultProps} />);
+    const initialList = container.querySelector<HTMLElement>('.file-list')!;
+    expect([...initialList.querySelectorAll('.file-item-name')].map((el) => el.textContent))
+      .toEqual(['Bach Minuet', 'Beethoven Ode']);
+
+    const newDoc = createDocumentFromAbc('Chopin Nocturne.abc', 'abc', 'X:1\nT:Chopin Nocturne\nK:C\nC');
+    rerender(<FileRail {...defaultProps} documents={[newDoc, ...defaultProps.documents]} />);
+
+    const updatedList = container.querySelector<HTMLElement>('.file-list')!;
+    expect([...updatedList.querySelectorAll('.file-item-name')].map((el) => el.textContent))
+      .toEqual(['Chopin Nocturne', 'Bach Minuet', 'Beethoven Ode']);
+  });
 });
 

@@ -334,7 +334,7 @@ export class LocalDocumentStore {
     const docRows = this.db.prepare(`
       SELECT d.* FROM documents d
       LEFT JOIN workspace_documents wd ON d.id = wd.document_id
-      ORDER BY wd.sort_order ASC, d.created_at ASC
+      ORDER BY wd.sort_order ASC, d.created_at DESC
     `).all();
 
     if (docRows.length === 0) return [];
@@ -450,8 +450,7 @@ export class LocalDocumentStore {
         throw new PluginError('DOCUMENT_EXISTS', `Score document "${documentId}" already exists.`);
       }
 
-      const maxOrderRow = this.db.prepare('SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM workspace_documents').get();
-      const nextOrder = (maxOrderRow?.max_order ?? -1) + 1;
+      this.db.prepare('UPDATE workspace_documents SET sort_order = sort_order + 1').run();
 
       this.db.prepare(`
         INSERT INTO documents (id, name, title, source_type, revision, abc_source, score_info, annotations, chats, history_index, created_at, updated_at)
@@ -459,8 +458,8 @@ export class LocalDocumentStore {
       `).run(documentId, name, safeTitle, source, JSON.stringify(scoreInfo), JSON.stringify(annotations), now, now);
 
       this.db.prepare(`
-        INSERT INTO workspace_documents (document_id, sort_order) VALUES (?, ?)
-      `).run(documentId, nextOrder);
+        INSERT INTO workspace_documents (document_id, sort_order) VALUES (?, 0)
+      `).run(documentId);
 
       this.db.prepare(`
         INSERT INTO document_versions (document_id, revision, abc_source, created_at, reason)

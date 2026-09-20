@@ -464,9 +464,10 @@ export const FileRail: React.FC<FileRailProps> = ({
       .map((fileId) => documentsById.get(fileId))
       .filter((document): document is FileDocument => Boolean(document));
     const orderedIds = new Set(documentOrder);
+    const newDocuments = documents.filter((document) => !orderedIds.has(document.id));
     return [
+      ...newDocuments,
       ...ordered,
-      ...documents.filter((document) => !orderedIds.has(document.id)),
     ];
   }, [documentOrder, documents]);
 

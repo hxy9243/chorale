@@ -496,20 +496,20 @@ test('store: SQLite in-memory mode, ordering, cascading deletes, and preferences
 
     const initialList = await store.list();
     assert.equal(initialList.length, 2);
-    assert.equal(initialList[0].id, docA.id);
-    assert.equal(initialList[1].id, docB.id);
+    assert.equal(initialList[0].id, docB.id);
+    assert.equal(initialList[1].id, docA.id);
 
-    // Reorder documents (Beta first, Alpha second)
+    // Reorder documents (Alpha first, Beta second)
     const ws = await store.getWorkspace();
     await store.putWorkspace({
-      documents: [docB, docA],
+      documents: [docA, docB],
       preferences: { zoom: 120 },
       expectedRevision: ws.revision,
     });
 
     const reorderedList = await store.list();
-    assert.equal(reorderedList[0].id, docB.id);
-    assert.equal(reorderedList[1].id, docA.id);
+    assert.equal(reorderedList[0].id, docA.id);
+    assert.equal(reorderedList[1].id, docB.id);
 
     // Patch preference
     await store.patchWorkspace({

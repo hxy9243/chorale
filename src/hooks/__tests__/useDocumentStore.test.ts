@@ -500,4 +500,40 @@ describe('useDocumentStore', () => {
 
     consoleWarnSpy.mockRestore();
   });
+
+  it('prepends newly created scores to the top of the file list', async () => {
+    vi.spyOn(storageAdapter, 'getDocuments').mockResolvedValue([sampleDoc]);
+    const { result } = renderHook(() => useDocumentStore());
+    await waitFor(() => expect(result.current.hydrationStatus).toBe('ready'));
+
+    expect(result.current.documents).toHaveLength(1);
+    expect(result.current.documents[0].id).toBe(sampleDoc.id);
+
+    act(() => {
+      result.current.handleCreateDocument('X:1\nT:Newly Created Score\nK:C\nC4|', 'Newly Created Score');
+    });
+
+    expect(result.current.documents).toHaveLength(2);
+    expect(result.current.documents[0].scoreInfo.title).toBe('Newly Created Score');
+    expect(result.current.documents[1].id).toBe(sampleDoc.id);
+    expect(result.current.activeFileId).toBe(result.current.documents[0].id);
+  });
+
+  it('prepends newly imported scores to the top of the file list', async () => {
+    vi.spyOn(storageAdapter, 'getDocuments').mockResolvedValue([sampleDoc]);
+    const { result } = renderHook(() => useDocumentStore());
+    await waitFor(() => expect(result.current.hydrationStatus).toBe('ready'));
+
+    expect(result.current.documents).toHaveLength(1);
+    expect(result.current.documents[0].id).toBe(sampleDoc.id);
+
+    await act(async () => {
+      await result.current.handleProcessMusicXml('X:1\nT:Imported Song\nK:C\nC D E F|', 'Imported Song.abc');
+    });
+
+    expect(result.current.documents).toHaveLength(2);
+    expect(result.current.documents[0].name).toBe('Imported Song.abc');
+    expect(result.current.documents[1].id).toBe(sampleDoc.id);
+    expect(result.current.activeFileId).toBe(result.current.documents[0].id);
+  });
 });

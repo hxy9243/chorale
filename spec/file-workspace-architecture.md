@@ -72,6 +72,7 @@ Define ownership, persistence, and process boundaries for the passage-aware Musi
 - Shared `ScoreAnchor` range using `startMeasure` and `endMeasure`.
 - Annotation CRUD mutations and existing debounced IndexedDB autosave.
 - Score editing history timeline (`EditHistoryEntry[]`, max 100 entries) with categories (`origin`, `metadata`, `body`, `annotation`), undo/redo stack, and non-destructive revert.
+- Newly created or imported scores are prepended to the file list by default (index 0) for immediate visibility at the top of the rail.
 - ABC changes alone increment document revision and create `ScoreVersion` records.
 - Bidirectional synchronization between ABC header tags (T, C, A, K, M, Q, O, R) and `FileDocument.scoreInfo`.
 
