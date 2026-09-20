@@ -1,6 +1,6 @@
 {
   "name": "chorale-codex-plugin",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Score-focused music workspace and MCP tools for Codex.",
   "author": {
     "name": "Chorale"
@@ -25,7 +25,10 @@
   "mcpServers": {
     "chorale": {
       "command": "node",
-      "args": ["./bin/chorale.mjs", "mcp"],
+      "args": [
+        "./bin/chorale.mjs",
+        "mcp"
+      ],
       "cwd": "."
     }
   }

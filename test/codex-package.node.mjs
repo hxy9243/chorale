@@ -9,6 +9,7 @@ import test from 'node:test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { packageCodex } from '../tools/package-codex.mjs';
+import { CHORALE_VERSION } from '../server/version.mjs';
 
 test('fresh Codex package uses the browser service and current library', async () => {
   const temporary = await mkdtemp(join(tmpdir(), 'chorale-package-test-'));
@@ -26,6 +27,7 @@ test('fresh Codex package uses the browser service and current library', async (
     await assert.rejects(access(join(output, 'server.mjs')));
     const manifest = JSON.parse(await readFile(join(output, '.codex-plugin/plugin.json'), 'utf8'));
     assert.equal(manifest.mcpServers, './.mcp.json');
+    assert.equal(manifest.version, CHORALE_VERSION);
     const scoreSkill = await readFile(join(output, 'skills/chorale-score/SKILL.md'), 'utf8');
     assert.match(scoreSkill, /Mandatory Pre-Annotation Verification/);
     const harmonicReference = await readFile(join(output, 'skills/chorale-score/references/chord-progression-analysis.md'), 'utf8');
@@ -51,6 +53,7 @@ test('fresh Codex package uses the browser service and current library', async (
       env: { ...process.env },
       cwd: temporary,
     }));
+    assert.equal(client.getServerVersion().version, CHORALE_VERSION);
     const names = (await client.listTools()).tools.map(tool => tool.name);
     assert.ok(names.includes('create_new_file'));
     assert.ok(names.includes('list_files'));

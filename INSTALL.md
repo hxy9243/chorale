@@ -45,7 +45,7 @@ Chorale functions as a standalone CLI application (`chorale`) that launches and 
 
 ## 2. Prerequisites & Quick Build
 
-Ensure you have **Node.js (v22.5+)** and **npm** installed.
+Ensure you have **Node.js (22.13+ on the 22.x line, or 24+)** and **npm** installed. The repository `.npmrc` permits its pinned Git dependency on npm 12; npm archives bundle that dependency.
 
 ```bash
 # 1. Clone the repository
@@ -65,7 +65,7 @@ npm link
 npm test
 ```
 
-After `npm link`, the `chorale` command will be accessible anywhere in your shell. For a published package, `npm install --global @chorale/cli` provides the same command.
+After `npm link`, the `chorale` command will be accessible anywhere in your shell. Use this source-build path while direct global GitHub installation remains unverified. Allow npm lifecycle scripts to run. No `@chorale/cli` registry release is currently provided. Built npm archives include the browser workspace and can be installed with `npm install --global /path/to/chorale-0.0.1.tgz`.
 
 ---
 
@@ -98,7 +98,7 @@ chorale mcp
 - `chorale mcp`: Starts the MCP stdio adapter. Ensures the background service is running on port 1685 and proxies all score tool calls to it.
 - `chorale status`: Reports health, port, and PID from recorded runtime metadata without starting a daemon.
 - `chorale stop`: Stops only the healthy daemon whose PID and port match `~/.chorale/runtime.json`.
-- `chorale upgrade`: Automatically pulls the latest release (pulling git updates and rebuilding workspace assets when run in a source checkout, or updating via npm for package installs), gracefully restarts the verified daemon, and preserves score data in `~/.chorale/`. (Supports `--skip-pull` if you only want to restart).
+- `chorale upgrade`: Pulls git updates and rebuilds workspace assets in a source checkout, then restarts the verified daemon. Private archive installs require installing the new archive explicitly first. Existing SQLite score data stays in `~/.chorale/`. (Supports `--skip-pull` if you only want to restart).
 - `chorale help`: Displays usage guidance, available commands, and options.
 
 ---
@@ -219,10 +219,12 @@ To upgrade Chorale to the latest release:
 chorale upgrade
 ```
 
-`chorale upgrade` automatically:
-1. Pulls the latest release (running `git pull` and rebuilding workspace assets when run in a source/linked checkout, or updating via npm for global package installs).
+For source checkouts, `chorale upgrade` automatically:
+1. Pulls git updates and rebuilds workspace assets in a source/linked checkout.
 2. Gracefully restarts the verified Chorale daemon.
 3. Preserves all score files and history in `~/.chorale/`.
+
+For an archive install, install the newly built archive, then run `chorale upgrade --skip-pull`. The current private package does not automatically fetch updates through `chorale upgrade`.
 
 If you already updated the repository manually or only want to restart the daemon, pass `--skip-pull`:
 ```bash
@@ -247,7 +249,7 @@ curl -s http://127.0.0.1:1685/v1/files
 ```
 Expected health response:
 ```json
-{"service":"chorale-service","version":"0.0.0","port":1685,"pid":12345,"status":"ok"}
+{"service":"chorale-service","version":"0.0.1","port":1685,"pid":12345,"status":"ok"}
 ```
 
 ---
@@ -283,3 +285,7 @@ The Chorale MCP server registers 16 modular tools across file management, sheet 
 | `open_ui` | Launch the Chorale interactive score workspace on port 1685 in the user's browser, optionally activating a specific score. | optional `documentId` |
 | `get_workspace_state` | Query overall workspace state headlessly: document count, connected views count, and focused view details. | (none) |
 | `render_score_workspace` | Render the selected score in an interactive MCP Apps workspace view. | `documentId` (string) |
+
+## 8. Release status and recovery
+
+See [RELEASE.md](./RELEASE.md) for the MVP checklist, supported scope, and backup/recovery instructions.

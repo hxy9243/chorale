@@ -31,8 +31,14 @@ jobs:
       - name: Run unit tests
         run: npm test
 
+      - name: Verify component usability
+        run: npm run test:usability
+
       - name: Run lint
         run: npm run lint
 
       - name: Build
         run: npm run build
+
+      - name: Verify fresh CLI installation and persistence
+        run: npm run test:install

@@ -1,13 +1,13 @@
 {
   "name": "chorale",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "bin": {
     "chorale": "./bin/chorale.mjs"
   },
   "engines": {
-    "node": ">=22.5.0"
+    "node": "^22.13.0 || >=24.0.0"
   },
   "scripts": {
     "start": "node bin/chorale.mjs",
@@ -21,7 +21,11 @@
     "test": "node --test test/*.node.mjs && vitest run",
     "test:mcp": "node --test test/*.node.mjs",
     "test:unit": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prepare": "npm run build",
+    "test:install": "node --test test/install.smoke.mjs",
+    "test:usability": "vitest run src/test/usability.test.tsx src/components/__tests__/NewScoreModal.test.tsx",
+    "test:eval": "node --test test/agent-eval.node.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -57,5 +61,18 @@
     "typescript": "~6.0.2",
     "vite": "^8.1.1",
     "vitest": "^4.1.10"
-  }
+  },
+  "files": [
+    "bin/",
+    "server/",
+    "dist/",
+    "skills/",
+    "INSTALL.md",
+    "RELEASE.md",
+    "CHANGELOG.md",
+    "VERSION"
+  ],
+  "bundleDependencies": [
+    "abc-utils"
+  ]
 }

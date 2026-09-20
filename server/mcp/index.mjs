@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { LocalDocumentStore } from '../store.mjs';
 import { ViewSnapshotStore } from '../views.mjs';
+import { CHORALE_VERSION } from '../version.mjs';
 import { createFileManagementTools } from './tools/file-management.mjs';
 import { createSheetManagementTools } from './tools/sheet-management.mjs';
 import { createWorkspaceTools } from './tools/workspace.mjs';
@@ -16,7 +17,7 @@ export const createMcpServer = (
   handlersOverride = null,
 ) => {
   store.setViews(views);
-  const server = new McpServer({ name: 'Chorale', version: '1.0.0' });
+  const server = new McpServer({ name: 'Chorale', version: CHORALE_VERSION });
 
   // Workspace UI Resource
   server.registerResource('chorale-workspace', WORKSPACE_URI, {}, async () => ({
