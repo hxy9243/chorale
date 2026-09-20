@@ -59,14 +59,15 @@ This document specifies rendering, layout, interaction, and accessibility behavi
 - Save and build status pills (`Auto-saved`, `SVG ready`, `Music ready`) are hosted in the global application header so they remain permanently visible regardless of score scroll position.
 - Floating score display options (`ScoreCardHeader`) float over the top-center of the score paper with scroll-reactive translucency (`is-scrolling`), providing synchronized zoom controls (−, %, +, Fit).
 - Score zoom remains independently persisted and centered without clipping.
-- Line-start measure numbers (`.chorale-line-measure-number`) are rendered above the start of each staff system for rapid orientation. When a line starts with the second half of a split measure (e.g. an anacrusis across a section or repeat boundary), the line-start measure number displays the first complete measure on that system.
+- Line-start measure numbers (`.chorale-line-measure-number`) are rendered above the start of each staff system for rapid orientation. For scores with an opening pickup measure (measure 0), System 0 displays `1` to identify the first complete measure. When a line starts with the second half of a split measure (e.g. an anacrusis across a section or repeat boundary), the line-start measure number displays the first complete measure on that system.
 - Playback auto-centering and its manual-scroll pause behavior remain intact.
 - Existing transpose, playback cursor, repeat selection, and first-click hit-area behavior must not regress.
 
 ## 3. Continuous range selection
 
 - Single click selects one written measure.
-- Shift-click and the keyboard equivalent extend one inclusive continuous range.
+- Pickup measure selection: Measure 0 (anacrusis) is a first-class selectable written measure index (`0`). Selecting measure 0 generates `.abcjs-measure-highlight[data-measure="0"]` and renders `.abcjs-measure-hit-area[data-measure="0"]`. Hit-area geometry computes bounds from the staff start/clef/key signature boundary to the opening barline.
+- Shift-click and the keyboard equivalent extend one inclusive continuous range, supporting ranges that begin at measure 0 (e.g. `[0, 4]`).
 - Reverse selection normalizes to `startMeasure <= endMeasure`.
 - Mid-measure repeats (split measures): when a repeat barline occurs mid-measure such that the bar before the repeat and the pickup bar after the repeat sum to the nominal meter duration, both fragments share the same measure number. The subsequent complete bar advances to the next measure number.
 - Selecting a split measure creates a highlight rectangle (`.abcjs-measure-highlight`) over all constituent bar fragments of that measure, including fragments residing on different system lines across line breaks.
