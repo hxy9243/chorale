@@ -58,6 +58,7 @@ describe('createBlankPianoScore', () => {
     expect(result.status).toBe('invalid');
     if (result.status === 'invalid') {
       expect(result.errors.join(' ')).toContain(expectedError);
+      expect(Object.keys(result.fieldErrors)).toHaveLength(1);
     }
   });
 

@@ -19,9 +19,16 @@ export type NewScoreInput = Readonly<{
   measures: number;
 }>;
 
+export type NewScoreField = 'title' | 'key' | 'meter' | 'tempo' | 'measures';
+export type NewScoreFieldErrors = Readonly<Partial<Record<NewScoreField, string>>>;
+
 export type NewScoreResult =
   | Readonly<{ status: 'valid'; abcSource: string; title: string }>
-  | Readonly<{ status: 'invalid'; errors: readonly string[] }>;
+  | Readonly<{
+    status: 'invalid';
+    errors: readonly string[];
+    fieldErrors: NewScoreFieldErrors;
+  }>;
 
 export type MeasureMutation =
   | Readonly<{ kind: 'insert'; span: MeasureSpan; position: 'before' | 'after'; count: number }>
@@ -99,22 +106,29 @@ export const createBlankPianoScore = (input: NewScoreInput): NewScoreResult => {
   const subtitle = sanitizeHeaderValue(input.subtitle || '');
   const composer = sanitizeHeaderValue(input.composer || '');
   const errors: string[] = [];
+  const fieldErrors: Partial<Record<NewScoreField, string>> = {};
+  const addFieldError = (field: NewScoreField, error: string) => {
+    fieldErrors[field] = error;
+    errors.push(error);
+  };
 
-  if (!title) errors.push('Title is required.');
+  if (!title) addFieldError('title', 'Title is required.');
   const key = validateKeySignature(input.key);
-  if (!key.valid || !key.value) errors.push(key.error || 'Key is invalid.');
+  if (!key.valid || !key.value) addFieldError('key', key.error || 'Key is invalid.');
   const meter = validateMeter(input.meter);
-  if (!meter.valid || !meter.value) errors.push(meter.error || 'Meter is invalid.');
+  if (!meter.valid || !meter.value) addFieldError('meter', meter.error || 'Meter is invalid.');
   const tempoError = validateIntegerRange(input.tempo, 'Tempo', MIN_DRAFT_TEMPO, MAX_DRAFT_TEMPO);
-  if (tempoError) errors.push(tempoError);
+  if (tempoError) addFieldError('tempo', tempoError);
   const measureError = validateIntegerRange(
     input.measures,
     'Measures',
     MIN_DRAFT_MEASURES,
     MAX_DRAFT_MEASURES,
   );
-  if (measureError) errors.push(measureError);
-  if (errors.length > 0 || !key.value || !meter.value) return { status: 'invalid', errors };
+  if (measureError) addFieldError('measures', measureError);
+  if (errors.length > 0 || !key.value || !meter.value) {
+    return { status: 'invalid', errors, fieldErrors };
+  }
 
   const measureRests = Array.from({ length: input.measures }, () => 'Z |').join(' ');
   const lines = [
@@ -147,6 +161,7 @@ export const createBlankPianoScore = (input: NewScoreInput): NewScoreResult => {
     return {
       status: 'invalid',
       errors: [error instanceof Error ? error.message : 'The generated ABC is invalid.'],
+      fieldErrors: {},
     };
   }
 

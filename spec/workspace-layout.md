@@ -31,6 +31,7 @@ test_files:
   - src/utils/__tests__/fileHistory.test.ts
   - src/hooks/__tests__/useResizablePanel.test.ts
   - src/styles/__tests__/workspaceLayoutCss.test.ts
+  - src/test/usability.test.tsx
 related_specs:
   - spec/design.md
   - spec/score-surface.md

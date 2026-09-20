@@ -326,6 +326,7 @@ export const useDocumentStore = () => {
   }, [activeFileId]);
 
   const handleProcessMusicXml = useCallback(async (fileData: ArrayBuffer | string, fileName: string) => {
+    workspaceInitializedRef.current = true;
     const requestId = ++loadRequestRef.current;
     try {
       setLoading(true);
@@ -358,11 +359,16 @@ export const useDocumentStore = () => {
   }, []);
 
   const handleCreateDocument = useCallback((abcSource: string, title: string) => {
+    workspaceInitializedRef.current = true;
+    // Creating a score wins over any first-run sample fetch still in flight.
+    // Invalidating that request prevents its late response from stealing focus.
+    loadRequestRef.current += 1;
     const safeFileName = `${title.trim() || 'Untitled score'}.abc`;
     const newDocument = createDocumentFromAbc(safeFileName, 'abc', abcSource, title);
     setDocuments((current) => [newDocument, ...current]);
     setActiveFileId(newDocument.id);
     setActiveAnchor(null);
+    setLoading(false);
     setError(null);
   }, []);
 
