@@ -91,23 +91,33 @@ export function normalizeMusicXml(xmlString: string): string {
   const parts = Array.from(doc.getElementsByTagName('part'));
   if (parts.length === 0) return xmlString;
 
-  // Gather master ordered measure numbers across all parts
-  const measureNumberSet = new Set<string>();
-  const measureNumbers: string[] = [];
+  // Gather master ordered measure keys across all parts, supporting split measures with duplicated numbers (e.g. 7#0, 7#1)
+  const measureKeySet = new Set<string>();
+  const measureKeys: string[] = [];
   for (const part of parts) {
+    const partNumCounts = new Map<string, number>();
     const measures = Array.from(part.getElementsByTagName('measure'));
     for (const m of measures) {
       const num = m.getAttribute('number') || '';
-      if (!measureNumberSet.has(num)) {
-        measureNumberSet.add(num);
-        measureNumbers.push(num);
+      const count = partNumCounts.get(num) || 0;
+      partNumCounts.set(num, count + 1);
+      const key = `${num}#${count}`;
+      if (!measureKeySet.has(key)) {
+        measureKeySet.add(key);
+        measureKeys.push(key);
       }
     }
   }
 
-  const allNumeric = measureNumbers.every((n) => /^\d+$/.test(n));
+  const allNumeric = measureKeys.every((k) => /^\d+#\d+$/.test(k));
   if (allNumeric) {
-    measureNumbers.sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+    measureKeys.sort((a, b) => {
+      const [numA, idxA] = a.split('#');
+      const [numB, idxB] = b.split('#');
+      const diff = parseInt(numA!, 10) - parseInt(numB!, 10);
+      if (diff !== 0) return diff;
+      return parseInt(idxA!, 10) - parseInt(idxB!, 10);
+    });
   }
 
   let globalDivisions = 4;
@@ -191,18 +201,24 @@ export function normalizeMusicXml(xmlString: string): string {
     });
 
     const measureMap = new Map<string, Element>();
+    const partNumCounts = new Map<string, number>();
     for (const m of Array.from(part.getElementsByTagName('measure'))) {
-      measureMap.set(m.getAttribute('number') || '', m);
+      const num = m.getAttribute('number') || '';
+      const count = partNumCounts.get(num) || 0;
+      partNumCounts.set(num, count + 1);
+      measureMap.set(`${num}#${count}`, m);
     }
 
     let prevMeasureNode: Element | null = null;
+    let hasPickup = false;
 
-    for (const measureNum of measureNumbers) {
-      let measureNode = measureMap.get(measureNum);
+    for (const measureKey of measureKeys) {
+      const [measureNum] = measureKey.split('#');
+      let measureNode = measureMap.get(measureKey);
       if (!measureNode) {
         measureNode = doc.createElement('measure');
-        measureNode.setAttribute('number', measureNum);
-        measureMap.set(measureNum, measureNode);
+        measureNode.setAttribute('number', measureNum!);
+        measureMap.set(measureKey, measureNode);
         if (prevMeasureNode) {
           part.insertBefore(measureNode, prevMeasureNode.nextSibling);
         } else {
@@ -233,7 +249,7 @@ export function normalizeMusicXml(xmlString: string): string {
         }
       }
 
-      const isPickup = measureNode.getAttribute('implicit') === 'yes' || measureNum === '0';
+      const isExplicitPickup = measureNode.getAttribute('implicit') === 'yes' || measureNum === '0';
       let expectedDuration = Math.round((4 * currentMeter.beats * currentDivisions) / currentMeter.beatType);
 
       const children = Array.from(measureNode.childNodes);
@@ -321,13 +337,36 @@ export function normalizeMusicXml(xmlString: string): string {
         }
       }
 
-      if (isPickup) {
-        let maxDur = 0;
-        for (const v of canonicalVoices) {
-          const d = voiceDurations.get(v) || 0;
-          if (d > maxDur) maxDur = d;
+      let maxDur = 0;
+      for (const v of canonicalVoices) {
+        const d = voiceDurations.get(v) || 0;
+        if (d > maxDur) maxDur = d;
+      }
+
+      const hasRepeatBarline = preamble.concat(epilogue).some((el) => {
+        return el.tagName.toLowerCase() === 'barline' && el.querySelector('repeat') !== null;
+      });
+
+      const isFirstMeasure = measureKeys.indexOf(measureKey) === 0;
+      const isInitialPartial = isFirstMeasure && measureKeys.length >= 2 && maxDur > 0 && maxDur < expectedDuration;
+      const isSplitRepeat = hasRepeatBarline && maxDur > 0 && maxDur < expectedDuration;
+
+      if (isFirstMeasure && (isExplicitPickup || isInitialPartial)) {
+        hasPickup = true;
+      }
+
+      const isLastMeasure = measureKeys.indexOf(measureKey) === measureKeys.length - 1;
+      const isComplementaryFinal = isLastMeasure && hasPickup && maxDur > 0 && maxDur < expectedDuration;
+
+      const isIntentionalPartial = isExplicitPickup || isInitialPartial || isSplitRepeat || isComplementaryFinal;
+
+      if (isIntentionalPartial) {
+        if (!measureNode.hasAttribute('implicit')) {
+          measureNode.setAttribute('implicit', 'yes');
         }
-        if (maxDur > 0) expectedDuration = maxDur;
+        if (maxDur > 0) {
+          expectedDuration = maxDur;
+        }
       }
 
       for (const v of canonicalVoices) {
@@ -421,9 +460,9 @@ export function normalizeMusicXml(xmlString: string): string {
       }
     }
 
-    // Ensure all measure elements in the part strictly follow the master measureNumbers sequence in the DOM
-    for (const num of measureNumbers) {
-      const mNode = measureMap.get(num);
+    // Ensure all measure elements in the part strictly follow the master measureKeys sequence in the DOM
+    for (const key of measureKeys) {
+      const mNode = measureMap.get(key);
       if (mNode && mNode.parentNode === part) {
         part.appendChild(mNode);
       }

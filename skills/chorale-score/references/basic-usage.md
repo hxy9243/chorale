@@ -47,6 +47,17 @@ Use `read_measure` to inspect score notation:
 ### C. Reading Annotations
 Call `list_notations` with `{ documentId, startMeasure?, endMeasure? }` to inspect existing harmonic analysis, Roman numerals, and formal commentary across a score span.
 
+### D. Verifying Annotation Measure Indices
+Annotation positions must use measure indices verified through the MCP response, not visual system placement or ABC comments.
+
+1. Read each target measure separately before creating or reviewing annotations.
+2. A range containing only headers, directives, comments, `$` line-break markers, or structural barlines is layout-only. Do not attach an annotation to that index. Record the skipped index so later annotations remain aligned with the sounding measures returned by the service.
+3. Compare each measure's total written duration with `M:`. A shorter opening or post-repeat segment can be a pickup rather than an error; retain the MCP index that actually contains its notes.
+4. Treat `%4`, `%8`, and similar ABC comments as engraving aids only. They are not authoritative MCP indices.
+5. Before a mutation, re-read the first and last sounding measures in the proposed span and confirm that the cited notes occur there.
+
+If layout-only indices appear inside a score, report them as parser artifacts in the analysis. Do not silently renumber the source or modify the score unless the user separately requests a parser or notation repair.
+
 ---
 
 ## 3. Safe Score Mutations & Revision Guards

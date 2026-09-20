@@ -1,6 +1,6 @@
 ---
 name: chorale-score
-description: Open Chorale in the default browser, compose new sheets, import MusicXML files, inspect scores, read measure selections/ranges, apply score edits, and manage musical annotations via the local Chorale MCP server.
+description: Open and operate Chorale scores, including localhost:1685 links; inspect beat-aligned voice content, verify chord roots and inversions, classify non-chord tones, compose or edit music, and create trustworthy musical annotations through the local Chorale MCP server.
 ---
 
 # Chorale Score Workflow
@@ -44,7 +44,23 @@ For detailed rules, standards, and musical examples, consult the topic-specific 
 
 ---
 
-## 3. Mandatory Engraving & Composition Ground Rules
+## 3. Mandatory Pre-Annotation Verification
+
+Before adding, editing, or endorsing harmonic annotations:
+
+1. Call `list_files` and `list_notations` to establish the authoritative document ID, revision, existing annotation spans, and score length.
+2. Read every target measure individually with `read_measure`. Treat a result as layout-only when its voices contain no note or rest events after removing directives, comments, `$` line-break markers, and structural barlines. Do not annotate that index; record the offset and continue with the verified sounding measures.
+3. Identify pickup bars from their written duration relative to `M:` and preserve their verified MCP indices. Do not infer annotation positions from printed `%` measure comments, visual system breaks, or the count of existing annotations.
+4. Build vertical slices at every note onset. Carry sustained and tied pitches forward until their written durations end, and use the lowest sounding pitch in each slice as the bass.
+5. Derive each chord root and quality from the sounding pitch classes, then derive inversion independently from the bass. Use figured-bass inversions consistently for triads and sevenths.
+6. Test apparent extra pitches as non-chord tones from their metric position, approach, preparation, and resolution. Do not discard a pitch merely because it prevents a convenient chord label.
+7. Run a consistency audit before mutation: `label`, `chordSymbol`, `romanNumeral`, and `body` must describe the same sequence, inversion, measure span, voices, and cadence evidence. If the evidence is ambiguous, use a broader functional description or an `explanation` notation instead of an unsupported precise label.
+
+For the complete harmonic procedure and audit checklist, read [Chord Progression Analysis & Syntax](references/chord-progression-analysis.md). For claims about suspensions or other non-chord tones, also read [Voice Leading & General Score Analysis](references/voice-leading-and-general-analysis.md).
+
+---
+
+## 4. Mandatory Engraving & Composition Ground Rules
 
 When generating or modifying ABC notation, agents must obey these non-negotiable rules:
 
@@ -69,7 +85,7 @@ When generating or modifying ABC notation, agents must obey these non-negotiable
 
 ---
 
-## 4. MCP Tools Quick Reference
+## 5. MCP Tools Quick Reference
 
 | Tool | Action | Key Parameters |
 | --- | --- | --- |

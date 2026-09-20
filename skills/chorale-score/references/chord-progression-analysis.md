@@ -175,3 +175,35 @@ When adding harmonic annotations via `add_notation`, supply precise structural m
   "body": "D7 tonicizes the dominant key (G major) with raised F# acting as secondary leading tone, resolving to G: I in m. 9."
 }
 ```
+
+---
+
+## 8. Mandatory Annotation Accuracy Audit
+
+Complete this audit before calling `add_notation` or `edit_notations`:
+
+1. **Measure identity**: Read each target measure separately. Exclude layout-only results and retain the actual MCP index of pickups and sounding measures.
+2. **Rhythmic alignment**: Make a vertical slice at every onset and include notes still sounding from earlier onsets. Do not analyze voices as if all tokens begin together.
+3. **Bass and inversion**: Determine the lowest sounding pitch in every structural slice before writing the Roman numeral. For example, in G major:
+   - `Em/G` is `vi6`, not `vi`.
+   - `Em7/G` is `vi6/5`.
+   - `Am7/C` is `ii6/5`, not root-position `ii7`.
+   - `D7/A` is `V4/3`.
+4. **Non-chord tones**: Keep a pitch in the chord unless its approach, metric role, and departure support a recognized non-chord-tone category. When evidence is incomplete, describe the harmony broadly instead of forcing a specific tertian label.
+5. **Sequence consistency**: Every structural chord named in the prose must also appear in the label, chord symbol, or Roman-numeral sequence. Do not write a two-chord label while asserting an unrepresented middle harmony in the body.
+6. **Cadence evidence**: Classify a cadence only after checking the complete approach and resolution, including both outer voices. A PAC requires root-position dominant to root-position tonic with scale degree 1 in the soprano; a fermata alone does not establish the cadence type.
+7. **Claim consistency**: Verify that the label, `chordSymbol`, `romanNumeral`, body, measure span, and named voices all describe the same written events. Remove ornamental adjectives that are not analytical evidence.
+
+When several short-lived slices elaborate one function, the annotation may summarize the function, but its body must distinguish structural harmonies from passing or neighboring sonorities. Prefer an `explanation` notation for unresolved ambiguity.
+
+### Regression Example: BWV 371
+
+For the bundled BWV 371 score, a correct review must detect the pickup and any layout-only MCP measure, preserve the sounding-measure indices, and distinguish the following sonorities in G major:
+
+- `Em/G` = `vi6`.
+- `Em7/G` = `vi6/5`.
+- `Am7/C` = `ii6/5`.
+- `D7/A` = `V4/3`.
+- The later progression `vi - vi4/2 - ii6/5 - V7` must not be collapsed to `ii7 - V7`.
+
+Do not label the alleged m. 6 tenor event as a 4-3 suspension unless the individual measure read proves all three phases: consonant preparation, retention as a dissonance over the new bass, and stepwise resolution in that same voice.

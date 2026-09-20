@@ -26,6 +26,11 @@ test('fresh Codex package uses the browser service and current library', async (
     await assert.rejects(access(join(output, 'server.mjs')));
     const manifest = JSON.parse(await readFile(join(output, '.codex-plugin/plugin.json'), 'utf8'));
     assert.equal(manifest.mcpServers, './.mcp.json');
+    const scoreSkill = await readFile(join(output, 'skills/chorale-score/SKILL.md'), 'utf8');
+    assert.match(scoreSkill, /Mandatory Pre-Annotation Verification/);
+    const harmonicReference = await readFile(join(output, 'skills/chorale-score/references/chord-progression-analysis.md'), 'utf8');
+    assert.match(harmonicReference, /Mandatory Annotation Accuracy Audit/);
+    assert.match(harmonicReference, /Em\/G.*vi6/);
     const bundle = await readFile(join(output, 'server/cli.mjs'), 'utf8');
     assert.equal(bundle.includes('codex-plugin-store.json'), false);
     assert.equal(bundle.includes('43171'), false);

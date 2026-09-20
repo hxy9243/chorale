@@ -59,6 +59,8 @@ A suspension must always proceed through three distinct rhythmic phases:
   - **9–8 Suspension**: The 9th above the bass resolves to the octave (root).
   - **2–3 Bass Suspension**: Occurs in the lowest voice; the bass itself is suspended and resolves downward by step.
 
+**Annotation proof rule**: Name a suspension only after aligning the relevant voice with the bass across all three phases. The preparation must be sounding and consonant before the harmony changes; the same pitch must continue by a tie or written duration into the new harmony as a dissonance; and that same voice must then resolve by step. A note that merely moves from a chord tone to the expected resolution at the chord onset is not a suspension. If any phase is absent or cannot be established from the written rhythm, describe the motion without the suspension label.
+
 #### B. Appoggiaturas
 - Highly expressive, emotionally poignant accent dissonance.
 - Approached by an expressive leap onto a strong beat, followed by a stepwise resolution in the opposite direction.

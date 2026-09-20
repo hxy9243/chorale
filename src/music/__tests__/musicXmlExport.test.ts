@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exportToMusicXml, ScoreExportError, suggestExportFileName } from '../musicXmlExport';
+import { parseMusicXmlToAbc } from '../../utils/xmlParser';
 
 const SIMPLE_MELODY = `X:1
 T:Simple Scale
@@ -199,6 +200,45 @@ C,, D,, E,, F,, | | | C,, D,, E,, F,, |`,
     expect(altoMeasures[2].querySelector('rest[measure="yes"]')).not.toBeNull();
     expect(altoMeasures[3].querySelector('rest[measure="yes"]')).not.toBeNull();
     expect(altoMeasures[2].querySelector('duration')?.textContent).toBe('16');
+  });
+
+  it('exports pickup measures with number="0" and implicit="yes" without padding rests', () => {
+    const xml = exportToMusicXml({
+      abcSource: `X:1
+T:Pickup Piece
+M:4/4
+L:1/4
+K:C
+C | D E F G | A B c d |`,
+    });
+    const doc = parseXml(xml);
+    const measures = Array.from(doc.getElementsByTagName('measure'));
+    expect(measures).toHaveLength(3);
+
+    const m0 = measures[0];
+    expect(m0.getAttribute('number')).toBe('0');
+    expect(m0.getAttribute('implicit')).toBe('yes');
+
+    // Measure 0 must have exactly 1 note (C) and NO rests!
+    const m0Notes = Array.from(m0.getElementsByTagName('note'));
+    expect(m0Notes).toHaveLength(1);
+    expect(m0Notes[0].querySelector('rest')).toBeNull();
+
+    // Measure 1 must be number="1" without implicit
+    const m1 = measures[1];
+    expect(m1.getAttribute('number')).toBe('1');
+    expect(m1.getAttribute('implicit')).toBeNull();
+  });
+
+  it('preserves pickup measure cleanly across export and import roundtrip without phantom rests', () => {
+    const originalAbc = `X:1\nT:Roundtrip Pickup\nM:4/4\nL:1/4\nK:C\nC | D E F G |`;
+    const xml = exportToMusicXml({ abcSource: originalAbc });
+    const importedAbc = parseMusicXmlToAbc(xml);
+
+    // Should not contain any rests ('z' or 'x') in the pickup measure
+    expect(importedAbc).not.toMatch(/z3/);
+    expect(importedAbc).not.toMatch(/z\d/);
+    expect(importedAbc).toContain('C |');
   });
 
   it('throws ScoreExportError for empty input', () => {
