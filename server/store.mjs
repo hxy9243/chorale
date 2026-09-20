@@ -14,6 +14,17 @@ import {
   DEFAULT_SCORE_ANNOTATIONS,
 } from './default-score.mjs';
 
+export const CURRENT_SCHEMA_VERSION = 1;
+
+const REQUIRED_SCHEMA_TABLES = [
+  'meta',
+  'workspace',
+  'documents',
+  'workspace_documents',
+  'document_versions',
+  'document_history',
+];
+
 export const generateDocumentId = () => `score-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
 export const generateHistoryId = () => `hist-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
 
@@ -103,17 +114,30 @@ export class LocalDocumentStore {
 
     if (this.dbPath !== ':memory:') {
       mkdirSync(dirname(this.dbPath), { recursive: true });
-      mkdirSync(this.scoresDir, { recursive: true });
     }
 
     this.db = new DatabaseSync(this.dbPath);
-    this.db.exec('PRAGMA journal_mode = WAL;');
-    this.db.exec('PRAGMA foreign_keys = ON;');
-    this.db.exec('PRAGMA busy_timeout = 5000;');
+    try {
+      // These are connection-local settings and do not mutate the database.
+      this.db.exec('PRAGMA foreign_keys = ON;');
+      this.db.exec('PRAGMA busy_timeout = 5000;');
 
-    this.initSchema();
-    if (options.seedDefault && this.dbPath !== ':memory:') {
-      this.seedDefaultScoreSync();
+      this.initSchema();
+
+      // WAL changes persistent database state, so enable it only after the
+      // existing schema version has been accepted or a fresh schema committed.
+      this.db.exec('PRAGMA journal_mode = WAL;');
+
+      if (this.dbPath !== ':memory:') {
+        mkdirSync(this.scoresDir, { recursive: true });
+      }
+
+      if (options.seedDefault && this.dbPath !== ':memory:') {
+        this.seedDefaultScoreSync();
+      }
+    } catch (err) {
+      try { this.db.close(); } catch {}
+      throw err;
     }
   }
 
@@ -172,6 +196,12 @@ export class LocalDocumentStore {
   }
 
   setMeta(key, value) {
+    if (key === 'schema_version') {
+      throw new PluginError(
+        'SCHEMA_VERSION_MANAGED',
+        'The SQLite schema version is managed internally by Chorale.',
+      );
+    }
     this.db.prepare(`
       INSERT INTO meta (key, value) VALUES (?, ?)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value
@@ -179,7 +209,52 @@ export class LocalDocumentStore {
   }
 
   initSchema() {
-    this.db.exec(`
+    const version = this.inspectSchemaVersion();
+    if (version === null) {
+      this.initializeSchema();
+      return;
+    }
+
+    if (version > CURRENT_SCHEMA_VERSION) {
+      throw new PluginError(
+        'UNSUPPORTED_SCHEMA_VERSION',
+        `This database uses schema version ${version}, but this Chorale build supports up to version ${CURRENT_SCHEMA_VERSION}.`,
+      );
+    }
+
+    this.validateSchemaTables();
+  }
+
+  inspectSchemaVersion() {
+    const tables = this.db.prepare(`
+      SELECT name, type FROM sqlite_schema
+      WHERE name NOT LIKE 'sqlite_%'
+      ORDER BY name
+    `).all();
+    const tableNames = new Set(tables.filter((row) => row.type === 'table').map((row) => row.name));
+    if (!tableNames.has('meta')) {
+      if (tables.length === 0) return null;
+      throw new PluginError(
+        'UNVERSIONED_DATABASE',
+        'The SQLite database contains schema objects but has no schema version. Chorale will not modify it.',
+      );
+    }
+
+    const row = this.db.prepare("SELECT value FROM meta WHERE key = 'schema_version'").get();
+    const rawVersion = row?.value;
+    if (typeof rawVersion !== 'string' || !/^[1-9]\d*$/.test(rawVersion)) {
+      throw new PluginError(
+        'INVALID_SCHEMA_VERSION',
+        `The SQLite schema version is missing or invalid: ${rawVersion ?? 'missing'}.`,
+      );
+    }
+    return Number(rawVersion);
+  }
+
+  initializeSchema() {
+    this.db.exec('BEGIN IMMEDIATE;');
+    try {
+      this.db.exec(`
       CREATE TABLE IF NOT EXISTS meta (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
@@ -234,9 +309,30 @@ export class LocalDocumentStore {
         sort_order INTEGER NOT NULL
       );
 
-      INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', '1');
       INSERT OR IGNORE INTO workspace (id, revision, preferences) VALUES (1, 0, '{}');
-    `);
+      `);
+      this.validateSchemaTables();
+      this.db.prepare("INSERT INTO meta (key, value) VALUES ('schema_version', ?)").run(String(CURRENT_SCHEMA_VERSION));
+      this.db.exec('COMMIT;');
+    } catch (err) {
+      try { this.db.exec('ROLLBACK;'); } catch {}
+      throw new PluginError('SCHEMA_INITIALIZATION_FAILED', `Failed to initialize the SQLite schema: ${err.message}`);
+    }
+  }
+
+  validateSchemaTables() {
+    const rows = this.db.prepare(`
+      SELECT name FROM sqlite_schema
+      WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+    `).all();
+    const tableNames = new Set(rows.map((row) => row.name));
+    const missing = REQUIRED_SCHEMA_TABLES.filter((name) => !tableNames.has(name));
+    if (missing.length > 0) {
+      throw new PluginError(
+        'INVALID_DATABASE_SCHEMA',
+        `SQLite schema version ${CURRENT_SCHEMA_VERSION} is missing required tables: ${missing.join(', ')}.`,
+      );
+    }
   }
 
   seedDefaultScoreSync() {

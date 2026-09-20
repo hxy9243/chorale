@@ -6,6 +6,9 @@ date: 2026-09-08
 updated: 2026-09-13
 status: "implemented"
 source_files:
+  - .npmrc
+  - package.json
+  - .github/workflows/ci.yml
   - bin/chorale.mjs
   - server/mcp/index.mjs
   - server/api_server.mjs
@@ -29,6 +32,7 @@ source_files:
 test_files:
   - test/mcp-server.node.mjs
   - test/codex-package.node.mjs
+  - test/install.smoke.mjs
   - test/measure-ops.node.mjs
   - src/hooks/usePluginMcpBridge.test.ts
 related_specs:
@@ -92,3 +96,11 @@ The MCP server exposes 16 modular tools:
 - Reopening preserves all scores and annotations across restarts (`~/.chorale/chorale.db`).
 - Data tools operate fully headlessly without requiring the browser UI.
 - The `render_score_workspace` tool is distinct from ordinary reads so a data read never remounts a score page.
+
+## CLI installation artifact
+
+Source dependency installs and npm pack run `prepare` to build the workspace. Direct global Git-source installation remains unverified; the documented quick start uses a source checkout and local dependency installation. The package explicitly includes `dist/`, the CLI, server modules, and skills, even though generated assets are gitignored. Supported Node versions are 22.13+ on the 22.x line and 24+, covering the build/test tool requirements. The import converter still declares a Node 20-only engine; see RELEASE.md for that unresolved support mismatch. `npm run test:install` packs and installs the actual artifact into an isolated prefix, checks served browser assets, and verifies durable score data after server restart. This check is blocking in CI and is distinct from browser interaction coverage.
+
+The pinned Git-based `abc-utils` dependency is bundled into npm archives so installing the finished artifact does not need to fetch or rebuild that Git dependency.
+
+The source checkout opts into npm 12 Git fetching for dependencies declared directly in its package.json using `.npmrc` (`allow-git=root`); this does not alter the user global npm configuration.

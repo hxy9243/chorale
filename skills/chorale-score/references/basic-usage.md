@@ -7,7 +7,7 @@ This guide details how autonomous agents inspect, modify, and analyze musical sc
 ## 1. System Architecture & Environment
 
 - **Server Port**: The Chorale daemon operates locally on **port 1685** (`http://127.0.0.1:1685/`).
-- **Persistence Directory**: All documents are stored in `~/.chorale/` (`store.json` index and mirrored `<documentId>.abc` source files).
+- **Persistence Directory**: All documents are stored in `~/.chorale/` (`chorale.db` and mirrored `scores/<documentId>.abc` source files).
 - **Headless First**: All read and write tools (`read_measure`, `edit_measure`, `add_notation`, etc.) function headlessly without requiring a browser window to be open.
 - **Browser UI on Demand**: The workspace canvas is opened only when requested or when an interactive review is needed via `open_ui`.
 

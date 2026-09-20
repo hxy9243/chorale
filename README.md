@@ -4,10 +4,10 @@
 
 **A high-precision music notation workspace and MCP tool server for AI coding agents.**
 
-[![Version](https://img.shields.io/badge/version-0.0.0-rose.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-0.0.1-rose.svg)](package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-amber.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-passing-emerald.svg)](package.json)
-[![Node](https://img.shields.io/badge/node-%3E%3D20-blue.svg)](package.json)
+[![Tests](https://github.com/hxy9243/chorale/actions/workflows/ci.yml/badge.svg)](https://github.com/hxy9243/chorale/actions/workflows/ci.yml)
+[![Node](https://img.shields.io/badge/node-22.13%2B%20or%2024%2B-blue.svg)](package.json)
 
 [Overview](#-overview) •
 [Quick Start](#-quick-start) •
@@ -53,11 +53,16 @@ Use Chorale to compose an original 16-measure piano piece inspired by Mozart's C
 
 ### Manual setup
 
-Install Chorale directly from GitHub (Node.js 22.5+ required):
+Build Chorale from GitHub (Node.js 22.13+ on the 22.x line, or 24+ required):
 
 ```bash
-npm install --global github:hxy9243/chorale
+git clone https://github.com/hxy9243/chorale.git
+cd chorale
+npm ci
+npm link
 ```
+
+`npm ci` builds the browser workspace automatically. The project configuration permits its pinned Git dependency on npm 12. Direct global installation from a GitHub URL is still being verified; use the source-build steps above for now.
 
 Start Chorale from the command line:
 

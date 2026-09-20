@@ -1,0 +1,84 @@
+[
+  {
+    "id": "melody-measure-location",
+    "question": "Which notes begin the melody, and where do they appear?",
+    "score": {
+      "title": "Grounding Minuet",
+      "abcSource": "X:1\nT:Grounding Minuet\nC:Test Corpus\nM:3/4\nL:1/4\nK:G\nV:mel name=\"Melody\"\n[V:mel] G B d | A c e |]"
+    },
+    "read": {
+      "startMeasure": 1,
+      "endMeasure": 1,
+      "voiceId": "mel"
+    },
+    "expectedRange": {
+      "startMeasure": 1,
+      "endMeasure": 1,
+      "voiceId": "mel"
+    },
+    "expectedMeasureCount": 1,
+    "requiredEvidence": ["V:mel", "G B d |"],
+    "excludedEvidence": ["A c e"],
+    "referenceAnswer": "The melody begins with G, B, and D in measure 1.",
+    "requiredAnswerPhrases": ["G, B, and D"],
+    "citations": ["measure 1"],
+    "groundedClaims": [
+      { "answerPhrase": "G, B, and D", "evidence": "G B d" }
+    ],
+    "forbiddenAnswerPhrases": ["measure 2"]
+  },
+  {
+    "id": "voice-scoped-chord",
+    "question": "What sonority is written in the bass voice in measure 2?",
+    "score": {
+      "title": "Two Voice Cadence",
+      "abcSource": "X:1\nT:Two Voice Cadence\nM:4/4\nL:1/4\nK:C\nV:s name=\"Soprano\"\nV:b name=\"Bass\"\n[V:s] C D E F | G A B c |]\n[V:b] [C,E,G,]4 | [G,,D,G,]4 |]"
+    },
+    "read": {
+      "startMeasure": 2,
+      "endMeasure": 2,
+      "voiceId": "b"
+    },
+    "expectedRange": {
+      "startMeasure": 2,
+      "endMeasure": 2,
+      "voiceId": "b"
+    },
+    "expectedMeasureCount": 1,
+    "requiredEvidence": ["V:b", "[G,,D,G,]4 |]"],
+    "excludedEvidence": ["G A B c", "V:s"],
+    "referenceAnswer": "In the bass voice, measure 2 contains the written sonority G–D–G.",
+    "requiredAnswerPhrases": ["bass voice", "G–D–G"],
+    "citations": ["measure 2"],
+    "groundedClaims": [
+      { "answerPhrase": "G–D–G", "evidence": "[G,,D,G,]4" }
+    ],
+    "forbiddenAnswerPhrases": ["G–A–B–C"]
+  },
+  {
+    "id": "unsupported-dynamics",
+    "question": "How do the dynamics change across the first two measures?",
+    "score": {
+      "title": "Unmarked Phrase",
+      "abcSource": "X:1\nT:Unmarked Phrase\nM:2/4\nL:1/8\nK:D\nV:1\nD E F G | A B c d |]"
+    },
+    "read": {
+      "startMeasure": 1,
+      "endMeasure": 2,
+      "voiceId": "1"
+    },
+    "expectedRange": {
+      "startMeasure": 1,
+      "endMeasure": 2,
+      "voiceId": "1"
+    },
+    "expectedMeasureCount": 2,
+    "requiredEvidence": ["D E F G |", "A B c d |]"],
+    "excludedEvidence": ["!p!", "!f!", "!mf!"],
+    "referenceAnswer": "Measures 1–2 contain no dynamic markings, so this passage does not support a claim about a dynamic change.",
+    "requiredAnswerPhrases": ["no dynamic markings", "does not support"],
+    "citations": ["Measures 1–2"],
+    "groundedClaims": [],
+    "forbiddenAnswerPhrases": ["crescendo", "decrescendo", "forte", "pianissimo"]
+  }
+]

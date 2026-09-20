@@ -7,11 +7,16 @@ description: Install, launch, upgrade, and connect the Chorale CLI and its local
 
 Chorale uses a single local background daemon running at `http://127.0.0.1:1685`. It owns the browser workspace, persistent score store (`~/.chorale/`), and MCP tools.
 
-## 1. Install for Development
+## 1. Install from Source or a Release Archive
+
+Use Node.js 22.13+ on the 22.x line, or 24+. For a source checkout:
 
 ```bash
-# 1. Install dependencies
-npm install
+git clone https://github.com/hxy9243/chorale.git
+cd chorale
+
+# 1. Install dependencies (also builds through prepare)
+npm ci
 
 # 2. Build the interactive web workspace
 npm run build
@@ -20,7 +25,7 @@ npm run build
 npm link
 ```
 
-For a released package, install `@chorale/cli` globally instead. Both approaches expose the `chorale` command.
+For v0.0.1, download the built `chorale-0.0.1.tgz` asset from the GitHub release and run `npm install --global /path/to/chorale-0.0.1.tgz`. The archive includes the browser workspace. There is no published `@chorale/cli` package. Direct global GitHub-URL installation is not supported in this release; use the source build or archive.
 
 ## 2. Launch and Inspect
 
@@ -41,7 +46,7 @@ chorale upgrade
 - `chorale` is idempotent: it starts the daemon in the background only when its health endpoint is unavailable, then opens the browser workspace. Never start a second server or choose a fallback port.
 - `chorale status` does not launch a daemon. It reports the healthy process and its runtime metadata.
 - `chorale stop` terminates only the daemon whose PID and port match `~/.chorale/runtime.json`.
-- `chorale upgrade` pulls the latest release (fetching git commits and rebuilding workspace assets, or updating via npm) and gracefully restarts the running daemon while preserving score data in `~/.chorale/`. Use `--skip-pull` to only restart.
+- `chorale upgrade` pulls git changes and rebuilds a source checkout, then restarts the daemon. Private archive installs require installing the new archive first, then `chorale upgrade --skip-pull`. SQLite score data remains in `~/.chorale/`; legacy JSON libraries are not migrated.
 
 ## 3. Agent MCP Integration
 
@@ -138,7 +143,7 @@ To upgrade Chorale to the latest release:
 chorale upgrade
 ```
 
-`chorale upgrade` automatically pulls the latest release (pulling git changes and rebuilding workspace assets, or updating via npm) and restarts the background daemon while preserving all score files in `~/.chorale/`. If you only want to restart without pulling, use `chorale upgrade --skip-pull`. Start a new Codex or agent task when the tool catalog changes.
+In a source checkout, `chorale upgrade` pulls git changes, rebuilds the workspace and restarts the daemon. For an archive install, install the new archive explicitly, then run `chorale upgrade --skip-pull`; the private package does not fetch npm registry updates. Back up the SQLite library before updating. Rebuild and reinstall plugin bundles after source updates, and start a new agent task to load updated tools.
 
 ## 5. Verification
 
@@ -151,5 +156,5 @@ curl -s http://127.0.0.1:1685/v1/health
 
 Expected response format:
 ```json
-{"service":"chorale-service","version":"0.0.0","port":1685,"pid":12345,"status":"ok"}
+{"service":"chorale-service","version":"0.0.1","port":1685,"pid":12345,"status":"ok"}
 ```

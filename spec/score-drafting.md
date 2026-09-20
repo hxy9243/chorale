@@ -21,6 +21,7 @@ test_files:
   - src/components/__tests__/MeasureDraftingToolbar.test.tsx
   - src/components/__tests__/AbcEditor.test.tsx
   - src/components/__tests__/NewScoreModal.test.tsx
+  - src/test/usability.test.tsx
   - src/components/__tests__/SheetMusicView.test.tsx
   - src/components/__tests__/AgentChatPanel.test.tsx
   - src/agent/__tests__/sheetTools.test.ts
@@ -55,6 +56,10 @@ user has explicitly entered proposal preview.
   `Q:1/4=<bpm>`.
 - The complete ABC is parsed before document creation. Failure leaves the dialog open and the active
   document unchanged. Success activates the document and enters the existing autosave pipeline.
+- User-created scores cancel any first-run sample load still in flight, so a late sample response cannot
+  replace the newly created score as the active document.
+- Invalid creation input marks the affected fields, moves keyboard focus to the first invalid field,
+  and announces the error summary. Correcting a field clears that field's stale validation state.
 
 ## 3. Measure source and mutations
 
