@@ -5,6 +5,17 @@
   "author": {
     "name": "Chorale"
   },
+  "homepage": "https://github.com/hxy9243/chorale",
+  "repository": "https://github.com/hxy9243/chorale",
+  "license": "MIT",
+  "keywords": [
+    "music",
+    "score",
+    "mcp",
+    "notation",
+    "composition",
+    "abc"
+  ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Chorale Codex Plugin",

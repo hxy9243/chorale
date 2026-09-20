@@ -1,0 +1,16 @@
+# Dependencies and builds
+node_modules/
+dist/
+build/
+coverage/
+
+# Local data and worktrees
+.agents/
+.git/
+.chorale/
+
+# Logs and environment
+*.log
+.env
+.env.*
+.DS_Store
