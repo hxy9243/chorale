@@ -60,7 +60,7 @@ Chorale is redesigned from a monolithic script and fragmented plugin wrappers in
   - `chorale stop`:
     - Gracefully stops only the healthy daemon whose PID and port match recorded runtime metadata.
   - `chorale upgrade`:
-    - Automatically pulls the latest release (fetching latest git commits and rebuilding workspace assets when run in a source checkout, or updating via package manager for package installs), then gracefully restarts the verified background daemon while preserving the local score store. Supports `--skip-pull` or `--no-pull` to bypass pulling if desired.
+    - Pulls the latest git commits and rebuilds workspace assets in a source checkout, then gracefully restarts the verified background daemon while preserving the local score store. Private archive installs must install the new archive explicitly before running `chorale upgrade --skip-pull`; a future publishable package may update through npm. Supports `--skip-pull` or `--no-pull` to bypass pulling if desired.
   - `chorale help`, `chorale --help`, or `chorale -h`:
     - Displays usage instructions, available CLI commands, and supported flags.
   - `chorale version`, `chorale --version`, or `chorale -v`:
