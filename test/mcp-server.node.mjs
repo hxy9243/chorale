@@ -541,20 +541,23 @@ test('store: SQLite in-memory mode, ordering, cascading deletes, and preferences
   }
 });
 
-test('store: meta table tracks schema_version and custom metadata', async () => {
+test('store: meta table exposes managed schema_version and custom metadata', async () => {
   const store = new LocalDocumentStore({ dbPath: ':memory:' });
   try {
     assert.equal(store.getMeta('schema_version'), '1');
     const readState = await store.read();
     assert.equal(readState.schemaVersion, 1);
 
-    store.setMeta('schema_version', '2');
+    assert.throws(
+      () => store.setMeta('schema_version', '2'),
+      (err) => err instanceof PluginError && err.code === 'SCHEMA_VERSION_MANAGED',
+    );
     store.setMeta('custom_key', 'custom_value');
-    assert.equal(store.getMeta('schema_version'), '2');
+    assert.equal(store.getMeta('schema_version'), '1');
     assert.equal(store.getMeta('custom_key'), 'custom_value');
 
     const updatedReadState = await store.read();
-    assert.equal(updatedReadState.schemaVersion, 2);
+    assert.equal(updatedReadState.schemaVersion, 1);
   } finally {
     store.close();
   }
@@ -628,5 +631,4 @@ test('store: mirror error handling reports warning and respects strictMirror', a
     await rm(tempDir, { recursive: true, force: true });
   }
 });
-
 
