@@ -160,7 +160,23 @@ Built around an interval of an **augmented sixth** formed by the lowered sixth s
 
 ---
 
-## 7. Persisting Harmonic Analysis in Chorale
+## 7. Using music21 Evidence Without Deferring Judgment
+
+After reading and aligning the target measures, call `analyze_harmony` for the same range when available. Its chordified slices are useful for checking sounding pitch sets and the literal bass, but its passage-wide key and chord candidates are deliberately low-confidence.
+
+Before accepting a candidate:
+
+1. Verify carried notes and ties in the written voices.
+2. Decide whether dissonant pitches are structural chord tones or contextual non-chord tones.
+3. Re-evaluate the local key from phrase and cadence evidence rather than copying the passage-wide estimate.
+4. Confirm applied targets, chromatic spellings, inversion, and figured bass from the actual bass.
+5. Merge or split boundaries according to harmonic function, not every melodic onset.
+
+If music21 disagrees with the written-score audit, prefer the score-grounded explanation and mention the ambiguity when it matters. Never persist music21 output directly as an annotation.
+
+---
+
+## 8. Persisting Harmonic Analysis in Chorale
 
 When adding harmonic annotations via `add_notation`, supply precise structural metadata:
 
@@ -178,7 +194,7 @@ When adding harmonic annotations via `add_notation`, supply precise structural m
 
 ---
 
-## 8. Mandatory Annotation Accuracy Audit
+## 9. Mandatory Annotation Accuracy Audit
 
 Complete this audit before calling `add_notation` or `edit_notations`:
 

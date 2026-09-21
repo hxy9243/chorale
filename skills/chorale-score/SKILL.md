@@ -1,6 +1,6 @@
 ---
 name: chorale-score
-description: Open and operate Chorale scores, including localhost:1685 links; inspect beat-aligned voice content, verify chord roots and inversions, classify non-chord tones, compose or edit music, and create trustworthy musical annotations through the local Chorale MCP server.
+description: Open and operate Chorale scores, including localhost:1685 links; inspect beat-aligned voice content, use fallible music21 harmony evidence, verify chord roots and inversions, classify non-chord tones, compose or edit music, and create trustworthy musical annotations through the local Chorale MCP server.
 ---
 
 # Chorale Score Workflow
@@ -39,8 +39,9 @@ For detailed rules, standards, and musical examples, consult the topic-specific 
 1. Call `import_file` with `{ filePath }` or raw MusicXML `{ content }`. The server converts MusicXML/MXL to standard ABC and saves it in `~/.chorale/`.
 2. If `open_ui` has not been called in this agent session, call it once with `{ documentId: score.documentId }`. Otherwise, reuse the existing connected view.
 3. Inspect measures using `read_measure`.
-4. Formulate harmonic, motivic, and voice-leading analysis using the [Chord Progression Analysis Guide](references/chord-progression-analysis.md), [Voice Leading & General Analysis Guide](references/voice-leading-and-general-analysis.md), and [Counterpoint & Forms Guide](references/counterpoint-and-forms.md). Call `add_notation` with `{ startMeasure, endMeasure, label, body, kind, chordSymbol, romanNumeral }`.
-5. Return a clear analytical summary grounded in exact measure numbers and voice parts.
+4. For harmonic analysis, call `analyze_harmony` on the same bounded range. Treat its chordification and passage-wide key as fallible candidates, not final answers.
+5. Formulate harmonic, motivic, and voice-leading analysis using the [Chord Progression Analysis Guide](references/chord-progression-analysis.md), [Voice Leading & General Analysis Guide](references/voice-leading-and-general-analysis.md), and [Counterpoint & Forms Guide](references/counterpoint-and-forms.md). Call `add_notation` with `{ startMeasure, endMeasure, label, body, kind, chordSymbol, romanNumeral }`.
+6. Return a clear analytical summary grounded in exact measure numbers and voice parts.
 
 ---
 
@@ -50,11 +51,12 @@ Before adding, editing, or endorsing harmonic annotations:
 
 1. Call `list_files` and `list_notations` to establish the authoritative document ID, revision, existing annotation spans, and score length.
 2. Read every target measure individually with `read_measure`. Treat a result as layout-only when its voices contain no note or rest events after removing directives, comments, `$` line-break markers, and structural barlines. Do not annotate that index; record the offset and continue with the verified sounding measures.
-3. Identify pickup bars from their written duration relative to `M:` and preserve their verified MCP indices. Do not infer annotation positions from printed `%` measure comments, visual system breaks, or the count of existing annotations.
-4. Build vertical slices at every note onset. Carry sustained and tied pitches forward until their written durations end, and use the lowest sounding pitch in each slice as the bass.
-5. Derive each chord root and quality from the sounding pitch classes, then derive inversion independently from the bass. Use figured-bass inversions consistently for triads and sevenths.
-6. Test apparent extra pitches as non-chord tones from their metric position, approach, preparation, and resolution. Do not discard a pitch merely because it prevents a convenient chord label.
-7. Run a consistency audit before mutation: `label`, `chordSymbol`, `romanNumeral`, and `body` must describe the same sequence, inversion, measure span, voices, and cadence evidence. If the evidence is ambiguous, use a broader functional description or an `explanation` notation instead of an unsupported precise label.
+3. Call `analyze_harmony` for the same range when music21 is available. Use its sounding pitches and literal bass as a cross-check; independently verify its roots, qualities, inversions, Roman numerals, boundaries, and passage-wide key because ornaments, suspensions, tonicization, and modulation can mislead it. If it returns `MUSIC21_UNAVAILABLE`, continue with the score-first procedure and tell the user that `chorale setup music21` enables the optional evidence tool.
+4. Identify pickup bars from their written duration relative to `M:` and preserve their verified MCP indices. Do not infer annotation positions from printed `%` measure comments, visual system breaks, or the count of existing annotations.
+5. Build vertical slices at every note onset. Carry sustained and tied pitches forward until their written durations end, and use the lowest sounding pitch in each slice as the bass.
+6. Derive each chord root and quality from the sounding pitch classes, then derive inversion independently from the bass. Use figured-bass inversions consistently for triads and sevenths.
+7. Test apparent extra pitches as non-chord tones from their metric position, approach, preparation, and resolution. Do not discard a pitch merely because it prevents a convenient chord label.
+8. Run a consistency audit before mutation: `label`, `chordSymbol`, `romanNumeral`, and `body` must describe the same sequence, inversion, measure span, voices, and cadence evidence. If the evidence is ambiguous, use a broader functional description or an `explanation` notation instead of an unsupported precise label.
 
 For the complete harmonic procedure and audit checklist, read [Chord Progression Analysis & Syntax](references/chord-progression-analysis.md). For claims about suspensions or other non-chord tones, also read [Voice Leading & General Score Analysis](references/voice-leading-and-general-analysis.md).
 
@@ -97,6 +99,7 @@ When generating or modifying ABC notation, agents must obey these non-negotiable
 | `import_file` | Import MusicXML/ABC | `filePath?`, `content?`, `title?` |
 | `export_file` | Export to ABC or JSON | `documentId`, `format`, `outputPath?` |
 | `read_measure` | Read ABC for measures or active selection | `documentId?`, `startMeasure?`, `endMeasure?`, `voiceId?` |
+| `analyze_harmony` | Return fallible music21 key/chord evidence for up to 16 measures | `documentId?`, `startMeasure?`, `endMeasure?`, `viewId?` |
 | `edit_measures` | Replace measures across a span (supports variable lengths; alias: `edit_measure`) | `documentId`, `startMeasure`, `endMeasure`, `replacementAbc`, `expectedRevision` |
 | `insert_measure` | Insert measures before/after | `documentId`, `targetMeasure`, `position`, `count`, `expectedRevision` |
 | `delete_measures` | Delete measure span | `documentId`, `startMeasure`, `endMeasure`, `expectedRevision` |

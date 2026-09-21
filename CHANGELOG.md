@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Optional managed `music21==9.9.1` installation through `chorale setup music21`.
+- Bounded, read-only `analyze_harmony` MCP evidence with onset-aligned pitches, literal bass, passage-key estimate, and fallible chord candidates.
+- Harmony-analysis benchmark summary and score-skill guidance for verifying deterministic evidence before annotation.
+
 ## [0.0.1] - 2026-09-19
 
 ### Added

@@ -179,6 +179,25 @@ test('runCli prints version for "version", "--version", and "-v"', async () => {
   }
 });
 
+test('runCli setup music21 installs the managed analyzer without starting the daemon', async () => {
+  const logs = [];
+  const result = await runCli({
+    args: ['setup', 'music21'],
+    choraleHome: '/tmp/chorale-test-home',
+    logger: { log: (message) => logs.push(message), error: () => {} },
+    installMusic21: async ({ choraleHome }) => {
+      assert.equal(choraleHome, '/tmp/chorale-test-home');
+      return { version: '9.9.1', pythonVersion: '3.12.3', source: 'managed' };
+    },
+    ensureDaemon: () => assert.fail('setup must not start the daemon'),
+  });
+
+  assert.equal(result.statusCode, 0);
+  assert.equal(result.installed.version, '9.9.1');
+  assert.match(logs[0], /Installing the pinned music21 analyzer/);
+  assert.match(logs[1], /music21 9.9.1 is ready with Python 3.12.3/);
+});
+
 test('runCli logs error and returns status code 1 on unknown command', async () => {
   const errors = [];
   const logs = [];
@@ -278,9 +297,10 @@ test('stopDaemon cleans up runtime.json upon stopping matching runtime', async (
   }
 });
 
-test('resolvePackageRoot resolves package root from entrypoint or fallback', () => {
+test('resolvePackageRoot resolves package root from entrypoint or fallback', async () => {
   assert.equal(resolvePackageRoot('/custom/dir/bin/chorale.mjs'), '/custom/dir');
-  assert.ok(resolvePackageRoot().endsWith('chorale'));
+  const packageJson = JSON.parse(await readFile(join(resolvePackageRoot(), 'package.json'), 'utf8'));
+  assert.equal(packageJson.name, 'chorale');
 });
 
 test('resolvePackageRoot resolves package root following symlinks', async () => {
@@ -478,6 +498,4 @@ test('runCli upgrade aborts without stopping running server when pull fails', as
   assert.match(result.error, /Connection refused to git remote/);
   assert.ok(errors.some((e) => e.includes('Failed to pull latest release: Connection refused to git remote')));
 });
-
-
 

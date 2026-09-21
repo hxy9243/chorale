@@ -19,6 +19,7 @@ export async function packageCodex(output = join(root, 'plugins/chorale-codex-pl
       target: 'node22',
       banner: { js: "import { createRequire as packageCreateRequire } from 'node:module'; const require = packageCreateRequire(import.meta.url);" },
     });
+    await cp(join(root, 'server/python'), join(staging, 'server/python'), { recursive: true });
     await cp(join(root, 'bin'), join(staging, 'bin'), { recursive: true });
     await cp(join(root, 'package.json'), join(staging, 'package.json'));
     await cp(distDir, join(staging, 'dist'), { recursive: true });

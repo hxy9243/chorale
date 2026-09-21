@@ -14,6 +14,9 @@ source_files:
   - server/api_server.mjs
   - server/store.mjs
   - server/views.mjs
+  - server/music21.mjs
+  - server/python/music21_harmony.py
+  - server/python/requirements-music21.txt
   - server/mcp/tools/file-management.mjs
   - server/mcp/tools/sheet-management.mjs
   - server/mcp/tools/workspace.mjs
@@ -28,9 +31,11 @@ source_files:
   - skills/chorale-score/references/voice-leading-and-general-analysis.md
   - skills/chorale-score/references/counterpoint-and-forms.md
   - skills/chorale-score/references/styles-and-composers.md
+  - docs/harmony-analysis-benchmark.md
   - src/hooks/usePluginMcpBridge.ts
 test_files:
   - test/mcp-server.node.mjs
+  - test/music21.node.mjs
   - test/codex-package.node.mjs
   - test/install.smoke.mjs
   - test/measure-ops.node.mjs
@@ -41,6 +46,7 @@ related_specs:
   - spec/annotations-and-proposals.md
   - spec/file-workspace-architecture.md
   - spec/mcp-server-redesign.md
+  - spec/music21-harmony-evidence.md
 ---
 
 # Chorale Codex Plugin
@@ -56,6 +62,7 @@ Chorale is accessed as an independent CLI tool (`chorale` or `bin/chorale.mjs mc
 1. **Stdio MCP Server**: Codex connects to `chorale mcp` over stdio. If the background HTTP server on port 1685 is not already running, `bin/chorale.mjs` automatically spawns it as a detached process and proxies mutations so changes immediately reflect in any open workspace.
 2. **On-Demand Browser Launch**: Opening the browser workspace is explicitly controlled via `open_ui({ documentId? })`. Codex harness browser environments (e.g. `CODEX_BROWSER_COMMAND`) are preferred before falling back to system browsers.
 3. **Local Marketplace Manifest**: The repository acts as a local marketplace root (`.agents/plugins/marketplace.json`) pointing to `plugins/chorale-codex-plugin` or runs directly via `.codex-plugin/plugin.json`.
+4. **Optional Harmony Evidence**: `chorale setup music21` creates a pinned managed Python environment. The read-only `analyze_harmony` tool invokes it through the authoritative daemon and fails with an actionable structured error when unavailable.
 
 Run `npm run package:codex` before installing from the local marketplace. It builds the UI and replaces the generated package with the current CLI, bundled dependencies, and skills. The installed package uses the same port 1685 service and `chorale.db` as the browser. It must not include the retired `server.mjs`, `codex-plugin-store.json`, or port 43171 daemon. After a package update, reinstall it and start a new Codex task to attach the current tool contract.
 
@@ -68,7 +75,7 @@ Opening the Chorale workspace (`http://127.0.0.1:1685/`) is sufficient to connec
 
 ## MCP Tool Contract
 
-The MCP server exposes 16 modular tools:
+The MCP server exposes 18 registered tool names; `edit_measure` is the backward-compatible alias of `edit_measures`:
 
 | Tool | Contract |
 | --- | --- |
@@ -81,6 +88,7 @@ The MCP server exposes 16 modular tools:
 | `import_file` | Import a score from disk or string content (`.xml`, `.musicxml`, `.mxl`, `.abc`). |
 | `export_file` | Export a score document to ABC, JSON, or an output disk path. |
 | `read_measure` | Read written ABC notation for specific measure(s) or active canvas selection. |
+| `analyze_harmony` | Return fallible, read-only music21 key and chord evidence for up to 16 written measures or active canvas selection. |
 | `insert_measure` | Insert new measure(s) before/after a target measure with revision guard. |
 | `edit_measures` | Replace written measures across a span with replacement ABC notation (supports variable length; aliased as `edit_measure`). |
 | `delete_measures` | Delete written measures across a specified span with revision guard. |
@@ -95,11 +103,12 @@ The MCP server exposes 16 modular tools:
 - Stale mutations without matching `expectedRevision` fail closed.
 - Reopening preserves all scores and annotations across restarts (`~/.chorale/chorale.db`).
 - Data tools operate fully headlessly without requiring the browser UI.
+- `analyze_harmony` never mutates annotations and reports the actual music21 runtime version plus explicit candidate-quality warnings.
 - The `render_score_workspace` tool is distinct from ordinary reads so a data read never remounts a score page.
 
 ## CLI installation artifact
 
-Source dependency installs and npm pack run `prepare` to build the workspace. Direct global Git-source installation remains unverified; the documented quick start uses a source checkout and local dependency installation. The package explicitly includes `dist/`, the CLI, server modules, and skills, even though generated assets are gitignored. Supported Node versions are 22.13+ on the 22.x line and 24+, covering the build/test tool requirements. The import converter still declares a Node 20-only engine; see RELEASE.md for that unresolved support mismatch. `npm run test:install` packs and installs the actual artifact into an isolated prefix, checks served browser assets, and verifies durable score data after server restart. This check is blocking in CI and is distinct from browser interaction coverage.
+Source dependency installs and npm pack run `prepare` to build the workspace. Direct global Git-source installation remains unverified; the documented quick start uses a source checkout and local dependency installation. The package explicitly includes `dist/`, the CLI, server modules, Python helper and requirements, and skills, even though generated assets are gitignored. Supported Node versions are 22.13+ on the 22.x line and 24+, covering the build/test tool requirements. Optional music21 evidence requires Python 3.10+ and an explicit `chorale setup music21` install. The import converter still declares a Node 20-only engine; see RELEASE.md for that unresolved support mismatch. `npm run test:install` packs and installs the actual artifact into an isolated prefix, checks served browser assets, and verifies durable score data after server restart. This check is blocking in CI and is distinct from browser interaction coverage.
 
 The pinned Git-based `abc-utils` dependency is bundled into npm archives so installing the finished artifact does not need to fetch or rebuild that Git dependency.
 

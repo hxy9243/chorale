@@ -121,10 +121,11 @@ For complete, step-by-step agent installation guides and MCP configurations, see
 ## ✨ Features
 
 - **CLI-First Architecture**: Run `chorale` as an independent CLI tool that manages the server in the background and opens the interactive workspace in your browser on demand.
-- **Model Context Protocol (MCP)**: Full stdio and SSE MCP server on port 1685 exposing 16 modular musical score tools to Codex, Claude Code, and Antigravity.
+- **Model Context Protocol (MCP)**: Full stdio and SSE MCP server on port 1685 exposing 18 registered musical score tool names to Codex, Claude Code, and Antigravity (`edit_measure` remains an alias of `edit_measures`).
 - **Durable Local Storage (`~/.chorale/`)**: Scores and revisions persist directly in `~/.chorale/chorale.db` (SQLite via `node:sqlite`) and `~/.chorale/scores/`.
 - **Bounded Measure Operations**: Fast, deterministic measure reading (`read_measure`), insertion (`insert_measure`), replacement (`edit_measures` / `edit_measure`), and deletion (`delete_measures`) with optimistic revision guards.
 - **Harmonic Annotations**: Add, edit, delete, and list annotations with Roman numeral analysis and chord symbols directly on the score.
+- **music21 Harmony Evidence**: Install the pinned optional analyzer with `chorale setup music21`, then use `analyze_harmony` for bounded, read-only chord and key candidates that agents verify before annotation. See the [benchmark summary](./docs/harmony-analysis-benchmark.md).
 - **MusicXML & MXL Import**: Drag-and-drop or programmatic import of `.xml`, `.musicxml`, and compressed `.mxl` files converted via `@educandu/abc-tools`.
 - **Interactive Sheet Music**: High-legibility SVG score rendered via `abcjs` with dynamic zoom (60% to 180%) and key transposition.
 - **WebAudio Piano Synthesizer**: Audio player with tempo scaling (50% to 180%), volume control, and active note cursor highlighting (`#e11d48`) on the SVG score during audio playback.
@@ -137,6 +138,7 @@ For complete, step-by-step agent installation guides and MCP configurations, see
 
 - **CLI & MCP Server**: Node.js + `@modelcontextprotocol/sdk` + `zod`
 - **Notation & Audio**: `abcjs` + `@educandu/abc-tools` + `abc-utils`
+- **Harmony Evidence**: optional managed Python environment with `music21==9.9.1`
 - **Video Export**: `@mediabunny/aac-encoder` + `mediabunny`
 - **Frontend Framework**: React 19 + Vite + TypeScript
 - **Archive Extraction**: `jszip`

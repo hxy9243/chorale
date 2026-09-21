@@ -47,7 +47,20 @@ Use `read_measure` to inspect score notation:
 ### C. Reading Annotations
 Call `list_notations` with `{ documentId, startMeasure?, endMeasure? }` to inspect existing harmonic analysis, Roman numerals, and formal commentary across a score span.
 
-### D. Verifying Annotation Measure Indices
+### D. Requesting music21 Harmony Evidence
+Call `analyze_harmony` after reading the same written measures. It returns onset-aligned sounding pitches, literal bass, a passage-wide key estimate, and candidate chord labels for at most 16 measures.
+
+```json
+{
+  "documentId": "score-1726000000000",
+  "startMeasure": 5,
+  "endMeasure": 8
+}
+```
+
+The result is evidence, not an annotation. Verify its boundaries and labels against `read_measure`, especially around passing tones, suspensions, applied chords, and key changes. If the dependency is missing, run `chorale setup music21`; other Chorale tools remain available without it.
+
+### E. Verifying Annotation Measure Indices
 Annotation positions must use measure indices verified through the MCP response, not visual system placement or ABC comments.
 
 1. Read each target measure separately before creating or reviewing annotations.
