@@ -33,6 +33,9 @@ test('fresh Codex package uses the browser service and current library', async (
     const harmonicReference = await readFile(join(output, 'skills/chorale-score/references/chord-progression-analysis.md'), 'utf8');
     assert.match(harmonicReference, /Mandatory Annotation Accuracy Audit/);
     assert.match(harmonicReference, /Em\/G.*vi6/);
+    assert.match(harmonicReference, /Using music21 Evidence Without Deferring Judgment/);
+    assert.match(await readFile(join(output, 'server/python/requirements-music21.txt'), 'utf8'), /music21==9\.9\.1/);
+    assert.match(await readFile(join(output, 'server/python/music21_harmony.py'), 'utf8'), /Fallible deterministic evidence/);
     const bundle = await readFile(join(output, 'server/cli.mjs'), 'utf8');
     assert.equal(bundle.includes('codex-plugin-store.json'), false);
     assert.equal(bundle.includes('43171'), false);
@@ -57,6 +60,7 @@ test('fresh Codex package uses the browser service and current library', async (
     const names = (await client.listTools()).tools.map(tool => tool.name);
     assert.ok(names.includes('create_new_file'));
     assert.ok(names.includes('list_files'));
+    assert.ok(names.includes('analyze_harmony'));
     assert.ok(!names.includes('create_score'));
     const created = await client.callTool({ name: 'create_new_file', arguments: {
       title: 'Package check', abcSource: 'X:1\nT:Package check\nM:2/4\nL:1/8\nK:A\nAc ec | A4 |]',

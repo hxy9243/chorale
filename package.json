@@ -66,6 +66,7 @@
     "bin/",
     "server/",
     "dist/",
+    "docs/",
     "skills/",
     "INSTALL.md",
     "RELEASE.md",

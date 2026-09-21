@@ -232,6 +232,7 @@ test('MCP server exposes only the current tool format and unbounded measure repl
 
   assert.ok(server._registeredTools.edit_measures);
   assert.ok(server._registeredTools.edit_measure);
+  assert.ok(server._registeredTools.analyze_harmony);
 
   const schema = server._registeredTools.edit_measures.inputSchema;
   const parsed = schema.safeParse({
@@ -242,6 +243,69 @@ test('MCP server exposes only the current tool format and unbounded measure repl
     expectedRevision: 1,
   });
   assert.equal(parsed.success, true);
+});
+
+test('sheet tools: analyze_harmony returns bounded read-only music21 evidence', async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), 'chorale-test-harmony-'));
+  let received;
+  try {
+    const store = new LocalDocumentStore({ baseDir: tempDir });
+    const views = new ViewSnapshotStore();
+    const doc = await store.create({ title: 'Harmony evidence', abcSource: sampleAbc });
+    const { handlers } = createSheetManagementTools(store, views, {
+      analyzeHarmony: async (payload) => {
+        received = payload;
+        return {
+          engine: { name: 'music21', version: '9.9.1', pythonVersion: '3.12.3', source: 'managed' },
+          estimatedPassageKey: 'G major',
+          warning: 'Fallible deterministic evidence',
+          slices: [{
+            position: { measure: 2, offsetQuarterLength: '0' },
+            durationQuarterLength: '1',
+            soundingPitches: ['G3', 'B3', 'D4'],
+            literalBass: 'G3',
+            candidate: { localKey: 'G major', romanNumeral: 'I', root: 'G', quality: 'major', inversion: 'root', confidence: 0.35 },
+          }],
+        };
+      },
+    });
+
+    const analyzed = await handlers.analyze_harmony({
+      documentId: doc.id,
+      startMeasure: 2,
+      endMeasure: 3,
+    });
+    assert.equal(analyzed.isError, undefined);
+    assert.equal(analyzed.structuredContent.documentId, doc.id);
+    assert.equal(analyzed.structuredContent.revision, 1);
+    assert.deepEqual(analyzed.structuredContent.range, { startMeasure: 2, endMeasure: 3 });
+    assert.equal(analyzed.structuredContent.estimatedPassageKey, 'G major');
+    assert.equal(received.startMeasure, 2);
+    assert.match(received.abcSource, /K:G/);
+
+    const oversized = await handlers.analyze_harmony({
+      documentId: doc.id,
+      startMeasure: 1,
+      endMeasure: 17,
+    });
+    assert.equal(oversized.isError, true);
+    assert.equal(oversized.structuredContent.errorCode, 'ANALYSIS_RANGE_TOO_LARGE');
+    assert.equal((await store.require(doc.id)).revision, 1);
+
+    const { handlers: unavailableHandlers } = createSheetManagementTools(store, views, {
+      analyzeHarmony: async () => {
+        throw Object.assign(new Error('music21 is unavailable. Run `chorale setup music21` with Python 3.10 or newer, then retry.'), {
+          code: 'MUSIC21_UNAVAILABLE',
+        });
+      },
+    });
+    const unavailable = await unavailableHandlers.analyze_harmony({ documentId: doc.id, startMeasure: 1, endMeasure: 1 });
+    assert.equal(unavailable.isError, true);
+    assert.equal(unavailable.structuredContent.errorCode, 'MUSIC21_UNAVAILABLE');
+    assert.match(unavailable.content[0].text, /chorale setup music21/);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
 });
 
 test('stdio mutation proxy routes score writes to the daemon without proxying view reads', async () => {
@@ -631,4 +695,3 @@ test('store: mirror error handling reports warning and respects strictMirror', a
     await rm(tempDir, { recursive: true, force: true });
   }
 });
-

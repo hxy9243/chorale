@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { analyzeHarmonyWithMusic21 } from '../../music21.mjs';
 import { PluginError } from '../../store.mjs';
 import {
   deleteMeasures as deleteMeasuresOps,
@@ -19,7 +20,10 @@ const failure = (error) => ({
   content: [{ type: 'text', text: error instanceof Error ? error.message : 'Sheet operation failed.' }],
 });
 
-export const createSheetManagementTools = (store, views) => {
+const MAX_HARMONY_MEASURES = 16;
+
+export const createSheetManagementTools = (store, views, options = {}) => {
+  const analyzeHarmony = options.analyzeHarmony || analyzeHarmonyWithMusic21;
   const handlers = {
     read_measure: async ({ documentId, startMeasure, endMeasure, voiceId, viewId }) => {
       try {
@@ -74,6 +78,62 @@ export const createSheetManagementTools = (store, views) => {
           abcSource: sliced.selectedAbc,
           measureCount: sliced.measureCount,
         }, `Read measures ${start}–${end} of "${scoreTitle}".`);
+      } catch (error) {
+        return failure(error);
+      }
+    },
+
+    analyze_harmony: async ({ documentId, startMeasure, endMeasure, viewId }) => {
+      try {
+        let view = null;
+        if (viewId) {
+          view = views.require(viewId);
+          documentId = documentId || view.documentId;
+        }
+
+        if (!documentId) {
+          try {
+            view = views.resolve();
+            documentId = view.documentId;
+          } catch {
+            const workspace = await store.getWorkspace();
+            documentId = workspace.documents[0]?.id;
+          }
+        }
+
+        if (!documentId) {
+          throw new PluginError('DOCUMENT_NOT_FOUND', 'No score document specified or currently active.');
+        }
+
+        const doc = await store.require(documentId);
+        if (startMeasure === undefined && view?.selection) {
+          startMeasure = view.selection.startMeasure;
+          endMeasure = view.selection.endMeasure;
+        }
+
+        const start = Number.isInteger(startMeasure) ? startMeasure : 1;
+        const end = Number.isInteger(endMeasure) ? endMeasure : start;
+        if (end < start) {
+          throw new PluginError('INVALID_RANGE', 'endMeasure cannot be less than startMeasure.');
+        }
+        if (end - start + 1 > MAX_HARMONY_MEASURES) {
+          throw new PluginError('ANALYSIS_RANGE_TOO_LARGE', `analyze_harmony accepts at most ${MAX_HARMONY_MEASURES} written measures per call.`);
+        }
+
+        const sliced = sliceMeasureRange(doc.abcSource, start, end);
+        const analysis = await analyzeHarmony({
+          abcSource: sliced.selectedAbc,
+          startMeasure: start,
+        });
+        const scoreTitle = doc.title || doc.scoreInfo?.title || doc.name || 'Untitled score';
+        return result({
+          documentId: doc.id,
+          title: scoreTitle,
+          revision: doc.revision,
+          range: { startMeasure: start, endMeasure: end },
+          measureCount: sliced.measureCount,
+          ...analysis,
+        }, `Generated fallible music21 harmony evidence for measures ${start}–${end} of "${scoreTitle}". Verify every candidate against the written score.`);
       } catch (error) {
         return failure(error);
       }
@@ -327,6 +387,17 @@ export const createSheetManagementTools = (store, views) => {
         endMeasure: z.number().int().min(0).optional().describe('Ending measure number (defaults to startMeasure)'),
         voiceId: z.string().optional().describe('Optional voice ID filter'),
         viewId: z.string().optional().describe('Optional view ID to read active selection from'),
+      },
+    },
+
+    analyze_harmony: {
+      title: 'Analyze harmony with music21',
+      description: 'Return bounded, read-only music21 key and chord evidence for a written-measure range. Candidates are fallible and must be verified against the score before annotation.',
+      inputSchema: {
+        documentId: z.string().optional().describe('Score document ID (optional; defaults to active document)'),
+        startMeasure: z.number().int().min(0).optional().describe('Starting written measure (0 for pickup, 1-indexed otherwise)'),
+        endMeasure: z.number().int().min(0).optional().describe('Ending written measure, inclusive; maximum range is 16 measures'),
+        viewId: z.string().optional().describe('Optional connected view whose active selection should be analyzed'),
       },
     },
 
