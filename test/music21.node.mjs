@@ -140,3 +140,130 @@ test('music21 Python helper emits onset-aligned score evidence when music21 is a
   assert.equal(analysis.slices[0].candidate.root, 'C');
   assert.match(analysis.warning, /Fallible deterministic evidence/);
 });
+
+test('music21 Python helper produces non-empty evidence for a single measure', async (t) => {
+  let runtime;
+  try {
+    runtime = await resolveMusic21Python();
+  } catch {
+    t.skip('music21 is not installed in the test environment');
+    return;
+  }
+
+  const singleAbc = `X:1
+T:Single Measure
+M:4/4
+L:1/4
+K:C
+[CEG]4 |
+`;
+  const helper = join(process.cwd(), 'server', 'python', 'music21_harmony.py');
+  const result = await runProcess(runtime.command, [...runtime.prefixArgs, helper], {
+    input: JSON.stringify({ abcSource: singleAbc, startMeasure: 4 }),
+  });
+  const analysis = JSON.parse(result.stdout);
+  assert.equal(analysis.slices.length, 1);
+  assert.equal(analysis.slices[0].position.measure, 4);
+  assert.deepEqual(analysis.slices[0].soundingPitches, ['C4', 'E4', 'G4']);
+  assert.equal(analysis.slices[0].literalBass, 'C4');
+  assert.equal(analysis.slices[0].candidate.root, 'C');
+});
+
+test('music21 Python helper analyzes named voices (S/B) together rather than sequentially', async (t) => {
+  let runtime;
+  try {
+    runtime = await resolveMusic21Python();
+  } catch {
+    t.skip('music21 is not installed in the test environment');
+    return;
+  }
+
+  const sopranoBassAbc = `X:1
+T:Chorale Voices
+M:4/4
+L:1/4
+K:C
+V:S clef=treble name="Soprano"
+c4 | d4 |
+V:B clef=bass name="Bass"
+C4 | G,4 |
+`;
+  const helper = join(process.cwd(), 'server', 'python', 'music21_harmony.py');
+  const result = await runProcess(runtime.command, [...runtime.prefixArgs, helper], {
+    input: JSON.stringify({ abcSource: sopranoBassAbc, startMeasure: 1 }),
+  });
+  const analysis = JSON.parse(result.stdout);
+  // Must be 2 measures of parallel sonorities, NOT 4 sequential measures
+  assert.equal(analysis.slices.length, 2);
+  assert.equal(analysis.slices[0].position.measure, 1);
+  assert.deepEqual(analysis.slices[0].soundingPitches, ['C4', 'C5']);
+  assert.equal(analysis.slices[0].literalBass, 'C4');
+
+  assert.equal(analysis.slices[1].position.measure, 2);
+  assert.deepEqual(analysis.slices[1].soundingPitches, ['G3', 'D5']);
+  assert.equal(analysis.slices[1].literalBass, 'G3');
+});
+
+test('music21 Python helper correctly renders pitches in excerpts after key changes', async (t) => {
+  let runtime;
+  try {
+    runtime = await resolveMusic21Python();
+  } catch {
+    t.skip('music21 is not installed in the test environment');
+    return;
+  }
+
+  const gMajorExcerpt = `X:1
+T:Excerpt in G
+M:4/4
+L:1/4
+K:G
+f4 |]
+`;
+  const helper = join(process.cwd(), 'server', 'python', 'music21_harmony.py');
+  const result = await runProcess(runtime.command, [...runtime.prefixArgs, helper], {
+    input: JSON.stringify({ abcSource: gMajorExcerpt, startMeasure: 3 }),
+  });
+  const analysis = JSON.parse(result.stdout);
+  assert.equal(analysis.slices.length, 1);
+  assert.equal(analysis.slices[0].position.measure, 3);
+  // In K:G, note f must sound as F#5, NOT F5
+  assert.deepEqual(analysis.slices[0].soundingPitches, ['F#5']);
+  assert.equal(analysis.slices[0].literalBass, 'F#5');
+});
+
+test('music21 Python helper correctly numbers measures and offsets for split repeat bars', async (t) => {
+  let runtime;
+  try {
+    runtime = await resolveMusic21Python();
+  } catch {
+    t.skip('music21 is not installed in the test environment');
+    return;
+  }
+
+  const splitRepeatAbc = `X:1
+T:Split Repeat
+M:4/4
+L:1/4
+K:C
+c4 | d2 :|: d2 | e4 |
+`;
+  const helper = join(process.cwd(), 'server', 'python', 'music21_harmony.py');
+  const result = await runProcess(runtime.command, [...runtime.prefixArgs, helper], {
+    input: JSON.stringify({ abcSource: splitRepeatAbc, startMeasure: 1 }),
+  });
+  const analysis = JSON.parse(result.stdout);
+  // Measure 1 (offset 0), Measure 2 (offset 0), Measure 2 (offset 2), Measure 3 (offset 0)
+  assert.equal(analysis.slices.length, 4);
+  assert.deepEqual(analysis.slices.map((s) => ({
+    measure: s.position.measure,
+    offset: s.position.offsetQuarterLength,
+    pitch: s.soundingPitches[0],
+  })), [
+    { measure: 1, offset: '0', pitch: 'C5' },
+    { measure: 2, offset: '0', pitch: 'D5' },
+    { measure: 2, offset: '2', pitch: 'D5' },
+    { measure: 3, offset: '0', pitch: 'E5' },
+  ]);
+});
+

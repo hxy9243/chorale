@@ -4,13 +4,14 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 import warnings
 from fractions import Fraction
 from importlib.metadata import version
 from typing import Any
 
-from music21 import chord, converter, key, roman, stream
+from music21 import bar, chord, converter, key, roman, stream
 
 
 WARNING = (
@@ -76,6 +77,49 @@ def measures_in_order(chordified: stream.Stream) -> list[stream.Measure]:
     return measures
 
 
+def normalize_abc_voices(abc_source: str) -> str:
+    voice_map: dict[str, str] = {}
+
+    def get_num_id(vid: str) -> str:
+        if vid not in voice_map:
+            voice_map[vid] = str(len(voice_map) + 1)
+        return voice_map[vid]
+
+    lines = abc_source.splitlines()
+    output_lines: list[str] = []
+    for line in lines:
+        match_bracket = re.match(r"^\s*\[V:\s*([^\s\]]+)(.*?)\](.*)$", line)
+        if match_bracket:
+            vid = match_bracket.group(1).strip()
+            props = match_bracket.group(2).strip()
+            rest_notation = match_bracket.group(3).strip()
+            num_id = get_num_id(vid)
+            name_attr = ""
+            if not re.search(r"\b(name|nm)=", props) and not vid.isdigit():
+                name_attr = f' name="{vid}"'
+            prop_str = f"{name_attr} {props}".strip()
+            header_line = f"V:{num_id} {prop_str}".strip()
+            output_lines.append(header_line)
+            if rest_notation:
+                output_lines.append(rest_notation)
+            continue
+
+        match_plain = re.match(r"^\s*V:\s*([^\s]+)(.*)$", line)
+        if match_plain:
+            vid = match_plain.group(1).strip()
+            props = match_plain.group(2)
+            num_id = get_num_id(vid)
+            name_attr = ""
+            if not re.search(r"\b(name|nm)=", props) and not vid.isdigit():
+                name_attr = f' name="{vid}"'
+            output_lines.append(f"V:{num_id}{name_attr}{props}")
+            continue
+
+        output_lines.append(line)
+
+    return "\n".join(output_lines)
+
+
 def analyze(payload: dict[str, Any]) -> dict[str, Any]:
     abc_source = payload.get("abcSource")
     start_measure = payload.get("startMeasure", 1)
@@ -84,17 +128,101 @@ def analyze(payload: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(start_measure, int) or start_measure < 0:
         raise ValueError("startMeasure must be a non-negative integer")
 
+    normalized_abc = normalize_abc_voices(abc_source)
+
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        score = converter.parseData(abc_source, format="abc")
+        score = converter.parseData(normalized_abc, format="abc")
         estimated_key = estimate_key(score)
         chordified = score.chordify()
 
+    measures = measures_in_order(chordified)
+    if not measures:
+        try:
+            chordified_with_measures = chordified.makeMeasures()
+            measures = measures_in_order(chordified_with_measures)
+        except Exception:
+            measures = []
+
     key_label = f"{estimated_key.tonic.name} {estimated_key.mode}"
     slices: list[dict[str, Any]] = []
-    for measure_index, measure in enumerate(measures_in_order(chordified)):
-        output_measure = start_measure + measure_index
-        for sonority in measure.recurse().getElementsByClass(chord.Chord):
+
+    if measures:
+        current_measure = start_measure
+        prev_bar_incomplete = False
+        prev_bar_repeat = False
+        prev_bar_duration = Fraction(0)
+
+        for measure_index, measure in enumerate(measures):
+            meter_ql = Fraction(measure.barDuration.quarterLength)
+            m_ql = Fraction(measure.quarterLength)
+
+            is_continuation = (
+                prev_bar_incomplete
+                and prev_bar_repeat
+                and m_ql < meter_ql
+                and (prev_bar_duration + m_ql == meter_ql)
+            )
+
+            if is_continuation:
+                output_measure = current_measure
+                offset_base = prev_bar_duration
+                prev_bar_incomplete = False
+                prev_bar_repeat = False
+                prev_bar_duration = Fraction(0)
+            else:
+                if measure_index > 0:
+                    current_measure += 1
+                output_measure = current_measure
+                offset_base = Fraction(0)
+
+                has_repeat = any(
+                    isinstance(b, bar.Repeat) and b.direction == "end"
+                    for b in measure.recurse().getElementsByClass(bar.Repeat)
+                )
+                if measure.rightBarline and "repeat" in str(measure.rightBarline).lower():
+                    has_repeat = True
+
+                if m_ql < meter_ql and has_repeat:
+                    prev_bar_incomplete = True
+                    prev_bar_repeat = True
+                    prev_bar_duration = m_ql
+                else:
+                    prev_bar_incomplete = False
+                    prev_bar_repeat = False
+                    prev_bar_duration = Fraction(0)
+
+            for sonority in measure.recurse().getElementsByClass(chord.Chord):
+                ordered = sorted(sonority.pitches, key=lambda item: item.ps)
+                if not ordered:
+                    continue
+                try:
+                    root = sonority.root().name
+                except Exception:
+                    root = "unknown"
+                try:
+                    figure = roman.romanNumeralFromChord(sonority, estimated_key).figure
+                except Exception:
+                    figure = "unknown"
+                slices.append({
+                    "position": {
+                        "measure": output_measure,
+                        "offsetQuarterLength": rational_text(offset_base + Fraction(sonority.offset)),
+                    },
+                    "durationQuarterLength": rational_text(sonority.quarterLength),
+                    "soundingPitches": [item.nameWithOctave for item in ordered],
+                    "literalBass": ordered[0].nameWithOctave,
+                    "candidate": {
+                        "localKey": key_label,
+                        "romanNumeral": figure,
+                        "root": root,
+                        "quality": quality(sonority),
+                        "inversion": inversion(sonority),
+                        "confidence": 0.35,
+                    },
+                })
+    else:
+        for sonority in chordified.recurse().getElementsByClass(chord.Chord):
             ordered = sorted(sonority.pitches, key=lambda item: item.ps)
             if not ordered:
                 continue
@@ -108,7 +236,7 @@ def analyze(payload: dict[str, Any]) -> dict[str, Any]:
                 figure = "unknown"
             slices.append({
                 "position": {
-                    "measure": output_measure,
+                    "measure": start_measure,
                     "offsetQuarterLength": rational_text(sonority.offset),
                 },
                 "durationQuarterLength": rational_text(sonority.quarterLength),

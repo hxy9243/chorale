@@ -433,7 +433,7 @@ export const computeScoreMeasureMapping = (tune) => {
     measureToBars.set(m, list);
   }
 
-  const totalMeasures = currentMeasure - (isPickup ? 1 : 0);
+  const totalMeasures = currentMeasure - 1;
 
   return {
     isPickup,
@@ -606,13 +606,52 @@ const appendLineMeasures = (measureList, text, inlineComment = '') => {
 
 const hasTerminalBarline = (body) => /(?:\|\]|:\||\|:|\|\||\|)$/.test(body.replace(/%[^\r\n]*$/, '').trim());
 
+const extractActiveStateFromMeasure = (text) => {
+  let key = null;
+  let meter = null;
+  let clef = null;
+
+  const keyMatches = [...text.matchAll(/(?:\[K:|(?:^|\n|\s)K:)\s*([^\r\n\]]+)/g)];
+  for (const match of keyMatches) {
+    let content = match[1].replace(/\]$/, '').trim();
+    const clefMatch = content.match(/\bclef=([a-zA-Z0-9_-]+)/);
+    if (clefMatch) {
+      clef = clefMatch[1];
+      content = content.replace(/\bclef=[a-zA-Z0-9_-]+/, '').trim();
+    }
+    if (content) key = content;
+  }
+
+  const meterMatches = [...text.matchAll(/(?:\[M:|(?:^|\n|\s)M:)\s*([^\r\n\]\s]+)/g)];
+  for (const match of meterMatches) {
+    meter = match[1].replace(/\]$/, '').trim();
+  }
+
+  const clefMatches = [...text.matchAll(/(?:\[clef=|\bclef=)\s*([a-zA-Z0-9_-]+)/g)];
+  for (const match of clefMatches) {
+    clef = match[1];
+  }
+
+  return { key, meter, clef };
+};
+
+const updateHeaderField = (headers, prefix, newValue) => {
+  const regex = new RegExp(`^${prefix}:.*$`, 'm');
+  if (regex.test(headers)) {
+    return headers.replace(regex, `${prefix}:${newValue}`);
+  }
+  return `${headers}\n${prefix}:${newValue}`;
+};
+
 /**
  * Reads an exact range of written measures (0/1-indexed, inclusive).
  */
 export const sliceMeasureRange = (abcSource, startMeasure, endMeasure, voiceId = null) => {
   const hasPickup = hasPickupMeasure(abcSource);
   const firstMeasureNumber = hasPickup ? 0 : 1;
-  const { headers, voices } = parseVoicesAndMeasures(abcSource);
+  const parsed = parseVoicesAndMeasures(abcSource);
+  const { voices, voiceDeclarations } = parsed;
+  let { headers } = parsed;
   const voiceEntries = Array.from(voices.entries());
 
   if (voiceEntries.length === 0) {
@@ -620,17 +659,51 @@ export const sliceMeasureRange = (abcSource, startMeasure, endMeasure, voiceId =
   }
 
   const effectiveStart = Math.max(startMeasure, firstMeasureNumber);
+  const startIndex = Math.max(0, effectiveStart - firstMeasureNumber);
+
+  // Scan preceding measures across voices to determine active key, meter, and clefs at startIndex
+  let activeKey = null;
+  let activeMeter = null;
+  const activeClefs = new Map();
+
+  for (let i = 0; i < startIndex; i++) {
+    for (const [vId, mList] of voiceEntries) {
+      if (i < mList.length) {
+        const state = extractActiveStateFromMeasure(mList[i]);
+        if (state.key) activeKey = state.key;
+        if (state.meter) activeMeter = state.meter;
+        if (state.clef) activeClefs.set(vId, state.clef);
+      }
+    }
+  }
+
+  if (activeKey) {
+    headers = updateHeaderField(headers, 'K', activeKey);
+  }
+  if (activeMeter) {
+    headers = updateHeaderField(headers, 'M', activeMeter);
+  }
+
   const selectedVoices = [];
 
   for (const [id, measures] of voiceEntries) {
     if (voiceId && voiceId !== id) continue;
-    const startIndex = Math.max(0, effectiveStart - firstMeasureNumber);
-    const endIndex = Math.min(measures.length, Math.max(0, endMeasure - firstMeasureNumber + 1));
-    const sliced = measures.slice(startIndex, endIndex);
+    const voiceStartIndex = Math.max(0, effectiveStart - firstMeasureNumber);
+    const voiceEndIndex = Math.min(measures.length, Math.max(0, endMeasure - firstMeasureNumber + 1));
+    const sliced = measures.slice(voiceStartIndex, voiceEndIndex);
 
     if (sliced.length > 0) {
       const voiceBody = sliced.map((m) => m.trim()).join(' ');
-      const formatted = voiceEntries.length > 1 || voiceId ? `V:${id}\n${voiceBody}` : voiceBody;
+      let declaration = voiceDeclarations?.get(id) || `V:${id}`;
+      const activeClef = activeClefs.get(id);
+      if (activeClef) {
+        if (/\bclef=[a-zA-Z0-9_-]+/.test(declaration)) {
+          declaration = declaration.replace(/\bclef=[a-zA-Z0-9_-]+/, `clef=${activeClef}`);
+        } else {
+          declaration = `${declaration} clef=${activeClef}`;
+        }
+      }
+      const formatted = voiceEntries.length > 1 || voiceId ? `${declaration}\n${voiceBody}` : voiceBody;
       selectedVoices.push(formatted);
     }
   }

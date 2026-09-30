@@ -60,6 +60,13 @@ The result includes:
 
 The tool never writes score state. Missing Python, missing music21, parse failures, timeouts, and oversized ranges return structured errors.
 
+### Correctness and score invariants
+
+- **Voice alignment:** Multi-voice scores with alphabetic/named voice IDs (e.g. `V:S`, `V:B`, `V:Soprano`, `V:Bass`) are normalized to parallel parts before analysis so sonorities align simultaneously across voices rather than stacking sequentially.
+- **Single-measure analysis:** Analyzing single measures produces valid evidence via stream partition or direct sonority resolution without returning empty slices.
+- **Key signature & clef inheritance:** Excerpt analysis inherits the active key signature, time signature/meter, and voice clefs in effect at the start of the requested range, ensuring note spellings and sounding pitches reflect prior modulations.
+- **Split repeat continuity:** Measures split across repeat barlines preserve the parent measure number and properly offset second-half sonorities by the duration of the first half.
+
 ## Agent workflow
 
 1. Read every target measure with `read_measure` and verify measure identity, pickups, and layout-only indices.
@@ -75,6 +82,11 @@ The tool never writes score state. Missing Python, missing music21, parse failur
 - `analyze_harmony` works through direct HTTP, SSE, and stdio MCP paths because all paths share the authoritative daemon handlers.
 - The Codex package contains the Python helper, pinned requirements file, updated skill, and tool schema.
 - The tool is read-only and bounded to 16 written measures.
+- Single-measure analysis returns valid non-empty evidence.
+- Named voices like S/B are analyzed simultaneously in parallel rather than sequentially.
+- Excerpts after key changes return accurate sounding pitches (e.g. F♯ in G major) by inheriting active headers.
+- Split repeat bars maintain accurate measure numbering and offset alignment.
 - Unavailable dependencies return `MUSIC21_UNAVAILABLE` with the setup command.
-- Automated tests cover installation orchestration, runner parsing, MCP registration, bounded-range behavior, and package contents.
+- Automated tests cover installation orchestration, runner parsing, MCP registration, bounded-range behavior, package contents, and harmonic correctness invariants.
+
 

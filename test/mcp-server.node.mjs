@@ -11,6 +11,7 @@ import { LocalDocumentStore, PluginError } from '../server/store.mjs';
 import { createFileManagementTools } from '../server/mcp/tools/file-management.mjs';
 import { createSheetManagementTools } from '../server/mcp/tools/sheet-management.mjs';
 import {
+  computeScoreMeasureMapping,
   deleteMeasures,
   insertMeasures,
   measureBodies,
@@ -48,6 +49,46 @@ test('measure-ops: sliceMeasureRange returns bounded measures for voices', () =>
   assert.equal(sliced.measureCount, 2);
   assert.match(sliced.selectedAbc, /d2 G A B c/);
   assert.match(sliced.selectedAbc, /\[G,B,D\]3/);
+});
+
+test('measure-ops: sliceMeasureRange inherits active key signature, meter, and clefs across excerpt boundaries', () => {
+  const modulatingAbc = `X:1
+T:Modulation Suite
+M:4/4
+L:1/4
+K:C
+V:S clef=treble name="Soprano"
+c4 | [K:G] d4 | f4 |]
+V:B clef=bass name="Bass"
+C4 | [K:G clef=tenor] G,4 | G,4 |]`;
+
+  // Slicing measure 3 (which follows the [K:G] key change and tenor clef change in measure 2)
+  const sliced = sliceMeasureRange(modulatingAbc, 3, 3);
+  assert.equal(sliced.measureCount, 1);
+  // Header must reflect active key K:G
+  assert.match(sliced.selectedAbc, /^K:G/m);
+  // Voice declarations must reflect active clef for Bass (tenor)
+  assert.match(sliced.selectedAbc, /V:B[^\n]*clef=tenor/);
+  // Sliced body retains measure 3 notes
+  assert.match(sliced.selectedAbc, /f4 \|\]/);
+});
+
+test('measure-ops: computeScoreMeasureMapping calculates correct totalMeasures with and without pickups and split repeats', () => {
+  // 3 measures without pickup
+  const abc3 = `X:1\nM:4/4\nL:1/4\nK:C\nc4 | d4 | e4 |`;
+  const tune3 = abcjs.parseOnly(abc3)[0];
+  const map3 = computeScoreMeasureMapping(tune3);
+  assert.equal(map3.isPickup, false);
+  assert.equal(map3.totalMeasures, 3);
+  assert.deepEqual(map3.barToMeasure, [1, 2, 3]);
+
+  // Split repeat: measure 2 split into 2 bars
+  const abcSplit = `X:1\nM:4/4\nL:1/4\nK:C\nc4 | d2 :|: d2 | e4 |`;
+  const tuneSplit = abcjs.parseOnly(abcSplit)[0];
+  const mapSplit = computeScoreMeasureMapping(tuneSplit);
+  assert.equal(mapSplit.totalMeasures, 3);
+  assert.deepEqual(mapSplit.barToMeasure, [1, 2, 2, 3]);
+  assert.equal(mapSplit.splitMeasures.has(2), true);
 });
 
 test('measure-ops: insertMeasures adds bars before or after', () => {
@@ -282,6 +323,18 @@ test('sheet tools: analyze_harmony returns bounded read-only music21 evidence', 
     assert.equal(analyzed.structuredContent.estimatedPassageKey, 'G major');
     assert.equal(received.startMeasure, 2);
     assert.match(received.abcSource, /K:G/);
+
+    const modDoc = await store.create({
+      title: 'Modulation',
+      abcSource: 'X:1\nT:Mod\nM:4/4\nL:1/4\nK:C\nc4 | [K:D] d4 | f4 |]',
+    });
+    await handlers.analyze_harmony({
+      documentId: modDoc.id,
+      startMeasure: 3,
+      endMeasure: 3,
+    });
+    assert.equal(received.startMeasure, 3);
+    assert.match(received.abcSource, /^K:D/m);
 
     const oversized = await handlers.analyze_harmony({
       documentId: doc.id,
