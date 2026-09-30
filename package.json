@@ -41,7 +41,7 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "abc-utils": "git+https://github.com/hxy9243/abc-utils.git#37f7be407055057c01be0dae51749897d0c29d34",
     "abcjs": "^6.6.4",
-    "jszip": "^3.10.1",
+    "jszip": "^3.10.2",
     "lucide-react": "^0.475.0",
     "mediabunny": "^1.56.2",
     "react": "^19.2.7",
