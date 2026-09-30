@@ -45,7 +45,7 @@
     "lucide-react": "^0.475.0",
     "mediabunny": "^1.56.2",
     "react": "^19.3.0",
-    "react-dom": "^19.2.7",
+    "react-dom": "^19.3.0",
     "typebox": "^1.1.38",
     "zod": "^4.5.4"
   },
