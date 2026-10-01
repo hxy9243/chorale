@@ -178,10 +178,10 @@ describe('workspace layout CSS contract', () => {
     );
   });
 
-  it('keeps score-editor-shell side-by-side without column stacking or hidden divider at low widths', () => {
-    // Neither theme nor responsive CSS may stack score-editor-shell into column
+  it('keeps horizontal score-editor-shell side-by-side without hiding the divider at low widths', () => {
+    // Responsive rules cannot override an explicitly selected vertical layout.
     expect(responsiveCss).toMatch(
-      /\.score-editor-shell\s*{[^}]*flex-direction:\s*row\s*!important;[^}]*flex-wrap:\s*nowrap\s*!important;/s,
+      /\.score-editor-shell\.layout-horizontal\s*{[^}]*flex-direction:\s*row\s*!important;[^}]*flex-wrap:\s*nowrap\s*!important;/s,
     );
     expect(responsiveCss).toMatch(
       /\.editor-divider\s*{[^}]*display:\s*flex\s*!important;/s,
@@ -192,5 +192,22 @@ describe('workspace layout CSS contract', () => {
     expect(indexCss).not.toMatch(/\.score-editor-shell\s*{[^}]*flex-direction:\s*column;/s);
     expect(indexCss).not.toMatch(/\.editor-divider\s*{[^}]*display:\s*none;/s);
   });
+
+  it('applies horizontal width caps only to horizontal panes', () => {
+    const host = document.createElement('div');
+    host.innerHTML = '<div class="score-editor-shell layout-vertical"><section class="workspace-pane editor-pane"></section></div>';
+    const editor = host.querySelector('.editor-pane')!;
+    const cappedRules = [...responsiveCss.matchAll(/([^{}]+)\{[^}]*max-width:\s*calc\(100% - 154px\)[^}]*\}/g)];
+    expect(cappedRules).toHaveLength(1);
+    expect(editor.matches(cappedRules[0][1].trim())).toBe(false);
+    host.firstElementChild!.classList.replace('layout-vertical', 'layout-horizontal');
+    expect(editor.matches(cappedRules[0][1].trim())).toBe(true);
+    expect(themeCss).toMatch(/\.score-editor-shell\.layout-vertical \.workspace-pane\.editor-pane\s*{[^}]*width:\s*100%\s*!important;[^}]*max-width:\s*100%\s*!important;/s);
+  });
+
+  it('keeps minimum-size panes reachable when a vertical workspace is too short', () => {
+    expect(responsiveCss).toMatch(/\.score-editor-shell\.layout-vertical\s*{[^}]*overflow-y:\s*auto;/s);
+  });
+
 });
 

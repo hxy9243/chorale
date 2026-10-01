@@ -48,7 +48,7 @@ Use `read_measure` to inspect score notation:
 Call `list_notations` with `{ documentId, startMeasure?, endMeasure? }` to inspect existing harmonic analysis, Roman numerals, and formal commentary across a score span.
 
 ### D. Requesting music21 Harmony Evidence
-Call `analyze_harmony` after reading the same written measures. It returns onset-aligned sounding pitches, literal bass, a passage-wide key estimate, and candidate chord labels for at most 16 measures.
+Call `analyze_harmony` after reading the same written measures. It returns onset-aligned sounding pitches, literal bass, a written-key context, and candidate chord labels for at most 16 measures.
 
 ```json
 {

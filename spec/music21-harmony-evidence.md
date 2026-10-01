@@ -6,6 +6,14 @@ date: 2026-09-20
 updated: 2026-10-01
 status: "implemented"
 source_files:
+  - shared/score-timing.mjs
+  - shared/score-timing.d.mts
+  - shared/abc-source.mjs
+  - shared/abc-source.d.mts
+  - src/music/scoreSnapshot.ts
+  - src/music/abcPresentation.ts
+  - server/daemon-mutations.mjs
+  - .github/workflows/ci.yml
   - server/music/score-semantics.mjs
   - server/music21.mjs
   - server/python/music21_harmony.py
@@ -18,6 +26,9 @@ source_files:
   - INSTALL.md
   - docs/harmony-analysis-benchmark.md
 test_files:
+  - src/music/__tests__/scoreTimingParity.test.ts
+  - test/score-semantics.node.mjs
+  - test/score-timing.node.mjs
   - test/harmony-regression.node.mjs
   - test/fixtures/harmony-regression.mjs
   - test/music21.node.mjs
@@ -57,10 +68,10 @@ The result includes:
 - the immutable score document ID and revision;
 - the analyzed written-measure range;
 - the music21 and Python versions;
-- one passage-wide estimated key;
+- written key context (or null when conflicting/unknown), with `keySource`; the legacy `estimatedPassageKey` field is retained for compatibility and is not a statistical estimate;
 - onset-aligned chordified slices with sounding pitches and literal bass;
 - candidate root, quality, inversion, and Roman numeral for each slice;
-- explicit warnings about ornaments, suspensions, tonicization, modulation, and boundary errors.
+- explicit warnings about fallible harmonic interpretation; unsupported literal notation returns a diagnostic instead of guessed evidence.
 
 The tool never writes score state. Missing Python, missing music21, parse failures, timeouts, and oversized ranges return structured errors.
 
@@ -70,6 +81,7 @@ Chorale determines all musical elements, timing, positions, sounding pitches, ac
 
 ```json
 {
+  "schemaVersion": 1,
   "passageKey": "G major",
   "slices": [
     {
@@ -125,3 +137,28 @@ music21 acts strictly as a lightweight chord and Roman numeral interpreter via `
 - Automated tests cover installation orchestration, runner parsing, MCP registration, bounded-range behavior, package contents, and harmonic correctness invariants.
 
 
+
+## Canonical event repair (implementation contract)
+
+The Node analysis path parses the complete score once and retains per-voice source identity, exact rational quarter-length onsets/releases, parsed key accidental tables and modes, and pitch-specific tie state. Written positions come from a shared pure written-measure mapper, not from line counts or music21 output. Leading repeat bars, pickups, split repeat fragments, final unterminated bars, and multimeasure rests must preserve the same written numbering across adapters.
+
+- Fractions are reduced exact rationals; triplets and other tuplets are not quantized to a fixed denominator.
+- Clef octave displacement and supported chromatic voice transposition affect sounding pitch. Ordinary clef changes affect display without creating a measure.
+- Explicit accidentals are scoped to their written pitch/octave and reset at barlines. Tied continuations retain their original resolved pitch independently for each chord member.
+- Slice boundaries include all overlapping onsets and releases, including carry-in from earlier measures, and are clipped against real measure intervals rather than assuming four quarter notes per bar.
+- Parsed key/mode/accidental context is voice-local. Polytonal or unsupported functional context is reported as uncertain, not taken from the last voice. Unsupported microtones, percussion and unmodelled notation produce structured diagnostics rather than invented conventional pitches. Grace notes are rejected until their time treatment is explicitly supported.
+- The versioned Python payload carries stable slice IDs. Python returns only harmonic interpretations; Node retains authority over the document, revision, literal evidence and range. Invalid, missing, duplicate or unexpected result IDs fail closed.
+- Passage-key output is explicitly identified as written context, not presented as a statistically estimated key. No database or annotation migration is introduced.
+- The required music21 CI lane fails if the interpreter or pinned dependency is unavailable; an optional-dependency lane verifies ordinary score features without music21. Regression comparisons use exact complete slice lists and real HTTP requests.
+
+The existing source-editing APIs remain source-based. This change does not serialize normalized events back into score text or silently accept ambiguous source-editing boundaries.
+
+### Supported-boundary diagnostics and resources
+
+Grace-note timing, voice overlays (`&`), MIDI pitch/percussion directives, mid-bar meter changes, and incompatible polymeter currently return an explicit unsupported-notation/timing error. Pitched V:/K: chromatic transpose fields and octave clefs are supported. Other score operations do not require music21. Literal source remains unchanged. The timing allocator rejects oversized multi-rest expansion before allocation; analysis also bounds source bytes, voice/event count, field sizes, slices and total emitted pitch references.
+
+The authoritative sequence is full original score → source-aware voice fields and shared written timing → resolved individual-pitch intervals → exact onset/release sweep clipped to requested measures → strict versioned music21 interpretation. Staff-level layout metadata is not allowed to overwrite another voice's key state. Source offsets survive blank-line preparation. The only bar spelling compatibility preprocessing is width-preserving `:|:` → `:: ` for abcjs; no analyzed excerpt is reserialized or passed to a second ABC parser.
+
+The regression corpus includes real triplets, Dorian, leading repeats, multi-rest expansion, source-line pickups/split repeats, tied accidentals, octave scope, transposition, offset carry-in, 3/4 releases, shared-staff context, metadata-like comments and header voice declarations. Exact complete literal lists are checked both without Python and through HTTP plus the stdio daemon proxy; the required integration lane fails rather than skipping unavailable Python.
+
+The generated Codex manifest forwards the explicit CHORALE_HOME, CHORALE_MUSIC21_PYTHON and CHORALE_PYTHON path overrides; packaged tests exercise the same helper path and canonical core.

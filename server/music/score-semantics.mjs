@@ -1,558 +1,332 @@
 import abcjs from 'abcjs';
+import {
+  buildScoreTiming, computeScoreMeasureMapping, createRational,
+  addRational, subRational, compareRational, rationalToText,
+} from '../../shared/score-timing.mjs';
+import { prepareAbcWithMap, createVoiceResolver, collectVoiceContextFields, isNotationOffset } from '../../shared/abc-source.mjs';
 
-/**
- * Deterministic musical score semantics layer for Chorale.
- * Resolves full-score voice layouts, exact rational timing, sounding pitches,
- * accidentals, octave transposition, per-note ties, and simultaneous-note slices.
- */
+export { computeScoreMeasureMapping, createRational, addRational, subRational, compareRational, rationalToText };
 
-export function gcd(a, b) {
-  let x = Math.abs(a);
-  let y = Math.abs(b);
-  while (y) {
-    const t = y;
-    y = x % y;
-    x = t;
-  }
-  return x || 1;
+export class ScoreSemanticsError extends Error {
+  constructor(code, message) { super(message); this.name = 'ScoreSemanticsError'; this.code = code; }
 }
-
-export function createRational(numerator, denominator = 1) {
-  if (denominator === 0) throw new RangeError('Denominator cannot be zero.');
-  const sign = denominator < 0 ? -1 : 1;
-  const num = Math.round(numerator * sign);
-  const den = Math.round(Math.abs(denominator));
-  const divisor = gcd(num, den);
-  return { num: num / divisor, den: den / divisor };
-}
-
-export function addRational(a, b) {
-  return createRational(a.num * b.den + b.num * a.den, a.den * b.den);
-}
-
-export function subRational(a, b) {
-  return createRational(a.num * b.den - b.num * a.den, a.den * b.den);
-}
-
-export function compareRational(a, b) {
-  const diff = a.num * b.den - b.num * a.den;
-  return diff < 0 ? -1 : diff > 0 ? 1 : 0;
-}
-
-export function rationalToText(r) {
-  return r.den === 1 ? `${r.num}` : `${r.num}/${r.den}`;
-}
-
-const PITCH_STEPS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
-const SEMITONES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-const ACCIDENTAL_OFFSETS = { '#': 1, '##': 2, '^': 1, '^^': 2, b: -1, bb: -2, '_': -1, '__': -2, '': 0, '=': 0 };
-
-export function pitchHeight(pitchStr) {
-  const match = pitchStr.match(/^([A-G])([#b]*)(-?\d+)$/);
-  if (!match) return 0;
-  const step = match[1];
-  const acc = match[2];
-  const octave = parseInt(match[3], 10);
-  return octave * 12 + SEMITONES[step] + (ACCIDENTAL_OFFSETS[acc] || 0);
-}
-
-const SHARPS_ORDER = ['F', 'C', 'G', 'D', 'A', 'E', 'B'];
-const FLATS_ORDER = ['B', 'E', 'A', 'D', 'G', 'C', 'F'];
-
-const ROOT_SHARPS = {
-  C: 0, G: 1, D: 2, A: 3, E: 4, B: 5, 'F#': 6, 'C#': 7,
-  F: -1, Bb: -2, Eb: -3, Ab: -4, Db: -5, Gb: -6, Cb: -7,
+const fail = (code, message) => { throw new ScoreSemanticsError(code, message); };
+const unsupported = (message) => fail('ANALYSIS_UNSUPPORTED_NOTATION', message);
+const STEPS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+const SEMITONES = [0, 2, 4, 5, 7, 9, 11];
+const ALTERATIONS = { natural: 0, sharp: 1, flat: -1, dblsharp: 2, dblflat: -2 };
+const MODES = {
+  '': 'major', maj: 'major', major: 'major', ion: 'ionian', ionian: 'ionian',
+  m: 'minor', min: 'minor', minor: 'minor', aeo: 'aeolian', aeolian: 'aeolian',
+  dor: 'dorian', dorian: 'dorian', phr: 'phrygian', phrygian: 'phrygian',
+  lyd: 'lydian', lydian: 'lydian', mix: 'mixolydian', mixolydian: 'mixolydian',
+  loc: 'locrian', locrian: 'locrian',
 };
+const ABC_MODES = { major: '', minor: 'm', ionian: 'ion', aeolian: 'aeo', dorian: 'dor', phrygian: 'phr', lydian: 'lyd', mixolydian: 'mix', locrian: 'loc' };
+const conventionalKeys = new Map();
+const keyFields = new Map();
+const clefFields = new Map();
+const ZERO = createRational(0);
+const MAX_SOURCE_BYTES = 2_000_000;
+const MAX_EVENTS = 50_000;
+const MAX_SLICES = 8192;
 
-const MODE_SHIFT = {
-  maj: 0, major: 0, ion: 0, ionian: 0, '': 0,
-  m: -3, min: -3, minor: -3, aeo: -3, aeolian: -3,
-  dor: -2, dorian: -2,
-  phr: -4, phrygian: -4,
-  lyd: 1, lydian: 1,
-  mix: -1, mixolydian: -1,
-  loc: -5, locrian: -5,
-};
-
-export function parseKeySignature(keyStr) {
-  if (!keyStr) return { sharps: [], flats: [], tonic: 'C', mode: 'major', name: 'C major' };
-  const clean = keyStr.trim().replace(/^\[K:\s*|\]$/g, '').trim();
-  const match = clean.match(/^([A-G][#b]?)(.*?)$/);
-  if (!match) return { sharps: [], flats: [], tonic: 'C', mode: 'major', name: 'C major' };
-  const root = match[1];
-  const modeRaw = match[2].trim().toLowerCase();
-  const shift = MODE_SHIFT[modeRaw] !== undefined ? MODE_SHIFT[modeRaw] : (modeRaw.startsWith('m') ? -3 : 0);
-  const baseSharps = ROOT_SHARPS[root] !== undefined ? ROOT_SHARPS[root] : 0;
-  const totalSharps = baseSharps + shift;
-
-  const sharps = [];
-  const flats = [];
-  if (totalSharps > 0) {
-    for (let i = 0; i < Math.min(totalSharps, 7); i++) sharps.push(SHARPS_ORDER[i]);
-  } else if (totalSharps < 0) {
-    for (let i = 0; i < Math.min(-totalSharps, 7); i++) flats.push(FLATS_ORDER[i]);
+function alteration(value) {
+  if (!Object.hasOwn(ALTERATIONS, value)) unsupported(`Unsupported accidental: ${value}. Microtonal pitches are not approximated.`);
+  return ALTERATIONS[value];
+}
+function accidentalTable(parsed) {
+  const table = Object.fromEntries(STEPS.map((step) => [step, 0]));
+  for (const item of parsed?.accidentals || []) {
+    const step = item.note?.toUpperCase();
+    if (!STEPS.includes(step)) unsupported('Unrecognized key-signature pitch.');
+    table[step] = alteration(item.acc);
   }
-  const modeName = (modeRaw.startsWith('m') && !modeRaw.startsWith('mix')) ? 'minor' : 'major';
-  return { sharps, flats, tonic: root, mode: modeName, name: `${root} ${modeName}` };
+  return table;
+}
+function conventionalTable(tonic, mode) {
+  const id = `${tonic} ${mode}`;
+  if (!conventionalKeys.has(id)) {
+    const tune = abcjs.parseOnly(`X:1\nM:4/4\nL:1/4\nK:${tonic}${ABC_MODES[mode]}\nz4|`)[0];
+    if (tune?.warnings?.length || !tune?.lines?.[0]?.staff?.[0]?.key) {
+      conventionalKeys.set(id, null);
+    } else conventionalKeys.set(id, accidentalTable(tune.lines[0].staff[0].key));
+  }
+  return conventionalKeys.get(id);
+}
+function keyContext(parsed) {
+  const table = accidentalTable(parsed);
+  const root = parsed?.root;
+  const mode = MODES[String(parsed?.mode || '').toLowerCase()];
+  const tonic = /^[A-G]$/.test(root || '') ? `${root}${parsed.acc || ''}` : null;
+  const expected = tonic && mode ? conventionalTable(tonic, mode) : null;
+  // Explicit/custom signature alterations are authoritative for pitches, but
+  // don't imply a conventional functional key suitable for Roman numerals.
+  const label = expected && STEPS.every((step) => expected[step] === table[step]) ? `${tonic} ${mode}` : null;
+  return { table, tonic, mode, label };
 }
 
-function isNotationOffset(abc, offset) {
-  const lineStart = abc.lastIndexOf('\n', Math.max(0, offset - 1)) + 1;
-  let inQuotedAnnotation = false;
-  for (let index = lineStart; index < offset; index += 1) {
-    const character = abc[index];
-    if (character === '"') {
-      let precedingBackslashes = 0;
-      for (let cursor = index - 1; cursor >= lineStart && abc[cursor] === '\\'; cursor -= 1) {
-        precedingBackslashes += 1;
-      }
-      if (precedingBackslashes % 2 === 0) inQuotedAnnotation = !inQuotedAnnotation;
-    } else if (character === '%' && !inQuotedAnnotation) {
-      return false;
-    }
+function parseKeyField(value) {
+  if (value.length > 4096) fail('ANALYSIS_TOO_COMPLEX', 'Key/clef field exceeds the analysis limit.');
+  if (!keyFields.has(value)) {
+    const tune = abcjs.parseOnly(`X:1\nM:4/4\nL:1/4\nK:${value}\nz4|`)[0];
+    if (tune?.warnings?.length || !tune?.lines?.[0]?.staff?.[0]) unsupported('Unsupported key or clef field.');
+    if (keyFields.size >= 256) keyFields.delete(keyFields.keys().next().value);
+    keyFields.set(value, tune.lines[0].staff[0]);
   }
-  return !inQuotedAnnotation;
+  return keyFields.get(value);
+}
+function applyClefField(current, text, type) {
+  if (text.length > 4096) fail('ANALYSIS_TOO_COMPLEX', 'Voice field exceeds the analysis limit.');
+  const cacheKey = JSON.stringify([current.octave, current.transpose, text, type]);
+  if (clefFields.has(cacheKey)) return clefFields.get(cacheKey);
+  const suffix = current.octave === 0 ? '' : `${current.octave < 0 ? '-' : '+'}${Math.abs(current.octave) === 2 ? '15' : '8'}`;
+  const field = type === 'voice' ? `V:analysis ${text}` : `[K:${text}]`;
+  const tune = abcjs.parseOnly(`X:1\nM:4/4\nL:1/4\nK:C clef=treble${suffix} transpose=${current.transpose}\n${field}\nC4|`)[0];
+  if (tune?.warnings?.length || !tune?.lines?.[0]?.staff?.[0]) unsupported('Unsupported voice or clef field.');
+  const staff = tune.lines[0].staff[0];
+  let selected = staff.clef;
+  for (const voice of staff.voices || []) for (const element of voice) {
+    if (element.el_type === 'clef') selected = element;
+  }
+  const result = clefContext(selected);
+  if (clefFields.size >= 256) clefFields.delete(clefFields.keys().next().value);
+  clefFields.set(cacheKey, result);
+  return result;
 }
 
-function collectDeclaredVoiceIds(abc) {
-  const ids = [];
-  const add = (id) => {
-    if (id && !ids.includes(id)) ids.push(id);
-  };
-  for (const match of abc.matchAll(/^V:\s*([^\s%\]]+)/gm)) add(match[1]);
-  for (const match of abc.matchAll(/\[V:\s*([^\]\s%]+)/g)) {
-    if (match.index !== undefined && isNotationOffset(abc, match.index)) add(match[1]);
-  }
-  return ids;
+function clefContext(parsed = {}) {
+  const type = parsed.type || 'treble';
+  if (/perc/i.test(type)) unsupported('Percussion staves do not have conventional pitched harmony.');
+  const shift = /([+-])(8|15)$/.exec(type);
+  const octave = shift ? (shift[1] === '-' ? -1 : 1) * (shift[2] === '15' ? 2 : 1) : 0;
+  const transpose = parsed.transpose ?? 0;
+  if (!Number.isSafeInteger(transpose) || Math.abs(transpose) > 96) unsupported('Unsupported chromatic voice transposition.');
+  return { octave, transpose };
+}
+function spellPitch(stepIndex, octave, alter) {
+  const step = STEPS[((stepIndex % 7) + 7) % 7];
+  const name = `${step}${alter > 0 ? '#'.repeat(alter) : 'b'.repeat(-alter)}${octave}`;
+  return { step, octave, alter, name, height: 12 * (octave + 1) + SEMITONES[((stepIndex % 7) + 7) % 7] + alter };
+}
+function transposePitch(pitch, semitones) {
+  if (!semitones) return pitch;
+  const sign = Math.sign(semitones);
+  const magnitude = Math.abs(semitones);
+  const intervalSteps = [0, 1, 1, 2, 2, 3, 3, 4, 5, 5, 6, 6][magnitude % 12] + 7 * Math.floor(magnitude / 12);
+  const diatonic = pitch.octave * 7 + STEPS.indexOf(pitch.step) + sign * intervalSteps;
+  const stepIndex = ((diatonic % 7) + 7) % 7;
+  const octave = Math.floor(diatonic / 7);
+  const naturalHeight = 12 * (octave + 1) + SEMITONES[stepIndex];
+  return spellPitch(stepIndex, octave, pitch.height + semitones - naturalHeight);
+}
+function soundingKey(context, clef) {
+  if (!context.label) return null;
+  if (!clef.transpose) return context.label;
+  const match = /^([A-G])([#b]*)$/.exec(context.tonic);
+  if (!match) return null;
+  const alter = [...match[2]].reduce((sum, acc) => sum + (acc === '#' ? 1 : -1), 0);
+  const shifted = transposePitch(spellPitch(STEPS.indexOf(match[1]), 4, alter), clef.transpose);
+  return `${shifted.step}${shifted.alter > 0 ? '#'.repeat(shifted.alter) : 'b'.repeat(-shifted.alter)} ${context.mode}`;
+}
+export function pitchHeight(name) {
+  const match = /^([A-G])([#b]*)(-?\d+)$/.exec(name);
+  if (!match) fail('ANALYSIS_INVALID_PITCH', `Invalid sounding pitch: ${name}`);
+  const alter = [...match[2]].reduce((sum, acc) => sum + (acc === '#' ? 1 : -1), 0);
+  return spellPitch(STEPS.indexOf(match[1]), Number(match[3]), alter).height;
 }
 
-function collectBodyVoiceMarkers(abc) {
-  const markers = [];
-  for (const match of abc.matchAll(/\[V:\s*([^\]\s%]+)/g)) {
-    if (match.index !== undefined && isNotationOffset(abc, match.index)) {
-      markers.push({ offset: match.index, voiceId: match[1] });
-    }
-  }
-  for (const match of abc.matchAll(/^V:\s*([^\s%\]]+)/gm)) {
-    if (match.index !== undefined && isNotationOffset(abc, match.index)) {
-      markers.push({ offset: match.index, voiceId: match[1] });
-    }
-  }
-  return markers.sort((left, right) => left.offset - right.offset);
+/** Compatibility helper; use parsed key accidental tables for score traversal. */
+export function parseKeySignature(value) {
+  const tune = abcjs.parseOnly(`X:1\nM:4/4\nL:1/4\nK:${value || 'C'}\nz4|`)[0];
+  if (tune?.warnings?.length) unsupported('Invalid key signature.');
+  const parsed = keyContext(tune?.lines?.[0]?.staff?.[0]?.key);
+  return { ...parsed, name: parsed.label, sharps: STEPS.filter((s) => parsed.table[s] > 0), flats: STEPS.filter((s) => parsed.table[s] < 0) };
 }
 
-function resolveParsedVoiceId(voice, markers, fallback) {
-  let firstSourceOffset;
-  for (const element of voice) {
-    if (typeof element.startChar === 'number') {
-      firstSourceOffset = element.startChar;
-      break;
-    }
+/** Parse once, preserve original source provenance, and normalize per-pitch releases. */
+export function extractScoreEvents(abcSource) {
+  if (typeof abcSource !== 'string' || !abcSource.trim()) fail('ANALYSIS_INVALID_SCORE', 'ABC source must be non-empty.');
+  if (Buffer.byteLength(abcSource, 'utf8') > MAX_SOURCE_BYTES) fail('ANALYSIS_TOO_COMPLEX', 'ABC exceeds the analysis source limit.');
+  for (const match of abcSource.matchAll(/&/g)) {
+    const lineStart = abcSource.lastIndexOf('\n', match.index) + 1;
+    const metadata = /^[ \t]*[A-UW-Z]:/.test(abcSource.slice(lineStart));
+    if (!metadata && isNotationOffset(abcSource, match.index)) unsupported('Voice overlays (&) are not yet supported by harmony analysis.');
   }
-  if (firstSourceOffset === undefined) return fallback;
-
-  let low = 0;
-  let high = markers.length - 1;
-  let resolvedIndex = -1;
-  while (low <= high) {
-    const middle = Math.floor((low + high) / 2);
-    if (markers[middle].offset <= firstSourceOffset) {
-      resolvedIndex = middle;
-      low = middle + 1;
-    } else {
-      high = middle - 1;
-    }
-  }
-  return resolvedIndex >= 0 ? markers[resolvedIndex].voiceId : fallback;
-}
-
-function prepareAbcForSemantics(abc) {
-  if (!abc) return '';
-  // Convert blank lines to comments so abcjs doesn't terminate prematurely
-  return abc
-    .replace(/^([ \t]*)$/gm, '%')
-    .replace(/\[Q:[^\]]+\]|\[I:staff\s+[+-]?\d+\]/gi, (match) => ' '.repeat(match.length));
-}
-
-function isRepeatEndBar(barType) {
-  if (!barType) return false;
-  return (
-    barType === 'bar_right_repeat' ||
-    barType === 'bar_double_repeat' ||
-    barType === 'bar_dbl_repeat' ||
-    barType.includes('right_repeat') ||
-    barType.includes('double_repeat') ||
-    barType.includes(':|')
-  );
-}
-
-export function computeScoreMeasureMapping(tune) {
-  const lines = tune.lines || [];
-  let barCount = 0;
-  for (const line of lines) {
-    for (const staff of line.staff || []) {
-      for (const voice of staff.voices || []) {
-        let count = 0;
-        let hasEvents = false;
-        for (const el of voice) {
-          if (el.el_type === 'note') hasEvents = true;
-          if (el.el_type === 'bar') {
-            if (hasEvents) {
-              count++;
-              hasEvents = false;
-            }
-          }
-        }
-        if (hasEvents) count++;
-        if (count > barCount) barCount = count;
-      }
-    }
-  }
-
-  if (barCount === 0) {
-    return {
-      isPickup: false,
-      firstMeasureNumber: 1,
-      totalMeasures: 1,
-      barToMeasure: [1],
-      splitMeasures: new Set(),
-    };
-  }
-
-  let expectedMeter = createRational(4, 1);
-  const m = tune.getMeterFraction ? tune.getMeterFraction() : null;
-  if (m && m.den > 0) expectedMeter = createRational(m.num * 4, m.den);
-
-  const barDurations = Array.from({ length: barCount }, () => createRational(0, 1));
-  const barTypes = Array.from({ length: barCount }, () => '');
-
-  for (const line of lines) {
-    for (const staff of line.staff || []) {
-      for (const voice of staff.voices || []) {
-        let b = 0;
-        let curDur = createRational(0, 1);
-        let tupletMult = 1;
-        let hasEvents = false;
-
-        for (const el of voice) {
-          if (el.el_type === 'bar') {
-            if (hasEvents) {
-              if (b < barCount) {
-                if (compareRational(curDur, barDurations[b]) > 0) {
-                  barDurations[b] = curDur;
-                }
-                barTypes[b] = el.type || 'bar_thin';
-              }
-              b++;
-              curDur = createRational(0, 1);
-              hasEvents = false;
-            }
-            continue;
-          }
-          if (el.el_type === 'note' && typeof el.duration === 'number') {
-            if (el.startTriplet && el.tripletMultiplier) tupletMult = el.tripletMultiplier;
-            const dur = createRational(Math.round(el.duration * 4 * tupletMult * 4096), 4096);
-            curDur = addRational(curDur, dur);
-            hasEvents = true;
-            if (el.endTriplet) tupletMult = 1;
-          }
-        }
-        if (hasEvents && b < barCount) {
-          if (compareRational(curDur, barDurations[b]) > 0) {
-            barDurations[b] = curDur;
-          }
-        }
-      }
-    }
-  }
-
-  let isPickup = false;
-  if (barCount > 1) {
-    const firstBar = barDurations[0];
-    const secondBar = barDurations[1];
-    if (compareRational(firstBar, expectedMeter) < 0 && compareRational(secondBar, expectedMeter) >= 0) {
-      isPickup = true;
-    }
-  }
-
-  const firstMeasureNumber = isPickup ? 0 : 1;
-  const barToMeasure = [];
-  const splitMeasures = new Set();
-  let currentMeasure = firstMeasureNumber;
-  let prevBarIncomplete = false;
-  let prevBarRepeat = false;
-  let prevBarDuration = createRational(0, 1);
-
-  for (let b = 0; b < barCount; b++) {
-    const barDur = barDurations[b];
-    const barType = barTypes[b];
-
-    if (b === 0 && isPickup) {
-      barToMeasure[b] = 0;
-      currentMeasure = 1;
-      prevBarIncomplete = false;
-      prevBarRepeat = false;
-      prevBarDuration = createRational(0, 1);
-    } else {
-      const sumWithPrev = addRational(prevBarDuration, barDur);
-      const isContinuation =
-        prevBarIncomplete &&
-        prevBarRepeat &&
-        compareRational(barDur, expectedMeter) < 0 &&
-        compareRational(sumWithPrev, expectedMeter) === 0;
-
-      if (isContinuation) {
-        const prevM = barToMeasure[b - 1];
-        barToMeasure[b] = prevM;
-        splitMeasures.add(prevM);
-        prevBarIncomplete = false;
-        prevBarRepeat = false;
-        prevBarDuration = createRational(0, 1);
-      } else {
-        barToMeasure[b] = currentMeasure;
-        currentMeasure += 1;
-
-        const isShort = compareRational(barDur, expectedMeter) < 0;
-        const isRepeat = isRepeatEndBar(barType);
-        if (isShort && isRepeat) {
-          prevBarIncomplete = true;
-          prevBarRepeat = true;
-          prevBarDuration = barDur;
-        } else {
-          prevBarIncomplete = false;
-          prevBarRepeat = false;
-          prevBarDuration = createRational(0, 1);
-        }
-      }
-    }
-  }
-
-  return {
-    isPickup,
-    firstMeasureNumber,
-    totalMeasures: currentMeasure - 1,
-    barToMeasure,
-    splitMeasures,
-  };
-}
-
-export function extractHarmonicSlices(abcSource, startMeasure, endMeasure) {
-  if (!abcSource || !abcSource.trim()) {
-    throw new Error('abcSource must be a non-empty string');
-  }
-
-  const prepared = prepareAbcForSemantics(abcSource);
+  const fields = collectVoiceContextFields(abcSource);
+  const initialStaff = parseKeyField(fields.headerKey);
+  const { prepared, toOriginalOffset } = prepareAbcWithMap(abcSource);
   const tunes = abcjs.parseOnly(prepared);
-  const tune = tunes?.[0];
-  if (!tune) {
-    throw new Error('Unable to parse ABC score');
+  if (tunes.length !== 1 || !tunes[0]) unsupported('Analysis requires exactly one ABC tune.');
+  const tune = tunes[0];
+  if (tune.formatting?.midi?.transpose?.some((value) => Number(value) !== 0)
+    || tune.formatting?.midi?.channel?.some((value) => Number(value) === 10)) {
+    unsupported('MIDI transposition/percussion directives are not supported; use a pitched voice transpose field.');
   }
+  if (tune.warnings?.length) unsupported(`ABC parser diagnostics: ${tune.warnings.map((w) => String(w).replace(/<[^>]*>/g, '')).join('; ')}`);
+  const timing = buildScoreTiming(tune, { voiceIdFor: createVoiceResolver(abcSource, toOriginalOffset) });
+  if (timing.voices.length > 128) fail('ANALYSIS_TOO_COMPLEX', 'Analysis supports at most 128 voices.');
+  const events = [];
+  const contexts = new Map();
+  let entryCount = 0;
+  let pitchCount = 0;
 
-  const mapping = computeScoreMeasureMapping(tune);
+  for (const voice of timing.voices) {
+    let context = keyContext(initialStaff.key);
+    let clef = clefContext(initialStaff.clef);
+    const voiceFields = fields.fields.filter((field) => field.voiceId === voice.voiceId);
+    let fieldIndex = 0;
+    const barAccidentals = new Map();
+    const ties = new Map();
+    const changes = [];
+    contexts.set(voice.voiceId, changes);
+    const recordContext = (at) => {
+      const label = soundingKey(context, clef);
+      const last = changes.at(-1);
+      if (last && compareRational(last.at, at) === 0) last.label = label;
+      else if (!last || last.label !== label) changes.push({ at, label });
+    };
 
-  // Extract global key signature from ABC header (before any body lines)
-  const headerPart = abcSource.split(/(?:\r?\n)(?=[A-Za-z]:|\s*$)/)[0] || '';
-  const globalKeyMatch = abcSource.match(/^K:\s*([^\r\n%]+)/m);
-  const globalKeyStr = globalKeyMatch ? globalKeyMatch[1].trim() : 'C';
-  const defaultTuneKey = parseKeySignature(globalKeyStr);
-
-  const declaredVoiceIds = collectDeclaredVoiceIds(abcSource);
-  const bodyVoiceMarkers = collectBodyVoiceMarkers(abcSource);
-
-  // Voice state preserved across lines/staves
-  const voiceStates = new Map();
-  const voiceKeys = new Map();
-  const voiceAccidentals = new Map();
-
-  const scoreEvents = [];
-
-  for (const line of tune.lines || []) {
-    let voiceSlot = 0;
-    for (const staff of line.staff || []) {
-      for (const voice of staff.voices || []) {
-        const fallbackId = declaredVoiceIds[voiceSlot] || `voice-${voiceSlot + 1}`;
-        const voiceId = resolveParsedVoiceId(voice, bodyVoiceMarkers, fallbackId);
-        voiceSlot++;
-
-        let state = voiceStates.get(voiceId);
-        if (!state) {
-          state = {
-            measureNum: mapping.barToMeasure[0] ?? mapping.firstMeasureNumber,
-            barIdx: 0,
-            measureOffset: createRational(0, 1),
-            prevMeasureContinuationOffset: createRational(0, 1),
-            tupletMult: 1,
-          };
-          voiceStates.set(voiceId, state);
+    for (const entry of voice.entries) {
+      if (++entryCount > MAX_EVENTS) fail('ANALYSIS_TOO_COMPLEX', 'Score has too many analysis events.');
+      const el = entry.element;
+      if (el.el_type === 'midi' && (el.cmd === 'transpose' || (el.cmd === 'channel' && el.params?.includes(10)))) {
+        unsupported('Inline MIDI transposition/percussion directives are not supported.');
+      }
+      const sourceOffset = Number.isInteger(el.startChar) ? toOriginalOffset(el.startChar) : -1;
+      while (fieldIndex < voiceFields.length && voiceFields[fieldIndex].offset <= sourceOffset) {
+        const field = voiceFields[fieldIndex++];
+        if (field.type === 'key' && /^(?:[A-G]|none|HP|Hp|exp\b|[_^=])/.test(field.value)) {
+          context = keyContext(parseKeyField(field.value).key);
+          barAccidentals.clear();
         }
-
-        let currentKey = voiceKeys.get(voiceId) || defaultTuneKey;
-        let activeAccidentals = voiceAccidentals.get(voiceId);
-        if (!activeAccidentals) {
-          activeAccidentals = new Map();
-          voiceAccidentals.set(voiceId, activeAccidentals);
-        }
-
-        for (const el of voice) {
-          if (el.el_type === 'key') {
-            const rawKey = el.root ? `${el.root}${el.acc || ''} ${el.mode || ''}` : null;
-            if (rawKey) {
-              currentKey = parseKeySignature(rawKey);
-              voiceKeys.set(voiceId, currentKey);
-            }
-            continue;
+        clef = applyClefField(clef, field.value, field.type);
+      }
+      recordContext(entry.absoluteOffset);
+      // Source-scoped fields above survive staff compaction/shared-staff layouts;
+      // reapplying staff.key here would leak another voice's signature.
+      if (el.el_type === 'key' || el.el_type === 'clef') continue;
+      if (el.el_type === 'bar') { barAccidentals.clear(); continue; }
+      if (el.el_type !== 'note') continue;
+      if (el.gracenotes?.length) unsupported('Grace-note timing is not yet supported by harmony analysis.');
+      if (el.rest) continue;
+      if (!el.pitches?.length) unsupported('A sounding note has no supported parsed pitch.');
+      pitchCount += el.pitches.length;
+      if (pitchCount > MAX_EVENTS) fail('ANALYSIS_TOO_COMPLEX', 'Score has too many analysis pitches.');
+      if (compareRational(entry.duration, ZERO) <= 0) unsupported('Zero-duration sounding notes are not supported.');
+      const end = addRational(entry.absoluteOffset, entry.duration);
+      for (let index = 0; index < el.pitches.length; index++) {
+        const p = el.pitches[index];
+        if (!Number.isInteger(p.pitch)) unsupported('Unrecognized parsed pitch.');
+        const stepIndex = ((p.pitch % 7) + 7) % 7;
+        const step = STEPS[stepIndex];
+        const writtenOctave = 4 + Math.floor(p.pitch / 7);
+        const writtenId = `${step}${writtenOctave}`;
+        let alter;
+        if (p.accidental) {
+          alter = alteration(p.accidental);
+          barAccidentals.set(writtenId, alter);
+        } else alter = barAccidentals.has(writtenId) ? barAccidentals.get(writtenId) : context.table[step];
+        const pitch = transposePitch(spellPitch(stepIndex, writtenOctave + clef.octave, alter), clef.transpose);
+        const sourceRange = Number.isInteger(el.startChar) && Number.isInteger(el.endChar)
+          ? { start: toOriginalOffset(el.startChar), end: toOriginalOffset(el.endChar) } : null;
+        const sourceId = `${voice.voiceId}@${sourceRange?.start ?? entryCount}:${sourceRange?.end ?? entryCount}#${index}`;
+        if (p.endTie) {
+          const active = ties.get(writtenId);
+          if (!active || compareRational(active.end, entry.absoluteOffset) !== 0) {
+            fail('ANALYSIS_INVALID_TIE', `Unresolved tied continuation in voice ${voice.voiceId}, measure ${entry.measure}.`);
           }
-
-          if (el.el_type === 'bar') {
-            activeAccidentals.clear();
-            state.barIdx++;
-            const nextMeasure = mapping.barToMeasure[state.barIdx] ?? (state.measureNum + 1);
-            if (nextMeasure === state.measureNum) {
-              state.prevMeasureContinuationOffset = state.measureOffset;
-              state.measureOffset = createRational(0, 1);
-            } else {
-              state.measureNum = nextMeasure;
-              state.measureOffset = createRational(0, 1);
-              state.prevMeasureContinuationOffset = createRational(0, 1);
-            }
-            continue;
-          }
-
-          if (el.el_type === 'note' && typeof el.duration === 'number') {
-            if (el.startTriplet && el.tripletMultiplier) state.tupletMult = el.tripletMultiplier;
-
-            const durationQL = createRational(Math.round(el.duration * 4 * state.tupletMult * 4096), 4096);
-            const isRest = Boolean(el.rest);
-            const resolvedPitches = [];
-
-            if (!isRest && Array.isArray(el.pitches)) {
-              for (const p of el.pitches) {
-                if (typeof p.pitch !== 'number') continue;
-                const pNum = p.pitch;
-                const step = PITCH_STEPS[((pNum % 7) + 7) % 7];
-                const octave = 4 + Math.floor(pNum / 7);
-
-                let accidental = '';
-                if (p.accidental) {
-                  if (p.accidental === 'sharp') accidental = '#';
-                  else if (p.accidental === 'flat') accidental = 'b';
-                  else if (p.accidental === 'dblsharp') accidental = '##';
-                  else if (p.accidental === 'dblflat') accidental = 'bb';
-                  else if (p.accidental === 'natural') accidental = '';
-                  activeAccidentals.set(`${step}${octave}`, accidental);
-                  activeAccidentals.set(step, accidental);
-                } else if (activeAccidentals.has(`${step}${octave}`)) {
-                  accidental = activeAccidentals.get(`${step}${octave}`);
-                } else if (activeAccidentals.has(step)) {
-                  accidental = activeAccidentals.get(step);
-                } else {
-                  if (currentKey.sharps.includes(step)) accidental = '#';
-                  else if (currentKey.flats.includes(step)) accidental = 'b';
-                }
-
-                resolvedPitches.push(`${step}${accidental}${octave}`);
-              }
-            }
-
-            resolvedPitches.sort((a, b) => pitchHeight(a) - pitchHeight(b));
-
-            scoreEvents.push({
-              voiceId,
-              measure: state.measureNum,
-              offset: addRational(state.prevMeasureContinuationOffset, state.measureOffset),
-              duration: durationQL,
-              soundingPitches: resolvedPitches,
-              literalBass: resolvedPitches[0] || null,
-              isRest,
-              localKey: currentKey.name,
-            });
-
-            state.measureOffset = addRational(state.measureOffset, durationQL);
-            if (el.endTriplet) state.tupletMult = 1;
-          }
+          active.end = end;
+          active.sourceEventIds.push(sourceId);
+          if (sourceRange) active.sourceRanges.push(sourceRange);
+          if (!p.startTie) ties.delete(writtenId);
+        } else {
+          if (ties.has(writtenId)) fail('ANALYSIS_INVALID_TIE', `A tied pitch in voice ${voice.voiceId} has no contiguous continuation.`);
+          const event = { id: sourceId, voiceId: voice.voiceId, start: entry.absoluteOffset, end, pitch: pitch.name,
+            sourceEventIds: [sourceId], sourceRanges: sourceRange ? [sourceRange] : [], measure: entry.measure, offset: entry.offset };
+          events.push(event);
+          if (p.startTie) ties.set(writtenId, event);
         }
       }
     }
+    if (ties.size) fail('ANALYSIS_INVALID_TIE', `Unfinished tie in voice ${voice.voiceId}.`);
   }
+  return { ...timing, events, contexts };
+}
 
-  // Determine effective start and end
-  const effectiveStart = Math.max(startMeasure, mapping.firstMeasureNumber);
-  const effectiveEnd = Math.max(endMeasure, effectiveStart);
+function contextAt(changes, point) {
+  let low = 0; let high = changes.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (compareRational(changes[middle].at, point) <= 0) low = middle + 1; else high = middle;
+  }
+  return low ? changes[low - 1].label : null;
+}
 
+/** Exact onset/release sweep clipped to authoritative written measure intervals. */
+export function extractHarmonicSlices(abcSource, startMeasure = 1, endMeasure = startMeasure) {
+  if (!Number.isInteger(startMeasure) || !Number.isInteger(endMeasure) || startMeasure < 0 || endMeasure < startMeasure) {
+    fail('INVALID_RANGE', 'Analysis requires a non-negative, ordered written-measure range.');
+  }
+  if (endMeasure - startMeasure + 1 > 16) fail('ANALYSIS_RANGE_TOO_LARGE', 'Analysis accepts at most 16 written measures.');
+  const score = extractScoreEvents(abcSource);
+  const selected = score.measures.filter((m) => m.measure >= startMeasure && m.measure <= endMeasure);
+  if (selected.length !== endMeasure - startMeasure + 1) fail('INVALID_RANGE', 'The requested written-measure range is not present in this score.');
   const slices = [];
-
-  for (let m = effectiveStart; m <= effectiveEnd; m++) {
-    const measureEvents = scoreEvents.filter((e) => e.measure === m);
-    const priorSustained = scoreEvents.filter((e) => e.measure < m && !e.isRest);
-
-    const onsetPoints = new Set();
-    onsetPoints.add(0);
-
-    for (const ev of measureEvents) {
-      onsetPoints.add(ev.offset.num / ev.offset.den);
-      const endQ = addRational(ev.offset, ev.duration);
-      onsetPoints.add(endQ.num / endQ.den);
+  let evidencePitchCount = 0;
+  for (const measure of selected) {
+    const finish = addRational(measure.start, measure.duration);
+    const relevant = score.events.filter((event) => compareRational(event.start, finish) < 0 && compareRational(event.end, measure.start) > 0);
+    const boundaries = new Map([[rationalToText(measure.start), measure.start], [rationalToText(finish), finish]]);
+    const changes = new Map();
+    const active = new Map();
+    const addChange = (at, type, event) => {
+      const id = rationalToText(at);
+      boundaries.set(id, at);
+      if (!changes.has(id)) changes.set(id, { starts: [], ends: [] });
+      changes.get(id)[type].push(event);
+    };
+    for (const event of relevant) {
+      if (compareRational(event.start, measure.start) < 0) active.set(event.id, event);
+      else addChange(event.start, 'starts', event);
+      if (compareRational(event.end, finish) < 0) addChange(event.end, 'ends', event);
     }
-
-    const sortedOnsets = Array.from(onsetPoints).sort((a, b) => a - b);
-
-    for (let i = 0; i < sortedOnsets.length - 1; i++) {
-      const tStartNum = sortedOnsets[i];
-      const tEndNum = sortedOnsets[i + 1];
-      const tStart = createRational(Math.round(tStartNum * 4096), 4096);
-      const tEnd = createRational(Math.round(tEndNum * 4096), 4096);
-      const sliceDur = subRational(tEnd, tStart);
-      if (sliceDur.num <= 0) continue;
-
-      const activePitches = new Set();
-      let sliceLocalKey = defaultTuneKey.name;
-
-      for (const ev of measureEvents) {
-        if (ev.isRest) continue;
-        const evStart = ev.offset;
-        const evEnd = addRational(ev.offset, ev.duration);
-        if (compareRational(evStart, tStart) <= 0 && compareRational(evEnd, tEnd) >= 0) {
-          for (const p of ev.soundingPitches) activePitches.add(p);
-          sliceLocalKey = ev.localKey;
-        }
+    for (const voiceId of new Set(relevant.map((event) => event.voiceId))) {
+      for (const change of score.contexts.get(voiceId) || []) {
+        if (compareRational(change.at, measure.start) > 0 && compareRational(change.at, finish) < 0) boundaries.set(rationalToText(change.at), change.at);
       }
-
-      // Check sustained notes from earlier measures
-      for (const ev of priorSustained) {
-        const measuresDiff = m - ev.measure;
-        const elapsedSinceStart = addRational(createRational(measuresDiff * 4, 1), tStart);
-        if (compareRational(ev.duration, elapsedSinceStart) > 0) {
-          for (const p of ev.soundingPitches) activePitches.add(p);
-        }
-      }
-
-      if (activePitches.size > 0) {
-        const sortedPitches = Array.from(activePitches).sort((a, b) => pitchHeight(a) - pitchHeight(b));
-        slices.push({
-          sliceId: `m${m}@${rationalToText(tStart)}`,
-          position: {
-            measure: m,
-            offsetQuarterLength: rationalToText(tStart),
-          },
-          durationQuarterLength: rationalToText(sliceDur),
-          soundingPitches: sortedPitches,
-          literalBass: sortedPitches[0],
-          localKey: sliceLocalKey,
-        });
+    }
+    const points = [...boundaries.values()].sort(compareRational);
+    if (slices.length + points.length > MAX_SLICES + 1) fail('ANALYSIS_TOO_COMPLEX', 'Analysis exceeds the slice-count limit.');
+    for (let i = 0; i < points.length - 1; i++) {
+      const start = points[i]; const end = points[i + 1];
+      const delta = changes.get(rationalToText(start));
+      for (const event of delta?.ends || []) active.delete(event.id);
+      for (const event of delta?.starts || []) active.set(event.id, event);
+      if (!active.size) continue;
+      evidencePitchCount += [...active.values()].reduce((sum, event) => sum + 1 + event.sourceEventIds.length, 0);
+      if (evidencePitchCount > MAX_EVENTS * 4) fail('ANALYSIS_TOO_COMPLEX', 'Analysis evidence exceeds the pitch-reference limit.');
+      const soundingPitches = [...new Set([...active.values()].map((event) => event.pitch))].sort((a, b) => pitchHeight(a) - pitchHeight(b) || a.localeCompare(b));
+      const labels = new Set([...new Set([...active.values()].map((event) => event.voiceId))]
+        .map((id) => contextAt(score.contexts.get(id) || [], start)));
+      const localKey = labels.size === 1 && !labels.has(null) ? [...labels][0] : null;
+      const offset = subRational(start, measure.start);
+      slices.push({ sliceId: `m${measure.measure}@${rationalToText(offset)}`, position: { measure: measure.measure, offsetQuarterLength: rationalToText(offset) },
+        durationQuarterLength: rationalToText(subRational(end, start)), soundingPitches, literalBass: soundingPitches[0], localKey,
+        sourceEventIds: [...new Set([...active.values()].flatMap((event) => event.sourceEventIds))] });
+    }
+  }
+  const keys = new Set(slices.map((slice) => slice.localKey));
+  if (!slices.length && selected.length) {
+    const start = selected[0].start;
+    const end = addRational(selected.at(-1).start, selected.at(-1).duration);
+    for (const changes of score.contexts.values()) {
+      keys.add(contextAt(changes, start));
+      for (const change of changes) {
+        if (compareRational(change.at, start) > 0 && compareRational(change.at, end) < 0) keys.add(change.label);
       }
     }
   }
-
-  // Key detection: preserve explicit written key from tune header
-  // If passage is in an excerpt that starts after an excerpt key change, use that key
-  let passageKey = defaultTuneKey.name;
-  if (slices.length > 0 && slices[0].localKey) {
-    passageKey = slices[0].localKey;
-  }
-
-  return {
-    passageKey,
-    slices,
-    measureCount: effectiveEnd - effectiveStart + 1,
-  };
+  const passageKey = keys.size === 1 && !keys.has(null) ? [...keys][0] : null;
+  return { passageKey, slices, measureCount: selected.length };
 }

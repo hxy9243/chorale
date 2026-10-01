@@ -36,7 +36,7 @@ export async function packageCodex(output = join(root, 'plugins/chorale-codex-pl
     await writeFile(join(staging, '.codex-plugin/plugin.json'), JSON.stringify(manifest, null, 2) + '\n');
     await writeFile(join(staging, '.mcp.json'), JSON.stringify({ mcpServers: { chorale: {
       command: './scripts/launch_chorale_mcp', args: [], cwd: '.',
-      env_vars: ['CODEX_MCP_NODE_PATH', 'CODEX_BROWSER_USE_NODE_PATH', 'CODEX_ELECTRON_RESOURCES_PATH', 'CODEX_CLI_PATH', 'XDG_CACHE_HOME', 'HOME', 'USERPROFILE', 'LOCALAPPDATA', 'PATH'],
+      env_vars: ['CHORALE_HOME', 'CHORALE_MUSIC21_PYTHON', 'CHORALE_PYTHON', 'CODEX_MCP_NODE_PATH', 'CODEX_BROWSER_USE_NODE_PATH', 'CODEX_ELECTRON_RESOURCES_PATH', 'CODEX_CLI_PATH', 'XDG_CACHE_HOME', 'HOME', 'USERPROFILE', 'LOCALAPPDATA', 'PATH'],
     } } }, null, 2) + '\n');
     // Replace the complete generated package so obsolete server files cannot survive a rebuild.
     await rm(output, { recursive: true, force: true });

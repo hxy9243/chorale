@@ -7,6 +7,12 @@ import { extractHarmonicSlices } from './music/score-semantics.mjs';
 
 export const MUSIC21_REQUIREMENT = 'music21==9.9.1';
 export const MUSIC21_SETUP_COMMAND = 'chorale setup music21';
+export const MUSIC21_SCHEMA_VERSION = 1;
+export const MUSIC21_PROBE_TIMEOUT_MS = 5_000;
+export const MUSIC21_ANALYSIS_TIMEOUT_MS = 20_000;
+// At most five resolver candidates (including Windows' launcher), plus analysis
+// and transport overhead. Other daemon tools retain their existing deadlines.
+export const MUSIC21_TRANSPORT_TIMEOUT_MS = 5 * MUSIC21_PROBE_TIMEOUT_MS + MUSIC21_ANALYSIS_TIMEOUT_MS + 5_000;
 
 const PYTHON_DIR = fileURLToPath(new URL('./python/', import.meta.url));
 const DEFAULT_SCRIPT_PATH = join(PYTHON_DIR, 'music21_harmony.py');
@@ -49,18 +55,26 @@ export const runProcess = (command, args = [], options = {}) => new Promise((res
   };
 
   const append = (target, chunk) => {
-    outputSize += chunk.length;
-    if (outputSize > (options.maxOutputBytes || MAX_PROCESS_OUTPUT)) {
-      child.kill?.('SIGKILL');
+    if (settled) return;
+    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    outputSize += bytes.length;
+    if (outputSize > (options.maxOutputBytes ?? MAX_PROCESS_OUTPUT)) {
       finish(reject, new Music21Error('MUSIC21_OUTPUT_TOO_LARGE', 'music21 produced more output than Chorale can safely accept.'));
+      child.kill?.('SIGKILL');
       return;
     }
-    target.push(chunk);
+    target.push(bytes);
   };
 
   child.stdout?.on('data', (chunk) => append(stdout, chunk));
   child.stderr?.on('data', (chunk) => append(stderr, chunk));
   child.on('error', (error) => finish(reject, error));
+  // A helper that exits before consuming stdin can emit EPIPE asynchronously.
+  // Always listen on the stream so an unavailable/crashed helper cannot crash Node.
+  child.stdin?.on('error', (error) => {
+    finish(reject, new Music21Error('MUSIC21_ANALYSIS_FAILED', `Unable to send analysis input: ${error.message}`));
+    child.kill?.('SIGKILL');
+  });
   child.on('close', (code) => {
     const result = {
       code,
@@ -71,15 +85,20 @@ export const runProcess = (command, args = [], options = {}) => new Promise((res
     else finish(reject, Object.assign(new Error(result.stderr.trim() || `${command} exited with status ${code}.`), { result }));
   });
 
-  const timeoutMs = options.timeoutMs || 20_000;
+  const timeoutMs = options.timeoutMs ?? MUSIC21_ANALYSIS_TIMEOUT_MS;
   timer = setTimeout(() => {
-    child.kill?.('SIGKILL');
     finish(reject, new Music21Error('MUSIC21_TIMEOUT', `music21 did not finish within ${Math.ceil(timeoutMs / 1000)} seconds.`));
+    child.kill?.('SIGKILL');
   }, timeoutMs);
   timer.unref?.();
 
-  if (options.input !== undefined) child.stdin?.end(options.input);
-  else child.stdin?.end();
+  try {
+    if (options.input !== undefined) child.stdin?.end(options.input);
+    else child.stdin?.end();
+  } catch (error) {
+    finish(reject, new Music21Error('MUSIC21_ANALYSIS_FAILED', `Unable to send analysis input: ${error.message}`));
+    child.kill?.('SIGKILL');
+  }
 });
 
 const pythonCandidates = (options = {}) => {
@@ -103,8 +122,11 @@ export const inspectMusic21Python = async (candidate, options = {}) => {
     '-c',
     'import json,platform,music21; print(json.dumps({"music21":music21.__version__,"python":platform.python_version()}))',
   ];
-  const result = await execute(candidate.command, probe, { timeoutMs: 5_000 });
+  const result = await execute(candidate.command, probe, { timeoutMs: MUSIC21_PROBE_TIMEOUT_MS });
   const details = JSON.parse(result.stdout.trim());
+  if (typeof details?.music21 !== 'string' || !details.music21 || typeof details?.python !== 'string' || !details.python) {
+    throw new Music21Error('MUSIC21_INVALID_OUTPUT', 'Python probe returned invalid runtime details.');
+  }
   return { ...candidate, version: details.music21, pythonVersion: details.python };
 };
 
@@ -159,26 +181,90 @@ export const installMusic21 = async (options = {}) => {
   return inspectMusic21Python({ command: paths.python, prefixArgs: [], source: 'managed' }, { runProcess: execute });
 };
 
-export const analyzeHarmonyWithMusic21 = async (payload, options = {}) => {
-  const runtime = options.runtime || await resolveMusic21Python(options);
-  const execute = options.runProcess || runProcess;
+const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+const hasExactKeys = (value, keys) => isRecord(value)
+  && Object.keys(value).length === keys.length
+  && keys.every((key) => Object.hasOwn(value, key));
+const nonemptyString = (value) => typeof value === 'string' && value.trim().length > 0;
+const nullableKey = (value) => value === null || nonemptyString(value);
+const rationalText = (value, positive = false) => {
+  if (typeof value !== 'string' || !/^(?:0|[1-9]\d*)(?:\/[1-9]\d*)?$/.test(value)) return false;
+  return !positive || !value.startsWith('0');
+};
 
-  let pythonPayload = payload;
-  let extractedSlices = null;
-
-  if (payload.abcSource && !payload.slices) {
+const structuredPayload = (payload) => {
+  if (!isRecord(payload)) throw new Music21Error('MUSIC21_INVALID_INPUT', 'Harmony input must be an object.');
+  let source = payload;
+  if (typeof payload.abcSource === 'string' && !Object.hasOwn(payload, 'slices')) {
     const start = Number.isInteger(payload.startMeasure) ? payload.startMeasure : 1;
     const end = Number.isInteger(payload.endMeasure) ? payload.endMeasure : start;
-    const extracted = extractHarmonicSlices(payload.abcSource, start, end);
-    extractedSlices = extracted.slices;
-    pythonPayload = {
-      passageKey: extracted.passageKey,
-      slices: extracted.slices,
-    };
-  } else if (Array.isArray(payload.slices)) {
-    extractedSlices = payload.slices;
+    source = extractHarmonicSlices(payload.abcSource, start, end);
   }
+  if ((payload.schemaVersion !== undefined && payload.schemaVersion !== MUSIC21_SCHEMA_VERSION)
+    || !nullableKey(source.passageKey) || !Array.isArray(source.slices)) {
+    throw new Music21Error('MUSIC21_INVALID_INPUT', 'Harmony input does not match the structured slice schema.');
+  }
+  const seen = new Set();
+  const slices = source.slices.map((slice) => {
+    if (!isRecord(slice) || !nonemptyString(slice.sliceId) || seen.has(slice.sliceId)
+      || !hasExactKeys(slice.position, ['measure', 'offsetQuarterLength'])
+      || !Number.isInteger(slice.position.measure) || slice.position.measure < 0
+      || !rationalText(slice.position.offsetQuarterLength)
+      || !rationalText(slice.durationQuarterLength, true)
+      || !Array.isArray(slice.soundingPitches) || slice.soundingPitches.length === 0
+      || !slice.soundingPitches.every((pitch) => typeof pitch === 'string' && /^[A-G](?:#{1,2}|b{1,2})?-?\d+$/.test(pitch))
+      || !slice.soundingPitches.includes(slice.literalBass) || !nullableKey(slice.localKey)) {
+      throw new Music21Error('MUSIC21_INVALID_INPUT', 'Harmony input contains an invalid or duplicate slice.');
+    }
+    seen.add(slice.sliceId);
+    // Explicit copies prevent a runner (or its output) from replacing literal facts.
+    return {
+      sliceId: slice.sliceId,
+      position: { measure: slice.position.measure, offsetQuarterLength: slice.position.offsetQuarterLength },
+      durationQuarterLength: slice.durationQuarterLength,
+      soundingPitches: [...slice.soundingPitches],
+      literalBass: slice.literalBass,
+      localKey: slice.localKey,
+    };
+  });
+  return { schemaVersion: MUSIC21_SCHEMA_VERSION, passageKey: source.passageKey, slices };
+};
 
+const validateAnalysis = (analysis, payload) => {
+  if (!hasExactKeys(analysis, ['schemaVersion', 'engine', 'estimatedPassageKey', 'keySource', 'warning', 'slices'])
+    || analysis.schemaVersion !== MUSIC21_SCHEMA_VERSION
+    || !hasExactKeys(analysis.engine, ['name', 'version'])
+    || analysis.engine.name !== 'music21' || !nonemptyString(analysis.engine.version)
+    || !nullableKey(analysis.estimatedPassageKey)
+    || !['written', 'ambiguous'].includes(analysis.keySource)
+    || (analysis.estimatedPassageKey === null) !== (analysis.keySource === 'ambiguous')
+    || (analysis.estimatedPassageKey !== null && analysis.estimatedPassageKey !== payload.passageKey)
+    || !nonemptyString(analysis.warning)
+    || !Array.isArray(analysis.slices) || analysis.slices.length !== payload.slices.length) {
+    throw new Error('Invalid analysis envelope.');
+  }
+  const expected = new Map(payload.slices.map((slice) => [slice.sliceId, slice]));
+  const candidates = new Map();
+  for (const slice of analysis.slices) {
+    const candidate = slice?.candidate;
+    if (!hasExactKeys(slice, ['sliceId', 'candidate']) || !expected.has(slice.sliceId) || candidates.has(slice.sliceId)
+      || !hasExactKeys(candidate, ['localKey', 'romanNumeral', 'root', 'quality', 'inversion', 'confidence'])
+      || !['localKey', 'romanNumeral', 'root', 'quality'].every((field) => nonemptyString(candidate[field]))
+      || !['root', 'first', 'second', 'third', 'unknown'].includes(candidate.inversion)
+      || !Number.isFinite(candidate.confidence) || candidate.confidence < 0 || candidate.confidence > 1
+      || (candidate.localKey !== expected.get(slice.sliceId).localKey && candidate.localKey !== 'unknown')
+      || (candidate.localKey === 'unknown' && candidate.romanNumeral !== 'unknown')) {
+      throw new Error('Invalid or mismatched harmonic candidate.');
+    }
+    candidates.set(slice.sliceId, candidate);
+  }
+  return candidates;
+};
+
+export const analyzeHarmonyWithMusic21 = async (payload, options = {}) => {
+  const pythonPayload = structuredPayload(payload);
+  const runtime = options.runtime || await resolveMusic21Python(options);
+  const execute = options.runProcess || runProcess;
   let result;
   try {
     result = await execute(runtime.command, [
@@ -186,7 +272,7 @@ export const analyzeHarmonyWithMusic21 = async (payload, options = {}) => {
       options.scriptPath || DEFAULT_SCRIPT_PATH,
     ], {
       input: JSON.stringify(pythonPayload),
-      timeoutMs: options.timeoutMs || 20_000,
+      timeoutMs: options.timeoutMs ?? MUSIC21_ANALYSIS_TIMEOUT_MS,
     });
   } catch (error) {
     if (error instanceof Music21Error) throw error;
@@ -194,38 +280,26 @@ export const analyzeHarmonyWithMusic21 = async (payload, options = {}) => {
   }
   try {
     const analysis = JSON.parse(result.stdout);
-    let finalSlices = analysis.slices || [];
-
-    if (extractedSlices && Array.isArray(extractedSlices) && extractedSlices.length > 0) {
-      const candidateMap = new Map();
-      for (const s of finalSlices) {
-        if (s.sliceId) candidateMap.set(s.sliceId, s.candidate);
-        else if (s.position) candidateMap.set(`m${s.position.measure}@${s.position.offsetQuarterLength}`, s.candidate);
-      }
-      finalSlices = extractedSlices.map((slice) => ({
+    const candidates = validateAnalysis(analysis, pythonPayload);
+    if (analysis.engine.version !== runtime.version) throw new Error('Engine version disagrees with the resolved runtime.');
+    return {
+      schemaVersion: MUSIC21_SCHEMA_VERSION,
+      engine: {
+        name: analysis.engine.name,
+        version: analysis.engine.version,
+        pythonVersion: runtime.pythonVersion,
+        source: runtime.source,
+      },
+      estimatedPassageKey: analysis.estimatedPassageKey,
+      keySource: analysis.keySource,
+      warning: analysis.warning,
+      slices: pythonPayload.slices.map((slice) => ({
         position: slice.position,
         durationQuarterLength: slice.durationQuarterLength,
         soundingPitches: slice.soundingPitches,
         literalBass: slice.literalBass,
-        candidate: candidateMap.get(slice.sliceId) || {
-          localKey: slice.localKey,
-          romanNumeral: 'unknown',
-          root: slice.literalBass ? slice.literalBass.replace(/\d+$/, '') : 'unknown',
-          quality: 'unknown',
-          inversion: 'root',
-          confidence: 0.1,
-        },
-      }));
-    }
-
-    return {
-      ...analysis,
-      slices: finalSlices,
-      engine: {
-        ...analysis.engine,
-        pythonVersion: runtime.pythonVersion,
-        source: runtime.source,
-      },
+        candidate: candidates.get(slice.sliceId),
+      })),
     };
   } catch {
     throw new Music21Error('MUSIC21_INVALID_OUTPUT', 'music21 returned invalid analysis output.');

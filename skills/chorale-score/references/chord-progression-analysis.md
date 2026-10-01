@@ -162,7 +162,7 @@ Built around an interval of an **augmented sixth** formed by the lowered sixth s
 
 ## 7. Using music21 Evidence Without Deferring Judgment
 
-After reading and aligning the target measures, call `analyze_harmony` for the same range when available. Its chordified slices are useful for checking sounding pitch sets and the literal bass, but its passage-wide key and chord candidates are deliberately low-confidence.
+After reading and aligning the target measures, call `analyze_harmony` for the same range when available. Its chordified slices are useful for checking sounding pitch sets and the literal bass, but its written-key context and chord candidates are deliberately low-confidence.
 
 Before accepting a candidate:
 

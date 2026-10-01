@@ -1,3 +1,5 @@
+import { MUSIC21_TRANSPORT_TIMEOUT_MS } from './music21.mjs';
+
 const mutationToolNames = new Set([
   'create_new_file',
   'delete_file',
@@ -54,7 +56,7 @@ export const proxyDaemonTools = (handlers, port = 1685, fetchImpl = fetch) => {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(input),
-          signal: AbortSignal.timeout(10_000),
+          signal: AbortSignal.timeout(toolName === 'analyze_harmony' ? MUSIC21_TRANSPORT_TIMEOUT_MS : 10_000),
         });
         return await response.json();
       } catch (error) {

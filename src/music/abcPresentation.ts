@@ -2,7 +2,9 @@ import abcjs from 'abcjs';
 import { parseKeySignature } from 'abc-utils';
 
 import { prepareAbcWithMap } from '../utils/abcAudio';
-import { computeScoreMeasureMapping, extractScore } from './scoreSnapshot';
+import { extractScore } from './scoreSnapshot';
+import { buildScoreTiming } from '../../shared/score-timing.mjs';
+import { createVoiceResolver } from '../../shared/abc-source.mjs';
 import {
   addRationalDurations,
   compareRationalDurations,
@@ -94,8 +96,6 @@ type MutableCell = {
   isMultimeasure?: boolean;
 };
 
-type VoiceState = { measureNumber: number; barIndex: number; hasEvents: boolean; elapsed: number };
-
 const FATAL_WARNING = /meter|chord|key|parse|unclosed|cannot|invalid|bad|error|illegal/i;
 
 const HEADER_LABELS: Readonly<Record<string, string>> = Object.freeze({
@@ -125,16 +125,6 @@ const sourceRange = (
     }
     : null
 );
-
-const collectDeclaredVoiceIds = (abc: string): string[] => {
-  const ids: string[] = [];
-  const add = (id: string) => {
-    if (id && !ids.includes(id)) ids.push(id);
-  };
-  for (const match of abc.matchAll(/^V:\s*([^\s]+)/gm)) add(match[1]);
-  for (const match of abc.matchAll(/\[V:\s*([^\]\s]+)/g)) add(match[1]);
-  return ids;
-};
 
 const collectHeaders = (abc: string): AbcHeaderLine[] => {
   const headers: AbcHeaderLine[] = [];
@@ -235,142 +225,37 @@ export const buildAbcPresentation = (abc: string): AbcPresentation => {
   const fatalWarnings = tune.warnings?.filter((warning) => FATAL_WARNING.test(warning)) || [];
   if (fatalWarnings.length) throw new Error(fatalWarnings.join('; '));
 
-  const declaredVoiceIds = collectDeclaredVoiceIds(abc);
-  const encounteredVoiceIds: string[] = [];
-  const states = new Map<string, VoiceState>();
+  const timing = buildScoreTiming(tune, { voiceIdFor: createVoiceResolver(abc, toOriginalOffset) });
+  const encounteredVoiceIds = timing.voices.map(({ voiceId }) => voiceId);
   const cells = new Map<string, MutableCell>();
   const voiceCellsMap = new Map<string, MutableCell[]>();
   const boundaryRanges: AbcTextRange[] = [];
-  let voiceSlot = 0;
 
-  const mapping = computeScoreMeasureMapping(tune as any);
-  const initialMeasureNumber = mapping.firstMeasureNumber;
-
-  for (const line of tune.lines || []) {
-    voiceSlot = 0;
-    for (const staff of line.staff || []) {
-      for (const voice of staff.voices || []) {
-        const voiceId = declaredVoiceIds[voiceSlot] || `voice-${voiceSlot + 1}`;
-        if (!encounteredVoiceIds.includes(voiceId)) {
-          encounteredVoiceIds.push(voiceId);
-          voiceCellsMap.set(voiceId, []);
-        }
-        const state = states.get(voiceId) || {
-          measureNumber: mapping.barToMeasure[0] ?? initialMeasureNumber,
-          barIndex: 0,
-          hasEvents: false,
-          elapsed: 0,
-        };
-        for (const element of voice) {
-          const range = sourceRange(element, toOriginalOffset);
-          if (element.el_type === 'bar') {
-            if (range) {
-              boundaryRanges.push(range);
-              const key = `${voiceId}:${state.measureNumber}`;
-              let cell = cells.get(key);
-              if (!cell) {
-                cell = {
-                  voiceId,
-                  measureNumber: state.measureNumber,
-                  minStart: range.start,
-                  maxEnd: range.end,
-                  ranges: [range],
-                  events: [],
-                };
-                cells.set(key, cell);
-                voiceCellsMap.get(voiceId)?.push(cell);
-              } else {
-                cell.ranges.push(range);
-                cell.minStart = Math.min(cell.minStart, range.start);
-                cell.maxEnd = Math.max(cell.maxEnd, range.end);
-              }
-            }
-            if (!state.hasEvents) {
-              continue;
-            }
-            state.barIndex += 1;
-            const nextMeasureNumber = mapping.barToMeasure[state.barIndex] ?? (state.measureNumber + 1);
-            if (nextMeasureNumber !== state.measureNumber) {
-              state.measureNumber = nextMeasureNumber;
-              state.hasEvents = false;
-              state.elapsed = 0;
-            }
-            continue;
-          }
-          if (!range) continue;
-
-          const rawRestText = element.rest?.text;
-          const restCount = typeof rawRestText === 'number'
-            ? rawRestText
-            : typeof rawRestText === 'string' && /^\d+$/.test(rawRestText)
-              ? Number(rawRestText)
-              : 1;
-          const multimeasureCount = element.rest?.type === 'multimeasure'
-            && Number.isSafeInteger(restCount)
-            && restCount > 1
-            ? restCount
-            : 1;
-
-          if (multimeasureCount > 1 && typeof element.duration === 'number') {
-            const singleDuration = Math.max(0, element.duration / multimeasureCount);
-            for (let k = 0; k < multimeasureCount; k++) {
-              const currentMeasureNum = state.measureNumber + k;
-              const key = `${voiceId}:${currentMeasureNum}`;
-              let cell = cells.get(key);
-              if (!cell) {
-                cell = {
-                  voiceId,
-                  measureNumber: currentMeasureNum,
-                  minStart: range.start,
-                  maxEnd: range.end,
-                  ranges: [range],
-                  events: [],
-                  isMultimeasure: true,
-                };
-                cells.set(key, cell);
-                voiceCellsMap.get(voiceId)?.push(cell);
-              } else {
-                cell.ranges.push(range);
-                cell.minStart = Math.min(cell.minStart, range.start);
-                cell.maxEnd = Math.max(cell.maxEnd, range.end);
-                cell.isMultimeasure = true;
-              }
-              cell.events.push({ range, start: 0, duration: singleDuration });
-            }
-            state.measureNumber += multimeasureCount - 1;
-            state.barIndex += multimeasureCount - 1;
-            state.hasEvents = true;
-            state.elapsed = singleDuration;
-            continue;
-          }
-
-          const key = `${voiceId}:${state.measureNumber}`;
-          let cell = cells.get(key);
-          if (!cell) {
-            cell = {
-              voiceId,
-              measureNumber: state.measureNumber,
-              minStart: range.start,
-              maxEnd: range.end,
-              ranges: [range],
-              events: [],
-            };
-            cells.set(key, cell);
-            voiceCellsMap.get(voiceId)?.push(cell);
-          } else {
-            cell.ranges.push(range);
-            cell.minStart = Math.min(cell.minStart, range.start);
-            cell.maxEnd = Math.max(cell.maxEnd, range.end);
-          }
-          if (element.el_type === 'note' && typeof element.duration === 'number') {
-            const duration = Math.max(0, element.duration);
-            cell.events.push({ range, start: state.elapsed, duration });
-            state.elapsed += duration;
-            state.hasEvents = true;
-          }
-        }
-        states.set(voiceId, state);
-        voiceSlot += 1;
+  for (const { voiceId, entries } of timing.voices) {
+    voiceCellsMap.set(voiceId, []);
+    for (const entry of entries) {
+      const { element, measure: measureNumber } = entry;
+      const range = sourceRange(element, toOriginalOffset);
+      if (!range) continue;
+      if (element.el_type === 'bar') boundaryRanges.push(range);
+      const key = `${voiceId}:${measureNumber}`;
+      let cell = cells.get(key);
+      if (!cell) {
+        cell = { voiceId, measureNumber, minStart: range.start, maxEnd: range.end, ranges: [], events: [] };
+        cells.set(key, cell);
+        voiceCellsMap.get(voiceId)!.push(cell);
+      }
+      cell.ranges.push(range);
+      cell.minStart = Math.min(cell.minStart, range.start);
+      cell.maxEnd = Math.max(cell.maxEnd, range.end);
+      if (element.rest?.type === 'multimeasure' || element.rest?.type === 'invisible-multimeasure') {
+        if (Number(element.rest.text) > 1) cell.isMultimeasure = true;
+      }
+      if (element.el_type === 'note' && element.rest?.type !== 'spacer') {
+        cell.events.push({ range,
+          start: entry.offset.num / entry.offset.den / 4,
+          duration: entry.duration.num / entry.duration.den / 4,
+        });
       }
     }
   }
