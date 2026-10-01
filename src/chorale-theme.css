@@ -9558,6 +9558,79 @@ body,
   width: 100% !important;
 }
 
+/* Vertical pane stacking */
+.score-editor-shell.layout-vertical {
+  flex-direction: column !important;
+}
+
+.score-editor-shell.layout-vertical .workspace-pane.score-pane {
+  width: 100% !important;
+  max-width: 100% !important;
+  flex: 1 1 0 !important;
+  min-height: 200px;
+}
+
+.score-editor-shell.layout-vertical .workspace-pane.editor-pane {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-height: 180px;
+}
+
+.score-editor-shell.layout-vertical .workspace-pane-card.editor-workspace-card {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Vertical ordering */
+.score-editor-shell.layout-vertical.order-editor-first .workspace-pane.editor-pane {
+  order: 1 !important;
+}
+
+.score-editor-shell.layout-vertical.order-editor-first .editor-divider {
+  order: 2 !important;
+}
+
+.score-editor-shell.layout-vertical.order-editor-first .workspace-pane.score-pane {
+  order: 3 !important;
+}
+
+.score-editor-shell.layout-vertical.order-sheet-first .workspace-pane.score-pane {
+  order: 1 !important;
+}
+
+.score-editor-shell.layout-vertical.order-sheet-first .editor-divider {
+  order: 2 !important;
+}
+
+.score-editor-shell.layout-vertical.order-sheet-first .workspace-pane.editor-pane {
+  order: 3 !important;
+}
+
+/* Horizontal ordering */
+.score-editor-shell.layout-horizontal.order-editor-first .workspace-pane.editor-pane {
+  order: 1 !important;
+}
+
+.score-editor-shell.layout-horizontal.order-editor-first .editor-divider {
+  order: 2 !important;
+}
+
+.score-editor-shell.layout-horizontal.order-editor-first .workspace-pane.score-pane {
+  order: 3 !important;
+}
+
+.score-editor-shell.layout-horizontal.order-sheet-first .workspace-pane.score-pane {
+  order: 1 !important;
+}
+
+.score-editor-shell.layout-horizontal.order-sheet-first .editor-divider {
+  order: 2 !important;
+}
+
+.score-editor-shell.layout-horizontal.order-sheet-first .workspace-pane.editor-pane {
+  order: 3 !important;
+}
+
 /* A pane opened beside an existing pane appears to its right. */
 .workspace-pane.editor-pane {
   order: 1;
@@ -9587,6 +9660,31 @@ body,
   justify-content: center;
   padding: 0;
   outline: none;
+}
+
+.editor-divider.divider-horizontal {
+  width: 100% !important;
+  height: 14px !important;
+  cursor: row-resize !important;
+}
+
+.editor-divider.divider-horizontal::before {
+  inset-inline-start: 0 !important;
+  inset-inline-end: 0 !important;
+  top: 50% !important;
+  inset-block: auto !important;
+  width: 100% !important;
+  height: 2px !important;
+  transform: translateY(-50%) !important;
+}
+
+.editor-divider.divider-horizontal:hover::before {
+  background: #dcd8ce !important;
+}
+
+.editor-divider.divider-horizontal:active::before,
+body.is-resizing-row .editor-divider.divider-horizontal::before {
+  background: #ad503b !important;
 }
 
 /* ==========================================================================
@@ -9686,6 +9784,106 @@ body.is-resizing-col {
 body.is-resizing-col * {
   user-select: none !important;
   cursor: col-resize !important;
+}
+
+body.is-resizing-row {
+  cursor: row-resize !important;
+  user-select: none !important;
+}
+
+body.is-resizing-row * {
+  user-select: none !important;
+  cursor: row-resize !important;
+}
+
+/* Tab dragging and workspace rearranging */
+.pane-tab {
+  cursor: grab;
+  user-select: none;
+}
+
+.pane-tab.is-dragging {
+  cursor: grabbing !important;
+  opacity: 0.65;
+}
+
+body.is-rearranging-panes {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+body.is-rearranging-panes * {
+  cursor: grabbing !important;
+}
+
+.pane-snap-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.pane-snap-indicator {
+  position: absolute;
+  background: rgba(173, 80, 59, 0.12);
+  border: 2px dashed #ad503b;
+  border-radius: 8px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 120ms ease-out;
+  animation: paneSnapFadeIn 100ms ease-out;
+}
+
+@keyframes paneSnapFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.pane-snap-indicator.snap-top {
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  height: calc(50% - 12px);
+}
+
+.pane-snap-indicator.snap-bottom {
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  height: calc(50% - 12px);
+}
+
+.pane-snap-indicator.snap-left {
+  top: 8px;
+  bottom: 8px;
+  left: 8px;
+  width: calc(50% - 12px);
+}
+
+.pane-snap-indicator.snap-right {
+  top: 8px;
+  bottom: 8px;
+  right: 8px;
+  width: calc(50% - 12px);
+}
+
+.pane-snap-indicator-content {
+  background: #ad503b;
+  color: #ffffff;
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(41, 40, 36, 0.2);
+  letter-spacing: 0.02em;
 }
 
 /* 8. Pop-up menu for '+' button */

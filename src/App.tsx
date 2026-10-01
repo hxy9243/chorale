@@ -9,12 +9,14 @@ import { AudioPlayer } from './components/AudioPlayer';
 import { AbcEditor } from './components/AbcEditor';
 import { WorkspacePaneMenu } from './components/workspace/WorkspacePaneMenu';
 import { WorkspaceModals } from './components/workspace/WorkspaceModals';
+import { PaneSnapOverlay } from './components/PaneSnapOverlay';
 import { useInterfaceZoom, INTERFACE_ZOOM_KEY } from './hooks/useInterfaceZoom';
 import {
   clampSheetZoom,
   useWorkspaceLayout,
   EDITOR_VISIBLE_KEY,
   EDITOR_WIDTH_KEY,
+  EDITOR_HEIGHT_KEY,
   FILE_RAIL_WIDTH_KEY,
   FILE_RAIL_COLLAPSED_KEY,
   FILE_RAIL_ACTIVE_PANEL_KEY,
@@ -23,7 +25,13 @@ import {
 import { useDocumentStore } from './hooks/useDocumentStore';
 import { useScoreExport, type ScoreExportFormat } from './hooks/useScoreExport';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
-import { useWorkspacePanes } from './hooks/useWorkspacePanes';
+import {
+  useWorkspacePanes,
+  type SnapTarget,
+  type WorkspacePaneId,
+  PANE_ORIENTATION_KEY,
+  PANE_ORDER_KEY,
+} from './hooks/useWorkspacePanes';
 import { useScorePreview } from './hooks/useScorePreview';
 import { useScoreBuild, type BuildStatus } from './hooks/useScoreBuild';
 import { usePluginMcpBridge } from './hooks/usePluginMcpBridge';
@@ -37,6 +45,9 @@ import type { PlaybackSourceRanges } from './music/abcPresentation';
 export {
   EDITOR_VISIBLE_KEY,
   EDITOR_WIDTH_KEY,
+  EDITOR_HEIGHT_KEY,
+  PANE_ORIENTATION_KEY,
+  PANE_ORDER_KEY,
   FILE_RAIL_WIDTH_KEY,
   FILE_RAIL_COLLAPSED_KEY,
   FILE_RAIL_ACTIVE_PANEL_KEY,
@@ -93,6 +104,7 @@ export const App: React.FC = () => {
     setZoom,
     editorVisible,
     setEditorVisible,
+    editorHeight,
     fittedPanelLayout,
     railCollapsed,
     setRailCollapsed,
@@ -100,6 +112,8 @@ export const App: React.FC = () => {
     setRailActivePanel,
     beginEditorResize,
     beginEditorResizeFromRight,
+    beginEditorVerticalResize,
+    beginEditorVerticalResizeFromBottom,
     beginRailResize,
   } = useWorkspaceLayout(interfaceZoom);
 
@@ -162,7 +176,10 @@ export const App: React.FC = () => {
   // Workspace tabbed panes & menu
   const {
     sheetVisible,
+    paneOrientation,
+    paneOrder,
     sheetPaneOnRight,
+    rearrangePane,
     paneMenuOpen,
     paneMenuRef,
     openSheetPane,
@@ -170,6 +187,91 @@ export const App: React.FC = () => {
     closeSheetPane,
     togglePaneMenu,
   } = useWorkspacePanes();
+
+  const [draggingPane, setDraggingPane] = useState<WorkspacePaneId | null>(null);
+  const [activeSnapTarget, setActiveSnapTarget] = useState<SnapTarget | null>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
+
+  const handleTabPointerDown = useCallback((paneId: WorkspacePaneId) => (event: React.PointerEvent) => {
+    if ((event.target as HTMLElement).closest('.pane-tab-close')) return;
+    if (!sheetVisible || !editorVisible) return;
+
+    const startX = event.clientX;
+    const startY = event.clientY;
+    let hasMoved = false;
+
+    const target = event.currentTarget as HTMLElement;
+    try {
+      target.setPointerCapture(event.pointerId);
+    } catch {
+      // fallback for test environments without setPointerCapture
+    }
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const dx = moveEvent.clientX - startX;
+      const dy = moveEvent.clientY - startY;
+      if (!hasMoved && Math.hypot(dx, dy) > 4) {
+        hasMoved = true;
+        setDraggingPane(paneId);
+        document.body.classList.add('is-rearranging-panes');
+      }
+
+      if (hasMoved && shellRef.current) {
+        const rect = shellRef.current.getBoundingClientRect();
+        const relX = (moveEvent.clientX - rect.left) / rect.width;
+        const relY = (moveEvent.clientY - rect.top) / rect.height;
+
+        let targetZone: SnapTarget = 'left';
+        if (relY < relX && relY < 1 - relX) {
+          targetZone = 'top';
+        } else if (relY > relX && relY > 1 - relX) {
+          targetZone = 'bottom';
+        } else if (relX < 0.5) {
+          targetZone = 'left';
+        } else {
+          targetZone = 'right';
+        }
+        setActiveSnapTarget(targetZone);
+      }
+    };
+
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      try {
+        target.releasePointerCapture(upEvent.pointerId);
+      } catch {
+        // fallback
+      }
+      document.body.classList.remove('is-rearranging-panes');
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+
+      if (hasMoved) {
+        if (shellRef.current) {
+          const rect = shellRef.current.getBoundingClientRect();
+          const relX = (upEvent.clientX - rect.left) / rect.width;
+          const relY = (upEvent.clientY - rect.top) / rect.height;
+          let finalTarget: SnapTarget = 'left';
+          if (relY < relX && relY < 1 - relX) {
+            finalTarget = 'top';
+          } else if (relY > relX && relY > 1 - relX) {
+            finalTarget = 'bottom';
+          } else if (relX < 0.5) {
+            finalTarget = 'left';
+          } else {
+            finalTarget = 'right';
+          }
+          rearrangePane(paneId, finalTarget);
+        }
+        setDraggingPane(null);
+        setActiveSnapTarget(null);
+      }
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+  }, [editorVisible, rearrangePane, sheetVisible]);
 
   // Adjust state during render when activeFileId changes
   const [prevActiveFileId, setPrevActiveFileId] = useState(activeFileId);
@@ -311,13 +413,27 @@ export const App: React.FC = () => {
           />
           <main
             className={`central-workspace ${sheetVisible ? 'sheet-open' : 'sheet-hidden'} ${editorVisible ? 'editor-open' : 'editor-hidden'}`}
-            style={{ '--editor-panel-width': editorVisible ? `${fittedPanelLayout.editorPanelWidth}px` : '0px' } as React.CSSProperties}
+            style={{
+              '--editor-panel-width': editorVisible ? `${fittedPanelLayout.editorPanelWidth}px` : '0px',
+              '--editor-panel-height': editorVisible ? `${editorHeight}px` : '0px',
+            } as React.CSSProperties}
           >
-          <div className={`score-editor-shell ${!sheetVisible ? 'sheet-hidden' : ''} ${!editorVisible ? 'editor-hidden' : ''}`}>
+          <div
+            ref={shellRef}
+            className={`score-editor-shell layout-${paneOrientation} order-${paneOrder} ${!sheetVisible ? 'sheet-hidden' : ''} ${!editorVisible ? 'editor-hidden' : ''}`}
+          >
             {sheetVisible && (
-              <section className={`workspace-pane score-pane ${sheetPaneOnRight ? 'sheet-pane-on-right' : ''}`}>
+              <section
+                className={`workspace-pane score-pane ${sheetPaneOnRight ? 'sheet-pane-on-right' : ''}`}
+                style={paneOrientation === 'vertical' ? { width: '100%', flex: '1 1 0', height: editorVisible ? 'auto' : '100%' } : { flex: 1 }}
+              >
                 <div className="pane-tab-strip">
-                  <div className="pane-tab active" role="tab" aria-selected="true">
+                  <div
+                    className={`pane-tab active ${draggingPane === 'sheet' ? 'is-dragging' : ''}`}
+                    role="tab"
+                    aria-selected="true"
+                    onPointerDown={handleTabPointerDown('sheet')}
+                  >
                     <span className="pane-tab-title">Sheet</span>
                     <button
                       type="button"
@@ -439,22 +555,39 @@ export const App: React.FC = () => {
             {sheetVisible && editorVisible && (
               <button
                 type="button"
-                className={`editor-divider ${sheetPaneOnRight ? 'sheet-pane-on-right' : ''}`}
+                className={`editor-divider ${paneOrientation === 'vertical' ? 'divider-horizontal' : 'divider-vertical'} ${sheetPaneOnRight ? 'sheet-pane-on-right' : ''}`}
                 aria-label="Resize ABC editor"
-                onPointerDown={sheetPaneOnRight ? beginEditorResizeFromRight : beginEditorResize}
+                onPointerDown={
+                  paneOrientation === 'vertical'
+                    ? (paneOrder === 'editor-first' ? beginEditorVerticalResizeFromBottom : beginEditorVerticalResize)
+                    : (sheetPaneOnRight ? beginEditorResizeFromRight : beginEditorResize)
+                }
               />
             )}
 
             {editorVisible && (
               <section
                 className="workspace-pane editor-pane"
-                style={{
-                  width: sheetVisible ? `${fittedPanelLayout.editorPanelWidth}px` : '100%',
-                  flex: sheetVisible ? 'none' : '1',
-                }}
+                style={
+                  paneOrientation === 'vertical'
+                    ? {
+                        width: '100%',
+                        height: sheetVisible ? `${editorHeight}px` : '100%',
+                        flex: sheetVisible ? 'none' : '1',
+                      }
+                    : {
+                        width: sheetVisible ? `${fittedPanelLayout.editorPanelWidth}px` : '100%',
+                        flex: sheetVisible ? 'none' : '1',
+                      }
+                }
               >
                 <div className="pane-tab-strip">
-                  <div className="pane-tab active" role="tab" aria-selected="true">
+                  <div
+                    className={`pane-tab active ${draggingPane === 'editor' ? 'is-dragging' : ''}`}
+                    role="tab"
+                    aria-selected="true"
+                    onPointerDown={handleTabPointerDown('editor')}
+                  >
                     <span className="pane-tab-title">ABC code</span>
                     <button
                       type="button"
@@ -492,7 +625,11 @@ export const App: React.FC = () => {
 
                 <div
                   className="workspace-pane-card editor-workspace-card"
-                  style={{ width: sheetVisible ? `${fittedPanelLayout.editorPanelWidth}px` : '100%' }}
+                  style={
+                    paneOrientation === 'vertical'
+                      ? { width: '100%', height: '100%' }
+                      : { width: sheetVisible ? `${fittedPanelLayout.editorPanelWidth}px` : '100%' }
+                  }
                 >
                   <AbcEditor
                     abcCode={abcCode}
@@ -543,6 +680,9 @@ export const App: React.FC = () => {
                   </div>
                 </div>
               </div>
+            )}
+            {draggingPane && (
+              <PaneSnapOverlay activeSnapTarget={activeSnapTarget} />
             )}
           </div>
 

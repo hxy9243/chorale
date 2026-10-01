@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -280,7 +281,7 @@ test('stopDaemon cleans up runtime.json upon stopping matching runtime', async (
 
 test('resolvePackageRoot resolves package root from entrypoint or fallback', () => {
   assert.equal(resolvePackageRoot('/custom/dir/bin/chorale.mjs'), '/custom/dir');
-  assert.ok(resolvePackageRoot().endsWith('chorale'));
+  assert.ok(resolvePackageRoot().includes('chorale') && existsSync(join(resolvePackageRoot(), 'package.json')));
 });
 
 test('resolvePackageRoot resolves package root following symlinks', async () => {

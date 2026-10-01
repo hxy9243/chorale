@@ -10,6 +10,7 @@ import {
 
 export const EDITOR_VISIBLE_KEY = 'chorale.workspace.editorVisible';
 export const EDITOR_WIDTH_KEY = 'chorale.workspace.editorWidth';
+export const EDITOR_HEIGHT_KEY = 'chorale.workspace.editorHeight';
 export const CHAT_OPEN_KEY = 'chorale.workspace.chatOpen';
 export const CHAT_WIDTH_KEY = 'chorale.workspace.chatWidth';
 export const FILE_RAIL_WIDTH_KEY = 'chorale.workspace.fileRailWidth';
@@ -22,6 +23,9 @@ export type RailPanelId = 'files' | 'tools';
 const DEFAULT_RAIL_PANEL: RailPanelId = 'files';
 
 const DEFAULT_EDITOR_WIDTH = 420;
+export const DEFAULT_EDITOR_HEIGHT = 320;
+export const MIN_EDITOR_HEIGHT = 180;
+export const clampEditorPanelHeight = (height: number) => Math.max(MIN_EDITOR_HEIGHT, height);
 const DEFAULT_SHEET_ZOOM = 100;
 const MIN_SHEET_ZOOM = 50;
 const MAX_SHEET_ZOOM = 200;
@@ -66,6 +70,9 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
   const [editorWidth, setEditorWidth] = useState<number>(() => (
     readStoredNumber(EDITOR_WIDTH_KEY, DEFAULT_EDITOR_WIDTH, clampEditorPanelWidth)
   ));
+  const [editorHeight, setEditorHeight] = useState<number>(() => (
+    readStoredNumber(EDITOR_HEIGHT_KEY, DEFAULT_EDITOR_HEIGHT, clampEditorPanelHeight)
+  ));
   const [railWidth, setRailWidth] = useState<number>(() => (
     readStoredNumber(
       FILE_RAIL_WIDTH_KEY,
@@ -93,6 +100,10 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
   useEffect(() => {
     window.localStorage.setItem(EDITOR_WIDTH_KEY, String(editorWidth));
   }, [editorWidth]);
+
+  useEffect(() => {
+    window.localStorage.setItem(EDITOR_HEIGHT_KEY, String(editorHeight));
+  }, [editorHeight]);
 
   useEffect(() => {
     window.localStorage.setItem(SHEET_ZOOM_KEY, String(zoom));
@@ -143,6 +154,20 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
     direction: 'right',
   });
 
+  const { beginResize: beginEditorVerticalResize } = useResizablePanel({
+    initialSize: editorHeight,
+    clampSize: clampEditorPanelHeight,
+    onSizeChange: setEditorHeight,
+    direction: 'top',
+  });
+
+  const { beginResize: beginEditorVerticalResizeFromBottom } = useResizablePanel({
+    initialSize: editorHeight,
+    clampSize: clampEditorPanelHeight,
+    onSizeChange: setEditorHeight,
+    direction: 'bottom',
+  });
+
   const { beginResize: beginRailResize } = useResizablePanel({
     initialWidth: railWidth,
     clampWidth: clampFileRailWidth,
@@ -178,6 +203,8 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
     editorVisible,
     setEditorVisible,
     editorWidth,
+    editorHeight,
+    setEditorHeight,
     railWidth,
     railCollapsed,
     setRailCollapsed,
@@ -187,6 +214,8 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
     fittedPanelLayout,
     beginEditorResize,
     beginEditorResizeFromRight,
+    beginEditorVerticalResize,
+    beginEditorVerticalResizeFromBottom,
     beginRailResize,
     beginChatResize,
   };

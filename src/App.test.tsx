@@ -835,6 +835,77 @@ describe('App Integration', () => {
     expect(document.querySelector('.score-pane')?.classList.contains('sheet-pane-on-right')).toBe(false);
   });
 
+  it('allows dragging pane tabs to snap and rearrange vertically and horizontally', async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sheet-svg')).toBeDefined();
+    }, { timeout: 4000 });
+
+    // Open ABC editor so both panes are open
+    fireEvent.click(screen.getByRole('button', { name: 'Open pane' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /ABC source/ }));
+
+    const shell = document.querySelector<HTMLElement>('.score-editor-shell')!;
+    expect(shell.classList.contains('layout-horizontal')).toBe(true);
+
+    // Mock getBoundingClientRect for shell
+    vi.spyOn(shell, 'getBoundingClientRect').mockReturnValue({
+      left: 100,
+      top: 100,
+      width: 800,
+      height: 600,
+      right: 900,
+      bottom: 700,
+      x: 100,
+      y: 100,
+      toJSON: () => {},
+    });
+
+    const editorTab = document.querySelectorAll('.pane-tab')[1]!;
+    expect(editorTab.textContent).toContain('ABC code');
+
+    // Drag ABC code tab to the bottom half of the shell (e.g. relY = 0.8)
+    fireEvent.pointerDown(editorTab, { clientX: 500, clientY: 120, pointerId: 1 });
+    // Move slightly to activate dragging threshold (> 4px)
+    fireEvent.pointerMove(window, { clientX: 500, clientY: 550, pointerId: 1 });
+
+    // Check that snap indicator is displayed for bottom
+    expect(screen.getByTestId('pane-snap-bottom')).toBeDefined();
+
+    // Release mouse
+    fireEvent.pointerUp(window, { clientX: 500, clientY: 550, pointerId: 1 });
+
+    // Shell should now have layout-vertical and order-sheet-first (Sheet top, Editor bottom)
+    expect(shell.classList.contains('layout-vertical')).toBe(true);
+    expect(shell.classList.contains('order-sheet-first')).toBe(true);
+    expect(localStorage.getItem('chorale.workspace.paneOrientation')).toBe('vertical');
+
+    // Divider should have divider-horizontal class
+    const divider = screen.getByRole('button', { name: 'Resize ABC editor' });
+    expect(divider.classList.contains('divider-horizontal')).toBe(true);
+
+    // Vertical divider resize
+    const editorPane = document.querySelector<HTMLElement>('.workspace-pane.editor-pane')!;
+    const heightBefore = Number.parseInt(editorPane.style.height, 10);
+    // Drag divider upwards (clientY 400 -> 350) to increase editor height
+    fireEvent.pointerDown(divider, { clientY: 400, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientY: 350, pointerId: 1 });
+    await waitFor(() => {
+      expect(Number.parseInt(editorPane.style.height, 10)).toBeGreaterThan(heightBefore);
+    });
+    fireEvent.pointerUp(window, { clientY: 350, pointerId: 1 });
+
+    // Drag tab back to the right half (relX = 0.8, relY = 0.5) to snap horizontally
+    fireEvent.pointerDown(editorTab, { clientX: 500, clientY: 550, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 750, clientY: 400, pointerId: 1 });
+    expect(screen.getByTestId('pane-snap-right')).toBeDefined();
+    fireEvent.pointerUp(window, { clientX: 750, clientY: 400, pointerId: 1 });
+
+    expect(shell.classList.contains('layout-horizontal')).toBe(true);
+    expect(localStorage.getItem('chorale.workspace.paneOrientation')).toBe('horizontal');
+  });
+
   it('opens and closes the Settings modal from the rail and persists interface scale', async () => {
     render(<App />);
 
