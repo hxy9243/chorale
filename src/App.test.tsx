@@ -906,6 +906,40 @@ describe('App Integration', () => {
     expect(localStorage.getItem('chorale.workspace.paneOrientation')).toBe('horizontal');
   });
 
+  it.each(['pointercancel', 'outside'] as const)('discards a %s tab drop without persisting a new layout', async (end) => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'Open pane' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /ABC source/ }));
+    const shell = document.querySelector<HTMLElement>('.score-editor-shell')!;
+    vi.spyOn(shell, 'getBoundingClientRect').mockReturnValue({
+      left: 100, top: 100, width: 800, height: 600, right: 900, bottom: 700,
+      x: 100, y: 100, toJSON: () => {},
+    });
+    const editorTab = document.querySelector('.editor-pane .pane-tab')!;
+    fireEvent.pointerDown(editorTab, { clientX: 700, clientY: 120, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 500, clientY: 600, pointerId: 1 });
+    expect(screen.getByTestId('pane-snap-bottom')).toBeDefined();
+    if (end === 'pointercancel') {
+      fireEvent.pointerCancel(window, { clientX: 500, clientY: 600, pointerId: 1 });
+    } else {
+      fireEvent.pointerMove(window, { clientX: 500, clientY: 20, pointerId: 1 });
+      expect(screen.queryByTestId('pane-snap-top')).toBeNull();
+      fireEvent.pointerUp(window, { clientX: 500, clientY: 20, pointerId: 1 });
+    }
+    expect(shell.classList.contains('layout-horizontal')).toBe(true);
+    expect(localStorage.getItem('chorale.workspace.paneOrientation')).toBe('horizontal');
+    expect(localStorage.getItem('chorale.workspace.paneOrder')).toBe('sheet-first');
+    expect(screen.queryByTestId('pane-snap-overlay')).toBeNull();
+    expect(document.body.classList.contains('is-rearranging-panes')).toBe(false);
+    // An interrupted gesture must not poison the next valid drop.
+    fireEvent.pointerDown(editorTab, { clientX: 700, clientY: 120, pointerId: 2 });
+    fireEvent.pointerMove(window, { clientX: 500, clientY: 600, pointerId: 2 });
+    fireEvent.pointerUp(window, { clientX: 500, clientY: 600, pointerId: 2 });
+    expect(shell.classList.contains('layout-vertical')).toBe(true);
+    expect(localStorage.getItem('chorale.workspace.paneOrientation')).toBe('vertical');
+  });
+
   it('opens and closes the Settings modal from the rail and persists interface scale', async () => {
     render(<App />);
 

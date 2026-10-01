@@ -25,10 +25,9 @@ import {
 import { useDocumentStore } from './hooks/useDocumentStore';
 import { useScoreExport, type ScoreExportFormat } from './hooks/useScoreExport';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
+import { usePaneTabDrag } from './hooks/usePaneTabDrag';
 import {
   useWorkspacePanes,
-  type SnapTarget,
-  type WorkspacePaneId,
   PANE_ORIENTATION_KEY,
   PANE_ORDER_KEY,
 } from './hooks/useWorkspacePanes';
@@ -99,6 +98,23 @@ export const App: React.FC = () => {
 
   const interfaceZoom = useInterfaceZoom();
 
+  // Workspace tabbed panes & menu
+  const {
+    sheetVisible,
+    paneOrientation,
+    paneOrder,
+    sheetPaneOnRight,
+    rearrangePane,
+    paneMenuOpen,
+    paneMenuRef,
+    openSheetPane,
+    openEditorPane,
+    closeSheetPane,
+    togglePaneMenu,
+  } = useWorkspacePanes();
+
+  const shellRef = useRef<HTMLDivElement>(null);
+
   const {
     zoom,
     setZoom,
@@ -115,7 +131,7 @@ export const App: React.FC = () => {
     beginEditorVerticalResize,
     beginEditorVerticalResizeFromBottom,
     beginRailResize,
-  } = useWorkspaceLayout(interfaceZoom);
+  } = useWorkspaceLayout(interfaceZoom, { shellRef, vertical: paneOrientation === 'vertical', sheetVisible });
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
@@ -173,105 +189,12 @@ export const App: React.FC = () => {
     abcRevision,
   });
 
-  // Workspace tabbed panes & menu
-  const {
-    sheetVisible,
-    paneOrientation,
-    paneOrder,
-    sheetPaneOnRight,
+
+  const { draggingPane, activeSnapTarget, handleTabPointerDown } = usePaneTabDrag({
+    shellRef,
+    bothPanesVisible: sheetVisible && editorVisible,
     rearrangePane,
-    paneMenuOpen,
-    paneMenuRef,
-    openSheetPane,
-    openEditorPane,
-    closeSheetPane,
-    togglePaneMenu,
-  } = useWorkspacePanes();
-
-  const [draggingPane, setDraggingPane] = useState<WorkspacePaneId | null>(null);
-  const [activeSnapTarget, setActiveSnapTarget] = useState<SnapTarget | null>(null);
-  const shellRef = useRef<HTMLDivElement>(null);
-
-  const handleTabPointerDown = useCallback((paneId: WorkspacePaneId) => (event: React.PointerEvent) => {
-    if ((event.target as HTMLElement).closest('.pane-tab-close')) return;
-    if (!sheetVisible || !editorVisible) return;
-
-    const startX = event.clientX;
-    const startY = event.clientY;
-    let hasMoved = false;
-
-    const target = event.currentTarget as HTMLElement;
-    try {
-      target.setPointerCapture(event.pointerId);
-    } catch {
-      // fallback for test environments without setPointerCapture
-    }
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      const dx = moveEvent.clientX - startX;
-      const dy = moveEvent.clientY - startY;
-      if (!hasMoved && Math.hypot(dx, dy) > 4) {
-        hasMoved = true;
-        setDraggingPane(paneId);
-        document.body.classList.add('is-rearranging-panes');
-      }
-
-      if (hasMoved && shellRef.current) {
-        const rect = shellRef.current.getBoundingClientRect();
-        const relX = (moveEvent.clientX - rect.left) / rect.width;
-        const relY = (moveEvent.clientY - rect.top) / rect.height;
-
-        let targetZone: SnapTarget = 'left';
-        if (relY < relX && relY < 1 - relX) {
-          targetZone = 'top';
-        } else if (relY > relX && relY > 1 - relX) {
-          targetZone = 'bottom';
-        } else if (relX < 0.5) {
-          targetZone = 'left';
-        } else {
-          targetZone = 'right';
-        }
-        setActiveSnapTarget(targetZone);
-      }
-    };
-
-    const handlePointerUp = (upEvent: PointerEvent) => {
-      try {
-        target.releasePointerCapture(upEvent.pointerId);
-      } catch {
-        // fallback
-      }
-      document.body.classList.remove('is-rearranging-panes');
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-      window.removeEventListener('pointercancel', handlePointerUp);
-
-      if (hasMoved) {
-        if (shellRef.current) {
-          const rect = shellRef.current.getBoundingClientRect();
-          const relX = (upEvent.clientX - rect.left) / rect.width;
-          const relY = (upEvent.clientY - rect.top) / rect.height;
-          let finalTarget: SnapTarget = 'left';
-          if (relY < relX && relY < 1 - relX) {
-            finalTarget = 'top';
-          } else if (relY > relX && relY > 1 - relX) {
-            finalTarget = 'bottom';
-          } else if (relX < 0.5) {
-            finalTarget = 'left';
-          } else {
-            finalTarget = 'right';
-          }
-          rearrangePane(paneId, finalTarget);
-        }
-        setDraggingPane(null);
-        setActiveSnapTarget(null);
-      }
-    };
-
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('pointercancel', handlePointerUp);
-  }, [editorVisible, rearrangePane, sheetVisible]);
+  });
 
   // Adjust state during render when activeFileId changes
   const [prevActiveFileId, setPrevActiveFileId] = useState(activeFileId);

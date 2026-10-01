@@ -3,7 +3,7 @@ title: "Workspace Layout Spec"
 description: "Specification for the top-level desktop workspace structure, header, file rail, central score workspace, and chat panel"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-09-30
+updated: 2026-10-01
 status: "implemented"
 source_files:
   - src/App.tsx
@@ -19,6 +19,7 @@ source_files:
   - src/utils/fileHistory.ts
   - src/hooks/useWorkspaceLayout.ts
   - src/hooks/useWorkspacePanes.ts
+  - src/hooks/usePaneTabDrag.ts
   - src/hooks/useResizablePanel.ts
   - src/styles/workspace-responsive.css
   - tokens.css
@@ -33,6 +34,8 @@ test_files:
   - src/utils/__tests__/fileHistory.test.ts
   - src/hooks/__tests__/useResizablePanel.test.ts
   - src/hooks/__tests__/useWorkspacePanes.test.ts
+  - src/hooks/__tests__/useWorkspaceLayout.test.tsx
+  - src/hooks/__tests__/usePaneTabDrag.test.ts
   - src/styles/__tests__/workspaceLayoutCss.test.ts
   - src/test/usability.test.tsx
 related_specs:
@@ -122,9 +125,9 @@ It contains:
 - continuous full-page paper score surface (`.sheet-viewport` spanning 100% width and height with simple pure-CSS paper background, full-width notation track utilizing 100% of the Sheet tab pane width, auto-centering playback line, line-start measure numbers, and zoom layout space reservation)
 - optional split ABC editor pane with interactive drag divider:
   - in horizontal orientation (`layout-horizontal`), a full-height vertical divider (`.editor-divider` with `col-resize` cursor, full-height guide line, and centered terracotta grip capsule on hover) allows width adjustment (bounded between 320px and 720px, default 420px, persisted as `chorale.workspace.editorWidth`)
-  - in vertical orientation (`layout-vertical`), a full-width horizontal divider (`.editor-divider.divider-horizontal` with `row-resize` cursor and centered horizontal grip capsule) allows height adjustment (bounded between 180px and max available central height, default 320px, persisted as `chorale.workspace.editorHeight`)
+  - in vertical orientation (`layout-vertical`), a full-width horizontal divider (`.editor-divider.divider-horizontal` with `row-resize` cursor and centered horizontal grip capsule) allows height adjustment (bounded between 180px and the available shell content height minus the 200px Sheet minimum and 14px divider, default 320px, persisted as `chorale.workspace.editorHeight`; bounds are reapplied before paint on reload/reopen and whenever the shell resizes; if both minimum heights cannot fit, the vertical shell scrolls so panes and divider remain reachable)
   - both panes support structural editing with Measure Source toolbar belt
-- drag-and-snap pane rearrangement: users can drag any open pane by its tab (`.pane-tab`) using pointer events to snap and rearrange the panes. As the pointer moves across the workspace, four snap zones (top, bottom, left, right) activate a translucent accent drop overlay (`.pane-snap-overlay`) indicating the target layout. Releasing the pointer snaps the panes into that arrangement (horizontal or vertical, with the dragged pane placed in the target region), updating and persisting `paneOrientation` and `paneOrder` in `localStorage`.
+- drag-and-snap pane rearrangement: users can drag any open pane by its tab (`.pane-tab`) using pointer events to snap and rearrange the panes. As the pointer moves across the workspace, four snap zones (top, bottom, left, right) activate a translucent accent drop overlay (`.pane-snap-overlay`) indicating the target layout. Releasing the pointer snaps the panes into that arrangement (horizontal or vertical, with the dragged pane placed in the target region), updating and persisting `paneOrientation` and `paneOrder` in `localStorage`. Only a primary-pointer release inside a nonempty workspace commits a snap; cancellation, Escape, lost capture, or an outside drop discards the preview without changing persisted layout. Stacked panes each use the full shell content width, without horizontal split constraints.
 - playback dock anchored to the visible bottom of the central workspace with a distinct accent color (dark ink capsule surface) and drop shadow to separate cleanly from the desk background (expanded max-width bounded to 900px with playback progress occupying at least 60% of the width, and selected measure anchors rendered on a separate text metadata row to prevent blocking or clipping the track)
 
 The score and editor panes present clean physical paper depth above the desk surface, with no single/split toggle on the top right. Native system window controls (minimize, maximize, close) are enabled without an application menu bar.
