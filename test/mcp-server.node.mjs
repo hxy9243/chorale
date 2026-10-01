@@ -73,6 +73,76 @@ C4 | [K:G clef=tenor] G,4 | G,4 |]`;
   assert.match(sliced.selectedAbc, /f4 \|\]/);
 });
 
+test('measure-ops: comments containing directives like [K:G] do not affect active key', () => {
+  const commentedAbc = `X:1
+T:Commented Key
+M:4/4
+L:1/4
+K:C
+c4 | % a comment with [K:G] and clef=bass
+d4 |`;
+
+  const slicedM2 = sliceMeasureRange(commentedAbc, 2, 2);
+  assert.match(slicedM2.selectedAbc, /^K:C/m);
+  assert.doesNotMatch(slicedM2.selectedAbc, /^K:G/m);
+});
+
+test('measure-ops: earlier measures do not inherit later clef changes', () => {
+  const clefShiftAbc = `X:1
+T:Clef Shift
+M:4/4
+L:1/4
+K:C
+V:1 clef=treble
+c4 |
+V:2 clef=bass
+C4 |
+V:1 clef=bass
+C4 |
+V:2 clef=treble
+c4 |`;
+
+  // Slicing measure 1 should retain V:1 clef=treble and V:2 clef=bass
+  const slicedM1 = sliceMeasureRange(clefShiftAbc, 1, 1);
+  assert.match(slicedM1.selectedAbc, /V:1[^\n]*clef=treble/);
+  assert.match(slicedM1.selectedAbc, /V:2[^\n]*clef=bass/);
+  assert.doesNotMatch(slicedM1.selectedAbc, /V:1[^\n]*clef=bass/);
+});
+
+test('measure-ops: excerpts preserve unit note length L: changes from prior measures', () => {
+  const unitLengthAbc = `X:1
+T:Unit Note Length Shift
+M:4/4
+L:1/4
+K:C
+c4 | [L:1/8] c8 |
+d8 |`;
+
+  const slicedM3 = sliceMeasureRange(unitLengthAbc, 3, 3);
+  assert.match(slicedM3.selectedAbc, /^L:1\/8/m);
+});
+
+test('measure-ops: polytonal key changes preserve default header and set voice-local keys', () => {
+  const polytonalAbc = `X:1
+T:Polytonal Suite
+M:4/4
+L:1/4
+K:C
+V:S
+c4 | [K:G] d4 | e4 |
+V:B clef=bass
+C4 | D4 | E4 |`;
+
+  // Measure 3: Soprano has active K:G while Bass has active K:C
+  const slicedM3 = sliceMeasureRange(polytonalAbc, 3, 3);
+  // Header keeps base tune key K:C
+  assert.match(slicedM3.headers, /^K:C/m);
+  // Voice Soprano receives [K:G]
+  assert.match(slicedM3.selectedAbc, /\[K:G\] e4/);
+  // Voice Bass does not receive [K:G]
+  assert.doesNotMatch(slicedM3.selectedAbc, /V:B[^\n]*\n\[K:G\]/);
+});
+
 test('measure-ops: computeScoreMeasureMapping calculates correct totalMeasures with and without pickups and split repeats', () => {
   // 3 measures without pickup
   const abc3 = `X:1\nM:4/4\nL:1/4\nK:C\nc4 | d4 | e4 |`;

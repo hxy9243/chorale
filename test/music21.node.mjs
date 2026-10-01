@@ -267,3 +267,71 @@ c4 | d2 :|: d2 | e4 |
   ]);
 });
 
+test('music21 Python helper detects key changes inside selected passage and sets local candidate keys', async (t) => {
+  let runtime;
+  try {
+    runtime = await resolveMusic21Python();
+  } catch {
+    t.skip('music21 is not installed in the test environment');
+    return;
+  }
+
+  const intraPassageKeyAbc = `X:1
+T:Intra-Passage Key Change
+M:4/4
+L:1/4
+K:C
+c4 | [K:G] f4 |
+`;
+  const helper = join(process.cwd(), 'server', 'python', 'music21_harmony.py');
+  const result = await runProcess(runtime.command, [...runtime.prefixArgs, helper], {
+    input: JSON.stringify({ abcSource: intraPassageKeyAbc, startMeasure: 1 }),
+  });
+  const analysis = JSON.parse(result.stdout);
+  assert.equal(analysis.slices.length, 2);
+  assert.equal(analysis.slices[0].position.measure, 1);
+  assert.deepEqual(analysis.slices[0].soundingPitches, ['C5']);
+  assert.equal(analysis.slices[0].candidate.localKey, 'C major');
+
+  assert.equal(analysis.slices[1].position.measure, 2);
+  // Note f in K:G sounds as F#5
+  assert.deepEqual(analysis.slices[1].soundingPitches, ['F#5']);
+  assert.equal(analysis.slices[1].candidate.localKey, 'G major');
+  assert.equal(analysis.slices[1].candidate.romanNumeral, 'vii');
+});
+
+test('music21 Python helper isolates voice-specific key changes without altering other voices', async (t) => {
+  let runtime;
+  try {
+    runtime = await resolveMusic21Python();
+  } catch {
+    t.skip('music21 is not installed in the test environment');
+    return;
+  }
+
+  const polytonalAbc = `X:1
+T:Polytonal Voice Isolation
+M:4/4
+L:1/4
+K:C
+V:1
+c4 | [K:G] f4 |
+V:2 clef=bass
+C4 | F4 |
+`;
+  const helper = join(process.cwd(), 'server', 'python', 'music21_harmony.py');
+  const result = await runProcess(runtime.command, [...runtime.prefixArgs, helper], {
+    input: JSON.stringify({ abcSource: polytonalAbc, startMeasure: 1 }),
+  });
+  const analysis = JSON.parse(result.stdout);
+  assert.equal(analysis.slices.length, 2);
+  assert.equal(analysis.slices[0].position.measure, 1);
+  assert.deepEqual(analysis.slices[0].soundingPitches, ['C4', 'C5']);
+
+  assert.equal(analysis.slices[1].position.measure, 2);
+  // Soprano note f in K:G sounds as F#5, while Bass note F in K:C sounds as F4
+  assert.deepEqual(analysis.slices[1].soundingPitches, ['F4', 'F#5']);
+  assert.equal(analysis.slices[1].literalBass, 'F4');
+});
+
+

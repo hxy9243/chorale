@@ -64,7 +64,11 @@ The tool never writes score state. Missing Python, missing music21, parse failur
 
 - **Voice alignment:** Multi-voice scores with alphabetic/named voice IDs (e.g. `V:S`, `V:B`, `V:Soprano`, `V:Bass`) are normalized to parallel parts before analysis so sonorities align simultaneously across voices rather than stacking sequentially.
 - **Single-measure analysis:** Analyzing single measures produces valid evidence via stream partition or direct sonority resolution without returning empty slices.
-- **Key signature & clef inheritance:** Excerpt analysis inherits the active key signature, time signature/meter, and voice clefs in effect at the start of the requested range, ensuring note spellings and sounding pitches reflect prior modulations.
+- **Key signature & clef inheritance:** Excerpt analysis inherits the active key signature, time signature/meter, unit note length (`L:`), and voice clefs in effect at the start of the requested range, ensuring note spellings, sounding durations, and sounding pitches reflect prior modulations.
+- **Polytonal and voice-specific key scoping:** Scores with voice-specific or polytonal key signatures preserve the base tune key in global headers and scope key changes to the specific voice, preventing soprano modulations from inadvertently altering bass accidental rules.
+- **Directive comment immunity:** Inline comments (`%`) containing syntax like `[K:G]` or clef directives are stripped prior to directive parsing so comments cannot alter the active score state.
+- **Intra-passage key changes:** Key changes inside the analyzed range are recognized during analysis, assigning accurate sounding accidentals and updating candidate local keys and Roman numerals.
+- **Clef sequence integrity:** Initial voice declarations and earlier measures retain their original clefs even if a voice switches clefs later in the passage.
 - **Split repeat continuity:** Measures split across repeat barlines preserve the parent measure number and properly offset second-half sonorities by the duration of the first half.
 
 ## Agent workflow
@@ -84,7 +88,11 @@ The tool never writes score state. Missing Python, missing music21, parse failur
 - The tool is read-only and bounded to 16 written measures.
 - Single-measure analysis returns valid non-empty evidence.
 - Named voices like S/B are analyzed simultaneously in parallel rather than sequentially.
-- Excerpts after key changes return accurate sounding pitches (e.g. F♯ in G major) by inheriting active headers.
+- Excerpts after key changes return accurate sounding pitches (e.g. F♯ in G major) by inheriting active headers and unit note length.
+- Voice-specific key changes remain isolated to their voice without corrupting parallel parts.
+- Comments containing directives like `[K:G]` do not alter score key or clefs.
+- Key changes inside the analyzed passage update sounding accidentals and local candidate keys.
+- Earlier measures never inherit later clef changes.
 - Split repeat bars maintain accurate measure numbering and offset alignment.
 - Unavailable dependencies return `MUSIC21_UNAVAILABLE` with the setup command.
 - Automated tests cover installation orchestration, runner parsing, MCP registration, bounded-range behavior, package contents, and harmonic correctness invariants.

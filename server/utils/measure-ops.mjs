@@ -35,6 +35,17 @@ export const splitHeadersAndBody = (abcSource) => {
   };
 };
 
+export const stripComments = (text) => {
+  if (!text || !text.includes('%')) return text;
+  return text
+    .split(/\r?\n/)
+    .map((line) => {
+      const idx = line.indexOf('%');
+      return idx === -1 ? line : line.slice(0, idx);
+    })
+    .join('\n');
+};
+
 const isVoicePropertyString = (rest) => {
   if (!rest) return true;
   if (rest.includes('|')) return false;
@@ -524,7 +535,15 @@ export const parseVoicesAndMeasures = (abcSource) => {
       }
       const rest = voiceMatch[2].trim();
       if (!rest || isVoicePropertyString(rest)) {
-        voiceDeclarations.set(currentVoiceId, inlineComment ? `${notation} ${inlineComment}` : notation);
+        if (!voiceDeclarations.has(currentVoiceId)) {
+          voiceDeclarations.set(currentVoiceId, inlineComment ? `${notation} ${inlineComment}` : notation);
+        } else if (rest) {
+          // Mid-piece voice property change (e.g. V:1 clef=bass)
+          const clefMatch = rest.match(/\bclef=([a-zA-Z0-9_-]+)/);
+          if (clefMatch) {
+            appendLineMeasures(voices.get(currentVoiceId), `[K:clef=${clefMatch[1]}]`, inlineComment);
+          }
+        }
       } else {
         appendLineMeasures(voices.get(currentVoiceId), rest, inlineComment);
       }
@@ -609,9 +628,12 @@ const hasTerminalBarline = (body) => /(?:\|\]|:\||\|:|\|\||\|)$/.test(body.repla
 const extractActiveStateFromMeasure = (text) => {
   let key = null;
   let meter = null;
+  let unitLength = null;
   let clef = null;
 
-  const keyMatches = [...text.matchAll(/(?:\[K:|(?:^|\n|\s)K:)\s*([^\r\n\]]+)/g)];
+  const clean = stripComments(text);
+
+  const keyMatches = [...clean.matchAll(/(?:\[K:|(?:^|\n|\s)K:)\s*([^\r\n\]]+)/g)];
   for (const match of keyMatches) {
     let content = match[1].replace(/\]$/, '').trim();
     const clefMatch = content.match(/\bclef=([a-zA-Z0-9_-]+)/);
@@ -622,17 +644,22 @@ const extractActiveStateFromMeasure = (text) => {
     if (content) key = content;
   }
 
-  const meterMatches = [...text.matchAll(/(?:\[M:|(?:^|\n|\s)M:)\s*([^\r\n\]\s]+)/g)];
+  const meterMatches = [...clean.matchAll(/(?:\[M:|(?:^|\n|\s)M:)\s*([^\r\n\]\s]+)/g)];
   for (const match of meterMatches) {
     meter = match[1].replace(/\]$/, '').trim();
   }
 
-  const clefMatches = [...text.matchAll(/(?:\[clef=|\bclef=)\s*([a-zA-Z0-9_-]+)/g)];
+  const unitLengthMatches = [...clean.matchAll(/(?:\[L:|(?:^|\n|\s)L:)\s*([^\r\n\]\s]+)/g)];
+  for (const match of unitLengthMatches) {
+    unitLength = match[1].replace(/\]$/, '').trim();
+  }
+
+  const clefMatches = [...clean.matchAll(/(?:\[clef=|\bclef=)\s*([a-zA-Z0-9_-]+)/g)];
   for (const match of clefMatches) {
     clef = match[1];
   }
 
-  return { key, meter, clef };
+  return { key, meter, unitLength, clef };
 };
 
 const updateHeaderField = (headers, prefix, newValue) => {
@@ -661,27 +688,49 @@ export const sliceMeasureRange = (abcSource, startMeasure, endMeasure, voiceId =
   const effectiveStart = Math.max(startMeasure, firstMeasureNumber);
   const startIndex = Math.max(0, effectiveStart - firstMeasureNumber);
 
-  // Scan preceding measures across voices to determine active key, meter, and clefs at startIndex
-  let activeKey = null;
-  let activeMeter = null;
+  // Scan preceding measures across voices to determine active key, meter, unit length, and clefs at startIndex
+  let activeScoreKey = null;
+  let activeScoreMeter = null;
+  let activeScoreUnitLength = null;
+  const activeKeys = new Map();
   const activeClefs = new Map();
 
   for (let i = 0; i < startIndex; i++) {
     for (const [vId, mList] of voiceEntries) {
       if (i < mList.length) {
         const state = extractActiveStateFromMeasure(mList[i]);
-        if (state.key) activeKey = state.key;
-        if (state.meter) activeMeter = state.meter;
+        if (state.key) {
+          activeScoreKey = state.key;
+          activeKeys.set(vId, state.key);
+        }
+        if (state.meter) activeScoreMeter = state.meter;
+        if (state.unitLength) activeScoreUnitLength = state.unitLength;
         if (state.clef) activeClefs.set(vId, state.clef);
       }
     }
   }
 
-  if (activeKey) {
-    headers = updateHeaderField(headers, 'K', activeKey);
+  const defaultKeyMatch = headers.match(/^K:\s*([^\r\n]+)/m);
+  const defaultScoreKey = defaultKeyMatch ? defaultKeyMatch[1].trim() : null;
+
+  for (const [vId] of voiceEntries) {
+    if (!activeKeys.has(vId) && defaultScoreKey) {
+      activeKeys.set(vId, defaultScoreKey);
+    }
   }
-  if (activeMeter) {
-    headers = updateHeaderField(headers, 'M', activeMeter);
+
+  // Determine whether active keys are polytonal (different across voices)
+  const distinctKeys = new Set(activeKeys.values());
+  const isPolytonal = distinctKeys.size > 1;
+
+  if (activeScoreKey && !isPolytonal) {
+    headers = updateHeaderField(headers, 'K', activeScoreKey);
+  }
+  if (activeScoreMeter) {
+    headers = updateHeaderField(headers, 'M', activeScoreMeter);
+  }
+  if (activeScoreUnitLength) {
+    headers = updateHeaderField(headers, 'L', activeScoreUnitLength);
   }
 
   const selectedVoices = [];
@@ -693,7 +742,13 @@ export const sliceMeasureRange = (abcSource, startMeasure, endMeasure, voiceId =
     const sliced = measures.slice(voiceStartIndex, voiceEndIndex);
 
     if (sliced.length > 0) {
-      const voiceBody = sliced.map((m) => m.trim()).join(' ');
+      let voiceBody = sliced.map((m) => m.trim()).join(' ');
+      if (isPolytonal && activeKeys.has(id)) {
+        const voiceKey = activeKeys.get(id);
+        if (!voiceBody.startsWith('[K:') && !voiceBody.startsWith('K:')) {
+          voiceBody = `[K:${voiceKey}] ${voiceBody}`;
+        }
+      }
       let declaration = voiceDeclarations?.get(id) || `V:${id}`;
       const activeClef = activeClefs.get(id);
       if (activeClef) {
