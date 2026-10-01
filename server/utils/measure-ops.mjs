@@ -480,6 +480,23 @@ export const measureBodies = (abcSource) => {
   return Array.from({ length: maxMeasures }, (_, i) => `Measure ${i + firstMeasureNumber}`);
 };
 
+const isDirectiveOnlyLine = (text) => {
+  const clean = text.replace(/%[^\r\n]*/g, '').trim();
+  if (!clean) return false;
+  if (/^[A-Za-z]:\s*[^|\r\n]+$/.test(clean)) return true;
+  if (/^\[(?:[A-Za-z]:|clef=)[^\]|]+\]$/.test(clean)) return true;
+  return false;
+};
+
+const formatDirective = (text) => {
+  const clean = text.replace(/%[^\r\n]*/g, '').trim();
+  if (clean.startsWith('[') && clean.endsWith(']')) return clean;
+  if (/^clef=([a-zA-Z0-9_-]+)/.test(clean)) {
+    return `[K:${clean}]`;
+  }
+  return `[${clean}]`;
+};
+
 /**
  * Parses ABC body into voices with measures.
  * Handles both single-voice tunes and multi-voice tunes with V: headers.
@@ -491,8 +508,14 @@ export const parseVoicesAndMeasures = (abcSource) => {
   const voiceDeclarations = new Map();
   const directives = [];
   const standaloneComments = [];
+  const pendingVoiceDirectives = new Map();
   let currentVoiceId = null;
   let inHeader = true;
+
+  const getPending = (id) => {
+    if (!pendingVoiceDirectives.has(id)) pendingVoiceDirectives.set(id, []);
+    return pendingVoiceDirectives.get(id);
+  };
 
   for (const rawLine of lines) {
     let line = rawLine.trim();
@@ -538,14 +561,14 @@ export const parseVoicesAndMeasures = (abcSource) => {
         if (!voiceDeclarations.has(currentVoiceId)) {
           voiceDeclarations.set(currentVoiceId, inlineComment ? `${notation} ${inlineComment}` : notation);
         } else if (rest) {
-          // Mid-piece voice property change (e.g. V:1 clef=bass)
+          // Mid-piece voice property change without notes (e.g. V:1 clef=bass)
           const clefMatch = rest.match(/\bclef=([a-zA-Z0-9_-]+)/);
           if (clefMatch) {
-            appendLineMeasures(voices.get(currentVoiceId), `[K:clef=${clefMatch[1]}]`, inlineComment);
+            getPending(currentVoiceId).push(`[K:clef=${clefMatch[1]}]`);
           }
         }
       } else {
-        appendLineMeasures(voices.get(currentVoiceId), rest, inlineComment);
+        appendLineMeasures(voices.get(currentVoiceId), rest, inlineComment, getPending(currentVoiceId));
       }
       continue;
     }
@@ -557,7 +580,22 @@ export const parseVoicesAndMeasures = (abcSource) => {
       }
     }
 
-    appendLineMeasures(voices.get(currentVoiceId), notation, inlineComment);
+    if (isDirectiveOnlyLine(notation)) {
+      const directiveStr = formatDirective(notation);
+      getPending(currentVoiceId).push(inlineComment ? `${directiveStr} ${inlineComment}` : directiveStr);
+      continue;
+    }
+
+    appendLineMeasures(voices.get(currentVoiceId), notation, inlineComment, getPending(currentVoiceId));
+  }
+
+  for (const [vId, pending] of pendingVoiceDirectives) {
+    if (pending.length > 0 && voices.has(vId)) {
+      const list = voices.get(vId);
+      if (list.length > 0) {
+        list[list.length - 1] += ` ${pending.join(' ')}`;
+      }
+    }
   }
 
   if (voices.size === 0) {
@@ -595,9 +633,14 @@ export const parseVoicesAndMeasures = (abcSource) => {
   };
 };
 
-const appendLineMeasures = (measureList, text, inlineComment = '') => {
+const appendLineMeasures = (measureList, text, inlineComment = '', pendingList = []) => {
   const initialLength = measureList.length;
-  const tokens = text.split(/(\[?\|[|\]:]*|:\|)/).filter(Boolean);
+  let lineText = text;
+  if (pendingList && pendingList.length > 0) {
+    lineText = `${pendingList.join(' ')} ${text}`;
+    pendingList.length = 0;
+  }
+  const tokens = lineText.split(/(\[?\|[|\]:]*|:\|)/).filter(Boolean);
   let curBar = '';
   for (const tok of tokens) {
     curBar += tok;
@@ -617,8 +660,6 @@ const appendLineMeasures = (measureList, text, inlineComment = '') => {
   if (inlineComment) {
     if (measureList.length > initialLength) {
       measureList[measureList.length - 1] = `${measureList[measureList.length - 1]} ${inlineComment}`;
-    } else {
-      measureList.push(inlineComment);
     }
   }
 };

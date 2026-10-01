@@ -544,6 +544,77 @@ test('sheet tools: read, insert, edit, delete measures and notations', async () 
   }
 });
 
+test('sheet tools: mid-piece clef and key directives never create phantom measures for read, edit, or delete', async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), 'chorale-test-phantom-'));
+  try {
+    const store = new LocalDocumentStore({ baseDir: tempDir });
+    const views = new ViewSnapshotStore();
+    const sourceWithDirectives = `X:1
+T:Clef Directive Safety
+M:4/4
+L:1/4
+K:C
+V:1 clef=treble
+c d e f |
+V:1 clef=bass
+C D E F |
+V:1
+G, A, B, C |`;
+    const doc = await store.create({ title: 'Clef Safety', abcSource: sourceWithDirectives });
+    const { handlers } = createSheetManagementTools(store, views);
+
+    // 1. Read measure 1
+    const m1 = await handlers.read_measure({ documentId: doc.id, startMeasure: 1, endMeasure: 1 });
+    assert.equal(m1.isError, undefined);
+    assert.match(m1.structuredContent.abcSource, /c d e f/);
+
+    // 2. Read measure 2 (must not be a phantom measure)
+    const m2 = await handlers.read_measure({ documentId: doc.id, startMeasure: 2, endMeasure: 2 });
+    assert.equal(m2.isError, undefined);
+    assert.match(m2.structuredContent.abcSource, /C D E F/);
+
+    // 3. Read measure 3
+    const m3 = await handlers.read_measure({ documentId: doc.id, startMeasure: 3, endMeasure: 3 });
+    assert.equal(m3.isError, undefined);
+    assert.match(m3.structuredContent.abcSource, /G, A, B, C/);
+
+    // 4. Edit measure 2
+    const editRes = await handlers.edit_measure({
+      documentId: doc.id,
+      startMeasure: 2,
+      endMeasure: 2,
+      replacementAbc: 'C, D, E, F, |',
+      expectedRevision: 1,
+    });
+    assert.equal(editRes.isError, undefined);
+
+    // Verify measure 1 and 3 are intact, measure 2 replaced
+    const afterEditM1 = await handlers.read_measure({ documentId: doc.id, startMeasure: 1, endMeasure: 1 });
+    assert.match(afterEditM1.structuredContent.abcSource, /c d e f/);
+    const afterEditM2 = await handlers.read_measure({ documentId: doc.id, startMeasure: 2, endMeasure: 2 });
+    assert.match(afterEditM2.structuredContent.abcSource, /C, D, E, F,/);
+    const afterEditM3 = await handlers.read_measure({ documentId: doc.id, startMeasure: 3, endMeasure: 3 });
+    assert.match(afterEditM3.structuredContent.abcSource, /G, A, B, C/);
+
+    // 5. Delete measure 2
+    const delRes = await handlers.delete_measures({
+      documentId: doc.id,
+      startMeasure: 2,
+      endMeasure: 2,
+      expectedRevision: 2,
+    });
+    assert.equal(delRes.isError, undefined);
+
+    // Now total measures is 2: measure 1 is c d e f, measure 2 is G, A, B, C
+    const finalM1 = await handlers.read_measure({ documentId: doc.id, startMeasure: 1, endMeasure: 1 });
+    assert.match(finalM1.structuredContent.abcSource, /c d e f/);
+    const finalM2 = await handlers.read_measure({ documentId: doc.id, startMeasure: 2, endMeasure: 2 });
+    assert.match(finalM2.structuredContent.abcSource, /G, A, B, C/);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
 test('server: starts HTTP server, serves /v1/health, REST tools, and files', async () => {
   const tempDir = await mkdtemp(join(tmpdir(), 'chorale-test-http-'));
   let runningServer;
