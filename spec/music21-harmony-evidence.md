@@ -3,19 +3,23 @@ title: "music21 Harmony Evidence"
 description: "Managed music21 installation and read-only harmonic-evidence tool for agent analysis"
 category: "agent-tools"
 date: 2026-09-20
-updated: 2026-09-20
+updated: 2026-10-01
 status: "implemented"
 source_files:
+  - server/music/score-semantics.mjs
   - server/music21.mjs
   - server/python/music21_harmony.py
   - server/python/requirements-music21.txt
   - server/mcp/tools/sheet-management.mjs
+  - server/utils/measure-ops.mjs
   - server/cli.mjs
   - skills/chorale-score/SKILL.md
   - skills/chorale-score/references/chord-progression-analysis.md
   - INSTALL.md
   - docs/harmony-analysis-benchmark.md
 test_files:
+  - test/harmony-regression.node.mjs
+  - test/fixtures/harmony-regression.mjs
   - test/music21.node.mjs
   - test/mcp-server.node.mjs
   - test/cli-runtime.node.mjs
@@ -59,6 +63,29 @@ The result includes:
 - explicit warnings about ornaments, suspensions, tonicization, modulation, and boundary errors.
 
 The tool never writes score state. Missing Python, missing music21, parse failures, timeouts, and oversized ranges return structured errors.
+
+### Structured event boundary
+
+Chorale determines all musical elements, timing, positions, sounding pitches, active accidentals, ties across barlines, and literal bass via `server/music/score-semantics.mjs`. It traverses the score with exact rational arithmetic and hands music21 structured event slices:
+
+```json
+{
+  "passageKey": "G major",
+  "slices": [
+    {
+      "sliceId": "m1@0",
+      "position": { "measure": 1, "offsetQuarterLength": "0" },
+      "durationQuarterLength": "4",
+      "soundingPitches": ["G3", "B3", "D4"],
+      "literalBass": "G3",
+      "localKey": "G major"
+    }
+  ]
+}
+```
+
+music21 acts strictly as a lightweight chord and Roman numeral interpreter via `server/python/music21_harmony.py`, evaluating roots, qualities, inversions, and Roman numerals for the provided sonorities. This clean separation eliminates ABC-to-ABC rewriting and ensures music21 never parses ABC notation or reinterprets score layout.
+
 
 ### Correctness and score invariants
 
