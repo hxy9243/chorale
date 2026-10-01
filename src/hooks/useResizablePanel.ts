@@ -1,24 +1,37 @@
 import { useRef } from 'react';
 
 export type ResizablePanelOptions = {
-  initialWidth: number;
-  clampWidth: (width: number) => number;
-  onWidthChange: (width: number) => void;
-  direction?: 'left' | 'right';
+  initialWidth?: number;
+  clampWidth?: (width: number) => number;
+  onWidthChange?: (width: number) => void;
+  initialSize?: number;
+  clampSize?: (size: number) => number;
+  onSizeChange?: (size: number) => void;
+  direction?: 'left' | 'right' | 'top' | 'bottom';
 };
 
 export const useResizablePanel = ({
   initialWidth,
   clampWidth,
   onWidthChange,
+  initialSize,
+  clampSize,
+  onSizeChange,
   direction = 'right',
 }: ResizablePanelOptions) => {
-  const dragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const currentInitialSize = initialSize ?? initialWidth ?? 0;
+  const currentClamp = clampSize ?? clampWidth ?? ((val: number) => val);
+  const currentOnChange = onSizeChange ?? onWidthChange ?? (() => undefined);
+
+  const isVertical = direction === 'top' || direction === 'bottom';
+  const resizeClass = isVertical ? 'is-resizing-row' : 'is-resizing-col';
+
+  const dragStateRef = useRef<{ startPos: number; startSize: number } | null>(null);
 
   const beginResize = (event: React.PointerEvent<HTMLButtonElement>) => {
     dragStateRef.current = {
-      startX: event.clientX,
-      startWidth: initialWidth,
+      startPos: isVertical ? event.clientY : event.clientX,
+      startSize: currentInitialSize,
     };
     const target = event.currentTarget;
     try {
@@ -27,14 +40,15 @@ export const useResizablePanel = ({
       // safe fallback if pointer capture is unsupported in test env
     }
 
-    document.body.classList.add('is-resizing-col');
+    document.body.classList.add(resizeClass);
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       const dragState = dragStateRef.current;
       if (!dragState) return;
-      const rawDelta = moveEvent.clientX - dragState.startX;
-      const delta = direction === 'left' ? -rawDelta : rawDelta;
-      onWidthChange(clampWidth(dragState.startWidth + delta));
+      const currentPos = isVertical ? moveEvent.clientY : moveEvent.clientX;
+      const rawDelta = currentPos - dragState.startPos;
+      const delta = (direction === 'left' || direction === 'top') ? -rawDelta : rawDelta;
+      currentOnChange(currentClamp(dragState.startSize + delta));
     };
 
     const handlePointerUp = (upEvent: PointerEvent) => {
@@ -44,7 +58,7 @@ export const useResizablePanel = ({
       } catch {
         // safe fallback
       }
-      document.body.classList.remove('is-resizing-col');
+      document.body.classList.remove(resizeClass);
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);

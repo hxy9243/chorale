@@ -24,8 +24,8 @@
   box-shadow: var(--shadow-modal);
 }
 
-/* Score and ABC editor split panes must remain side by side across all widths. */
-.score-editor-shell {
+/* Horizontal panes stay side by side across widths; vertical is an explicit preference. */
+.score-editor-shell.layout-horizontal {
   display: flex !important;
   flex-direction: row !important;
   flex-wrap: nowrap !important;
@@ -35,12 +35,17 @@
   display: flex !important;
 }
 
-.score-editor-shell:not(.sheet-hidden):not(.editor-hidden) .workspace-pane.score-pane {
+.score-editor-shell.layout-horizontal:not(.sheet-hidden):not(.editor-hidden) .workspace-pane.score-pane {
   min-width: 140px;
   flex: 1 1 0% !important;
 }
 
-.score-editor-shell:not(.sheet-hidden):not(.editor-hidden) .workspace-pane.editor-pane {
+.score-editor-shell.layout-horizontal:not(.sheet-hidden):not(.editor-hidden) .workspace-pane.editor-pane {
   max-width: calc(100% - 154px) !important;
   min-width: 140px !important;
+}
+
+/* Keep both pane minimums and the divider reachable in short windows. */
+.score-editor-shell.layout-vertical {
+  overflow-y: auto;
 }

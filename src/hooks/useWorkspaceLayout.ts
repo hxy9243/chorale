@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState, type RefObject } from 'react';
 import { useResizablePanel } from './useResizablePanel';
 import {
   clampEditorPanelWidth,
@@ -10,6 +10,7 @@ import {
 
 export const EDITOR_VISIBLE_KEY = 'chorale.workspace.editorVisible';
 export const EDITOR_WIDTH_KEY = 'chorale.workspace.editorWidth';
+export const EDITOR_HEIGHT_KEY = 'chorale.workspace.editorHeight';
 export const CHAT_OPEN_KEY = 'chorale.workspace.chatOpen';
 export const CHAT_WIDTH_KEY = 'chorale.workspace.chatWidth';
 export const FILE_RAIL_WIDTH_KEY = 'chorale.workspace.fileRailWidth';
@@ -22,6 +23,19 @@ export type RailPanelId = 'files' | 'tools';
 const DEFAULT_RAIL_PANEL: RailPanelId = 'files';
 
 const DEFAULT_EDITOR_WIDTH = 420;
+export const DEFAULT_EDITOR_HEIGHT = 320;
+export const MIN_EDITOR_HEIGHT = 180;
+export const MIN_SHEET_HEIGHT = 200;
+export const VERTICAL_DIVIDER_HEIGHT = 14;
+export const clampEditorPanelHeight = (height: number, shellContentHeight = Infinity) => (
+  Math.max(MIN_EDITOR_HEIGHT, Math.min(height, shellContentHeight - MIN_SHEET_HEIGHT - VERTICAL_DIVIDER_HEIGHT))
+);
+
+type WorkspacePaneLayout = {
+  shellRef: RefObject<HTMLDivElement | null>;
+  vertical: boolean;
+  sheetVisible: boolean;
+};
 const DEFAULT_SHEET_ZOOM = 100;
 const MIN_SHEET_ZOOM = 50;
 const MAX_SHEET_ZOOM = 200;
@@ -51,7 +65,7 @@ const readStoredNumber = (
   return Number.isFinite(value) ? clamp(value) : fallback;
 };
 
-export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
+export const useWorkspaceLayout = (interfaceZoom: { zoom: number }, panes?: WorkspacePaneLayout) => {
   const layoutViewportWidth = useCallback(
     () => window.innerWidth * 100 / interfaceZoom.zoom,
     [interfaceZoom.zoom],
@@ -65,6 +79,9 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
   ));
   const [editorWidth, setEditorWidth] = useState<number>(() => (
     readStoredNumber(EDITOR_WIDTH_KEY, DEFAULT_EDITOR_WIDTH, clampEditorPanelWidth)
+  ));
+  const [editorHeight, setEditorHeight] = useState<number>(() => (
+    readStoredNumber(EDITOR_HEIGHT_KEY, DEFAULT_EDITOR_HEIGHT, clampEditorPanelHeight)
   ));
   const [railWidth, setRailWidth] = useState<number>(() => (
     readStoredNumber(
@@ -93,6 +110,10 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
   useEffect(() => {
     window.localStorage.setItem(EDITOR_WIDTH_KEY, String(editorWidth));
   }, [editorWidth]);
+
+  useEffect(() => {
+    window.localStorage.setItem(EDITOR_HEIGHT_KEY, String(editorHeight));
+  }, [editorHeight]);
 
   useEffect(() => {
     window.localStorage.setItem(SHEET_ZOOM_KEY, String(zoom));
@@ -143,6 +164,50 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
     direction: 'right',
   });
 
+  const { shellRef, vertical = false, sheetVisible = true } = panes ?? {};
+
+  // Read the live content box so an in-progress resize never uses stale bounds.
+  // clientHeight is in layout pixels, including when interface zoom is applied.
+  const clampVerticalEditorHeight = useCallback((height: number) => {
+    const shell = shellRef?.current;
+    if (!vertical || !sheetVisible || !editorVisible || !shell || shell.clientHeight <= 0) {
+      return clampEditorPanelHeight(height);
+    }
+    const style = window.getComputedStyle(shell);
+    const contentHeight = shell.clientHeight
+      - (Number.parseFloat(style.paddingTop) || 0)
+      - (Number.parseFloat(style.paddingBottom) || 0);
+    return clampEditorPanelHeight(height, contentHeight);
+  }, [shellRef, vertical, sheetVisible, editorVisible]);
+
+  useLayoutEffect(() => {
+    const shell = shellRef?.current;
+    if (!shell || !vertical || !sheetVisible || !editorVisible) return;
+    const fitEditorHeight = () => setEditorHeight(clampVerticalEditorHeight);
+    fitEditorHeight();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(fitEditorHeight);
+    observer?.observe(shell);
+    window.addEventListener('resize', fitEditorHeight);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', fitEditorHeight);
+    };
+  }, [clampVerticalEditorHeight, shellRef, vertical, sheetVisible, editorVisible, interfaceZoom.zoom]);
+
+  const { beginResize: beginEditorVerticalResize } = useResizablePanel({
+    initialSize: editorHeight,
+    clampSize: clampVerticalEditorHeight,
+    onSizeChange: setEditorHeight,
+    direction: 'top',
+  });
+
+  const { beginResize: beginEditorVerticalResizeFromBottom } = useResizablePanel({
+    initialSize: editorHeight,
+    clampSize: clampVerticalEditorHeight,
+    onSizeChange: setEditorHeight,
+    direction: 'bottom',
+  });
+
   const { beginResize: beginRailResize } = useResizablePanel({
     initialWidth: railWidth,
     clampWidth: clampFileRailWidth,
@@ -178,6 +243,8 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
     editorVisible,
     setEditorVisible,
     editorWidth,
+    editorHeight,
+    setEditorHeight,
     railWidth,
     railCollapsed,
     setRailCollapsed,
@@ -187,6 +254,8 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }) => {
     fittedPanelLayout,
     beginEditorResize,
     beginEditorResizeFromRight,
+    beginEditorVerticalResize,
+    beginEditorVerticalResizeFromBottom,
     beginRailResize,
     beginChatResize,
   };
