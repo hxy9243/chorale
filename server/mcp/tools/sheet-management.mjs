@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { analyzeHarmonyWithMusic21 } from '../../music21.mjs';
 import { PluginError } from '../../store.mjs';
+import { extractHarmonicSlices } from '../../music/score-semantics.mjs';
 import {
   deleteMeasures as deleteMeasuresOps,
   insertMeasures as insertMeasuresOps,
@@ -120,10 +121,10 @@ export const createSheetManagementTools = (store, views, options = {}) => {
           throw new PluginError('ANALYSIS_RANGE_TOO_LARGE', `analyze_harmony accepts at most ${MAX_HARMONY_MEASURES} written measures per call.`);
         }
 
-        const sliced = sliceMeasureRange(doc.abcSource, start, end);
+        const extracted = extractHarmonicSlices(doc.abcSource, start, end);
         const analysis = await analyzeHarmony({
-          abcSource: sliced.selectedAbc,
-          startMeasure: start,
+          passageKey: extracted.passageKey,
+          slices: extracted.slices,
         });
         const scoreTitle = doc.title || doc.scoreInfo?.title || doc.name || 'Untitled score';
         return result({
@@ -131,7 +132,7 @@ export const createSheetManagementTools = (store, views, options = {}) => {
           title: scoreTitle,
           revision: doc.revision,
           range: { startMeasure: start, endMeasure: end },
-          measureCount: sliced.measureCount,
+          measureCount: extracted.measureCount,
           ...analysis,
         }, `Generated fallible music21 harmony evidence for measures ${start}–${end} of "${scoreTitle}". Verify every candidate against the written score.`);
       } catch (error) {

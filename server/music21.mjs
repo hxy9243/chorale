@@ -3,6 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveChoraleHome } from './runtime.mjs';
+import { extractHarmonicSlices } from './music/score-semantics.mjs';
 
 export const MUSIC21_REQUIREMENT = 'music21==9.9.1';
 export const MUSIC21_SETUP_COMMAND = 'chorale setup music21';
@@ -161,13 +162,30 @@ export const installMusic21 = async (options = {}) => {
 export const analyzeHarmonyWithMusic21 = async (payload, options = {}) => {
   const runtime = options.runtime || await resolveMusic21Python(options);
   const execute = options.runProcess || runProcess;
+
+  let pythonPayload = payload;
+  let extractedSlices = null;
+
+  if (payload.abcSource && !payload.slices) {
+    const start = Number.isInteger(payload.startMeasure) ? payload.startMeasure : 1;
+    const end = Number.isInteger(payload.endMeasure) ? payload.endMeasure : start;
+    const extracted = extractHarmonicSlices(payload.abcSource, start, end);
+    extractedSlices = extracted.slices;
+    pythonPayload = {
+      passageKey: extracted.passageKey,
+      slices: extracted.slices,
+    };
+  } else if (Array.isArray(payload.slices)) {
+    extractedSlices = payload.slices;
+  }
+
   let result;
   try {
     result = await execute(runtime.command, [
       ...runtime.prefixArgs,
       options.scriptPath || DEFAULT_SCRIPT_PATH,
     ], {
-      input: JSON.stringify(payload),
+      input: JSON.stringify(pythonPayload),
       timeoutMs: options.timeoutMs || 20_000,
     });
   } catch (error) {
@@ -176,8 +194,33 @@ export const analyzeHarmonyWithMusic21 = async (payload, options = {}) => {
   }
   try {
     const analysis = JSON.parse(result.stdout);
+    let finalSlices = analysis.slices || [];
+
+    if (extractedSlices && Array.isArray(extractedSlices) && extractedSlices.length > 0) {
+      const candidateMap = new Map();
+      for (const s of finalSlices) {
+        if (s.sliceId) candidateMap.set(s.sliceId, s.candidate);
+        else if (s.position) candidateMap.set(`m${s.position.measure}@${s.position.offsetQuarterLength}`, s.candidate);
+      }
+      finalSlices = extractedSlices.map((slice) => ({
+        position: slice.position,
+        durationQuarterLength: slice.durationQuarterLength,
+        soundingPitches: slice.soundingPitches,
+        literalBass: slice.literalBass,
+        candidate: candidateMap.get(slice.sliceId) || {
+          localKey: slice.localKey,
+          romanNumeral: 'unknown',
+          root: slice.literalBass ? slice.literalBass.replace(/\d+$/, '') : 'unknown',
+          quality: 'unknown',
+          inversion: 'root',
+          confidence: 0.1,
+        },
+      }));
+    }
+
     return {
       ...analysis,
+      slices: finalSlices,
       engine: {
         ...analysis.engine,
         pythonVersion: runtime.pythonVersion,

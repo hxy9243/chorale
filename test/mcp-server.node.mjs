@@ -391,8 +391,8 @@ test('sheet tools: analyze_harmony returns bounded read-only music21 evidence', 
     assert.equal(analyzed.structuredContent.revision, 1);
     assert.deepEqual(analyzed.structuredContent.range, { startMeasure: 2, endMeasure: 3 });
     assert.equal(analyzed.structuredContent.estimatedPassageKey, 'G major');
-    assert.equal(received.startMeasure, 2);
-    assert.match(received.abcSource, /K:G/);
+    assert.equal(received.passageKey, 'G major');
+    assert.equal(received.slices[0].position.measure, 2);
 
     const modDoc = await store.create({
       title: 'Modulation',
@@ -403,8 +403,8 @@ test('sheet tools: analyze_harmony returns bounded read-only music21 evidence', 
       startMeasure: 3,
       endMeasure: 3,
     });
-    assert.equal(received.startMeasure, 3);
-    assert.match(received.abcSource, /^K:D/m);
+    assert.equal(received.passageKey, 'D major');
+    assert.equal(received.slices[0].position.measure, 3);
 
     const oversized = await handlers.analyze_harmony({
       documentId: doc.id,

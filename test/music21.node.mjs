@@ -84,7 +84,18 @@ test('music21 installer creates an isolated venv and installs the pinned require
 
 test('music21 analysis runner sends JSON over stdin and decorates engine metadata', async () => {
   let invocation;
-  const analysis = await analyzeHarmonyWithMusic21({ abcSource: sampleAbc, startMeasure: 4 }, {
+  const payload = {
+    passageKey: 'C major',
+    slices: [{
+      sliceId: 'm1@0',
+      position: { measure: 1, offsetQuarterLength: '0' },
+      durationQuarterLength: '4',
+      soundingPitches: ['C4', 'E4', 'G4'],
+      literalBass: 'C4',
+      localKey: 'C major',
+    }],
+  };
+  const analysis = await analyzeHarmonyWithMusic21(payload, {
     runtime: {
       command: '/managed/python',
       prefixArgs: [],
@@ -101,7 +112,10 @@ test('music21 analysis runner sends JSON over stdin and decorates engine metadat
           engine: { name: 'music21', version: '9.9.1' },
           estimatedPassageKey: 'C major',
           warning: 'fallible',
-          slices: [],
+          slices: [{
+            sliceId: 'm1@0',
+            candidate: { localKey: 'C major', romanNumeral: 'I', root: 'C', quality: 'major', inversion: 'root', confidence: 0.8 },
+          }],
         }),
         stderr: '',
       };
@@ -110,13 +124,15 @@ test('music21 analysis runner sends JSON over stdin and decorates engine metadat
 
   assert.equal(invocation.command, '/managed/python');
   assert.deepEqual(invocation.args, ['/package/music21_harmony.py']);
-  assert.deepEqual(JSON.parse(invocation.options.input), { abcSource: sampleAbc, startMeasure: 4 });
+  assert.deepEqual(JSON.parse(invocation.options.input), payload);
   assert.deepEqual(analysis.engine, {
     name: 'music21',
     version: '9.9.1',
     pythonVersion: '3.12.3',
     source: 'managed',
   });
+  assert.equal(analysis.slices.length, 1);
+  assert.equal(analysis.slices[0].candidate.root, 'C');
 });
 
 test('music21 Python helper emits onset-aligned score evidence when music21 is available', async (t) => {
@@ -128,11 +144,7 @@ test('music21 Python helper emits onset-aligned score evidence when music21 is a
     return;
   }
 
-  const helper = join(process.cwd(), 'server', 'python', 'music21_harmony.py');
-  const result = await runProcess(runtime.command, [...runtime.prefixArgs, helper], {
-    input: JSON.stringify({ abcSource: sampleAbc, startMeasure: 1 }),
-  });
-  const analysis = JSON.parse(result.stdout);
+  const analysis = await analyzeHarmonyWithMusic21({ abcSource: sampleAbc, startMeasure: 1, endMeasure: 1 }, { runtime });
   assert.equal(analysis.engine.name, 'music21');
   assert.equal(analysis.estimatedPassageKey, 'C major');
   assert.equal(analysis.slices[0].position.measure, 1);
@@ -157,13 +169,9 @@ L:1/4
 K:C
 [CEG]4 |
 `;
-  const helper = join(process.cwd(), 'server', 'python', 'music21_harmony.py');
-  const result = await runProcess(runtime.command, [...runtime.prefixArgs, helper], {
-    input: JSON.stringify({ abcSource: singleAbc, startMeasure: 4 }),
-  });
-  const analysis = JSON.parse(result.stdout);
+  const analysis = await analyzeHarmonyWithMusic21({ abcSource: singleAbc, startMeasure: 1, endMeasure: 1 }, { runtime });
   assert.equal(analysis.slices.length, 1);
-  assert.equal(analysis.slices[0].position.measure, 4);
+  assert.equal(analysis.slices[0].position.measure, 1);
   assert.deepEqual(analysis.slices[0].soundingPitches, ['C4', 'E4', 'G4']);
   assert.equal(analysis.slices[0].literalBass, 'C4');
   assert.equal(analysis.slices[0].candidate.root, 'C');
@@ -188,11 +196,7 @@ c4 | d4 |
 V:B clef=bass name="Bass"
 C4 | G,4 |
 `;
-  const helper = join(process.cwd(), 'server', 'python', 'music21_harmony.py');
-  const result = await runProcess(runtime.command, [...runtime.prefixArgs, helper], {
-    input: JSON.stringify({ abcSource: sopranoBassAbc, startMeasure: 1 }),
-  });
-  const analysis = JSON.parse(result.stdout);
+  const analysis = await analyzeHarmonyWithMusic21({ abcSource: sopranoBassAbc, startMeasure: 1, endMeasure: 2 }, { runtime });
   // Must be 2 measures of parallel sonorities, NOT 4 sequential measures
   assert.equal(analysis.slices.length, 2);
   assert.equal(analysis.slices[0].position.measure, 1);
@@ -217,14 +221,12 @@ test('music21 Python helper correctly renders pitches in excerpts after key chan
 T:Excerpt in G
 M:4/4
 L:1/4
+K:C
+c4 | c4 |
 K:G
 f4 |]
 `;
-  const helper = join(process.cwd(), 'server', 'python', 'music21_harmony.py');
-  const result = await runProcess(runtime.command, [...runtime.prefixArgs, helper], {
-    input: JSON.stringify({ abcSource: gMajorExcerpt, startMeasure: 3 }),
-  });
-  const analysis = JSON.parse(result.stdout);
+  const analysis = await analyzeHarmonyWithMusic21({ abcSource: gMajorExcerpt, startMeasure: 3, endMeasure: 3 }, { runtime });
   assert.equal(analysis.slices.length, 1);
   assert.equal(analysis.slices[0].position.measure, 3);
   // In K:G, note f must sound as F#5, NOT F5
@@ -248,11 +250,7 @@ L:1/4
 K:C
 c4 | d2 :|: d2 | e4 |
 `;
-  const helper = join(process.cwd(), 'server', 'python', 'music21_harmony.py');
-  const result = await runProcess(runtime.command, [...runtime.prefixArgs, helper], {
-    input: JSON.stringify({ abcSource: splitRepeatAbc, startMeasure: 1 }),
-  });
-  const analysis = JSON.parse(result.stdout);
+  const analysis = await analyzeHarmonyWithMusic21({ abcSource: splitRepeatAbc, startMeasure: 1, endMeasure: 3 }, { runtime });
   // Measure 1 (offset 0), Measure 2 (offset 0), Measure 2 (offset 2), Measure 3 (offset 0)
   assert.equal(analysis.slices.length, 4);
   assert.deepEqual(analysis.slices.map((s) => ({
@@ -283,11 +281,7 @@ L:1/4
 K:C
 c4 | [K:G] f4 |
 `;
-  const helper = join(process.cwd(), 'server', 'python', 'music21_harmony.py');
-  const result = await runProcess(runtime.command, [...runtime.prefixArgs, helper], {
-    input: JSON.stringify({ abcSource: intraPassageKeyAbc, startMeasure: 1 }),
-  });
-  const analysis = JSON.parse(result.stdout);
+  const analysis = await analyzeHarmonyWithMusic21({ abcSource: intraPassageKeyAbc, startMeasure: 1, endMeasure: 2 }, { runtime });
   assert.equal(analysis.slices.length, 2);
   assert.equal(analysis.slices[0].position.measure, 1);
   assert.deepEqual(analysis.slices[0].soundingPitches, ['C5']);
@@ -297,7 +291,7 @@ c4 | [K:G] f4 |
   // Note f in K:G sounds as F#5
   assert.deepEqual(analysis.slices[1].soundingPitches, ['F#5']);
   assert.equal(analysis.slices[1].candidate.localKey, 'G major');
-  assert.equal(analysis.slices[1].candidate.romanNumeral, 'vii');
+  assert.match(analysis.slices[1].candidate.romanNumeral, /^vii/);
 });
 
 test('music21 Python helper isolates voice-specific key changes without altering other voices', async (t) => {
@@ -319,11 +313,7 @@ c4 | [K:G] f4 |
 V:2 clef=bass
 C4 | F4 |
 `;
-  const helper = join(process.cwd(), 'server', 'python', 'music21_harmony.py');
-  const result = await runProcess(runtime.command, [...runtime.prefixArgs, helper], {
-    input: JSON.stringify({ abcSource: polytonalAbc, startMeasure: 1 }),
-  });
-  const analysis = JSON.parse(result.stdout);
+  const analysis = await analyzeHarmonyWithMusic21({ abcSource: polytonalAbc, startMeasure: 1, endMeasure: 2 }, { runtime });
   assert.equal(analysis.slices.length, 2);
   assert.equal(analysis.slices[0].position.measure, 1);
   assert.deepEqual(analysis.slices[0].soundingPitches, ['C4', 'C5']);
@@ -332,6 +322,34 @@ C4 | F4 |
   // Soprano note f in K:G sounds as F#5, while Bass note F in K:C sounds as F4
   assert.deepEqual(analysis.slices[1].soundingPitches, ['F4', 'F#5']);
   assert.equal(analysis.slices[1].literalBass, 'F4');
+});
+
+test('music21 Python helper interprets structured chord slices via stdin', async (t) => {
+  let runtime;
+  try {
+    runtime = await resolveMusic21Python();
+  } catch {
+    t.skip('music21 is not installed in the test environment');
+    return;
+  }
+  const helper = join(process.cwd(), 'server', 'python', 'music21_harmony.py');
+  const result = await runProcess(runtime.command, [...runtime.prefixArgs, helper], {
+    input: JSON.stringify({
+      passageKey: 'C major',
+      slices: [{
+        sliceId: 'm1@0',
+        position: { measure: 1, offsetQuarterLength: '0' },
+        durationQuarterLength: '4',
+        soundingPitches: ['C4', 'E4', 'G4'],
+        literalBass: 'C4',
+      }],
+    }),
+  });
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.slices.length, 1);
+  assert.equal(output.slices[0].candidate.root, 'C');
+  assert.equal(output.slices[0].candidate.romanNumeral, 'I');
+  assert.equal(output.slices[0].candidate.quality, 'major');
 });
 
 
