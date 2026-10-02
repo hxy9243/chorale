@@ -19,7 +19,7 @@ For detailed rules, standards, and musical examples, consult the topic-specific 
 - **[Chord Progression Analysis & Syntax](references/chord-progression-analysis.md)**: Vertical sonority extraction, Roman numeral analysis, chord inversions (5/3, 6/3, 6/4, 7, 6/5, 4/3, 4/2), functional syntax (Tonic, Pre-Dominant, Dominant), secondary dominants/leading tones, chromatic chords (Neapolitan, Augmented 6ths), and pivot-chord modulation.
 - **[Voice Leading & General Score Analysis](references/voice-leading-and-general-analysis.md)**: Linear voice leading, leap recovery, contrapuntal motion types, comprehensive non-chord tone (NCT) taxonomy, period and sentence formal structures, textural categories, and motivic development.
 - **[Counterpoint, Chorale & Fugue](references/counterpoint-and-forms.md)**: Strict 4-part SATB rules (no parallel 5ths/8ves, upper voice spacing $\le$ octave, voice crossing bans), tendency-tone resolutions, suspensions, cadences, and fugal architecture.
-- **[Styles & Composer Emulation](references/styles-and-composers.md)**: Stylistic conventions, harmonic rhythm, accompaniment figures, and ABC templates for Baroque (J.S. Bach), Classical (Mozart/Haydn), Beethoven, and Romantic (Chopin).
+- **[Styles & Composer Profiles](references/styles-and-composers.md)**: Stylistic conventions, harmonic rhythm, accompaniment figures, and ABC templates across modular profiles: Baroque (J.S. Bach), Classical (Mozart/Haydn), Beethoven, Romantic (Chopin), and Studio Ghibli (Joe Hisaishi).
 
 ---
 

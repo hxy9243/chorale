@@ -31,6 +31,11 @@ source_files:
   - skills/chorale-score/references/voice-leading-and-general-analysis.md
   - skills/chorale-score/references/counterpoint-and-forms.md
   - skills/chorale-score/references/styles-and-composers.md
+  - skills/chorale-score/references/profiles/bach.md
+  - skills/chorale-score/references/profiles/mozart-haydn.md
+  - skills/chorale-score/references/profiles/beethoven.md
+  - skills/chorale-score/references/profiles/chopin.md
+  - skills/chorale-score/references/profiles/ghibli.md
   - docs/harmony-analysis-benchmark.md
   - src/hooks/usePluginMcpBridge.ts
 test_files:
