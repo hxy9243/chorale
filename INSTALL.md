@@ -45,7 +45,7 @@ Chorale functions as a standalone CLI application (`chorale`) that launches and 
 
 ## 2. Prerequisites & Quick Build
 
-Ensure you have **Node.js (22.13+ on the 22.x line, or 24+)** and **npm** installed. The repository `.npmrc` permits its pinned Git dependency on npm 12; npm archives bundle that dependency.
+Ensure you have **Node.js (22.13+ on the 22.x line, or 24+)** and **npm** installed. The repository `.npmrc` permits its pinned Git dependency on npm 12; npm archives bundle that dependency. Harmonic evidence is optional and additionally requires **Python 3.10+**.
 
 ```bash
 # 1. Clone the repository
@@ -63,6 +63,9 @@ npm link
 
 # 5. Run verification test suite
 npm test
+
+# 6. Optional: install the evaluated music21 analyzer
+chorale setup music21
 ```
 
 After `npm link`, the `chorale` command will be accessible anywhere in your shell. Use this source-build path while direct global GitHub installation remains unverified. Allow npm lifecycle scripts to run. No `@chorale/cli` registry release is currently provided. Built npm archives include the browser workspace and can be installed with `npm install --global /path/to/chorale-0.0.1.tgz`.
@@ -86,6 +89,9 @@ chorale stop
 # Pull the latest release and restart the verified daemon, preserving score data
 chorale upgrade
 
+# Install music21==9.9.1 into an isolated Chorale-managed environment
+chorale setup music21
+
 # Show command line help and available options
 chorale help
 
@@ -99,6 +105,7 @@ chorale mcp
 - `chorale status`: Reports health, port, and PID from recorded runtime metadata without starting a daemon.
 - `chorale stop`: Stops only the healthy daemon whose PID and port match `~/.chorale/runtime.json`.
 - `chorale upgrade`: Pulls git updates and rebuilds workspace assets in a source checkout, then restarts the verified daemon. Private archive installs require installing the new archive explicitly first. Existing SQLite score data stays in `~/.chorale/`. (Supports `--skip-pull` if you only want to restart).
+- `chorale setup music21`: Creates an isolated environment in `~/.chorale/music21-venv` and installs the benchmarked `music21==9.9.1`. The analyzer is optional; all other Chorale tools work without it.
 - `chorale help`: Displays usage guidance, available commands, and options.
 
 ---
@@ -256,7 +263,7 @@ Expected health response:
 
 ## 7. MCP Tool Reference
 
-The Chorale MCP server registers 16 modular tools across file management, sheet operations, and workspace control:
+The Chorale MCP server registers 18 tool names across file management, sheet operations, analysis, and workspace control; `edit_measure` is the backward-compatible alias of `edit_measures`.
 
 ### File Management Tools
 | Tool | Description | Inputs |
@@ -271,6 +278,7 @@ The Chorale MCP server registers 16 modular tools across file management, sheet 
 | Tool | Description | Inputs |
 | :--- | :--- | :--- |
 | `read_measure` | Read written ABC notation for specific measure(s) or the current user selection in the active view. | optional `documentId`, `startMeasure`, `endMeasure`, `voiceId`, `viewId` |
+| `analyze_harmony` | Return fallible, read-only music21 key and chord evidence for at most 16 written measures or the active selection. | optional `documentId`, `startMeasure`, `endMeasure`, `viewId` |
 | `insert_measure` | Insert new measure(s) before or after a target measure in the score. | `documentId`, `targetMeasure`, optional `position` (`before`/`after`), optional `count`, optional `abcContent`, `expectedRevision` |
 | `edit_measures` | Replace written measures across a specified span with replacement ABC notation (supports variable measure lengths; alias: `edit_measure`). | `documentId`, `startMeasure`, `endMeasure`, `replacementAbc`, optional `summary`, `expectedRevision` |
 | `delete_measures` | Delete a range of measures from the score. | `documentId`, `startMeasure`, `endMeasure`, `expectedRevision` |

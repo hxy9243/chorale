@@ -1,6 +1,6 @@
 ---
 name: chorale-install
-description: Install, launch, upgrade, and connect the Chorale CLI and its local MCP daemon across Codex, Claude, and Antigravity.
+description: Install, launch, upgrade, and connect the Chorale CLI, optional music21 harmony analyzer, and local MCP daemon across Codex, Claude, and Antigravity.
 ---
 
 # Chorale Installation and MCP Setup
@@ -27,6 +27,14 @@ npm link
 
 For v0.0.1, download the built `chorale-0.0.1.tgz` asset from the GitHub release and run `npm install --global /path/to/chorale-0.0.1.tgz`. The archive includes the browser workspace. There is no published `@chorale/cli` package. Direct global GitHub-URL installation is not supported in this release; use the source build or archive.
 
+For bounded harmonic evidence, install Python 3.10+ and run:
+
+```bash
+chorale setup music21
+```
+
+This creates `~/.chorale/music21-venv` and installs the evaluated `music21==9.9.1` release without modifying system Python packages. It is optional; all other Chorale features remain available when it is not installed.
+
 ## 2. Launch and Inspect
 
 ```bash
@@ -41,6 +49,9 @@ chorale stop
 
 # Pull latest release and restart the verified daemon
 chorale upgrade
+
+# Install or repair the optional pinned harmony analyzer
+chorale setup music21
 ```
 
 - `chorale` is idempotent: it starts the daemon in the background only when its health endpoint is unavailable, then opens the browser workspace. Never start a second server or choose a fallback port.

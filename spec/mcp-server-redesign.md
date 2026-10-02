@@ -13,6 +13,9 @@ source_files:
   - server/version.mjs
   - server/store.mjs
   - server/views.mjs
+  - server/music21.mjs
+  - server/python/music21_harmony.py
+  - server/python/requirements-music21.txt
   - server/mcp/tools/file-management.mjs
   - server/mcp/tools/sheet-management.mjs
   - server/mcp/tools/workspace.mjs
@@ -21,6 +24,7 @@ source_files:
   - src/hooks/usePluginMcpBridge.ts
 test_files:
   - test/mcp-server.node.mjs
+  - test/music21.node.mjs
   - test/cli-runtime.node.mjs
   - test/measure-ops.node.mjs
 related_specs:
@@ -28,6 +32,7 @@ related_specs:
   - spec/score-surface.md
   - spec/annotations-and-proposals.md
   - spec/file-workspace-architecture.md
+  - spec/music21-harmony-evidence.md
 ---
 
 # Chorale MCP Server & UX Redesign
@@ -61,6 +66,8 @@ Chorale is redesigned from a monolithic script and fragmented plugin wrappers in
     - Gracefully stops only the healthy daemon whose PID and port match recorded runtime metadata.
   - `chorale upgrade`:
     - Pulls the latest git commits and rebuilds workspace assets in a source checkout, then gracefully restarts the verified background daemon while preserving the local score store. Private archive installs must install the new archive explicitly before running `chorale upgrade --skip-pull`; a future publishable package may update through npm. Supports `--skip-pull` or `--no-pull` to bypass pulling if desired.
+  - `chorale setup music21`:
+    - Creates `~/.chorale/music21-venv` and installs the benchmarked `music21==9.9.1` dependency without changing the system Python environment.
   - `chorale help`, `chorale --help`, or `chorale -h`:
     - Displays usage instructions, available CLI commands, and supported flags.
   - `chorale version`, `chorale --version`, or `chorale -v`:
@@ -113,13 +120,15 @@ server/
 ├── api_server.mjs          # Node.js HTTP server hosting UI, REST API (/v1/*), and SSE MCP
 ├── cli.mjs                 # CLI command handler (chorale start, chorale mcp, etc.)
 ├── daemon-mutations.mjs    # Tool mutation proxying to daemon
+├── music21.mjs             # Managed Python installation, discovery, and bounded runner
+├── python/                 # Pinned music21 requirements and ABC analysis helper
 ├── runtime.mjs             # Process lock, PID metadata, port constants
 ├── store.mjs               # Durable LocalDocumentStore (SQLite ~/.chorale/chorale.db)
 ├── version.mjs             # Chorale version metadata
 ├── views.mjs               # In-memory ViewSnapshotStore tracking live browser views
 ├── mcp/
 │   ├── index.mjs           # McpServer instance & tool registration
-│   └── tools/              # 16 MCP agent tools
+│   └── tools/              # 18 registered MCP tool names (including edit_measure alias)
 │       ├── file-management.mjs # File operations: create, list, delete, import, export
 │       ├── sheet-management.mjs# Musical mutations: read, insert, edit, delete measures & notations
 │       └── workspace.mjs       # UI & workspace: open_ui, get_workspace_state, render_score_workspace
@@ -137,6 +146,7 @@ server/
 
 ### 3.2 Sheet Management Tools
 - `read_measure`: Reads written ABC notation for specified measure range (or currently selected measures in live view).
+- `analyze_harmony`: Returns read-only, onset-aligned music21 evidence for at most 16 written measures. Its key, root, quality, inversion, Roman-numeral, and boundary candidates are explicitly fallible.
 - `insert_measure`: Inserts new measures at a target index (before/after) with specified content or blank bars.
 - `edit_measures`: Replaces written measures across specified span with replacement ABC notation (supports variable measure lengths; aliased as `edit_measure` for backward compatibility).
 - `delete_measures`: Removes written measures across specified span.

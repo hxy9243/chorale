@@ -19,6 +19,10 @@ export async function packageCodex(output = join(root, 'plugins/chorale-codex-pl
       target: 'node22',
       banner: { js: "import { createRequire as packageCreateRequire } from 'node:module'; const require = packageCreateRequire(import.meta.url);" },
     });
+    await cp(join(root, 'server/python'), join(staging, 'server/python'), {
+      recursive: true,
+      filter: (src) => !src.includes('__pycache__') && !src.endsWith('.pyc'),
+    });
     await cp(join(root, 'bin'), join(staging, 'bin'), { recursive: true });
     await cp(join(root, 'package.json'), join(staging, 'package.json'));
     await cp(distDir, join(staging, 'dist'), { recursive: true });
@@ -32,7 +36,7 @@ export async function packageCodex(output = join(root, 'plugins/chorale-codex-pl
     await writeFile(join(staging, '.codex-plugin/plugin.json'), JSON.stringify(manifest, null, 2) + '\n');
     await writeFile(join(staging, '.mcp.json'), JSON.stringify({ mcpServers: { chorale: {
       command: './scripts/launch_chorale_mcp', args: [], cwd: '.',
-      env_vars: ['CODEX_MCP_NODE_PATH', 'CODEX_BROWSER_USE_NODE_PATH', 'CODEX_ELECTRON_RESOURCES_PATH', 'CODEX_CLI_PATH', 'XDG_CACHE_HOME', 'HOME', 'USERPROFILE', 'LOCALAPPDATA', 'PATH'],
+      env_vars: ['CHORALE_HOME', 'CHORALE_MUSIC21_PYTHON', 'CHORALE_PYTHON', 'CODEX_MCP_NODE_PATH', 'CODEX_BROWSER_USE_NODE_PATH', 'CODEX_ELECTRON_RESOURCES_PATH', 'CODEX_CLI_PATH', 'XDG_CACHE_HOME', 'HOME', 'USERPROFILE', 'LOCALAPPDATA', 'PATH'],
     } } }, null, 2) + '\n');
     // Replace the complete generated package so obsolete server files cannot survive a rebuild.
     await rm(output, { recursive: true, force: true });

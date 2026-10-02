@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createMcpServer } from './mcp/index.mjs';
 import { proxyDaemonTools } from './daemon-mutations.mjs';
+import { installMusic21 } from './music21.mjs';
 import { startServer } from './api_server.mjs';
 import {
   CHORALE_PORT,
@@ -279,6 +280,7 @@ Commands:
   status           Show status and runtime metadata of the running Chorale daemon
   stop             Gracefully stop the running Chorale daemon
   upgrade          Pull the latest release and restart the verified daemon, preserving score data
+  setup music21    Install the pinned music21 analyzer into ~/.chorale/music21-venv
   mcp              Start the MCP stdio server adapter for AI coding agents
   help             Display this help message
   version          Display version information
@@ -312,6 +314,19 @@ export const runCli = async (options = {}) => {
   if (command === 'version' || args.includes('--version') || args.includes('-v')) {
     logger.log(`chorale v${CHORALE_VERSION}`);
     return { statusCode: 0, version: CHORALE_VERSION };
+  }
+
+  if (command === 'setup' && args[1] === 'music21') {
+    try {
+      logger.log('Installing the pinned music21 analyzer...');
+      const install = options.installMusic21 || installMusic21;
+      const installed = await install({ choraleHome: options.choraleHome, environment: options.environment });
+      logger.log(`music21 ${installed.version} is ready with Python ${installed.pythonVersion}.`);
+      return { statusCode: 0, installed };
+    } catch (error) {
+      logger.error(`Failed to install music21: ${error.message}`);
+      return { statusCode: 1, error: error.message };
+    }
   }
 
   if (command === 'mcp' || args.includes('--stdio')) {

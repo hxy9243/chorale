@@ -1,4 +1,6 @@
 import abcjs from 'abcjs';
+import { computeScoreMeasureMapping as sharedMeasureMapping } from '../../shared/score-timing.mjs';
+import { createVoiceResolver, isNotationOffset } from '../../shared/abc-source.mjs';
 
 /**
  * Pure JavaScript ABC measure operations: extraction, slicing, insertion, deletion, and replacement.
@@ -33,6 +35,17 @@ export const splitHeadersAndBody = (abcSource) => {
     headers: headerLines.join('\n'),
     body: bodyLines.join('\n'),
   };
+};
+
+export const stripComments = (text) => {
+  if (!text || !text.includes('%')) return text;
+  return text
+    .split(/\r?\n/)
+    .map((line) => {
+      const idx = line.indexOf('%');
+      return idx === -1 ? line : line.slice(0, idx);
+    })
+    .join('\n');
 };
 
 const isVoicePropertyString = (rest) => {
@@ -248,202 +261,7 @@ export const isRepeatEndBar = (barType) => {
   );
 };
 
-export const computeScoreMeasureMapping = (tune) => {
-  if (!tune) {
-    return {
-      isPickup: false,
-      firstMeasureNumber: 1,
-      totalMeasures: 1,
-      barToMeasure: [1],
-      measureToBars: new Map([[1, [0]]]),
-      splitMeasures: new Set(),
-    };
-  }
-  const durations = getFirstTwoMeasureDurations(tune);
-  const meterDuration = getMeterDuration(tune);
-  const isPickup = durations && durations.second
-    ? (durations.first.num * meterDuration.den - meterDuration.num * durations.first.den < 0 &&
-       durations.second.num * meterDuration.den - meterDuration.num * durations.second.den >= 0)
-    : false;
-  const firstMeasureNumber = isPickup ? 0 : 1;
-
-  const voiceElementMap = new Map();
-  for (const line of tune.lines || []) {
-    let voiceSlot = 0;
-    for (const staff of line.staff || []) {
-      for (const voice of staff.voices || []) {
-        const slot = voiceSlot++;
-        const list = voiceElementMap.get(slot) || [];
-        list.push(...voice);
-        voiceElementMap.set(slot, list);
-      }
-    }
-  }
-
-  let barCount = 0;
-  for (const [, elements] of voiceElementMap) {
-    let count = 0;
-    for (const el of elements) {
-      if (el.el_type === 'bar') count++;
-    }
-    if (count > barCount) barCount = count;
-  }
-
-  if (barCount === 0) {
-    return {
-      isPickup,
-      firstMeasureNumber,
-      totalMeasures: 1,
-      barToMeasure: [firstMeasureNumber],
-      measureToBars: new Map([[firstMeasureNumber, [0]]]),
-      splitMeasures: new Set(),
-    };
-  }
-
-  const barDurations = Array.from({ length: barCount }, () => ({ num: 0, den: 1 }));
-  const barTypes = Array.from({ length: barCount }, () => '');
-  const barMeterDurations = Array.from({ length: barCount }, () => meterDuration);
-  const barMultimeasures = Array.from({ length: barCount }, () => 1);
-
-  for (const [, elements] of voiceElementMap) {
-    let b = 0;
-    let curNum = 0;
-    let curDen = 1;
-    let multiplier = 1;
-    let activeMeter = meterDuration;
-
-    for (const el of elements) {
-      if (el.el_type === 'meter') {
-        const part = el.value?.[0];
-        if (part?.num !== undefined && part?.den !== undefined) {
-          activeMeter = simplifyFraction(Number(part.num), Number(part.den));
-        }
-      }
-      if (el.el_type === 'bar') {
-        if (b < barCount) {
-          const curVal = curNum / curDen;
-          const prevVal = barDurations[b].num / barDurations[b].den;
-          if (curVal > prevVal) {
-            barDurations[b] = { num: curNum, den: curDen };
-          }
-          if (el.type) barTypes[b] = el.type;
-          barMeterDurations[b] = activeMeter;
-        }
-        b++;
-        curNum = 0;
-        curDen = 1;
-        continue;
-      }
-      if (el.el_type !== 'note' || typeof el.duration !== 'number') continue;
-
-      if (el.startTriplet && el.tripletMultiplier) {
-        multiplier = el.tripletMultiplier;
-      }
-
-      const rawRestText = el.rest?.text;
-      const restCount = typeof rawRestText === 'number'
-        ? rawRestText
-        : typeof rawRestText === 'string' && /^\d+$/.test(rawRestText)
-          ? Number(rawRestText)
-          : 1;
-      const multimeasureCount = el.rest?.type === 'multimeasure'
-        && Number.isSafeInteger(restCount)
-        && restCount > 1
-        ? restCount
-        : 1;
-
-      if (multimeasureCount > 1) {
-        barMultimeasures[b] = Math.max(barMultimeasures[b] || 1, multimeasureCount);
-      }
-
-      const elemNum = Math.round(el.duration * multiplier * 1920);
-      const elemDen = 1920;
-      const common = curDen * elemDen;
-      curNum = curNum * elemDen + elemNum * curDen;
-      curDen = common;
-      const simplified = simplifyFraction(curNum, curDen);
-      curNum = simplified.num;
-      curDen = simplified.den;
-      if (el.endTriplet) multiplier = 1;
-    }
-  }
-
-  const barToMeasure = [];
-  const measureToBars = new Map();
-  const splitMeasures = new Set();
-
-  let currentMeasure = firstMeasureNumber;
-  let prevBarIncomplete = false;
-  let prevBarDuration = { num: 0, den: 1 };
-  let prevBarRepeat = false;
-
-  for (let b = 0; b < barCount; b++) {
-    const barDur = barDurations[b];
-    const barType = barTypes[b];
-    const meterDur = barMeterDurations[b];
-    const multiCount = barMultimeasures[b] || 1;
-
-    if (b === 0 && isPickup) {
-      barToMeasure[b] = 0;
-      currentMeasure = 1;
-      prevBarIncomplete = false;
-      prevBarRepeat = false;
-      prevBarDuration = { num: 0, den: 1 };
-    } else {
-      const sumNum = prevBarDuration.num * barDur.den + barDur.num * prevBarDuration.den;
-      const sumDen = prevBarDuration.den * barDur.den;
-      const sumSimplified = simplifyFraction(sumNum, sumDen);
-      const sumDiff = sumSimplified.num * meterDur.den - meterDur.num * sumSimplified.den;
-      const barDiff = barDur.num * meterDur.den - meterDur.num * barDur.den;
-
-      const isContinuation =
-        prevBarIncomplete &&
-        prevBarRepeat &&
-        barDiff < 0 &&
-        sumDiff === 0;
-
-      if (isContinuation) {
-        const prevMeasure = barToMeasure[b - 1];
-        barToMeasure[b] = prevMeasure;
-        splitMeasures.add(prevMeasure);
-        prevBarIncomplete = false;
-        prevBarRepeat = false;
-        prevBarDuration = { num: 0, den: 1 };
-      } else {
-        barToMeasure[b] = currentMeasure;
-        currentMeasure += multiCount;
-
-        const isShort = barDiff < 0;
-        const isRepeat = isRepeatEndBar(barType);
-        if (isShort && isRepeat) {
-          prevBarIncomplete = true;
-          prevBarRepeat = true;
-          prevBarDuration = barDur;
-        } else {
-          prevBarIncomplete = false;
-          prevBarRepeat = false;
-          prevBarDuration = { num: 0, den: 1 };
-        }
-      }
-    }
-
-    const m = barToMeasure[b];
-    const list = measureToBars.get(m) || [];
-    list.push(b);
-    measureToBars.set(m, list);
-  }
-
-  const totalMeasures = currentMeasure - (isPickup ? 1 : 0);
-
-  return {
-    isPickup,
-    firstMeasureNumber,
-    totalMeasures,
-    barToMeasure,
-    measureToBars,
-    splitMeasures,
-  };
-};
+export const computeScoreMeasureMapping = (tune, options) => sharedMeasureMapping(tune, options);
 
 /**
  * Returns an array of measure text strings across the tune.
@@ -469,6 +287,23 @@ export const measureBodies = (abcSource) => {
   return Array.from({ length: maxMeasures }, (_, i) => `Measure ${i + firstMeasureNumber}`);
 };
 
+const isDirectiveOnlyLine = (text) => {
+  const clean = text.replace(/%[^\r\n]*/g, '').trim();
+  if (!clean) return false;
+  if (/^[A-Za-z]:\s*[^|\r\n]+$/.test(clean)) return true;
+  if (/^\[(?:[A-Za-z]:|clef=)[^\]|]+\]$/.test(clean)) return true;
+  return false;
+};
+
+const formatDirective = (text) => {
+  const clean = text.replace(/%[^\r\n]*/g, '').trim();
+  if (clean.startsWith('[') && clean.endsWith(']')) return clean;
+  if (/^clef=([a-zA-Z0-9_-]+)/.test(clean)) {
+    return `[K:${clean}]`;
+  }
+  return `[${clean}]`;
+};
+
 /**
  * Parses ABC body into voices with measures.
  * Handles both single-voice tunes and multi-voice tunes with V: headers.
@@ -480,8 +315,14 @@ export const parseVoicesAndMeasures = (abcSource) => {
   const voiceDeclarations = new Map();
   const directives = [];
   const standaloneComments = [];
+  const pendingVoiceDirectives = new Map();
   let currentVoiceId = null;
   let inHeader = true;
+
+  const getPending = (id) => {
+    if (!pendingVoiceDirectives.has(id)) pendingVoiceDirectives.set(id, []);
+    return pendingVoiceDirectives.get(id);
+  };
 
   for (const rawLine of lines) {
     let line = rawLine.trim();
@@ -524,9 +365,17 @@ export const parseVoicesAndMeasures = (abcSource) => {
       }
       const rest = voiceMatch[2].trim();
       if (!rest || isVoicePropertyString(rest)) {
-        voiceDeclarations.set(currentVoiceId, inlineComment ? `${notation} ${inlineComment}` : notation);
+        if (!voiceDeclarations.has(currentVoiceId)) {
+          voiceDeclarations.set(currentVoiceId, inlineComment ? `${notation} ${inlineComment}` : notation);
+        } else if (rest) {
+          // Mid-piece voice property change without notes (e.g. V:1 clef=bass)
+          const clefMatch = rest.match(/\bclef=([a-zA-Z0-9_-]+)/);
+          if (clefMatch) {
+            getPending(currentVoiceId).push(`[K:clef=${clefMatch[1]}]`);
+          }
+        }
       } else {
-        appendLineMeasures(voices.get(currentVoiceId), rest, inlineComment);
+        appendLineMeasures(voices.get(currentVoiceId), rest, inlineComment, getPending(currentVoiceId));
       }
       continue;
     }
@@ -538,7 +387,23 @@ export const parseVoicesAndMeasures = (abcSource) => {
       }
     }
 
-    appendLineMeasures(voices.get(currentVoiceId), notation, inlineComment);
+    if (isDirectiveOnlyLine(notation)) {
+      const directiveStr = formatDirective(notation);
+      getPending(currentVoiceId).push(directiveStr);
+      if (inlineComment) standaloneComments.push(inlineComment);
+      continue;
+    }
+
+    appendLineMeasures(voices.get(currentVoiceId), notation, inlineComment, getPending(currentVoiceId));
+  }
+
+  for (const [vId, pending] of pendingVoiceDirectives) {
+    if (pending.length > 0 && voices.has(vId)) {
+      const list = voices.get(vId);
+      if (list.length > 0) {
+        list[list.length - 1] += ` ${pending.join(' ')}`;
+      }
+    }
   }
 
   if (voices.size === 0) {
@@ -549,7 +414,7 @@ export const parseVoicesAndMeasures = (abcSource) => {
     const tunes = abcjs.parseOnly(abcSource);
     const tune = tunes?.[0];
     if (tune) {
-      const mapping = computeScoreMeasureMapping(tune);
+      const mapping = computeScoreMeasureMapping(tune, { voiceIdFor: createVoiceResolver(abcSource) });
       if (mapping && mapping.splitMeasures && mapping.splitMeasures.size > 0) {
         for (const measureList of voices.values()) {
           if (measureList.length === mapping.barToMeasure.length) {
@@ -576,9 +441,14 @@ export const parseVoicesAndMeasures = (abcSource) => {
   };
 };
 
-const appendLineMeasures = (measureList, text, inlineComment = '') => {
+const appendLineMeasures = (measureList, text, inlineComment = '', pendingList = []) => {
   const initialLength = measureList.length;
-  const tokens = text.split(/(\[?\|[|\]:]*|:\|)/).filter(Boolean);
+  let lineText = text;
+  if (pendingList && pendingList.length > 0) {
+    lineText = `${pendingList.join('\n')}\n${text}`;
+    pendingList.length = 0;
+  }
+  const tokens = lineText.split(/(\[?\|[|\]:]*|:\|)/).filter(Boolean);
   let curBar = '';
   for (const tok of tokens) {
     curBar += tok;
@@ -598,13 +468,60 @@ const appendLineMeasures = (measureList, text, inlineComment = '') => {
   if (inlineComment) {
     if (measureList.length > initialLength) {
       measureList[measureList.length - 1] = `${measureList[measureList.length - 1]} ${inlineComment}`;
-    } else {
-      measureList.push(inlineComment);
     }
   }
 };
 
 const hasTerminalBarline = (body) => /(?:\|\]|:\||\|:|\|\||\|)$/.test(body.replace(/%[^\r\n]*$/, '').trim());
+
+const extractActiveStateFromMeasure = (text) => {
+  let key = null;
+  let meter = null;
+  let unitLength = null;
+  let clef = null;
+
+  const clean = stripComments(text);
+
+  const keyMatches = [...clean.matchAll(/(?:\[K:|(?:^|\n|\s)K:)\s*([^\r\n\]]+)/g)];
+  for (const match of keyMatches) {
+    if (!isNotationOffset(clean, match.index)) continue;
+    let content = match[1].replace(/\]$/, '').trim();
+    const clefMatch = content.match(/\bclef=([a-zA-Z0-9_-]+)/);
+    if (clefMatch) {
+      clef = clefMatch[1];
+      content = content.replace(/\bclef=[a-zA-Z0-9_-]+/, '').trim();
+    }
+    if (content) key = content;
+  }
+
+  const meterMatches = [...clean.matchAll(/(?:\[M:|(?:^|\n|\s)M:)\s*([^\r\n\]\s]+)/g)];
+  for (const match of meterMatches) {
+    if (!isNotationOffset(clean, match.index)) continue;
+    meter = match[1].replace(/\]$/, '').trim();
+  }
+
+  const unitLengthMatches = [...clean.matchAll(/(?:\[L:|(?:^|\n|\s)L:)\s*([^\r\n\]\s]+)/g)];
+  for (const match of unitLengthMatches) {
+    if (!isNotationOffset(clean, match.index)) continue;
+    unitLength = match[1].replace(/\]$/, '').trim();
+  }
+
+  const clefMatches = [...clean.matchAll(/(?:\[clef=|\bclef=)\s*([a-zA-Z0-9_-]+)/g)];
+  for (const match of clefMatches) {
+    if (!isNotationOffset(clean, match.index)) continue;
+    clef = match[1];
+  }
+
+  return { key, meter, unitLength, clef };
+};
+
+const updateHeaderField = (headers, prefix, newValue) => {
+  const regex = new RegExp(`^${prefix}:.*$`, 'm');
+  if (regex.test(headers)) {
+    return headers.replace(regex, `${prefix}:${newValue}`);
+  }
+  return `${headers}\n${prefix}:${newValue}`;
+};
 
 /**
  * Reads an exact range of written measures (0/1-indexed, inclusive).
@@ -612,7 +529,9 @@ const hasTerminalBarline = (body) => /(?:\|\]|:\||\|:|\|\||\|)$/.test(body.repla
 export const sliceMeasureRange = (abcSource, startMeasure, endMeasure, voiceId = null) => {
   const hasPickup = hasPickupMeasure(abcSource);
   const firstMeasureNumber = hasPickup ? 0 : 1;
-  const { headers, voices } = parseVoicesAndMeasures(abcSource);
+  const parsed = parseVoicesAndMeasures(abcSource);
+  const { voices, voiceDeclarations } = parsed;
+  let { headers } = parsed;
   const voiceEntries = Array.from(voices.entries());
 
   if (voiceEntries.length === 0) {
@@ -620,17 +539,79 @@ export const sliceMeasureRange = (abcSource, startMeasure, endMeasure, voiceId =
   }
 
   const effectiveStart = Math.max(startMeasure, firstMeasureNumber);
+  const startIndex = Math.max(0, effectiveStart - firstMeasureNumber);
+
+  // Scan preceding measures across voices to determine active key, meter, unit length, and clefs at startIndex
+  let activeScoreKey = null;
+  let activeScoreMeter = null;
+  let activeScoreUnitLength = null;
+  const activeKeys = new Map();
+  const activeClefs = new Map();
+
+  for (let i = 0; i < startIndex; i++) {
+    for (const [vId, mList] of voiceEntries) {
+      if (i < mList.length) {
+        const state = extractActiveStateFromMeasure(mList[i]);
+        if (state.key) {
+          activeScoreKey = state.key;
+          activeKeys.set(vId, state.key);
+        }
+        if (state.meter) activeScoreMeter = state.meter;
+        if (state.unitLength) activeScoreUnitLength = state.unitLength;
+        if (state.clef) activeClefs.set(vId, state.clef);
+      }
+    }
+  }
+
+  const defaultKeyMatch = headers.match(/^K:\s*([^\r\n]+)/m);
+  const defaultScoreKey = defaultKeyMatch ? defaultKeyMatch[1].trim() : null;
+
+  for (const [vId] of voiceEntries) {
+    if (!activeKeys.has(vId) && defaultScoreKey) {
+      activeKeys.set(vId, defaultScoreKey);
+    }
+  }
+
+  // Determine whether active keys are polytonal (different across voices)
+  const distinctKeys = new Set(activeKeys.values());
+  const isPolytonal = distinctKeys.size > 1;
+
+  if (activeScoreKey && !isPolytonal) {
+    headers = updateHeaderField(headers, 'K', activeScoreKey);
+  }
+  if (activeScoreMeter) {
+    headers = updateHeaderField(headers, 'M', activeScoreMeter);
+  }
+  if (activeScoreUnitLength) {
+    headers = updateHeaderField(headers, 'L', activeScoreUnitLength);
+  }
+
   const selectedVoices = [];
 
   for (const [id, measures] of voiceEntries) {
     if (voiceId && voiceId !== id) continue;
-    const startIndex = Math.max(0, effectiveStart - firstMeasureNumber);
-    const endIndex = Math.min(measures.length, Math.max(0, endMeasure - firstMeasureNumber + 1));
-    const sliced = measures.slice(startIndex, endIndex);
+    const voiceStartIndex = Math.max(0, effectiveStart - firstMeasureNumber);
+    const voiceEndIndex = Math.min(measures.length, Math.max(0, endMeasure - firstMeasureNumber + 1));
+    const sliced = measures.slice(voiceStartIndex, voiceEndIndex);
 
     if (sliced.length > 0) {
-      const voiceBody = sliced.map((m) => m.trim()).join(' ');
-      const formatted = voiceEntries.length > 1 || voiceId ? `V:${id}\n${voiceBody}` : voiceBody;
+      let voiceBody = sliced.map((m) => m.trim()).join('\n');
+      if (isPolytonal && activeKeys.has(id)) {
+        const voiceKey = activeKeys.get(id);
+        if (!voiceBody.startsWith('[K:') && !voiceBody.startsWith('K:')) {
+          voiceBody = `[K:${voiceKey}] ${voiceBody}`;
+        }
+      }
+      let declaration = voiceDeclarations?.get(id) || `V:${id}`;
+      const activeClef = activeClefs.get(id);
+      if (activeClef) {
+        if (/\bclef=[a-zA-Z0-9_-]+/.test(declaration)) {
+          declaration = declaration.replace(/\bclef=[a-zA-Z0-9_-]+/, `clef=${activeClef}`);
+        } else {
+          declaration = `${declaration} clef=${activeClef}`;
+        }
+      }
+      const formatted = voiceEntries.length > 1 || voiceId ? `${declaration}\n${voiceBody}` : voiceBody;
       selectedVoices.push(formatted);
     }
   }
@@ -715,11 +696,11 @@ const assembleAbc = (headers, voices, metadata = {}) => {
   }
 
   if (entries.length === 1 && entries[0][0] === '1' && !voiceDeclarations.has('1')) {
-    const body = entries[0][1].map((m) => m.trim()).filter(Boolean).join(' ');
+    const body = entries[0][1].map((m) => m.trim()).filter(Boolean).join('\n');
     parts.push(hasTerminalBarline(body) ? body : `${body} |`);
   } else {
     for (const [id, measures] of entries) {
-      const body = measures.map((m) => m.trim()).filter(Boolean).join(' ');
+      const body = measures.map((m) => m.trim()).filter(Boolean).join('\n');
       const declaration = voiceDeclarations.get(id) || `V:${id}`;
       parts.push(`${declaration}\n${hasTerminalBarline(body) ? body : `${body} |`}`);
     }

@@ -31,3 +31,10 @@ dist-ssr
 # Generated plugin packages
 plugins/chorale-codex-plugin/
 plugins/antigravity/skills/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+music21-venv/

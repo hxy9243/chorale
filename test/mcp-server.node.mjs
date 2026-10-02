@@ -11,6 +11,7 @@ import { LocalDocumentStore, PluginError } from '../server/store.mjs';
 import { createFileManagementTools } from '../server/mcp/tools/file-management.mjs';
 import { createSheetManagementTools } from '../server/mcp/tools/sheet-management.mjs';
 import {
+  computeScoreMeasureMapping,
   deleteMeasures,
   insertMeasures,
   measureBodies,
@@ -48,6 +49,116 @@ test('measure-ops: sliceMeasureRange returns bounded measures for voices', () =>
   assert.equal(sliced.measureCount, 2);
   assert.match(sliced.selectedAbc, /d2 G A B c/);
   assert.match(sliced.selectedAbc, /\[G,B,D\]3/);
+});
+
+test('measure-ops: sliceMeasureRange inherits active key signature, meter, and clefs across excerpt boundaries', () => {
+  const modulatingAbc = `X:1
+T:Modulation Suite
+M:4/4
+L:1/4
+K:C
+V:S clef=treble name="Soprano"
+c4 | [K:G] d4 | f4 |]
+V:B clef=bass name="Bass"
+C4 | [K:G clef=tenor] G,4 | G,4 |]`;
+
+  // Slicing measure 3 (which follows the [K:G] key change and tenor clef change in measure 2)
+  const sliced = sliceMeasureRange(modulatingAbc, 3, 3);
+  assert.equal(sliced.measureCount, 1);
+  // Header must reflect active key K:G
+  assert.match(sliced.selectedAbc, /^K:G/m);
+  // Voice declarations must reflect active clef for Bass (tenor)
+  assert.match(sliced.selectedAbc, /V:B[^\n]*clef=tenor/);
+  // Sliced body retains measure 3 notes
+  assert.match(sliced.selectedAbc, /f4 \|\]/);
+});
+
+test('measure-ops: comments containing directives like [K:G] do not affect active key', () => {
+  const commentedAbc = `X:1
+T:Commented Key
+M:4/4
+L:1/4
+K:C
+c4 | % a comment with [K:G] and clef=bass
+d4 |`;
+
+  const slicedM2 = sliceMeasureRange(commentedAbc, 2, 2);
+  assert.match(slicedM2.selectedAbc, /^K:C/m);
+  assert.doesNotMatch(slicedM2.selectedAbc, /^K:G/m);
+});
+
+test('measure-ops: earlier measures do not inherit later clef changes', () => {
+  const clefShiftAbc = `X:1
+T:Clef Shift
+M:4/4
+L:1/4
+K:C
+V:1 clef=treble
+c4 |
+V:2 clef=bass
+C4 |
+V:1 clef=bass
+C4 |
+V:2 clef=treble
+c4 |`;
+
+  // Slicing measure 1 should retain V:1 clef=treble and V:2 clef=bass
+  const slicedM1 = sliceMeasureRange(clefShiftAbc, 1, 1);
+  assert.match(slicedM1.selectedAbc, /V:1[^\n]*clef=treble/);
+  assert.match(slicedM1.selectedAbc, /V:2[^\n]*clef=bass/);
+  assert.doesNotMatch(slicedM1.selectedAbc, /V:1[^\n]*clef=bass/);
+});
+
+test('measure-ops: excerpts preserve unit note length L: changes from prior measures', () => {
+  const unitLengthAbc = `X:1
+T:Unit Note Length Shift
+M:4/4
+L:1/4
+K:C
+c4 | [L:1/8] c8 |
+d8 |`;
+
+  const slicedM3 = sliceMeasureRange(unitLengthAbc, 3, 3);
+  assert.match(slicedM3.selectedAbc, /^L:1\/8/m);
+});
+
+test('measure-ops: polytonal key changes preserve default header and set voice-local keys', () => {
+  const polytonalAbc = `X:1
+T:Polytonal Suite
+M:4/4
+L:1/4
+K:C
+V:S
+c4 | [K:G] d4 | e4 |
+V:B clef=bass
+C4 | D4 | E4 |`;
+
+  // Measure 3: Soprano has active K:G while Bass has active K:C
+  const slicedM3 = sliceMeasureRange(polytonalAbc, 3, 3);
+  // Header keeps base tune key K:C
+  assert.match(slicedM3.headers, /^K:C/m);
+  // Voice Soprano receives [K:G]
+  assert.match(slicedM3.selectedAbc, /\[K:G\] e4/);
+  // Voice Bass does not receive [K:G]
+  assert.doesNotMatch(slicedM3.selectedAbc, /V:B[^\n]*\n\[K:G\]/);
+});
+
+test('measure-ops: computeScoreMeasureMapping calculates correct totalMeasures with and without pickups and split repeats', () => {
+  // 3 measures without pickup
+  const abc3 = `X:1\nM:4/4\nL:1/4\nK:C\nc4 | d4 | e4 |`;
+  const tune3 = abcjs.parseOnly(abc3)[0];
+  const map3 = computeScoreMeasureMapping(tune3);
+  assert.equal(map3.isPickup, false);
+  assert.equal(map3.totalMeasures, 3);
+  assert.deepEqual(map3.barToMeasure, [1, 2, 3]);
+
+  // Split repeat: measure 2 split into 2 bars
+  const abcSplit = `X:1\nM:4/4\nL:1/4\nK:C\nc4 | d2 :|: d2 | e4 |`;
+  const tuneSplit = abcjs.parseOnly(abcSplit)[0];
+  const mapSplit = computeScoreMeasureMapping(tuneSplit);
+  assert.equal(mapSplit.totalMeasures, 3);
+  assert.deepEqual(mapSplit.barToMeasure, [1, 2, 2, 3]);
+  assert.equal(mapSplit.splitMeasures.has(2), true);
 });
 
 test('measure-ops: insertMeasures adds bars before or after', () => {
@@ -232,6 +343,7 @@ test('MCP server exposes only the current tool format and unbounded measure repl
 
   assert.ok(server._registeredTools.edit_measures);
   assert.ok(server._registeredTools.edit_measure);
+  assert.ok(server._registeredTools.analyze_harmony);
 
   const schema = server._registeredTools.edit_measures.inputSchema;
   const parsed = schema.safeParse({
@@ -242,6 +354,81 @@ test('MCP server exposes only the current tool format and unbounded measure repl
     expectedRevision: 1,
   });
   assert.equal(parsed.success, true);
+});
+
+test('sheet tools: analyze_harmony returns bounded read-only music21 evidence', async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), 'chorale-test-harmony-'));
+  let received;
+  try {
+    const store = new LocalDocumentStore({ baseDir: tempDir });
+    const views = new ViewSnapshotStore();
+    const doc = await store.create({ title: 'Harmony evidence', abcSource: sampleAbc });
+    const { handlers } = createSheetManagementTools(store, views, {
+      analyzeHarmony: async (payload) => {
+        received = payload;
+        return {
+          engine: { name: 'music21', version: '9.9.1', pythonVersion: '3.12.3', source: 'managed' },
+          estimatedPassageKey: 'G major',
+          warning: 'Fallible deterministic evidence',
+          slices: [{
+            position: { measure: 2, offsetQuarterLength: '0' },
+            durationQuarterLength: '1',
+            soundingPitches: ['G3', 'B3', 'D4'],
+            literalBass: 'G3',
+            candidate: { localKey: 'G major', romanNumeral: 'I', root: 'G', quality: 'major', inversion: 'root', confidence: 0.35 },
+          }],
+        };
+      },
+    });
+
+    const analyzed = await handlers.analyze_harmony({
+      documentId: doc.id,
+      startMeasure: 2,
+      endMeasure: 3,
+    });
+    assert.equal(analyzed.isError, undefined);
+    assert.equal(analyzed.structuredContent.documentId, doc.id);
+    assert.equal(analyzed.structuredContent.revision, 1);
+    assert.deepEqual(analyzed.structuredContent.range, { startMeasure: 2, endMeasure: 3 });
+    assert.equal(analyzed.structuredContent.estimatedPassageKey, 'G major');
+    assert.equal(received.passageKey, 'G major');
+    assert.equal(received.slices[0].position.measure, 2);
+
+    const modDoc = await store.create({
+      title: 'Modulation',
+      abcSource: 'X:1\nT:Mod\nM:4/4\nL:1/4\nK:C\nc4 | [K:D] d4 | f4 |]',
+    });
+    await handlers.analyze_harmony({
+      documentId: modDoc.id,
+      startMeasure: 3,
+      endMeasure: 3,
+    });
+    assert.equal(received.passageKey, 'D major');
+    assert.equal(received.slices[0].position.measure, 3);
+
+    const oversized = await handlers.analyze_harmony({
+      documentId: doc.id,
+      startMeasure: 1,
+      endMeasure: 17,
+    });
+    assert.equal(oversized.isError, true);
+    assert.equal(oversized.structuredContent.errorCode, 'ANALYSIS_RANGE_TOO_LARGE');
+    assert.equal((await store.require(doc.id)).revision, 1);
+
+    const { handlers: unavailableHandlers } = createSheetManagementTools(store, views, {
+      analyzeHarmony: async () => {
+        throw Object.assign(new Error('music21 is unavailable. Run `chorale setup music21` with Python 3.10 or newer, then retry.'), {
+          code: 'MUSIC21_UNAVAILABLE',
+        });
+      },
+    });
+    const unavailable = await unavailableHandlers.analyze_harmony({ documentId: doc.id, startMeasure: 1, endMeasure: 1 });
+    assert.equal(unavailable.isError, true);
+    assert.equal(unavailable.structuredContent.errorCode, 'MUSIC21_UNAVAILABLE');
+    assert.match(unavailable.content[0].text, /chorale setup music21/);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
 });
 
 test('stdio mutation proxy routes score writes to the daemon without proxying view reads', async () => {
@@ -352,6 +539,77 @@ test('sheet tools: read, insert, edit, delete measures and notations', async () 
       expectedRevision: 5,
     });
     assert.equal(editMeasureRes.isError, undefined);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('sheet tools: mid-piece clef and key directives never create phantom measures for read, edit, or delete', async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), 'chorale-test-phantom-'));
+  try {
+    const store = new LocalDocumentStore({ baseDir: tempDir });
+    const views = new ViewSnapshotStore();
+    const sourceWithDirectives = `X:1
+T:Clef Directive Safety
+M:4/4
+L:1/4
+K:C
+V:1 clef=treble
+c d e f |
+V:1 clef=bass
+C D E F |
+V:1
+G, A, B, C |`;
+    const doc = await store.create({ title: 'Clef Safety', abcSource: sourceWithDirectives });
+    const { handlers } = createSheetManagementTools(store, views);
+
+    // 1. Read measure 1
+    const m1 = await handlers.read_measure({ documentId: doc.id, startMeasure: 1, endMeasure: 1 });
+    assert.equal(m1.isError, undefined);
+    assert.match(m1.structuredContent.abcSource, /c d e f/);
+
+    // 2. Read measure 2 (must not be a phantom measure)
+    const m2 = await handlers.read_measure({ documentId: doc.id, startMeasure: 2, endMeasure: 2 });
+    assert.equal(m2.isError, undefined);
+    assert.match(m2.structuredContent.abcSource, /C D E F/);
+
+    // 3. Read measure 3
+    const m3 = await handlers.read_measure({ documentId: doc.id, startMeasure: 3, endMeasure: 3 });
+    assert.equal(m3.isError, undefined);
+    assert.match(m3.structuredContent.abcSource, /G, A, B, C/);
+
+    // 4. Edit measure 2
+    const editRes = await handlers.edit_measure({
+      documentId: doc.id,
+      startMeasure: 2,
+      endMeasure: 2,
+      replacementAbc: 'C, D, E, F, |',
+      expectedRevision: 1,
+    });
+    assert.equal(editRes.isError, undefined);
+
+    // Verify measure 1 and 3 are intact, measure 2 replaced
+    const afterEditM1 = await handlers.read_measure({ documentId: doc.id, startMeasure: 1, endMeasure: 1 });
+    assert.match(afterEditM1.structuredContent.abcSource, /c d e f/);
+    const afterEditM2 = await handlers.read_measure({ documentId: doc.id, startMeasure: 2, endMeasure: 2 });
+    assert.match(afterEditM2.structuredContent.abcSource, /C, D, E, F,/);
+    const afterEditM3 = await handlers.read_measure({ documentId: doc.id, startMeasure: 3, endMeasure: 3 });
+    assert.match(afterEditM3.structuredContent.abcSource, /G, A, B, C/);
+
+    // 5. Delete measure 2
+    const delRes = await handlers.delete_measures({
+      documentId: doc.id,
+      startMeasure: 2,
+      endMeasure: 2,
+      expectedRevision: 2,
+    });
+    assert.equal(delRes.isError, undefined);
+
+    // Now total measures is 2: measure 1 is c d e f, measure 2 is G, A, B, C
+    const finalM1 = await handlers.read_measure({ documentId: doc.id, startMeasure: 1, endMeasure: 1 });
+    assert.match(finalM1.structuredContent.abcSource, /c d e f/);
+    const finalM2 = await handlers.read_measure({ documentId: doc.id, startMeasure: 2, endMeasure: 2 });
+    assert.match(finalM2.structuredContent.abcSource, /G, A, B, C/);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
@@ -631,4 +889,3 @@ test('store: mirror error handling reports warning and respects strictMirror', a
     await rm(tempDir, { recursive: true, force: true });
   }
 });
-
