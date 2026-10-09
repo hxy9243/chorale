@@ -14,6 +14,7 @@ import './index.css'
 import './styles/controls.css'
 import './chorale-theme.css'
 import './styles/workspace-responsive.css'
+import './styles/waterfall.css'
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 

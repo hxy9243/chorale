@@ -85,6 +85,45 @@ describe('App Integration', () => {
     expect(screen.queryByPlaceholderText(/Parsed ABC code will appear here/)).toBeNull();
   }, 30000);
 
+  it('toggles the waterfall without adding a second playback dock', async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    const toggle = screen.getByRole('button', { name: 'Waterfall' });
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(toggle);
+    expect(screen.getByRole('region', { name: 'Waterfall pane' })).toBeDefined();
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    expect(document.querySelectorAll('.audio-player-card').length).toBe(1);
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Resize Waterfall pane' }), { key: 'ArrowLeft' });
+    expect((document.querySelector('.waterfall-workspace') as HTMLElement).style.getPropertyValue('--waterfall-width')).toBe('464px');
+    const transport = document.querySelector('.audio-player-card');
+    fireEvent.click(screen.getByRole('button', { name: 'Close Sheet pane' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close Waterfall pane' }));
+    expect(document.querySelector('.audio-player-card')).toBe(transport);
+    expect(screen.queryByRole('region', { name: 'Waterfall pane' })).toBeNull();
+    expect(document.querySelectorAll('.audio-player-card').length).toBe(1);
+  });
+
+  it('rebuilds shared playback after source edits while Sheet is closed', async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'Waterfall' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
+    fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close Sheet pane' }));
+    const source = 'X:1\nT:Hidden score edit\nK:C\nCDEF|';
+    fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code will appear here/), { target: { value: source } });
+    await waitFor(() => expect(abcjs.renderAbc).toHaveBeenCalledWith(expect.any(HTMLElement), source));
+    expect(screen.queryByTestId('sheet-svg')).toBeNull();
+    expect(screen.getByRole('region', { name: 'Waterfall pane' })).toBeDefined();
+    fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code will appear here/), { target: { value: '' } });
+    await waitFor(() => expect(screen.getByText('No Score Loaded')).toBeDefined());
+    vi.mocked(abcjs.renderAbc).mockClear();
+    fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code will appear here/), { target: { value: source } });
+    await waitFor(() => expect(abcjs.renderAbc).toHaveBeenCalledWith(expect.any(HTMLElement), source));
+  });
+
   it('omits the standalone agent sidebar in plugin view', async () => {
     window.history.replaceState({}, '', '/?plugin=1');
     render(<App />);

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 export type ResizablePanelOptions = {
   initialWidth?: number;
@@ -28,7 +28,11 @@ export const useResizablePanel = ({
 
   const dragStateRef = useRef<{ startPos: number; startSize: number } | null>(null);
 
+  const cleanupRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => cleanupRef.current?.(), []);
+
   const beginResize = (event: React.PointerEvent<HTMLButtonElement>) => {
+    cleanupRef.current?.();
     dragStateRef.current = {
       startPos: isVertical ? event.clientY : event.clientX,
       startSize: currentInitialSize,
@@ -62,8 +66,10 @@ export const useResizablePanel = ({
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);
+      cleanupRef.current = null;
     };
 
+    cleanupRef.current = () => handlePointerUp(event.nativeEvent);
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
     window.addEventListener('pointercancel', handlePointerUp);

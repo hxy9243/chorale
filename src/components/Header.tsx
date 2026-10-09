@@ -2,6 +2,8 @@ import React from 'react';
 import { Redo2, Undo2 } from 'lucide-react';
 
 interface HeaderProps {
+  waterfallVisible?: boolean;
+  onToggleWaterfall?: () => void;
   activeFileName?: string;
   saveStatus?: 'saved' | 'saving' | 'error';
   canRenderScore?: boolean;
@@ -14,6 +16,8 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   activeFileName = '',
+  waterfallVisible = false,
+  onToggleWaterfall,
   saveStatus,
   canRenderScore,
   hasPlayback,
@@ -37,8 +41,9 @@ export const Header: React.FC<HeaderProps> = ({
           <strong>{activeFileName || 'Untitled score'}</strong>
         </div>
 
-        {(onUndo || onRedo) && (
+        {(onUndo || onRedo || onToggleWaterfall) && (
           <div className="header-history-actions" role="group" aria-label="Edit history actions">
+            {onToggleWaterfall && <button type="button" className="header-history-btn waterfall-toggle" aria-pressed={waterfallVisible} onClick={onToggleWaterfall}>Waterfall</button>}
             <button
               type="button"
               className="header-history-btn undo"

@@ -1,3 +1,4 @@
+import abcjs from 'abcjs';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileMusic, Plus, X } from 'lucide-react';
 import { Header } from './components/Header';
@@ -6,6 +7,9 @@ import { ScoreCardHeader } from './components/ScoreCardHeader';
 import { ScoreMetadataHeader } from './components/ScoreMetadataHeader';
 import { SheetMusicView } from './components/SheetMusicView';
 import { AudioPlayer } from './components/AudioPlayer';
+import { WaterfallPane } from './components/WaterfallPane';
+import type { WaterfallPlayback } from './music/waterfallPlayback';
+import { useResizablePanel } from './hooks/useResizablePanel';
 import { AbcEditor } from './components/AbcEditor';
 import { WorkspacePaneMenu } from './components/workspace/WorkspacePaneMenu';
 import { WorkspaceModals } from './components/workspace/WorkspaceModals';
@@ -37,7 +41,7 @@ import { usePluginMcpBridge } from './hooks/usePluginMcpBridge';
 import type { ScoreAnchor } from './types/document';
 import { parseAbcHeaderMetadata, type ScoreMetadata } from './utils/abcMetadata';
 import type { PlaybackPosition } from './utils/repeatPlayback';
-import { prepareAbcForPlayback } from './utils/abcAudio';
+import { prepareAbcForPlayback, prepareAbcForEngraving, configureAudioPlayback } from './utils/abcAudio';
 import { extractScore } from './music/scoreSnapshot';
 import type { PlaybackSourceRanges } from './music/abcPresentation';
 
@@ -133,6 +137,13 @@ export const App: React.FC = () => {
     beginRailResize,
   } = useWorkspaceLayout(interfaceZoom, { shellRef, vertical: paneOrientation === 'vertical', sheetVisible });
 
+  const [waterfallVisible, setWaterfallVisible] = useState(false);
+  const [waterfallPlayback, setWaterfallPlayback] = useState<WaterfallPlayback | null>(null);
+  const [waterfallWidth, setWaterfallWidth] = useState(440);
+  const waterfallLayoutRef = useRef<HTMLDivElement>(null);
+  const clampWaterfallWidth = useCallback((width: number) => Math.max(240, Math.min(width, (waterfallLayoutRef.current?.clientWidth || 900) * 0.65)), []);
+  const { beginResize: beginWaterfallResize } = useResizablePanel({ initialWidth: waterfallWidth, clampWidth: clampWaterfallWidth, onWidthChange: setWaterfallWidth, direction: 'left' });
+
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [newScoreModalOpen, setNewScoreModalOpen] = useState(false);
@@ -188,6 +199,25 @@ export const App: React.FC = () => {
     displayAbc,
     abcRevision,
   });
+
+
+  // A closed score pane must not leave the shared transport on a previous
+  // revision. Reuse its prepared synthesis pipeline, without creating audio.
+  const renderedSourceRef = useRef('');
+  const handlePlaybackTuneRendered = useCallback((rendered: abcjs.TuneObject[] | null) => {
+    if (rendered?.length) renderedSourceRef.current = displayAbc;
+    handleTuneRendered(rendered);
+  }, [handleTuneRendered, displayAbc]);
+  useEffect(() => {
+    if (sheetVisible || !canRenderScore || (tunes?.length && renderedSourceRef.current === displayAbc)) return;
+    try {
+      const rendered = abcjs.renderAbc(document.createElement('div'), prepareAbcForEngraving(displayAbc));
+      configureAudioPlayback(displayAbc, rendered);
+      handlePlaybackTuneRendered(rendered.length ? rendered : null);
+    } catch {
+      handlePlaybackTuneRendered(null);
+    }
+  }, [sheetVisible, canRenderScore, displayAbc, handlePlaybackTuneRendered, tunes]);
 
 
   const { draggingPane, activeSnapTarget, handleTabPointerDown } = usePaneTabDrag({
@@ -325,6 +355,8 @@ export const App: React.FC = () => {
 
         <div className="central-column">
           <Header
+            waterfallVisible={waterfallVisible}
+            onToggleWaterfall={() => setWaterfallVisible((visible) => !visible)}
             activeFileName={scoreTitle}
             saveStatus={activeDocument ? saveStatus : undefined}
             canRenderScore={activeDocument ? canRenderScore : undefined}
@@ -341,6 +373,7 @@ export const App: React.FC = () => {
               '--editor-panel-height': editorVisible ? `${editorHeight}px` : '0px',
             } as React.CSSProperties}
           >
+          <div ref={waterfallLayoutRef} className={`waterfall-workspace ${waterfallVisible ? 'waterfall-open' : ''}`} style={{ '--waterfall-width': `${waterfallWidth}px` } as React.CSSProperties}>
           <div
             ref={shellRef}
             className={`score-editor-shell layout-${paneOrientation} order-${paneOrder} ${!sheetVisible ? 'sheet-hidden' : ''} ${!editorVisible ? 'editor-hidden' : ''}`}
@@ -455,7 +488,7 @@ export const App: React.FC = () => {
                           activeAnchor={activeAnchor}
                           navigationAnchor={scoreNavigationAnchor}
                           onSelectAnchor={handleSelectAnchor}
-                          onTuneRendered={handleTuneRendered}
+                          onTuneRendered={handlePlaybackTuneRendered}
                           documentId={activeDocument.id}
                           revision={abcRevision}
                           getPlaybackPosition={getPlaybackPosition}
@@ -609,9 +642,21 @@ export const App: React.FC = () => {
             )}
           </div>
 
-          {sheetVisible && activeDocument && (
+          {waterfallVisible && <>
+            <button type="button" className="waterfall-divider" aria-label="Resize Waterfall pane" onPointerDown={beginWaterfallResize} onKeyDown={(event) => {
+              if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                event.preventDefault();
+                setWaterfallWidth((width) => clampWaterfallWidth(width + (event.key === 'ArrowLeft' ? 24 : -24)));
+              }
+            }}><span /></button>
+            <WaterfallPane playback={canRenderScore ? waterfallPlayback : null} onClose={() => setWaterfallVisible(false)} />
+          </>}
+          </div>
+
+          {activeDocument && (
             <div className="playback-dock-container">
               <AudioPlayer
+                onWaterfallPlaybackChange={setWaterfallPlayback}
                 tunes={canRenderScore ? tunes : null}
                 totalMeasures={totalMeasures}
                 activeAnchor={activeAnchor}

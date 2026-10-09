@@ -21,6 +21,7 @@ related_specs:
   - spec/workspace-layout.md
   - spec/score-surface.md
   - spec/interaction-model.md
+  - spec/piano-waterfall.md
 ---
 
 # Playback Dock Spec
@@ -75,3 +76,7 @@ The current implementation provides:
 - live score cursor line and auto-scroll synchronization
 - repeat-aware playback timing and multi-voice tempo alignment
 - shared-anchor seeking path
+
+## 6. Optional waterfall pane
+
+The shared transport remains mounted while an active document exists, independently of pane visibility. The waterfall reads the same resolved synth notes and WebAudio clock, with the keyboard top edge representing note onset. The dock includes a 0.5–2× speed selector backed by abcjs warp; rebuilding the buffer preserves score position and ignores cancelled starts. See `spec/piano-waterfall.md` for visualization and interrupted-flow requirements.

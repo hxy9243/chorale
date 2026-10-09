@@ -1,0 +1,49 @@
+.waterfall-workspace { display: flex; flex: 1 1 0; min-height: 0; min-width: 0; overflow: hidden; container-type: inline-size; }
+.waterfall-workspace > .score-editor-shell { min-width: 0; flex: 1 1 0; }
+.waterfall-open > .score-editor-shell { padding-right: 0; }
+.waterfall-pane { flex: 0 1 var(--waterfall-width, 440px); width: var(--waterfall-width, 440px); max-width: 65%; min-width: 240px; padding: 8px 12px 0 0; box-sizing: border-box; }
+.waterfall-card { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; background: #f6f4ef; border: 1px solid #dcd8ce; border-radius: 0 5px 0 0; }
+.waterfall-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding: 10px 12px; min-height: 35px; box-sizing: border-box; font-size: 11px; color: #67665e; }
+.waterfall-legend span { display: inline-flex; gap: 5px; align-items: center; }
+.waterfall-legend i { width: 8px; height: 8px; border-radius: 50%; }
+.waterfall-viewport { position: relative; flex: 1; min-height: 0; overflow-x: auto; overflow-y: hidden; }
+.waterfall-piano { display: block; }
+.waterfall-lane { stroke: #dfddd5; stroke-width: 0.5; }
+.waterfall-key-label { fill: #66665d; font-size: 10px; }
+.waterfall-empty { position: absolute; inset: 30% 15px auto; text-align: center; color: #77776e; font-size: 13px; }
+.waterfall-divider { flex: 0 0 12px; border: 0; padding: 0; background: transparent; cursor: col-resize; display: flex; align-items: center; justify-content: center; touch-action: none; }
+.waterfall-divider span { height: 32px; width: 3px; border-radius: 2px; background: #c7c3b8; }
+.waterfall-divider:focus-visible { outline: 2px solid #539b92; outline-offset: -3px; }
+.waterfall-toggle[aria-pressed="true"] { background: #dfebe7; color: #345e57; }
+@container (max-width: 680px) {
+  .waterfall-workspace.waterfall-open { flex-direction: column; overflow-y: auto; }
+  .waterfall-open > .score-editor-shell { flex: 1 0 280px; min-height: 280px; padding-right: 12px; }
+  .waterfall-open > .waterfall-pane { width: 100%; max-width: none; min-width: 0; flex: 0 0 320px; padding: 8px 12px 0; }
+  .waterfall-divider { display: none; }
+}
+.central-workspace > .playback-dock-container .player-controls-bar {
+  grid-template-columns: max-content minmax(5rem, 1fr) auto auto auto !important;
+}
+.playback-speed-control { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #f7f5f0; white-space: nowrap; }
+.playback-speed-control select { color: #f7f5f0; background: #52504a; border: 1px solid #89867e; border-radius: 5px; padding: 3px; font: inherit; }
+@media (max-width: 704px) {
+  .central-workspace > .playback-dock-container .player-controls-bar {
+    grid-template-columns: max-content minmax(0, 1fr) auto !important;
+    grid-template-areas: 'transport progress status' 'speed volume volume' !important;
+  }
+  .playback-speed-control { grid-area: speed; }
+}
+/* The extra speed control needs room even when rails narrow a wide window. */
+.central-workspace > .playback-dock-container .audio-player-card { min-width: min(100%, 40rem) !important; }
+@container (max-width: 760px) {
+  .central-workspace > .playback-dock-container .audio-player-card { width: 100% !important; max-width: 100% !important; }
+  .central-workspace > .playback-dock-container .player-controls-bar {
+    grid-template-columns: max-content minmax(0, 1fr) auto !important;
+    grid-template-areas: 'transport progress status' 'speed volume volume' !important;
+  }
+  .central-workspace > .playback-dock-container .main-play-buttons { grid-area: transport !important; }
+  .central-workspace > .playback-dock-container .playback-progress { grid-area: progress !important; }
+  .central-workspace > .playback-dock-container .playback-status-stack { grid-area: status !important; width: auto !important; max-width: 8rem !important; }
+  .central-workspace > .playback-dock-container .control-slider-group { grid-area: volume !important; width: 100% !important; max-width: none !important; }
+  .playback-speed-control { grid-area: speed; }
+}

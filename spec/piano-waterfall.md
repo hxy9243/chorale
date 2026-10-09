@@ -1,0 +1,39 @@
+---
+title: "Piano Waterfall"
+description: "Optional piano waterfall pane synchronized with the shared audio transport"
+category: "core-workspace"
+date: 2026-10-09
+updated: 2026-10-09
+status: "implemented"
+source_files:
+  - src/components/WaterfallView.tsx
+  - src/components/WaterfallPane.tsx
+  - src/music/waterfallLayout.ts
+  - src/music/waterfallPlayback.ts
+  - src/components/AudioPlayer.tsx
+  - src/App.tsx
+  - src/hooks/useResizablePanel.ts
+  - src/styles/waterfall.css
+test_files:
+  - src/music/__tests__/waterfallLayout.test.ts
+  - src/music/__tests__/waterfallPlayback.test.ts
+  - src/components/__tests__/WaterfallView.test.tsx
+  - src/App.test.tsx
+  - src/hooks/__tests__/useResizablePanel.test.ts
+  - src/components/__tests__/AudioPlayer.test.tsx
+related_specs:
+  - spec/playback-dock.md
+  - spec/workspace-layout.md
+---
+
+# Piano waterfall
+
+The header toggles an optional resizable Waterfall pane beside the existing score/source workspace. Closing it never interrupts playback. At narrow widths it stacks below the workspace. There is one shared playback dock.
+
+Notes use the same resolved synthesis timeline as audio, including repeated passages, chords, overlapping voices, ties, rests and the tempo handling already supported by the synthesizer. No second synthesizer or pixel-collision audio scheduler is created. Each animation frame samples the synth's playback clock; seek, pause, resume, restart and playback-speed changes cannot accumulate animation drift. The paused image remains still and key highlights clear when audio is not playing. A replaced or invalid score clears stale visual data.
+
+The lower/leading edge of each descending note reaches the exact top edge of the keyboard at its onset. There is no separate strike line and no gap above the keyboard. Sounding notes shrink into that boundary until their resolved note end; keys remain highlighted for that duration. White and black note lanes use the same pitch geometry as the keyboard, with correct two/three black-key groups. The range expands to include the score's notes, with at least two full octaves and readable horizontally scrollable keys when needed. Muted voice colors are consistent between notes, active keys and a labeled legend.
+
+Animation runs only in the visible pane, uses bounded visible-note lookup, and cleans up its animation frame and resize subscriptions. The renderer never modifies score content or abcjs SVG children. Component, timing, pitch geometry and transport tests supplement browser playback QA. Video export is outside this feature.
+
+When the Sheet pane is closed, source changes are engraved into a detached element using the same audio preparation pipeline, keeping playback current without a visible score. Hiding panes alone does not rebuild or stop the transport. A shared speed selector offers 0.5–2× playback; visualization uses score-time seconds and the actual audio clock scaled by the selected speed.
