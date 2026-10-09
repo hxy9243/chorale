@@ -56,14 +56,34 @@ export function WaterfallView({ playback }: { playback: WaterfallPlayback | null
     </div>
     <div className="waterfall-viewport" ref={containerRef}>
       <svg className="waterfall-piano" width={width} height={height} role="img" aria-label="Falling notes and piano keyboard. Notes sound when they reach the keys.">
-        <defs><clipPath id={clipId}><rect width={width} height={keyboardY} /></clipPath></defs>
+        <defs>
+          <clipPath id={clipId}><rect width={width} height={keyboardY} /></clipPath>
+          {WATERFALL_COLORS.map((voiceColor, voice) => (
+            <linearGradient key={voice} id={`${clipId}-note-${voice}`} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor={voiceColor} stopOpacity={0.12} />
+              <stop offset="25%" stopColor={voiceColor} stopOpacity={0.55} />
+              <stop offset="50%" stopColor={voiceColor} stopOpacity={0.85} />
+              <stop offset="100%" stopColor={voiceColor} stopOpacity={0.85} />
+            </linearGradient>
+          ))}
+        </defs>
         <g clipPath={`url(#${clipId})`}>
           {keys.filter((key) => !key.black).map((key) => <line key={key.midiPitch} x1={key.x * keyWidth} x2={key.x * keyWidth} y1={0} y2={keyboardY} className="waterfall-lane" />)}
           {visible.map((note) => {
             const key = keyMap.get(note.midiPitch);
             if (!key) return null;
             const geometry = noteGeometry(note, position.currentSeconds, keyboardY);
-            return <rect key={note.id} data-note={note.id} x={key.x * keyWidth + 1} y={geometry.y} width={Math.max(1, key.width * keyWidth - 2)} height={geometry.height} rx={3} fill={color(note.voice)} opacity={0.8} />;
+            const noteWidth = Math.max(1, key.width * keyWidth - 2);
+            return <rect
+              key={note.id}
+              data-note={note.id}
+              x={key.x * keyWidth + 1}
+              y={geometry.y}
+              width={noteWidth}
+              height={geometry.height}
+              rx={noteWidth / 2}
+              fill={`url(#${clipId}-note-${note.voice % WATERFALL_COLORS.length})`}
+            />;
           })}
         </g>
         {[...keys.filter((key) => !key.black), ...keys.filter((key) => key.black)].map((key) => {
