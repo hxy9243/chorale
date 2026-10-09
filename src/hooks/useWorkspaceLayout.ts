@@ -243,6 +243,7 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }, panes?: Work
     editorVisible,
     setEditorVisible,
     editorWidth,
+    setEditorWidth,
     editorHeight,
     setEditorHeight,
     railWidth,

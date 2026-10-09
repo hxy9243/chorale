@@ -129,6 +129,8 @@ export const App: React.FC = () => {
     editorVisible,
     setEditorVisible,
     editorHeight,
+    editorWidth,
+    setEditorWidth,
     fittedPanelLayout,
     railCollapsed,
     setRailCollapsed,
@@ -161,6 +163,40 @@ export const App: React.FC = () => {
     onSizeChange: paneOrientation === 'vertical' ? setWaterfallHeight : setWaterfallWidth,
     direction: paneOrientation === 'vertical' ? (waterfallResizeFromEnd ? 'bottom' : 'top') : (waterfallResizeFromEnd ? 'right' : 'left'),
   });
+
+  const horizontalEditorWidth = waterfallVisible ? editorWidth : fittedPanelLayout.editorPanelWidth;
+  const clampEditorWithWaterfall = useCallback((width: number) => {
+    const shell = shellRef.current;
+    if (!shell?.clientWidth) return Math.max(140, width);
+    const style = window.getComputedStyle(shell);
+    const contentWidth = shell.clientWidth
+      - (Number.parseFloat(style.paddingLeft) || 0)
+      - (Number.parseFloat(style.paddingRight) || 0);
+    const dividerWidth = [...shell.querySelectorAll<HTMLElement>(':scope > .editor-divider, :scope > .waterfall-divider')]
+      .reduce((sum, divider) => sum + divider.clientWidth, 0);
+    const waterfallPane = shell.querySelector<HTMLElement>('.waterfall-pane');
+    const siblingWidth = sheetVisible ? 140 + (waterfallPane?.clientWidth || waterfallWidth) : 140;
+    return Math.max(140, Math.min(width, contentWidth - siblingWidth - dividerWidth));
+  }, [sheetVisible, waterfallWidth]);
+  const { beginResize: beginEditorWithWaterfallResize } = useResizablePanel({
+    initialSize: horizontalEditorWidth,
+    getInitialSize: () => shellRef.current?.querySelector<HTMLElement>('.editor-pane')?.clientWidth || horizontalEditorWidth,
+    clampSize: clampEditorWithWaterfall,
+    onSizeChange: setEditorWidth,
+    direction: editorResizeFromEnd ? 'right' : 'left',
+  });
+  const handleEditorResize = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (paneOrientation === 'vertical') {
+      (editorResizeFromEnd ? beginEditorVerticalResizeFromBottom : beginEditorVerticalResize)(event);
+    } else if (waterfallVisible) {
+      // Keep the other fixed pane from absorbing the drag through flex shrink.
+      const displayedWaterfallWidth = shellRef.current?.querySelector<HTMLElement>('.waterfall-pane')?.clientWidth;
+      if (displayedWaterfallWidth && sheetVisible) setWaterfallWidth(displayedWaterfallWidth);
+      beginEditorWithWaterfallResize(event);
+    } else {
+      (editorResizeFromEnd ? beginEditorResizeFromRight : beginEditorResize)(event);
+    }
+  };
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
@@ -401,7 +437,7 @@ export const App: React.FC = () => {
           <main
             className={`central-workspace ${sheetVisible ? 'sheet-open' : 'sheet-hidden'} ${editorVisible ? 'editor-open' : 'editor-hidden'}`}
             style={{
-              '--editor-panel-width': editorVisible ? `${fittedPanelLayout.editorPanelWidth}px` : '0px',
+              '--editor-panel-width': editorVisible ? `${horizontalEditorWidth}px` : '0px',
               '--editor-panel-height': editorVisible ? `${editorHeight}px` : '0px',
             } as React.CSSProperties}
           >
@@ -538,11 +574,7 @@ export const App: React.FC = () => {
                 className={`editor-divider ${paneOrientation === 'vertical' ? 'divider-horizontal' : 'divider-vertical'} ${sheetPaneOnRight ? 'sheet-pane-on-right' : ''}`}
                 style={dividerStyle('editor')}
                 aria-label="Resize ABC editor"
-                onPointerDown={
-                  paneOrientation === 'vertical'
-                    ? (editorResizeFromEnd ? beginEditorVerticalResizeFromBottom : beginEditorVerticalResize)
-                    : (editorResizeFromEnd ? beginEditorResizeFromRight : beginEditorResize)
-                }
+                onPointerDown={handleEditorResize}
               />
             )}
 
@@ -557,7 +589,7 @@ export const App: React.FC = () => {
                         flex: visiblePanes.length > 1 ? 'none' : '1',
                       }
                     : {
-                        width: visiblePanes.length > 1 ? `${fittedPanelLayout.editorPanelWidth}px` : '100%',
+                        width: visiblePanes.length > 1 ? `${horizontalEditorWidth}px` : '100%',
                         flex: visiblePanes.length > 1 ? 'none' : '1',
                       }
                 ) }}
@@ -601,7 +633,7 @@ export const App: React.FC = () => {
                   style={
                     paneOrientation === 'vertical'
                       ? { width: '100%', height: '100%' }
-                      : { width: visiblePanes.length > 1 ? `${fittedPanelLayout.editorPanelWidth}px` : '100%' }
+                      : { width: visiblePanes.length > 1 ? `${horizontalEditorWidth}px` : '100%' }
                   }
                 >
                   <AbcEditor

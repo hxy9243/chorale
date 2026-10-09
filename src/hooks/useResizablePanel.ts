@@ -5,6 +5,7 @@ export type ResizablePanelOptions = {
   clampWidth?: (width: number) => number;
   onWidthChange?: (width: number) => void;
   initialSize?: number;
+  getInitialSize?: () => number;
   clampSize?: (size: number) => number;
   onSizeChange?: (size: number) => void;
   direction?: 'left' | 'right' | 'top' | 'bottom';
@@ -15,6 +16,7 @@ export const useResizablePanel = ({
   clampWidth,
   onWidthChange,
   initialSize,
+  getInitialSize,
   clampSize,
   onSizeChange,
   direction = 'right',
@@ -35,7 +37,7 @@ export const useResizablePanel = ({
     cleanupRef.current?.();
     dragStateRef.current = {
       startPos: isVertical ? event.clientY : event.clientX,
-      startSize: currentInitialSize,
+      startSize: getInitialSize?.() ?? currentInitialSize,
     };
     const target = event.currentTarget;
     try {

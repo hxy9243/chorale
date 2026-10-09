@@ -166,6 +166,46 @@ describe('App Integration', () => {
     expect(screen.queryByTestId('pane-snap-overlay')).toBeNull();
   });
 
+  it.each(['sheet-first', 'editor-first'])('resizes ABC from its displayed width with Waterfall present (%s)', async (order) => {
+    localStorage.setItem(EDITOR_WIDTH_KEY, '900');
+    localStorage.setItem('chorale.workspace.paneOrder', order);
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Waterfall' }));
+    const shell = document.querySelector<HTMLElement>('.score-editor-shell')!;
+    const editor = document.querySelector<HTMLElement>('.editor-pane')!;
+    const waterfall = screen.getByRole('region', { name: 'Waterfall pane' });
+    Object.defineProperty(shell, 'clientWidth', { configurable: true, value: 1000 });
+    Object.defineProperty(editor, 'clientWidth', { configurable: true, value: 250 });
+    Object.defineProperty(waterfall, 'clientWidth', { configurable: true, value: 400 });
+    const divider = screen.getByRole('button', { name: 'Resize ABC editor' });
+    const delta = order === 'sheet-first' ? 50 : -50;
+    fireEvent.pointerDown(divider, { clientX: 500, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 500 + delta, pointerId: 1 });
+    fireEvent.pointerUp(window, { clientX: 500 + delta, pointerId: 1 });
+    expect(editor.style.width).toBe('200px');
+    expect(localStorage.getItem(EDITOR_WIDTH_KEY)).toBe('200');
+    expect(document.querySelector<HTMLElement>('.waterfall-workspace')!.style.getPropertyValue('--waterfall-width')).toBe('400px');
+    // A second small drag should respond immediately in the other direction.
+    Object.defineProperty(editor, 'clientWidth', { configurable: true, value: 200 });
+    fireEvent.pointerDown(divider, { clientX: 500, pointerId: 2 });
+    fireEvent.pointerMove(window, { clientX: 500 - delta, pointerId: 2 });
+    fireEvent.pointerUp(window, { clientX: 500 - delta, pointerId: 2 });
+    expect(editor.style.width).toBe('250px');
+    Object.defineProperty(editor, 'clientWidth', { configurable: true, value: 250 });
+    fireEvent.pointerDown(divider, { clientX: 500, pointerId: 3 });
+    fireEvent.pointerMove(window, { clientX: order === 'sheet-first' ? -500 : 1500, pointerId: 3 });
+    fireEvent.pointerUp(window, { pointerId: 3 });
+    // Leave 140px for Sheet and preserve the 400px Waterfall width.
+    expect(editor.style.width).toBe('460px');
+    Object.defineProperty(editor, 'clientWidth', { configurable: true, value: 460 });
+    fireEvent.pointerDown(divider, { clientX: 500, pointerId: 4 });
+    fireEvent.pointerMove(window, { clientX: order === 'sheet-first' ? 1500 : -500, pointerId: 4 });
+    fireEvent.pointerUp(window, { pointerId: 4 });
+    expect(editor.style.width).toBe('140px');
+  });
+
   it('rebuilds shared playback after source edits while Sheet is closed', async () => {
     render(<App />);
     await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
