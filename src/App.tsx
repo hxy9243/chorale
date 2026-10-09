@@ -1,4 +1,4 @@
-import abcjs from 'abcjs';
+import type abcjs from 'abcjs';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileMusic, Plus, X } from 'lucide-react';
 import { Header } from './components/Header';
@@ -41,7 +41,7 @@ import { usePluginMcpBridge } from './hooks/usePluginMcpBridge';
 import type { ScoreAnchor } from './types/document';
 import { parseAbcHeaderMetadata, type ScoreMetadata } from './utils/abcMetadata';
 import type { PlaybackPosition } from './utils/repeatPlayback';
-import { prepareAbcForPlayback, prepareAbcForEngraving, configureAudioPlayback } from './utils/abcAudio';
+import { prepareAbcForPlayback, renderPlaybackScore } from './utils/abcAudio';
 import { extractScore } from './music/scoreSnapshot';
 import type { PlaybackSourceRanges } from './music/abcPresentation';
 
@@ -258,20 +258,22 @@ export const App: React.FC = () => {
   // A closed score pane must not leave the shared transport on a previous
   // revision. Reuse its prepared synthesis pipeline, without creating audio.
   const renderedSourceRef = useRef('');
+  const displayPlaybackSourceKey = JSON.stringify([activeDocument?.id, displayAbc]);
+  const [renderedPlaybackSourceKey, setRenderedPlaybackSourceKey] = useState<string | null>(null);
   const handlePlaybackTuneRendered = useCallback((rendered: abcjs.TuneObject[] | null) => {
-    if (rendered?.length) renderedSourceRef.current = displayAbc;
+    if (rendered?.length) renderedSourceRef.current = displayPlaybackSourceKey;
+    setRenderedPlaybackSourceKey(rendered?.length ? displayPlaybackSourceKey : null);
     handleTuneRendered(rendered);
-  }, [handleTuneRendered, displayAbc]);
+  }, [handleTuneRendered, displayPlaybackSourceKey]);
   useEffect(() => {
-    if (sheetVisible || !canRenderScore || (tunes?.length && renderedSourceRef.current === displayAbc)) return;
+    if (sheetVisible || !canRenderScore || (tunes?.length && renderedSourceRef.current === displayPlaybackSourceKey)) return;
     try {
-      const rendered = abcjs.renderAbc(document.createElement('div'), prepareAbcForEngraving(displayAbc));
-      configureAudioPlayback(displayAbc, rendered);
+      const rendered = renderPlaybackScore(document.createElement('div'), displayAbc);
       handlePlaybackTuneRendered(rendered.length ? rendered : null);
     } catch {
       handlePlaybackTuneRendered(null);
     }
-  }, [sheetVisible, canRenderScore, displayAbc, handlePlaybackTuneRendered, tunes]);
+  }, [sheetVisible, canRenderScore, displayAbc, displayPlaybackSourceKey, handlePlaybackTuneRendered, tunes]);
 
 
   const { draggingPane, activeSnapTarget, handleTabPointerDown } = usePaneTabDrag({
@@ -719,6 +721,7 @@ export const App: React.FC = () => {
               <AudioPlayer
                 onWaterfallPlaybackChange={setWaterfallPlayback}
                 tunes={canRenderScore ? tunes : null}
+                sourceKey={renderedPlaybackSourceKey}
                 totalMeasures={totalMeasures}
                 activeAnchor={activeAnchor}
                 onPlaybackPositionChange={handlePlaybackPositionChange}

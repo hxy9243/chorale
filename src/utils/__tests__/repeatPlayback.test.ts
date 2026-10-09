@@ -1,8 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import abcjs from 'abcjs';
-import { buildMeasureOccurrences, selectMeasureWithRepeats } from '../repeatPlayback';
+import { buildMeasureOccurrences, collectPreparedMeasureOccurrences, selectMeasureWithRepeats } from '../repeatPlayback';
+import { renderPlaybackScore } from '../abcAudio';
 
 describe('repeatPlayback utility', () => {
+  it('collects prepared measure occurrences without repeating timing initialization', () => {
+    const tune = renderPlaybackScore(document.createElement('div'), 'X:1\nM:4/4\nL:1/4\nQ:1/4=120\nK:C\n|: C D E F :|')[0];
+    const timing = vi.spyOn(tune, 'setTiming');
+    const occurrences = collectPreparedMeasureOccurrences(tune);
+    expect(occurrences.map((occurrence) => occurrence.startTimeSec)).toEqual([0, 2]);
+    expect(timing).not.toHaveBeenCalled();
+    expect(occurrences).toEqual(buildMeasureOccurrences(tune));
+    expect(timing).toHaveBeenCalledOnce();
+  });
   it('handles scores with standard repeat signs', () => {
     const scratch = document.createElement('div');
     const abc = `X:1

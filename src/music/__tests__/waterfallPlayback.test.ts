@@ -1,7 +1,7 @@
 import abcjs from 'abcjs';
 import { describe, expect, it } from 'vitest';
 import {
-  readWaterfallPosition, secondsPerWholeNote, synchronizeSynthSeekClock,
+  readWaterfallPosition, rebindSynthTimingTarget, secondsPerWholeNote, seekSynthExactly, synchronizeSynthSeekClock, synchronizeSynthTimingTempo,
   waterfallNotesFromNoteMap, waterfallNotesFromSequence,
 } from '../waterfallPlayback';
 import type { SynthPlaybackBuffer, SynthSequence } from '../waterfallPlayback';
@@ -68,6 +68,81 @@ describe('waterfall synthesis timeline', () => {
 });
 
 describe('waterfall WebAudio clock', () => {
+  it('starts the real abcjs notation timer at an exact pre-play audio seek', async () => {
+    const tune = abcjs.renderAbc(document.createElement('div'), 'X:1\nM:4/4\nL:1/4\nQ:1/4=120\nK:C\nC D E F|G A B c|')[0];
+    const controller: any = new abcjs.synth.SynthController();
+    const originalContext = (window as any).abcjsAudioContext;
+    (window as any).abcjsAudioContext = { currentTime: 100, state: 'running', resume: () => Promise.resolve() };
+    const buffer: any = { duration: 4.2, fadeLength: 200, seek: (seconds: number) => { buffer.pausedTimeSec = seconds; }, start: () => {}, stop: () => {} };
+    controller.visualObj = tune;
+    controller.midiBuffer = buffer;
+    controller.isLoaded = true;
+    controller.timer = new abcjs.TimingCallbacks(tune, { qpm: 120, beatSubdivisions: 16, beatCallback: controller.beatCallback });
+    try {
+      seekSynthExactly(controller, { currentTime: 100 }, 1.137);
+      expect(controller.percent).toBeCloseTo(1.137 / 4, 10);
+      await controller.play();
+      expect(buffer.pausedTimeSec).toBe(1.137);
+      expect(controller.timer.currentMillisecond()).toBeCloseTo(1137, 8);
+    } finally {
+      controller.destroy();
+      (window as any).abcjsAudioContext = originalContext;
+    }
+  });
+
+  it.each([false, true])('rebinds real notation events without touching audio (running: %s)', (running) => {
+    const source = 'X:1\nM:4/4\nL:1/4\nQ:1/4=120\nK:C\nC D E F|G A B c|';
+    const first = abcjs.renderAbc(document.createElement('div'), source)[0];
+    const container = document.createElement('div');
+    const next = abcjs.renderAbc(container, source)[0];
+    const timer = new abcjs.TimingCallbacks(first, { qpm: 240 }) as abcjs.TimingCallbacks & { isRunning: boolean; lastMoment: number };
+    timer.isRunning = running;
+    const buffer = { duration: 2.2, fadeLength: 200, isRunning: running, startTimeSec: 99, pausedTimeSec: 1.137 };
+    const before = { ...buffer };
+    const controller = { timer, midiBuffer: buffer, visualObj: first, percent: 0 };
+    try {
+      rebindSynthTimingTarget(controller, next, { currentTime: 100.137 });
+      expect(controller.visualObj).toBe(next);
+      expect(buffer).toEqual(before);
+      expect(timer.isRunning).toBe(running);
+      expect(timer.currentMillisecond()).toBeCloseTo(1137, 7);
+      expect(controller.percent).toBeCloseTo(1.137 / 2, 9);
+      const elements = timer.noteTimings.flatMap((event) => event.elements?.flat() ?? []);
+      expect(elements.length).toBeGreaterThan(0);
+      expect(elements.every((element) => container.contains(element as unknown as Node))).toBe(true);
+    } finally {
+      timer.stop();
+    }
+  });
+
+  it.each([
+    ['4/4', '1/4', 0.5],
+    ['4/4', '1/8', 0.75],
+    ['6/8', '3/8', 0.5],
+    ['6/8', '1/4', 0.75],
+  ] as const)('keeps real abcjs finish timing exact for M:%s Q:%s=101 at %s×', (meter, unit, speed) => {
+    const measure = meter === '6/8' ? 'C D E F G A|' : 'C D E F G A B c|';
+    const tune = abcjs.renderAbc(document.createElement('div'),
+      `X:1\nM:${meter}\nL:1/8\nQ:${unit}=101\nK:C\n${Array(8).fill(measure).join('\n')}`)[0];
+    const flattened = tune.setUpAudio({ chordsOff: false }) as unknown as SynthSequence;
+    const fraction = tune.getMeterFraction();
+    const buffer = {
+      millisecondsPerMeasure: tune.millisecondsPerMeasure() / speed,
+      meterSize: fraction.num / (fraction.den ?? 4),
+    };
+    const exactTempo = tune.getBeatsPerMeasure() / buffer.millisecondsPerMeasure * 60_000;
+    const audioDuration = flattened.totalDuration! * secondsPerWholeNote(buffer);
+    // Mirror SynthController.go, whose rounded BPM is the source of drift.
+    const timer = new abcjs.TimingCallbacks(tune, { qpm: Math.round(exactTempo) }) as abcjs.TimingCallbacks & {
+      qpm: number; lastMoment: number;
+    };
+    expect(Math.abs(timer.lastMoment / 1000 - audioDuration)).toBeGreaterThan(0.01);
+    synchronizeSynthTimingTempo(timer, buffer, tune);
+    expect(timer.qpm).toBeCloseTo(exactTempo, 10);
+    // abcjs note-event timestamps are rounded to milliseconds.
+    expect(Math.abs(timer.lastMoment / 1000 - audioDuration)).toBeLessThanOrEqual(0.00051);
+  });
+
   it('advances at exact audio time and freezes at a paused offset without beat callbacks', () => {
     const buffer: SynthPlaybackBuffer = { isRunning: true, startTimeSec: 20, duration: 8.2, fadeLength: 200 };
     const context = { currentTime: 21.123456, state: 'running' };

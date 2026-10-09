@@ -8,7 +8,7 @@ import type { PlaybackPosition } from '../utils/repeatPlayback';
 import type { PlaybackSourceRanges } from '../music/abcPresentation';
 import { initAbcjsSynth } from '../utils/abcAudio';
 import { isFirstMeasurePickup } from '../music/scoreSnapshot';
-import { readWaterfallPosition, secondsPerWholeNote, synchronizeSynthSeekClock, waterfallNotesFromNoteMap, waterfallNotesFromSequence } from '../music/waterfallPlayback';
+import { readWaterfallPosition, rebindSynthTimingTarget, secondsPerWholeNote, seekSynthExactly, synchronizeSynthTimingTempo, waterfallNotesFromNoteMap, waterfallNotesFromSequence } from '../music/waterfallPlayback';
 import type { SynthSequenceNote, WaterfallPlayback } from '../music/waterfallPlayback';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
@@ -61,6 +61,7 @@ const updatePlaybackCursor = (event: abcjs.NoteTimingEvent) => {
 
 interface AudioPlayerProps {
   tunes: abcjs.TuneObject[] | null;
+  sourceKey?: string | null;
   totalMeasures?: number;
   activeAnchor?: ScoreAnchor | null;
   onPlaybackPositionChange?: (position: PlaybackPosition) => void;
@@ -70,6 +71,7 @@ interface AudioPlayerProps {
 
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   tunes,
+  sourceKey,
   totalMeasures,
   activeAnchor,
   onPlaybackPositionChange,
@@ -79,9 +81,17 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   const soundFontBaseVolume = 0.4;
   const synthControllerRef = useRef<any>(null);
-  const currentTune = tunes?.[0] || null;
-  const [loadedTune, setLoadedTune] = useState<abcjs.TuneObject | null>(null);
-  const isReady = Boolean(currentTune && loadedTune === currentTune);
+  const renderedTune = tunes?.[0] || null;
+  const sourceIdentity = renderedTune ? (sourceKey ?? renderedTune) : null;
+  const [transport, setTransport] = useState({ identity: sourceIdentity, tune: renderedTune });
+  if (transport.identity !== sourceIdentity) {
+    setTransport({ identity: sourceIdentity, tune: renderedTune });
+  }
+  const currentTune = transport.tune;
+  const renderedTuneRef = useRef(renderedTune);
+  useLayoutEffect(() => { renderedTuneRef.current = renderedTune; }, [renderedTune]);
+  const [loadedTransport, setLoadedTransport] = useState<typeof transport | null>(null);
+  const isReady = Boolean(currentTune && loadedTransport === transport);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [volume, setVolume] = useState<number>(0.8);
@@ -100,6 +110,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const pendingSeekRef = useRef<number | null>(0);
   const latestSeekSecondsRef = useRef(0);
   const operationRef = useRef(0);
+  const [synthGeneration, setSynthGeneration] = useState(0);
+  const recoveryRef = useRef<{ transport: typeof transport; seconds: number; duration: number } | null>(null);
   const waterfallRef = useRef<WaterfallPlayback | null>(null);
   // Callback identity changes must not tear down the current audio transport.
   const callbacksRef = useRef({ onPlaybackPositionChange, onPlaybackSourceRangesChange, onWaterfallPlaybackChange });
@@ -122,9 +134,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     onWaterfallPlaybackChange?.(waterfallRef.current);
   }, [onWaterfallPlaybackChange]);
 
-  const [prevTune, setPrevTune] = useState<abcjs.TuneObject | null>(currentTune);
-  if (currentTune !== prevTune) {
-    setPrevTune(currentTune);
+  const [prevSourceIdentity, setPrevSourceIdentity] = useState(sourceIdentity);
+  if (sourceIdentity !== prevSourceIdentity) {
+    setPrevSourceIdentity(sourceIdentity);
     setPlaybackProgress(0);
     setTotalDurationMs(0);
     setCurrentMeasure(null);
@@ -198,13 +210,16 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   useEffect(() => {
     removePlaybackCursor();
     operationRef.current += 1;
-    pendingSeekRef.current = 0;
-    latestSeekSecondsRef.current = 0;
+    const recovery = recoveryRef.current?.transport === transport ? recoveryRef.current : null;
+    recoveryRef.current = null;
+    const initialSeconds = recovery?.seconds ?? 0;
+    pendingSeekRef.current = initialSeconds;
+    latestSeekSecondsRef.current = initialSeconds;
     playbackSpeedRef.current = 1;
     waterfallRef.current = null;
     callbacksRef.current.onWaterfallPlaybackChange?.(null);
     callbacksRef.current.onPlaybackSourceRangesChange?.(null);
-    callbacksRef.current.onPlaybackPositionChange?.({ currentSeconds: 0, isPlaying: false });
+    callbacksRef.current.onPlaybackPositionChange?.({ currentSeconds: initialSeconds, isPlaying: false });
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('chorale-playback-state', { detail: { isPlaying: false } }));
     }
@@ -237,11 +252,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         const synthApi = (abcjs as any).synth;
         if (!synthApi || (synthApi.isSupported && !synthApi.isSupported())) {
           setAudioError('WebAudio is not supported in this browser environment.');
-          setLoadedTune(null);
+          setLoadedTransport(null);
           return;
         }
 
-        setAudioError(null);
+        if (!recovery) setAudioError(null);
 
         // Create audio synth controller
         synthControl = new synthApi.SynthController();
@@ -282,9 +297,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                   synthControl.destroy?.();
                   return;
                 }
+                synchronizeSynthTimingTempo(synthControl.timer, synthControl.midiBuffer, synthControl.visualObj ?? currentTune);
                 if (pendingSeekRef.current !== null) {
-                  synthControl.seek?.(pendingSeekRef.current / playbackSpeedRef.current, 'seconds');
-                  synchronizeSynthSeekClock(synthControl.midiBuffer, getAudioContext());
+                  seekSynthExactly(synthControl, getAudioContext(), pendingSeekRef.current / playbackSpeedRef.current,
+                    totalDurationMsRef.current / 1000);
                   pendingSeekRef.current = null;
                 }
               },
@@ -326,8 +342,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           )));
         };
 
+        const visualTune = renderedTuneRef.current ?? currentTune;
         try {
-          await synthControl.setTune(currentTune, false, {
+          await synthControl.setTune(visualTune, false, {
             chordsOff: false,
             sequenceCallback,
             soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/abcjs/',
@@ -336,7 +353,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         } catch (sfErr) {
           if (cancelled) return;
           console.warn('SoundFont setTune failed, using built-in synth:', sfErr);
-          await synthControl.setTune(currentTune, false, {
+          await synthControl.setTune(visualTune, false, {
             chordsOff: false,
             sequenceCallback,
             soundFontVolumeMultiplier: soundFontBaseVolume,
@@ -344,16 +361,16 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         }
 
         if (cancelled) { synthControl.destroy?.(); return; }
-        const totalTime = currentTune.getTotalTime?.();
+        const totalTime = recovery?.duration ?? currentTune.getTotalTime?.();
         if (Number.isFinite(totalTime) && totalTime > 0) {
-          updatePlaybackPosition({ durationMs: totalTime * 1000 });
+          updatePlaybackPosition({ durationMs: totalTime * 1000, progress: initialSeconds / totalTime });
         }
-        setLoadedTune(currentTune);
+        setLoadedTransport(transport);
       } catch (err: any) {
         if (cancelled) return;
         console.error('Error initializing audio synth:', err);
         setAudioError('Could not initialize audio synthesizer.');
-        setLoadedTune(null);
+        setLoadedTransport(null);
         waterfallRef.current = null;
         callbacksRef.current.onWaterfallPlaybackChange?.(null);
       }
@@ -382,7 +399,15 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         window.dispatchEvent(new CustomEvent('chorale-playback-state', { detail: { isPlaying: false } }));
       }
     };
-  }, [currentTune, soundFontBaseVolume, getAudioContext, getExactPosition, updatePlaybackPosition]);
+  }, [currentTune, transport, synthGeneration, soundFontBaseVolume, getAudioContext, getExactPosition, updatePlaybackPosition]);
+
+  useEffect(() => {
+    const controller = synthControllerRef.current;
+    if (!controller || !renderedTune || controller.visualObj === renderedTune) return;
+    removePlaybackCursor();
+    rebindSynthTimingTarget(controller, renderedTune, getAudioContext());
+    if (!isPlayingRef.current) callbacksRef.current.onPlaybackSourceRangesChange?.(null);
+  }, [renderedTune, currentTune, getAudioContext]);
 
   const seekTo = React.useCallback((position: number, units?: 'seconds') => {
     const controller = synthControllerRef.current;
@@ -390,12 +415,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     const duration = totalDurationMsRef.current / 1000;
     const speed = playbackSpeedRef.current;
     const seconds = units === 'seconds' ? position / speed : position * duration;
-    pendingSeekRef.current = seconds * speed;
-    latestSeekSecondsRef.current = seconds * speed;
-    if (units === 'seconds') controller.seek?.(seconds, units);
-    else controller.seek?.(position);
-    synchronizeSynthSeekClock(controller.midiBuffer, getAudioContext());
-    updatePlaybackPosition({ progress: duration > 0 ? Math.max(0, Math.min(1, seconds / duration)) : 0 });
+    const sought = seekSynthExactly(controller, getAudioContext(), seconds, duration);
+    pendingSeekRef.current = sought.seconds * speed;
+    latestSeekSecondsRef.current = sought.seconds * speed;
+    updatePlaybackPosition({ progress: sought.progress });
   }, [getAudioContext, updatePlaybackPosition]);
 
   const applyAnchorSeek = React.useCallback((anchor: ScoreAnchor) => {
@@ -414,10 +437,16 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }
   }, [currentTune, seekTo]);
 
+  const appliedAnchorRef = useRef<{ anchor: ScoreAnchor; transport: typeof transport } | null>(null);
   useEffect(() => {
-    if (!isReady || !activeAnchor) return;
+    if (!activeAnchor) { appliedAnchorRef.current = null; return; }
+    if (!isReady) return;
+    // A replacement controller restores the latest transport position. Do not
+    // overwrite that recovery (or Stop) with an unchanged earlier selection.
+    if (appliedAnchorRef.current?.anchor === activeAnchor && appliedAnchorRef.current.transport === transport) return;
     applyAnchorSeek(activeAnchor);
-  }, [activeAnchor, applyAnchorSeek, isReady]);
+    appliedAnchorRef.current = { anchor: activeAnchor, transport };
+  }, [activeAnchor, applyAnchorSeek, isReady, transport]);
 
   const handlePlayToggle = async () => {
     const controller = synthControllerRef.current;
@@ -429,10 +458,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       const position = getExactPosition();
       pendingSeekRef.current = null;
       latestSeekSecondsRef.current = position.currentSeconds;
+      const { progress } = seekSynthExactly(controller, getAudioContext(),
+        position.currentSeconds / playbackSpeedRef.current, totalDurationMsRef.current / 1000);
       updatePlaybackPosition({
         playing: false,
-        progress: totalDurationMsRef.current > 0
-          ? position.currentSeconds / playbackSpeedRef.current / (totalDurationMsRef.current / 1000) : 0,
+        progress,
       });
       return;
     }
@@ -461,7 +491,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         seekTo(seconds, 'seconds');
         pendingSeekRef.current = null;
       }
-      synchronizeSynthSeekClock(controller.midiBuffer, getAudioContext());
     } catch (error) {
       if (synthControllerRef.current !== controller || operationRef.current !== operation) return;
       controller.pause?.();
@@ -499,12 +528,14 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     const progress = duration > 0 ? position.currentSeconds / duration : 0;
     controller.pause();
     controller.isStarted = false;
-    controller.percent = progress;
+    seekSynthExactly(controller, getAudioContext(), position.currentSeconds / playbackSpeedRef.current,
+      totalDurationMsRef.current / 1000);
     playbackSpeedRef.current = speed;
     pendingSeekRef.current = position.currentSeconds;
     latestSeekSecondsRef.current = position.currentSeconds;
     setPlaybackSpeed(speed);
     setIsChangingSpeed(true);
+    setAudioError(null);
     updatePlaybackPosition({ playing: false, progress, durationMs: duration / speed * 1000 });
     try {
       // Pause first so abcjs cannot asynchronously restart an obsolete request.
@@ -527,15 +558,24 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           if (synthControllerRef.current === controller) seekTo(latestSeekSecondsRef.current, 'seconds');
           return;
         }
-        synchronizeSynthSeekClock(controller.midiBuffer, getAudioContext());
         pendingSeekRef.current = null;
         updatePlaybackPosition({ playing: true });
       }
     } catch (error) {
-      if (synthControllerRef.current !== controller || operationRef.current !== operation) return;
-      setAudioError('Could not change playback speed.');
+      if (synthControllerRef.current !== controller || !currentTune) return;
+      // A rejected abcjs go() leaves isLoading stuck after destroying the old
+      // timer. Replace that controller instead of letting Play poll forever.
+      recoveryRef.current = { transport, seconds: latestSeekSecondsRef.current, duration };
+      setLoadedTransport(null);
+      setPlaybackSpeed(1);
+      playbackSpeedRef.current = 1;
+      setCurrentMeasure(null);
+      setIsStarting(false);
+      updatePlaybackPosition({ playing: false });
+      setAudioError('Could not change playback speed. Playback is paused at 1×; try again.');
       waterfallRef.current = null;
       callbacksRef.current.onWaterfallPlaybackChange?.(null);
+      setSynthGeneration((generation) => generation + 1);
       console.error('Error changing audio speed:', error);
     } finally {
       if (synthControllerRef.current === controller) setIsChangingSpeed(false);

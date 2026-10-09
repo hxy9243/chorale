@@ -1,3 +1,5 @@
+import type { PlaybackPosition } from '../utils/repeatPlayback';
+
 /** Score-time seconds are independent of playback speed, so score anchors and
  * the waterfall use the same timeline even when the audio buffer is rebuilt. */
 export interface WaterfallNote {
@@ -8,10 +10,7 @@ export interface WaterfallNote {
   durationSeconds: number;
 }
 
-export interface WaterfallPosition {
-  currentSeconds: number;
-  isPlaying: boolean;
-}
+export type WaterfallPosition = PlaybackPosition;
 
 export interface WaterfallPlayback {
   notes: WaterfallNote[];
@@ -50,6 +49,24 @@ export interface SynthPlaybackBuffer {
   pausedTimeSec?: number;
 }
 
+export interface SynthTimingState<T> {
+  qpm?: number;
+  lastMoment?: number;
+  isRunning?: boolean;
+  replaceTarget?: (target: T) => void;
+  pause?: () => void;
+  start?: (position?: number, units?: 'seconds') => void;
+  setProgress?: (position: number, units?: 'seconds') => void;
+}
+
+export interface SynthTransport<T = unknown> {
+  midiBuffer?: SynthPlaybackBuffer | null;
+  timer?: SynthTimingState<T> | null;
+  visualObj?: T | null;
+  percent?: number;
+  seek?: (position: number, units?: 'seconds') => void;
+}
+
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 
 export function secondsPerWholeNote(buffer: SynthPlaybackBuffer, speed = 1): number {
@@ -58,6 +75,25 @@ export function secondsPerWholeNote(buffer: SynthPlaybackBuffer, speed = 1): num
   return finite(milliseconds) && milliseconds > 0 && finite(meter) && meter > 0
     ? milliseconds / 1000 / meter * speed
     : 0;
+}
+
+/** SynthController rounds its timing BPM even though the rendered buffer uses
+ * the exact measure duration. Restore that tempo before the timer starts so
+ * notation and finish callbacks cannot drift at fractional playback speeds.
+ * Deriving BPM from the tune's beat count also handles compound meter and
+ * tempo markings whose note unit is not a quarter note. */
+export function synchronizeSynthTimingTempo<T extends { getBeatsPerMeasure?: () => number }>(
+  timer: { qpm?: number; replaceTarget?: (target: T) => void } | null | undefined,
+  buffer: SynthPlaybackBuffer | null | undefined,
+  tune: T,
+): void {
+  const milliseconds = buffer?.millisecondsPerMeasure;
+  const beats = tune.getBeatsPerMeasure?.();
+  if (!timer?.replaceTarget || !finite(milliseconds) || milliseconds <= 0 || !finite(beats) || beats <= 0) return;
+  const tempo = beats / milliseconds * 60_000;
+  if (!finite(tempo) || tempo <= 0 || Math.abs((timer.qpm ?? 0) - tempo) < 1e-9) return;
+  timer.qpm = tempo;
+  timer.replaceTarget(tune);
 }
 
 /** sequenceCallback is abcjs's final, resolved note map: repeats, ties, chords,
@@ -136,4 +172,47 @@ export function synchronizeSynthSeekClock(
   if (buffer?.isRunning && context && finite(buffer.pausedTimeSec)) {
     buffer.startTimeSec = context.currentTime - buffer.pausedTimeSec;
   }
+}
+
+/** One seek boundary for first-buffer readiness, user seeks and pause/resume.
+ * abcjs seeks audio correctly but leaves both its running clock origin and
+ * notation resume percent stale (the latter may be rounded by a beat callback). */
+export function seekSynthExactly<T>(
+  controller: SynthTransport<T>,
+  context: { currentTime: number } | null | undefined,
+  seconds: number,
+  fallbackDurationSeconds = 0,
+): { seconds: number; progress: number } {
+  const buffer = controller.midiBuffer;
+  const duration = finite(buffer?.duration)
+    ? Math.max(0, buffer.duration - (buffer.fadeLength ?? 0) / 1000)
+    : Math.max(0, fallbackDurationSeconds);
+  const offset = Math.max(0, finite(seconds) ? seconds : 0);
+  const bounded = duration > 0 ? Math.min(offset, duration) : offset;
+  controller.seek?.(bounded, 'seconds');
+  synchronizeSynthSeekClock(buffer, context);
+  const notationDuration = (controller.timer?.lastMoment ?? 0) / 1000 || duration;
+  controller.percent = notationDuration > 0 ? bounded / notationDuration : 0;
+  return { seconds: bounded, progress: duration > 0 ? bounded / duration : 0 };
+}
+
+/** A new engraving of unchanged source only replaces notation event targets.
+ * Keep the audio buffer and its clock untouched, and restore timing from the
+ * exact audio offset rather than the last reported beat. */
+export function rebindSynthTimingTarget<T>(
+  controller: SynthTransport<T>,
+  target: T,
+  context: { currentTime: number } | null | undefined,
+): void {
+  controller.visualObj = target;
+  const timer = controller.timer;
+  if (!timer?.replaceTarget) return;
+  const seconds = readWaterfallPosition(controller.midiBuffer, context).currentSeconds;
+  const running = timer.isRunning ?? Boolean(controller.midiBuffer?.isRunning);
+  timer.pause?.();
+  timer.replaceTarget(target);
+  if (running) timer.start?.(seconds, 'seconds');
+  else timer.setProgress?.(seconds, 'seconds');
+  const duration = (timer.lastMoment ?? 0) / 1000;
+  controller.percent = duration > 0 ? seconds / duration : 0;
 }

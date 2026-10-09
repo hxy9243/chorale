@@ -10,6 +10,8 @@ source_files:
   - src/components/WaterfallPane.tsx
   - src/music/waterfallLayout.ts
   - src/music/waterfallPlayback.ts
+  - src/utils/abcAudio.ts
+  - src/utils/repeatPlayback.ts
   - src/components/AudioPlayer.tsx
   - src/App.tsx
   - src/hooks/useResizablePanel.ts
@@ -21,6 +23,8 @@ source_files:
 test_files:
   - src/music/__tests__/waterfallLayout.test.ts
   - src/music/__tests__/waterfallPlayback.test.ts
+  - src/utils/__tests__/abcAudio.test.ts
+  - src/utils/__tests__/repeatPlayback.test.ts
   - src/components/__tests__/WaterfallView.test.tsx
   - src/App.test.tsx
   - src/hooks/__tests__/useWorkspacePanes.test.ts
@@ -43,3 +47,9 @@ The lower/leading edge of each descending note reaches the exact top edge of the
 Animation runs only in the visible pane, uses bounded visible-note lookup, and cleans up its animation frame and resize subscriptions. The renderer never modifies score content or abcjs SVG children. Component, timing, pitch geometry and transport tests supplement browser playback QA. Video export is outside this feature.
 
 When the Sheet pane is closed, source changes are engraved into a detached element using the same audio preparation pipeline, keeping playback current without a visible score. Hiding panes alone does not rebuild or stop the transport. A shared speed selector offers 0.5–2× playback; visualization uses score-time seconds and the actual audio clock scaled by the selected speed.
+
+Detached score preparation initializes timing before the first Play, so the shared dock can show duration and retain pre-play seeks. Pause and resume keep the notation timer aligned to the exact paused audio position rather than the last beat callback.
+
+Notation timing uses the exact synth tempo after a speed rebuild, including fractional BPM and non-quarter-note tempo markings; rounding the timing callback tempo must not make the waterfall finish before the audio.
+
+Every explicit seek uses one abcjs adapter to update audio offset, running clock origin, and notation resume position together, including seeks made before the first buffer is ready. Reopening Sheet for the same document and source rebinds notation events to the new SVG without rebuilding audio or changing speed, position, or playing state. Document/source changes invalidate that transport identity. A failed speed rebuild replaces the unusable controller and restores the latest requested score position paused at 1×, with a retry message; Stop during a failed rebuild remains at zero.

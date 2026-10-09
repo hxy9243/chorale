@@ -134,7 +134,7 @@ describe('AudioPlayer Component', () => {
     } as DOMRect);
     fireEvent.click(progress, { clientX: 100 });
 
-    expect(mockSynthControl.seek).toHaveBeenCalledWith(0.5);
+    expect(mockSynthControl.seek).toHaveBeenCalledWith(60, 'seconds');
     expect(onPlaybackPositionChange).toHaveBeenLastCalledWith({
       currentSeconds: 60,
       isPlaying: true,
@@ -198,7 +198,7 @@ describe('AudioPlayer Component', () => {
     );
 
     await waitFor(() => {
-      expect(mockSynthControl.seek).toHaveBeenCalledWith(9 / 16);
+      expect(mockSynthControl.seek).toHaveBeenCalledWith(4.5, 'seconds');
     });
     expect(screen.getByText('Selected m. 3, beat 2')).toBeDefined();
   });
@@ -226,7 +226,7 @@ describe('AudioPlayer Component', () => {
     );
 
     await waitFor(() => {
-      expect(mockSynthControl.seek).toHaveBeenCalledWith(0.5);
+      expect(mockSynthControl.seek).toHaveBeenCalledWith(4, 'seconds');
     });
   });
 
@@ -453,6 +453,23 @@ describe('AudioPlayer Component', () => {
     expect(playback!.getPosition()).toEqual({ currentSeconds: 0, isPlaying: false });
   });
 
+  it('resumes notation timing at the exact paused audio position instead of the last beat', async () => {
+    const { context, controller } = installClockController();
+    render(<AudioPlayer tunes={[mockTune]} />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    fireEvent.click(screen.getByTitle('Play Piano Synthesizer'));
+    // abcjs saves controller.percent at beat callbacks and passes it to
+    // TimingCallbacks.start on every resume, separately from the audio offset.
+    controller.percent = 2 / 8;
+    context.currentTime += 2.02;
+    fireEvent.click(screen.getByTitle('Pause Audio'));
+    expect(controller.percent).toBeCloseTo(2.02 / 8, 6);
+    fireEvent.click(screen.getByTitle('Play Piano Synthesizer'));
+    context.currentTime += 0.01;
+    fireEvent.click(screen.getByTitle('Pause Audio'));
+    expect(controller.percent).toBeCloseTo(2.03 / 8, 6);
+  });
+
   it('reinitializes correctly in StrictMode and clears obsolete getters on unmount', async () => {
     const onWaterfallPlaybackChange = vi.fn();
     const { unmount } = render(<StrictMode><AudioPlayer tunes={[mockTune]} onWaterfallPlaybackChange={onWaterfallPlaybackChange} /></StrictMode>);
@@ -490,6 +507,114 @@ describe('AudioPlayer Component', () => {
     expect(playback!.getPosition()).toEqual({ currentSeconds: 1.125, isPlaying: true });
     context.currentTime += 0.25;
     expect(playback!.getPosition()).toEqual({ currentSeconds: 1.625, isPlaying: true });
+  });
+
+  it('corrects the rounded notation tempo when the real synth becomes ready', async () => {
+    const { controller, buffer } = installClockController();
+    const timer = { qpm: 51, replaceTarget: vi.fn() };
+    controller.timer = timer;
+    buffer.millisecondsPerMeasure = 4 / 50.5 * 60_000;
+    render(<AudioPlayer tunes={[mockTune]} />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    act(() => controller.load.mock.lastCall[1].onReady());
+    expect(timer.qpm).toBeCloseTo(50.5, 10);
+    expect(timer.replaceTarget).toHaveBeenCalledWith(mockTune);
+  });
+
+  it('keeps an arbitrary initial seek exact when readiness rounds the last beat', async () => {
+    const { controller, buffer } = installClockController();
+    controller.seek.mockImplementation((seconds: number) => {
+      buffer.pausedTimeSec = seconds;
+      controller.percent = Math.floor(seconds * 32) / 32 / 8;
+    });
+    render(<AudioPlayer tunes={[mockTune]} activeAnchor={{ startMeasure: 1, endMeasure: 1, playbackSeconds: 1.137 }} />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    act(() => controller.load.mock.lastCall[1].onReady());
+    expect(controller.percent).toBeCloseTo(1.137 / 8, 10);
+    fireEvent.click(screen.getByTitle('Play Piano Synthesizer'));
+    expect(controller.percent).toBeCloseTo(1.137 / 8, 10);
+  });
+
+  it.each([false, true])('preserves position and speed on a presentation-only rebind (paused: %s)', async (paused) => {
+    const { controller, context } = installClockController();
+    const changed = vi.fn();
+    const { rerender } = render(<AudioPlayer tunes={[mockTune]} sourceKey="doc-one:original" onWaterfallPlaybackChange={changed} />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    fireEvent.click(screen.getByTitle('Play Piano Synthesizer'));
+    context.currentTime += 1.125;
+    fireEvent.change(screen.getByRole('combobox', { name: 'Playback speed' }), { target: { value: '2' } });
+    await waitFor(() => expect(screen.getByTitle('Pause Audio')).toBeDefined());
+    if (paused) fireEvent.click(screen.getByTitle('Pause Audio'));
+    const playback = changed.mock.lastCall![0] as WaterfallPlayback;
+    const pauseCalls = controller.pause.mock.calls.length;
+    const replacement = { ...mockTune };
+    rerender(<AudioPlayer tunes={[replacement]} sourceKey="doc-one:original" onWaterfallPlaybackChange={changed} />);
+    expect(controller.visualObj).toBe(replacement);
+    expect(controller.pause).toHaveBeenCalledTimes(pauseCalls);
+    expect((abcjs as any).synth.SynthController).toHaveBeenCalledTimes(1);
+    expect((screen.getByRole('combobox', { name: 'Playback speed' }) as HTMLSelectElement).value).toBe('2');
+    expect(playback.getPosition()).toEqual({ currentSeconds: 1.125, isPlaying: !paused });
+    context.currentTime += 0.25;
+    expect(playback.getPosition().currentSeconds).toBe(paused ? 1.125 : 1.625);
+    // A different document must invalidate even identical source/tune objects.
+    rerender(<AudioPlayer tunes={[mockTune]} sourceKey="doc-two:original" onWaterfallPlaybackChange={changed} />);
+    await waitFor(() => expect((abcjs as any).synth.SynthController).toHaveBeenCalledTimes(2));
+    expect(controller.destroy).toHaveBeenCalled();
+    expect(playback.getPosition()).toEqual({ currentSeconds: 0, isPlaying: false });
+  });
+
+  it.each([false, true])('replaces a real abcjs controller after a rejected speed rebuild (stopped: %s)', async (stopped) => {
+    const realAbcjs = await vi.importActual<{ default: typeof abcjs }>('abcjs');
+    const originalContext = (window as any).abcjsAudioContext;
+    const context = { currentTime: 100, state: 'running', resume: vi.fn().mockResolvedValue(undefined) };
+    (window as any).abcjsAudioContext = context;
+    (abcjs as any).synth.activeAudioContext.mockReturnValue(context);
+    const failed: any = new realAbcjs.default.synth.SynthController();
+    failed.load = vi.fn((_element, callbacks) => { failed.cursorControl = callbacks; });
+    const replacement = {
+      ...mockSynthControl, setTune: vi.fn().mockResolvedValue(true), play: vi.fn(), pause: vi.fn(), seek: vi.fn(),
+    };
+    (abcjs as any).synth.SynthController
+      .mockImplementationOnce(function () { return failed; })
+      .mockImplementationOnce(function () { return replacement; });
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const changed = vi.fn();
+    const tune = { ...mockTune, millisecondsPerMeasure: () => 2000 };
+    try {
+      render(<AudioPlayer tunes={[tune]} activeAnchor={{ startMeasure: 1, endMeasure: 1, playbackSeconds: 0.5 }} onWaterfallPlaybackChange={changed} />);
+      await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+      const buffer: any = {
+        duration: 8.2, fadeLength: 200, isRunning: false, pausedTimeSec: 0,
+        start: () => { buffer.startTimeSec = context.currentTime - buffer.pausedTimeSec; buffer.isRunning = true; },
+        pause: () => { buffer.pausedTimeSec = context.currentTime - buffer.startTimeSec; buffer.isRunning = false; },
+        stop: () => { buffer.isRunning = false; },
+        seek: (seconds: number) => { buffer.pausedTimeSec = seconds; },
+      };
+      failed.midiBuffer = buffer;
+      failed.timer = { lastMoment: 8000, pause: vi.fn(), start: vi.fn(), reset: vi.fn(), stop: vi.fn(), setProgress: vi.fn() };
+      failed.isLoaded = true;
+      await act(async () => { fireEvent.click(screen.getByTitle('Play Piano Synthesizer')); });
+      context.currentTime += 1.125;
+      let rejectResume!: (reason: Error) => void;
+      context.resume.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectResume = reject; }));
+      fireEvent.change(screen.getByRole('combobox', { name: 'Playback speed' }), { target: { value: '2' } });
+      expect(failed.isLoading).toBe(true);
+      expect(failed.timer).toBeNull();
+      if (stopped) fireEvent.click(screen.getByTitle('Stop & Reset'));
+      await act(async () => { rejectResume(new Error('AudioContext resume failed')); });
+      await waitFor(() => expect(replacement.setTune).toHaveBeenCalled());
+      expect(failed.isLoading).toBe(true); // The actual library leaves this poisoned.
+      expect((screen.getByRole('combobox', { name: 'Playback speed' }) as HTMLSelectElement).value).toBe('1');
+      expect(screen.getByText(/Playback is paused at 1×; try again/)).toBeDefined();
+      expect(changed.mock.lastCall![0].getPosition()).toEqual({ currentSeconds: stopped ? 0 : 1.625, isPlaying: false });
+      fireEvent.click(screen.getByTitle('Play Piano Synthesizer'));
+      expect(replacement.play).toHaveBeenCalledOnce();
+      expect(replacement.seek).toHaveBeenLastCalledWith(stopped ? 0 : 1.625, 'seconds');
+      expect(screen.getByTitle('Pause Audio')).toBeDefined();
+    } finally {
+      (window as any).abcjsAudioContext = originalContext;
+      errorLog.mockRestore();
+    }
   });
 
   it('pauses an obsolete asynchronous play instead of restarting after Stop', async () => {

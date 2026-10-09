@@ -104,6 +104,19 @@ describe('App Integration', () => {
     expect(document.querySelectorAll('.audio-player-card').length).toBe(1);
   });
 
+  it('keeps active playback when Sheet is closed and reopened for unchanged source', async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    fireEvent.click(screen.getByTitle('Play Piano Synthesizer'));
+    const controllerCount = vi.mocked(abcjs.synth.SynthController).mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Close Sheet pane' }));
+    expect(screen.queryByTestId('sheet-svg')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Sheet' }));
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    expect(screen.getByTitle('Pause Audio')).toBeDefined();
+    expect(abcjs.synth.SynthController).toHaveBeenCalledTimes(controllerCount);
+  });
+
   it('opens Waterfall from the pane menu and keeps a lone Waterfall workspace usable', async () => {
     render(<App />);
     await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
@@ -224,6 +237,31 @@ describe('App Integration', () => {
     vi.mocked(abcjs.renderAbc).mockClear();
     fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code will appear here/), { target: { value: source } });
     await waitFor(() => expect(abcjs.renderAbc).toHaveBeenCalledWith(expect.any(HTMLElement), source));
+  });
+
+  it('prepares hidden-sheet duration and preserves a seek before first Play', async () => {
+    const realAbcjs = await vi.importActual<{ default: typeof abcjs }>('abcjs');
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close Sheet pane' }));
+    const controller = {
+      load: vi.fn(), setTune: vi.fn().mockResolvedValue(true),
+      play: vi.fn(), pause: vi.fn(), seek: vi.fn(),
+    };
+    vi.mocked(abcjs.synth.SynthController).mockImplementationOnce(function () { return controller as any; });
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce(realAbcjs.default.renderAbc);
+    const source = 'X:1\nM:4/4\nL:1/4\nQ:1/4=120\nK:C\nC D E F|G A B c|c B A G|F E D C|';
+    fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code will appear here/), { target: { value: source } });
+    await waitFor(() => expect(screen.getByText('/ 0:08')).toBeDefined());
+    expect(controller.play).not.toHaveBeenCalled();
+    const progress = screen.getByRole('button', { name: 'Seek playback' });
+    vi.spyOn(progress, 'getBoundingClientRect').mockReturnValue({ left: 0, width: 200 } as DOMRect);
+    fireEvent.click(progress, { clientX: 100 });
+    expect(screen.getByText('0:04')).toBeDefined();
+    fireEvent.click(screen.getByTitle('Play Piano Synthesizer'));
+    expect(controller.seek).toHaveBeenLastCalledWith(4, 'seconds');
   });
 
   it('omits the standalone agent sidebar in plugin view', async () => {
