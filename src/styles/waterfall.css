@@ -1,7 +1,6 @@
 .waterfall-workspace { display: flex; flex: 1 1 0; min-height: 0; min-width: 0; overflow: hidden; container-type: inline-size; }
 .waterfall-workspace > .score-editor-shell { min-width: 0; flex: 1 1 0; }
-.waterfall-open > .score-editor-shell { padding-right: 0; }
-.waterfall-pane { flex: 0 1 var(--waterfall-width, 440px); width: var(--waterfall-width, 440px); max-width: 65%; min-width: 240px; padding: 8px 12px 0 0; box-sizing: border-box; }
+.waterfall-pane { flex: 0 1 var(--waterfall-width, 440px); width: var(--waterfall-width, 440px); max-width: 65%; min-width: 140px; min-height: 0; padding: 0; box-sizing: border-box; }
 .waterfall-card { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; background: #f6f4ef; border: 1px solid #dcd8ce; border-radius: 0 5px 0 0; }
 .waterfall-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding: 10px 12px; min-height: 35px; box-sizing: border-box; font-size: 11px; color: #67665e; }
 .waterfall-legend span { display: inline-flex; gap: 5px; align-items: center; }
@@ -14,13 +13,14 @@
 .waterfall-divider { flex: 0 0 12px; border: 0; padding: 0; background: transparent; cursor: col-resize; display: flex; align-items: center; justify-content: center; touch-action: none; }
 .waterfall-divider span { height: 32px; width: 3px; border-radius: 2px; background: #c7c3b8; }
 .waterfall-divider:focus-visible { outline: 2px solid #539b92; outline-offset: -3px; }
-.waterfall-toggle[aria-pressed="true"] { background: #dfebe7; color: #345e57; }
-@container (max-width: 680px) {
-  .waterfall-workspace.waterfall-open { flex-direction: column; overflow-y: auto; }
-  .waterfall-open > .score-editor-shell { flex: 1 0 280px; min-height: 280px; padding-right: 12px; }
-  .waterfall-open > .waterfall-pane { width: 100%; max-width: none; min-width: 0; flex: 0 0 320px; padding: 8px 12px 0; }
-  .waterfall-divider { display: none; }
-}
+.score-editor-shell.layout-vertical > .waterfall-pane { max-width: 100%; min-height: 180px; }
+.score-editor-shell.sheet-hidden.editor-hidden > .waterfall-pane { width: 100%; max-width: 100%; }
+.waterfall-divider.divider-horizontal { cursor: row-resize; width: 100%; }
+.waterfall-divider.divider-horizontal span { width: 32px; height: 3px; }
+.score-editor-shell.layout-horizontal.waterfall-open { overflow-x: auto; }
+/* Leave room for all three panes, allowing the editor to shrink to its minimum. */
+.score-editor-shell.layout-horizontal.waterfall-open:not(.editor-hidden) > .editor-pane { flex-shrink: 1 !important; }
+.score-editor-shell.layout-horizontal.waterfall-open > .editor-pane > .editor-workspace-card { width: 100% !important; }
 .central-workspace > .playback-dock-container .player-controls-bar {
   grid-template-columns: max-content minmax(5rem, 1fr) auto auto auto !important;
 }

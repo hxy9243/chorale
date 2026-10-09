@@ -104,6 +104,68 @@ describe('App Integration', () => {
     expect(document.querySelectorAll('.audio-player-card').length).toBe(1);
   });
 
+  it('opens Waterfall from the pane menu and keeps a lone Waterfall workspace usable', async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'Open pane' }));
+    const waterfallMenu = screen.getByRole('menuitem', { name: /Waterfall.*Show/ });
+    fireEvent.click(waterfallMenu);
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Waterfall' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Sheet' }));
+    expect(screen.queryByText('No panes open')).toBeNull();
+    expect(screen.getByRole('region', { name: 'Waterfall pane' }).parentElement?.classList.contains('score-editor-shell')).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Open pane' }));
+    expect(screen.getByRole('menuitem', { name: /Waterfall.*Open/ })).toBeDefined();
+    fireEvent.click(screen.getByRole('menuitem', { name: /ABC source.*Show/ }));
+    expect(screen.getByRole('button', { name: 'ABC code' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Waterfall' }));
+    expect(screen.getByText('No panes open')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Open Pane' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Waterfall.*Show/ }));
+    expect(screen.getByRole('region', { name: 'Waterfall pane' })).toBeDefined();
+  });
+
+  it.each([false, true])('drags Waterfall in all four directions with ABC visible: %s', async (abcVisible) => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'Waterfall' }));
+    if (abcVisible) fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    const shell = document.querySelector<HTMLElement>('.score-editor-shell')!;
+    vi.spyOn(shell, 'getBoundingClientRect').mockReturnValue({
+      left: 100, top: 100, width: 800, height: 600, right: 900, bottom: 700,
+      x: 100, y: 100, toJSON: () => {},
+    });
+    const tab = screen.getByRole('tab', { name: 'Waterfall' });
+    const pane = screen.getByRole('region', { name: 'Waterfall pane' });
+    const transport = document.querySelector('.audio-player-card');
+    for (const [target, x, y, orientation, first] of [
+      ['left', 120, 400, 'horizontal', true], ['right', 880, 400, 'horizontal', false],
+      ['top', 500, 120, 'vertical', true], ['bottom', 500, 680, 'vertical', false],
+    ] as const) {
+      fireEvent.pointerDown(tab, { clientX: 500, clientY: 140, pointerId: 1 });
+      fireEvent.pointerMove(window, { clientX: x, clientY: y, pointerId: 1 });
+      expect(screen.getByTestId(`pane-snap-${target}`)).toBeDefined();
+      fireEvent.pointerUp(window, { clientX: x, clientY: y, pointerId: 1 });
+      expect(shell.classList.contains(`layout-${orientation}`)).toBe(true);
+      expect((pane as HTMLElement).style.getPropertyValue('--pane-order')).toBe(String(first ? 0 : abcVisible ? 6 : 3));
+      const ordered = [...shell.children]
+        .filter((element) => element.matches('.workspace-pane, .editor-divider, .waterfall-divider'))
+        .sort((a, b) => Number((a as HTMLElement).style.getPropertyValue('--pane-order')) - Number((b as HTMLElement).style.getPropertyValue('--pane-order')));
+      expect(ordered.map((element) => element.classList.contains('workspace-pane') ? 'pane' : 'divider'))
+        .toEqual(abcVisible ? ['pane', 'divider', 'pane', 'divider', 'pane'] : ['pane', 'divider', 'pane']);
+      expect(document.querySelector('.audio-player-card')).toBe(transport);
+      expect(screen.queryByTestId('pane-snap-overlay')).toBeNull();
+    }
+    // A lone Waterfall cannot start a rearrangement gesture.
+    fireEvent.click(screen.getByRole('button', { name: 'Sheet' }));
+    if (abcVisible) fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.pointerDown(tab, { clientX: 500, clientY: 140, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 120, clientY: 400, pointerId: 1 });
+    expect(screen.queryByTestId('pane-snap-overlay')).toBeNull();
+  });
+
   it('rebuilds shared playback after source edits while Sheet is closed', async () => {
     render(<App />);
     await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
@@ -817,7 +879,7 @@ describe('App Integration', () => {
     });
 
     // Both sheet tab and close button are present
-    expect(screen.getByText('Sheet')).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Sheet' })).toBeDefined();
     const closeSheetBtn = screen.getByRole('button', { name: 'Close Sheet pane' });
     expect(closeSheetBtn).toBeDefined();
 

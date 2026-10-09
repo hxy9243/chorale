@@ -13,12 +13,18 @@ source_files:
   - src/components/AudioPlayer.tsx
   - src/App.tsx
   - src/hooks/useResizablePanel.ts
+  - src/hooks/useWorkspacePanes.ts
+  - src/hooks/usePaneTabDrag.ts
+  - src/components/workspace/WorkspacePaneMenu.tsx
+  - src/components/Header.tsx
   - src/styles/waterfall.css
 test_files:
   - src/music/__tests__/waterfallLayout.test.ts
   - src/music/__tests__/waterfallPlayback.test.ts
   - src/components/__tests__/WaterfallView.test.tsx
   - src/App.test.tsx
+  - src/hooks/__tests__/useWorkspacePanes.test.ts
+  - src/components/__tests__/Header.test.tsx
   - src/hooks/__tests__/useResizablePanel.test.ts
   - src/components/__tests__/AudioPlayer.test.tsx
 related_specs:
@@ -28,7 +34,7 @@ related_specs:
 
 # Piano waterfall
 
-The header toggles an optional resizable Waterfall pane beside the existing score/source workspace. Closing it never interrupts playback. At narrow widths it stacks below the workspace. There is one shared playback dock.
+Sheet, ABC code, and Waterfall toggles sit on the right side of the header beside one status indicator. The healthy status is Music ready; saving, save failure, and pending music remain visible as one status rather than separate save/SVG/audio pills. Every pane launcher menu includes Waterfall. The optional resizable Waterfall pane shares the score/source workspace: dragging any pane tab snaps it to the left, right, top, or bottom, and orientation plus the complete three-pane order persist. Existing two-pane layout preferences remain compatible. A lone pane fills the workspace; the empty desk appears only when all three panes are closed. Closing panes never interrupts playback. There is one shared playback dock.
 
 Notes use the same resolved synthesis timeline as audio, including repeated passages, chords, overlapping voices, ties, rests and the tempo handling already supported by the synthesizer. No second synthesizer or pixel-collision audio scheduler is created. Each animation frame samples the synth's playback clock; seek, pause, resume, restart and playback-speed changes cannot accumulate animation drift. The paused image remains still and key highlights clear when audio is not playing. A replaced or invalid score clears stale visual data.
 

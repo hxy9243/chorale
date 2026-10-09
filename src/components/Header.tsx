@@ -1,7 +1,11 @@
 import React from 'react';
-import { Redo2, Undo2 } from 'lucide-react';
+import { FileCode2, FileMusic, Piano, Redo2, Undo2 } from 'lucide-react';
 
 interface HeaderProps {
+  sheetVisible?: boolean;
+  editorVisible?: boolean;
+  onToggleSheet?: () => void;
+  onToggleEditor?: () => void;
   waterfallVisible?: boolean;
   onToggleWaterfall?: () => void;
   activeFileName?: string;
@@ -16,6 +20,10 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   activeFileName = '',
+  sheetVisible = true,
+  editorVisible = false,
+  onToggleSheet,
+  onToggleEditor,
   waterfallVisible = false,
   onToggleWaterfall,
   saveStatus,
@@ -26,13 +34,11 @@ export const Header: React.FC<HeaderProps> = ({
   onUndo,
   onRedo,
 }) => {
-  const saveLabel = saveStatus === 'saved'
-    ? 'Auto-saved'
-    : saveStatus === 'saving'
-      ? 'Saving…'
-      : saveStatus === 'error'
-        ? 'Save failed'
-        : null;
+  const statusLabel = saveStatus === 'error' ? 'Save failed'
+    : saveStatus === 'saving' ? 'Saving…'
+      : canRenderScore && hasPlayback ? 'Music ready' : 'Music pending';
+  const showStatus = saveStatus !== undefined || canRenderScore !== undefined || hasPlayback !== undefined;
+  const statusClass = saveStatus === 'error' ? 'error' : statusLabel === 'Music ready' ? 'ready' : 'pending';
 
   return (
     <header className="app-header">
@@ -41,9 +47,8 @@ export const Header: React.FC<HeaderProps> = ({
           <strong>{activeFileName || 'Untitled score'}</strong>
         </div>
 
-        {(onUndo || onRedo || onToggleWaterfall) && (
+        {(onUndo || onRedo) && (
           <div className="header-history-actions" role="group" aria-label="Edit history actions">
-            {onToggleWaterfall && <button type="button" className="header-history-btn waterfall-toggle" aria-pressed={waterfallVisible} onClick={onToggleWaterfall}>Waterfall</button>}
             <button
               type="button"
               className="header-history-btn undo"
@@ -69,28 +74,19 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
 
-        {(saveLabel || canRenderScore !== undefined || hasPlayback !== undefined) && (
-          <div className="header-status-group" role="status" aria-live="polite">
-            {saveLabel && (
-              <span className={`header-status-pill score-status-item save ${saveStatus}`}>
-                <span className="status-dot" aria-hidden="true" />
-                <span>{saveLabel}</span>
-              </span>
-            )}
-            {canRenderScore !== undefined && (
-              <span className={`header-status-pill svg ${canRenderScore ? 'ready' : 'pending'}`}>
-                <span className="status-dot" aria-hidden="true" />
-                <span>SVG {canRenderScore ? 'ready' : 'pending'}</span>
-              </span>
-            )}
-            {hasPlayback !== undefined && (
-              <span className={`header-status-pill audio ${hasPlayback ? 'ready' : 'pending'}`}>
-                <span className="status-dot" aria-hidden="true" />
-                <span>Music {hasPlayback ? 'ready' : 'pending'}</span>
-              </span>
-            )}
+        <div className="header-right">
+          <div className="header-pane-actions" role="group" aria-label="Pane visibility">
+            {onToggleSheet && <button type="button" className="header-history-btn" aria-label="Sheet" title="Sheet" aria-pressed={sheetVisible} onClick={onToggleSheet}><FileMusic size={14} aria-hidden="true" /><span>Sheet</span></button>}
+            {onToggleEditor && <button type="button" className="header-history-btn" aria-label="ABC code" title="ABC code" aria-pressed={editorVisible} onClick={onToggleEditor}><FileCode2 size={14} aria-hidden="true" /><span>ABC code</span></button>}
+            {onToggleWaterfall && <button type="button" className="header-history-btn" aria-label="Waterfall" title="Waterfall" aria-pressed={waterfallVisible} onClick={onToggleWaterfall}><Piano size={14} aria-hidden="true" /><span>Waterfall</span></button>}
           </div>
-        )}
+          {showStatus && <div className="header-status-group" role="status" aria-live="polite">
+            <span className={`header-status-pill ${statusClass}`}>
+              <span className="status-dot" aria-hidden="true" />
+              <span>{statusLabel}</span>
+            </span>
+          </div>}
+        </div>
       </div>
     </header>
   );

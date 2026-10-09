@@ -107,6 +107,7 @@ export const App: React.FC = () => {
     sheetVisible,
     paneOrientation,
     paneOrder,
+    paneSequence,
     sheetPaneOnRight,
     rearrangePane,
     paneMenuOpen,
@@ -114,10 +115,13 @@ export const App: React.FC = () => {
     openSheetPane,
     openEditorPane,
     closeSheetPane,
+    setSheetVisible,
+    closePaneMenu,
     togglePaneMenu,
   } = useWorkspacePanes();
 
   const shellRef = useRef<HTMLDivElement>(null);
+  const [waterfallVisible, setWaterfallVisible] = useState(false);
 
   const {
     zoom,
@@ -135,14 +139,28 @@ export const App: React.FC = () => {
     beginEditorVerticalResize,
     beginEditorVerticalResizeFromBottom,
     beginRailResize,
-  } = useWorkspaceLayout(interfaceZoom, { shellRef, vertical: paneOrientation === 'vertical', sheetVisible });
+  } = useWorkspaceLayout(interfaceZoom, { shellRef, vertical: paneOrientation === 'vertical', sheetVisible: sheetVisible || waterfallVisible });
 
-  const [waterfallVisible, setWaterfallVisible] = useState(false);
   const [waterfallPlayback, setWaterfallPlayback] = useState<WaterfallPlayback | null>(null);
   const [waterfallWidth, setWaterfallWidth] = useState(440);
   const waterfallLayoutRef = useRef<HTMLDivElement>(null);
   const clampWaterfallWidth = useCallback((width: number) => Math.max(240, Math.min(width, (waterfallLayoutRef.current?.clientWidth || 900) * 0.65)), []);
-  const { beginResize: beginWaterfallResize } = useResizablePanel({ initialWidth: waterfallWidth, clampWidth: clampWaterfallWidth, onWidthChange: setWaterfallWidth, direction: 'left' });
+  const [waterfallHeight, setWaterfallHeight] = useState(320);
+  const visiblePanes = paneSequence.filter((id) => id === 'sheet' ? sheetVisible : id === 'editor' ? editorVisible : waterfallVisible);
+  // Resize from the edge facing Sheet, so each gap has exactly one divider.
+  const resizeFromEnd = (id: typeof paneSequence[number]) => sheetVisible
+    ? visiblePanes.indexOf(id) < visiblePanes.indexOf('sheet') : visiblePanes[0] === id;
+  const editorResizeFromEnd = resizeFromEnd('editor');
+  const waterfallResizeFromEnd = resizeFromEnd('waterfall');
+  const paneStyle = (id: typeof paneSequence[number]) => ({ '--pane-order': visiblePanes.indexOf(id) * 3 } as React.CSSProperties);
+  const dividerStyle = (id: typeof paneSequence[number]) => ({ '--pane-order': visiblePanes.indexOf(id) * 3 + (resizeFromEnd(id) ? 1 : -1) } as React.CSSProperties);
+  const clampWaterfallHeight = useCallback((height: number) => Math.max(180, Math.min(height, (shellRef.current?.clientHeight || 900) - 214)), []);
+  const { beginResize: beginWaterfallResize } = useResizablePanel({
+    initialSize: paneOrientation === 'vertical' ? waterfallHeight : waterfallWidth,
+    clampSize: paneOrientation === 'vertical' ? clampWaterfallHeight : clampWaterfallWidth,
+    onSizeChange: paneOrientation === 'vertical' ? setWaterfallHeight : setWaterfallWidth,
+    direction: paneOrientation === 'vertical' ? (waterfallResizeFromEnd ? 'bottom' : 'top') : (waterfallResizeFromEnd ? 'right' : 'left'),
+  });
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
@@ -222,9 +240,19 @@ export const App: React.FC = () => {
 
   const { draggingPane, activeSnapTarget, handleTabPointerDown } = usePaneTabDrag({
     shellRef,
-    bothPanesVisible: sheetVisible && editorVisible,
+    bothPanesVisible: visiblePanes.length > 1,
     rearrangePane,
   });
+
+  const paneMenu = <WorkspacePaneMenu
+    paneMenuRef={paneMenuRef}
+    sheetVisible={sheetVisible}
+    editorVisible={editorVisible}
+    waterfallVisible={waterfallVisible}
+    onOpenSheet={() => openSheetPane(editorVisible)}
+    onOpenEditor={() => openEditorPane(setEditorVisible)}
+    onOpenWaterfall={() => { setWaterfallVisible(true); closePaneMenu(); }}
+  />;
 
   // Adjust state during render when activeFileId changes
   const [prevActiveFileId, setPrevActiveFileId] = useState(activeFileId);
@@ -355,6 +383,10 @@ export const App: React.FC = () => {
 
         <div className="central-column">
           <Header
+            sheetVisible={sheetVisible}
+            editorVisible={editorVisible}
+            onToggleSheet={() => setSheetVisible((visible) => !visible)}
+            onToggleEditor={() => setEditorVisible((visible) => !visible)}
             waterfallVisible={waterfallVisible}
             onToggleWaterfall={() => setWaterfallVisible((visible) => !visible)}
             activeFileName={scoreTitle}
@@ -376,12 +408,12 @@ export const App: React.FC = () => {
           <div ref={waterfallLayoutRef} className={`waterfall-workspace ${waterfallVisible ? 'waterfall-open' : ''}`} style={{ '--waterfall-width': `${waterfallWidth}px` } as React.CSSProperties}>
           <div
             ref={shellRef}
-            className={`score-editor-shell layout-${paneOrientation} order-${paneOrder} ${!sheetVisible ? 'sheet-hidden' : ''} ${!editorVisible ? 'editor-hidden' : ''}`}
+            className={`score-editor-shell ${waterfallVisible ? 'waterfall-open' : ''} layout-${paneOrientation} order-${paneOrder} ${!sheetVisible ? 'sheet-hidden' : ''} ${!editorVisible ? 'editor-hidden' : ''}`}
           >
             {sheetVisible && (
               <section
                 className={`workspace-pane score-pane ${sheetPaneOnRight ? 'sheet-pane-on-right' : ''}`}
-                style={paneOrientation === 'vertical' ? { width: '100%', flex: '1 1 0', height: editorVisible ? 'auto' : '100%' } : { flex: 1 }}
+                style={{ ...paneStyle('sheet'), ...(paneOrientation === 'vertical' ? { width: '100%', flex: '1 1 0', height: visiblePanes.length > 1 ? 'auto' : '100%' } : { flex: 1 }) }}
               >
                 <div className="pane-tab-strip">
                   <div
@@ -414,15 +446,7 @@ export const App: React.FC = () => {
                       >
                         <Plus size={14} aria-hidden="true" />
                       </button>
-                      {paneMenuOpen && (
-                        <WorkspacePaneMenu
-                          paneMenuRef={paneMenuRef}
-                          sheetVisible={sheetVisible}
-                          editorVisible={editorVisible}
-                          onOpenSheet={() => openSheetPane(editorVisible)}
-                          onOpenEditor={() => openEditorPane(setEditorVisible)}
-                        />
-                      )}
+                      {paneMenuOpen && paneMenu}
                     </div>
                   )}
                 </div>
@@ -508,15 +532,16 @@ export const App: React.FC = () => {
               </section>
             )}
 
-            {sheetVisible && editorVisible && (
+            {editorVisible && visiblePanes.length > 1 && (
               <button
                 type="button"
                 className={`editor-divider ${paneOrientation === 'vertical' ? 'divider-horizontal' : 'divider-vertical'} ${sheetPaneOnRight ? 'sheet-pane-on-right' : ''}`}
+                style={dividerStyle('editor')}
                 aria-label="Resize ABC editor"
                 onPointerDown={
                   paneOrientation === 'vertical'
-                    ? (paneOrder === 'editor-first' ? beginEditorVerticalResizeFromBottom : beginEditorVerticalResize)
-                    : (sheetPaneOnRight ? beginEditorResizeFromRight : beginEditorResize)
+                    ? (editorResizeFromEnd ? beginEditorVerticalResizeFromBottom : beginEditorVerticalResize)
+                    : (editorResizeFromEnd ? beginEditorResizeFromRight : beginEditorResize)
                 }
               />
             )}
@@ -524,18 +549,18 @@ export const App: React.FC = () => {
             {editorVisible && (
               <section
                 className="workspace-pane editor-pane"
-                style={
+                style={{ ...paneStyle('editor'), ...(
                   paneOrientation === 'vertical'
                     ? {
                         width: '100%',
-                        height: sheetVisible ? `${editorHeight}px` : '100%',
-                        flex: sheetVisible ? 'none' : '1',
+                        height: visiblePanes.length > 1 ? `${editorHeight}px` : '100%',
+                        flex: visiblePanes.length > 1 ? 'none' : '1',
                       }
                     : {
-                        width: sheetVisible ? `${fittedPanelLayout.editorPanelWidth}px` : '100%',
-                        flex: sheetVisible ? 'none' : '1',
+                        width: visiblePanes.length > 1 ? `${fittedPanelLayout.editorPanelWidth}px` : '100%',
+                        flex: visiblePanes.length > 1 ? 'none' : '1',
                       }
-                }
+                ) }}
               >
                 <div className="pane-tab-strip">
                   <div
@@ -567,15 +592,7 @@ export const App: React.FC = () => {
                     >
                       <Plus size={14} aria-hidden="true" />
                     </button>
-                    {paneMenuOpen && (
-                      <WorkspacePaneMenu
-                        paneMenuRef={paneMenuRef}
-                        sheetVisible={sheetVisible}
-                        editorVisible={editorVisible}
-                        onOpenSheet={() => openSheetPane(editorVisible)}
-                        onOpenEditor={() => openEditorPane(setEditorVisible)}
-                      />
-                    )}
+                    {paneMenuOpen && paneMenu}
                   </div>
                 </div>
 
@@ -584,7 +601,7 @@ export const App: React.FC = () => {
                   style={
                     paneOrientation === 'vertical'
                       ? { width: '100%', height: '100%' }
-                      : { width: sheetVisible ? `${fittedPanelLayout.editorPanelWidth}px` : '100%' }
+                      : { width: visiblePanes.length > 1 ? `${fittedPanelLayout.editorPanelWidth}px` : '100%' }
                   }
                 >
                   <AbcEditor
@@ -605,14 +622,14 @@ export const App: React.FC = () => {
               </section>
             )}
 
-            {!sheetVisible && !editorVisible && (
+            {visiblePanes.length === 0 && (
               <div className="workspace-empty-panes" role="status">
                 <div className="workspace-empty-panes-card">
                   <div className="workspace-empty-icon">
                     <FileMusic size={32} aria-hidden="true" />
                   </div>
                   <h3>No panes open</h3>
-                  <p>Open Sheet music or ABC source to view and edit score content.</p>
+                  <p>Open Sheet, ABC source, or Waterfall to view score content.</p>
                   <div className="workspace-empty-actions">
                     <button
                       type="button"
@@ -624,33 +641,45 @@ export const App: React.FC = () => {
                       <Plus size={15} aria-hidden="true" />
                       <span>Open Pane</span>
                     </button>
-                    {paneMenuOpen && (
-                      <WorkspacePaneMenu
-                        paneMenuRef={paneMenuRef}
-                        sheetVisible={sheetVisible}
-                        editorVisible={editorVisible}
-                        onOpenSheet={() => openSheetPane(editorVisible)}
-                        onOpenEditor={() => openEditorPane(setEditorVisible)}
-                      />
-                    )}
+                    {paneMenuOpen && paneMenu}
                   </div>
                 </div>
               </div>
             )}
-            {draggingPane && (
-              <PaneSnapOverlay activeSnapTarget={activeSnapTarget} />
-            )}
+            {waterfallVisible && <>
+              {sheetVisible && <button
+                type="button"
+                className={`waterfall-divider ${paneOrientation === 'vertical' ? 'divider-horizontal' : ''}`}
+                style={dividerStyle('waterfall')}
+                aria-label="Resize Waterfall pane"
+                onPointerDown={beginWaterfallResize}
+                onKeyDown={(event) => {
+                  const vertical = paneOrientation === 'vertical';
+                  const shrinkKey = vertical ? 'ArrowUp' : 'ArrowLeft';
+                  const growKey = vertical ? 'ArrowDown' : 'ArrowRight';
+                  if (event.key !== shrinkKey && event.key !== growKey) return;
+                  event.preventDefault();
+                  const delta = (event.key === growKey ? 24 : -24) * (waterfallResizeFromEnd ? 1 : -1);
+                  if (vertical) setWaterfallHeight((height) => clampWaterfallHeight(height + delta));
+                  else setWaterfallWidth((width) => clampWaterfallWidth(width + delta));
+                }}
+              ><span /></button>}
+              <WaterfallPane
+                playback={canRenderScore ? waterfallPlayback : null}
+                onClose={() => setWaterfallVisible(false)}
+                onTabPointerDown={handleTabPointerDown('waterfall')}
+                dragging={draggingPane === 'waterfall'}
+                style={{ ...paneStyle('waterfall'), ...(paneOrientation === 'vertical'
+                  ? { width: '100%', height: visiblePanes.length > 1 ? `${waterfallHeight}px` : '100%', flex: sheetVisible ? '0 0 auto' : '1 1 0' }
+                  : { flex: sheetVisible ? '0 1 var(--waterfall-width)' : '1 1 0' }) }}
+                actions={!sheetVisible && !editorVisible ? <div className="pane-tab-actions">
+                  <button type="button" className="workspace-add-tab-btn" onClick={togglePaneMenu} title="Open pane" aria-label="Open pane" aria-haspopup="menu" aria-expanded={paneMenuOpen}><Plus size={14} aria-hidden="true" /></button>
+                  {paneMenuOpen && paneMenu}
+                </div> : null}
+              />
+            </>}
+            {draggingPane && <PaneSnapOverlay activeSnapTarget={activeSnapTarget} />}
           </div>
-
-          {waterfallVisible && <>
-            <button type="button" className="waterfall-divider" aria-label="Resize Waterfall pane" onPointerDown={beginWaterfallResize} onKeyDown={(event) => {
-              if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-                event.preventDefault();
-                setWaterfallWidth((width) => clampWaterfallWidth(width + (event.key === 'ArrowLeft' ? 24 : -24)));
-              }
-            }}><span /></button>
-            <WaterfallPane playback={canRenderScore ? waterfallPlayback : null} onClose={() => setWaterfallVisible(false)} />
-          </>}
           </div>
 
           {activeDocument && (
