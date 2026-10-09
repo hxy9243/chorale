@@ -8393,17 +8393,8 @@ body,
   color: var(--color-ink-2);
 }
 
-/* Header trifold: history actions left, status indicators right, and the
-   score title centered between them. The legacy .header-center wrapper is
-   flattened with display:contents so the three groups become direct flex
-   children of the header bar — one row, vertically centered, no legacy
-   grid interference. When the central column gets narrow, status pills
-   drop out first (container queries), then history labels; the title
-   truncates instead of overlapping. */
-.central-column {
-  container-type: inline-size;
-}
-
+/* Header actions share one row; pane controls sit beside the single status. */
+.central-column { container-type: inline-size; }
 .app-header {
   display: flex;
   height: auto;
@@ -8412,15 +8403,14 @@ body,
   gap: var(--space-md);
   padding-inline: var(--space-md);
 }
-
 .header-center {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   width: 100%;
+  min-width: 0;
   gap: var(--space-md);
 }
-
 .header-history-actions {
   grid-column: 1;
   grid-row: 1;
@@ -8431,11 +8421,10 @@ body,
   border: 0;
   background: transparent;
 }
-
 .header-breadcrumb {
   grid-column: 2;
   grid-row: 1;
-  justify-self: center;
+  justify-self: stretch;
   display: flex;
   min-width: 0;
   align-items: center;
@@ -8446,37 +8435,31 @@ body,
   transform: none;
   font-size: var(--text-sm);
 }
-
 .header-breadcrumb strong {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-
-.header-status-group {
+.header-right {
   grid-column: 3;
   grid-row: 1;
   justify-self: end;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-sm);
 }
-
+.header-pane-actions { display: flex; align-items: center; gap: var(--space-xs); }
+.header-pane-actions button[aria-pressed="true"] { background: #dfebe7; color: #345e57; }
+.header-status-group { display: flex; align-items: center; white-space: nowrap; }
+.header-status-pill.error { color: var(--color-error); }
+.header-status-pill.error .status-dot { background: currentColor; }
 @container (max-width: 56rem) {
-  .header-status-group .header-status-pill.svg,
-  .header-status-group .header-status-pill.audio {
-    display: none;
-  }
+  .header-pane-actions .header-history-btn span { display: none; }
 }
-
 @container (max-width: 34rem) {
-  .header-status-group {
-    display: none;
-  }
-
-  .header-history-btn span {
-    display: none;
-  }
+  .header-history-btn span { display: none; }
+  .header-center { gap: var(--space-xs); }
+  .app-header { padding-inline: var(--space-xs); }
 }
 
 /* When a rail's panel is expanded, the icon bar and the panel read as one
@@ -9581,54 +9564,11 @@ body,
   height: 100% !important;
 }
 
-/* Vertical ordering */
-.score-editor-shell.layout-vertical.order-editor-first .workspace-pane.editor-pane {
-  order: 1 !important;
-}
-
-.score-editor-shell.layout-vertical.order-editor-first .editor-divider {
-  order: 2 !important;
-}
-
-.score-editor-shell.layout-vertical.order-editor-first .workspace-pane.score-pane {
-  order: 3 !important;
-}
-
-.score-editor-shell.layout-vertical.order-sheet-first .workspace-pane.score-pane {
-  order: 1 !important;
-}
-
-.score-editor-shell.layout-vertical.order-sheet-first .editor-divider {
-  order: 2 !important;
-}
-
-.score-editor-shell.layout-vertical.order-sheet-first .workspace-pane.editor-pane {
-  order: 3 !important;
-}
-
-/* Horizontal ordering */
-.score-editor-shell.layout-horizontal.order-editor-first .workspace-pane.editor-pane {
-  order: 1 !important;
-}
-
-.score-editor-shell.layout-horizontal.order-editor-first .editor-divider {
-  order: 2 !important;
-}
-
-.score-editor-shell.layout-horizontal.order-editor-first .workspace-pane.score-pane {
-  order: 3 !important;
-}
-
-.score-editor-shell.layout-horizontal.order-sheet-first .workspace-pane.score-pane {
-  order: 1 !important;
-}
-
-.score-editor-shell.layout-horizontal.order-sheet-first .editor-divider {
-  order: 2 !important;
-}
-
-.score-editor-shell.layout-horizontal.order-sheet-first .workspace-pane.editor-pane {
-  order: 3 !important;
+/* All three panes and their dividers use the persisted sequence. */
+.score-editor-shell > .workspace-pane,
+.score-editor-shell > .editor-divider,
+.score-editor-shell > .waterfall-divider {
+  order: var(--pane-order, 0) !important;
 }
 
 /* A pane opened beside an existing pane appears to its right. */

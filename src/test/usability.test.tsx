@@ -169,7 +169,7 @@ describe('release usability gate', () => {
       /\.header-breadcrumb strong\s*{[^}]*overflow:\s*hidden;[^}]*white-space:\s*nowrap;[^}]*text-overflow:\s*ellipsis;/s,
     );
     expect(themeCss).toMatch(
-      /@container\s*\(max-width:\s*34rem\)\s*{[\s\S]*?\.header-status-group\s*{[^}]*display:\s*none;[\s\S]*?\.header-history-btn span\s*{[^}]*display:\s*none;/s,
+      /@container\s*\(max-width:\s*34rem\)\s*{[\s\S]*?\.header-history-btn span\s*{[^}]*display:\s*none;/s,
     );
   });
 });

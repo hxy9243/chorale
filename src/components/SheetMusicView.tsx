@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import abcjs from 'abcjs';
+import type abcjs from 'abcjs';
 import { ZoomIn, ZoomOut, RotateCcw, SlidersHorizontal, Tag, X } from 'lucide-react';
 import type {
   Annotation,
@@ -9,12 +9,10 @@ import type {
 } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
 import {
-  configureAudioPlayback,
-  hideSyntheticTupletRests,
-  prepareAbcForEngraving,
+  renderPlaybackScore,
 } from '../utils/abcAudio';
 import {
-  buildMeasureOccurrences,
+  collectPreparedMeasureOccurrences,
   selectMeasureWithRepeats,
   type MeasureOccurrence,
   type PlaybackPosition,
@@ -850,7 +848,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
 
       const visualTranspose = transpose;
       const spacing = chordStaffSpacing();
-      const tunes = abcjs.renderAbc(containerRef.current, prepareAbcForEngraving(abcCode), {
+      const tunes = renderPlaybackScore(containerRef.current, abcCode, {
         responsive: 'resize',
         scale: 1,
         staffwidth: 740,
@@ -891,9 +889,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       if (renderedSvg) {
         renderedSvg.setAttribute('data-first-measure-number', String(firstMeasureNumber));
       }
-      hideSyntheticTupletRests(abcCode, tunes);
-      configureAudioPlayback(abcCode, tunes);
-      measureOccurrencesRef.current = renderedTune ? buildMeasureOccurrences(renderedTune, measureMapping) : [];
+      measureOccurrencesRef.current = renderedTune ? collectPreparedMeasureOccurrences(renderedTune, measureMapping) : [];
       installLineStartMeasureNumbers(containerRef.current, measureMapping);
       installAboveStaffContentOffsets(containerRef.current);
       installMeasureHitAreas(containerRef.current, (measure, modifiers) => {

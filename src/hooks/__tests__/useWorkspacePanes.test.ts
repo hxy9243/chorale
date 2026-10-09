@@ -4,6 +4,7 @@ import {
   useWorkspacePanes,
   PANE_ORIENTATION_KEY,
   PANE_ORDER_KEY,
+  PANE_SEQUENCE_KEY,
 } from '../useWorkspacePanes';
 
 describe('useWorkspacePanes', () => {
@@ -100,4 +101,33 @@ describe('useWorkspacePanes', () => {
     expect(result.current.sheetPaneOnRight).toBe(false);
     expect(result.current.paneOrder).toBe('sheet-first');
   });
+  it.each(['left', 'right', 'top', 'bottom'] as const)('snaps Waterfall to %s and restores the full sequence', (target) => {
+    const { result, unmount } = renderHook(() => useWorkspacePanes());
+    act(() => result.current.rearrangePane('waterfall', target));
+    const first = target === 'left' || target === 'top';
+    const expected = first ? ['waterfall', 'sheet', 'editor'] : ['sheet', 'editor', 'waterfall'];
+    expect(result.current.paneSequence).toEqual(expected);
+    expect(result.current.paneOrientation).toBe(target === 'top' || target === 'bottom' ? 'vertical' : 'horizontal');
+    expect(JSON.parse(localStorage.getItem(PANE_SEQUENCE_KEY)!)).toEqual(expected);
+    unmount();
+    const restored = renderHook(() => useWorkspacePanes());
+    expect(restored.result.current.paneSequence).toEqual(expected);
+  });
+
+  it('moves Sheet and ABC around Waterfall without losing any pane', () => {
+    const { result } = renderHook(() => useWorkspacePanes());
+    act(() => result.current.rearrangePane('waterfall', 'left'));
+    act(() => result.current.rearrangePane('editor', 'left'));
+    expect(result.current.paneSequence).toEqual(['editor', 'waterfall', 'sheet']);
+    act(() => result.current.rearrangePane('sheet', 'top'));
+    expect(result.current.paneSequence).toEqual(['sheet', 'editor', 'waterfall']);
+  });
+
+  it.each(['null', '{', '["sheet","sheet","waterfall"]', '["sheet","editor","unknown"]'])('ignores invalid stored sequence %s', (stored) => {
+    localStorage.setItem(PANE_ORDER_KEY, 'editor-first');
+    localStorage.setItem(PANE_SEQUENCE_KEY, stored);
+    const { result } = renderHook(() => useWorkspacePanes());
+    expect(result.current.paneSequence).toEqual(['editor', 'sheet', 'waterfall']);
+  });
+
 });

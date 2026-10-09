@@ -1,20 +1,24 @@
 import React from 'react';
-import { FileCode2, FileMusic } from 'lucide-react';
+import { FileCode2, FileMusic, Piano } from 'lucide-react';
 
 export interface WorkspacePaneMenuProps {
   paneMenuRef: React.RefObject<HTMLDivElement | null>;
   sheetVisible: boolean;
   editorVisible: boolean;
+  waterfallVisible: boolean;
   onOpenSheet: () => void;
   onOpenEditor: () => void;
+  onOpenWaterfall: () => void;
 }
 
 export const WorkspacePaneMenu: React.FC<WorkspacePaneMenuProps> = ({
   paneMenuRef,
   sheetVisible,
   editorVisible,
+  waterfallVisible,
   onOpenSheet,
   onOpenEditor,
+  onOpenWaterfall,
 }) => {
   return (
     <div
@@ -51,6 +55,16 @@ export const WorkspacePaneMenu: React.FC<WorkspacePaneMenuProps> = ({
         ) : (
           <span className="pane-menu-action">Show</span>
         )}
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        className={`workspace-pane-menu-item ${waterfallVisible ? 'is-active' : ''}`}
+        onClick={onOpenWaterfall}
+      >
+        <Piano size={15} aria-hidden="true" />
+        <span className="pane-menu-title">Waterfall</span>
+        <span className={waterfallVisible ? 'pane-menu-badge' : 'pane-menu-action'}>{waterfallVisible ? 'Open' : 'Show'}</span>
       </button>
     </div>
   );
