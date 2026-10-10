@@ -40,7 +40,7 @@ The final GitHub release links the passing CI run and records the tested commit 
 ## Installation and supported scope
 
 - Use the source-build instructions in [INSTALL.md](./INSTALL.md), or install the built `chorale-0.0.1.tgz` release asset with `npm install --global /path/to/chorale-0.0.1.tgz`.
-- Node.js 22.13+ on the 22.x line, or 24+. Linux/Node 22 is the CI environment; local checks also run on Linux/Node 24. macOS/Windows and specific browser versions are not yet release-verified.
+- Node.js 22.22.2+ on the 22.x line, 24.15+ on the 24.x line, or 26+. Linux/Node 22 is the CI environment; local checks also run on Linux/Node 24. macOS/Windows and specific browser versions are not yet release-verified.
 - Direct global installation from a GitHub URL is not a supported v0.0.1 path: npm's Git preparation failed in isolated testing. Built archives include the browser assets and pinned notation dependency. The source checkout permits its direct Git dependency through `.npmrc` on npm 12.
 - The import converter `@educandu/abc-tools` declares Node 20 support and emits an engine warning on the target Node versions. Import/conversion tests must pass on the release target; upstream engine metadata is still a known compatibility limitation.
 - ABC is the canonical editable representation. MusicXML/MXL conversion can lose notation details; inspect converted/exported music before relying on it. Advanced engraving, arbitrary orchestral analysis and full DAW functionality are outside this release.

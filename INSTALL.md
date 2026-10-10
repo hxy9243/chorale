@@ -45,7 +45,7 @@ Chorale functions as a standalone CLI application (`chorale`) that launches and 
 
 ## 2. Prerequisites & Quick Build
 
-Ensure you have **Node.js (22.13+ on the 22.x line, or 24+)** and **npm** installed. The repository `.npmrc` permits its pinned Git dependency on npm 12; npm archives bundle that dependency. Harmonic evidence is optional and additionally requires **Python 3.10+**.
+Ensure you have **Node.js (22.22.2+ on the 22.x line, 24.15+ on the 24.x line, or 26+)** and **npm** installed. The repository `.npmrc` permits its pinned Git dependency on npm 12; npm archives bundle that dependency. Harmonic evidence is optional and additionally requires **Python 3.10+**.
 
 ```bash
 # 1. Clone the repository
