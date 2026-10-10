@@ -9,7 +9,7 @@ Chorale uses a single local background daemon running at `http://127.0.0.1:1685`
 
 ## 1. Install from Source or a Release Archive
 
-Use Node.js 22.13+ on the 22.x line, or 24+. For a source checkout:
+Use Node.js 22.22.2+ on the 22.x line, 24.15+ on the 24.x line, or 26+. For a source checkout:
 
 ```bash
 git clone https://github.com/hxy9243/chorale.git
