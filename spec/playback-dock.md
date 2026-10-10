@@ -3,7 +3,7 @@ title: "Playback Dock Spec"
 description: "Specification for the WebAudio playback dock, volume/mute GainNode, progress seek track, and unified score-anchor synchronization"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-08-15
+updated: 2026-10-09
 status: "implemented"
 source_files:
   - src/components/AudioPlayer.tsx
@@ -21,17 +21,20 @@ related_specs:
   - spec/workspace-layout.md
   - spec/score-surface.md
   - spec/interaction-model.md
+  - spec/piano-waterfall.md
 ---
 
 # Playback Dock Spec
 
 Date: 2026-07-28  
-Updated: 2026-08-15  
+Updated: 2026-10-09
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 ## 1. Goal
 
 Define playback as a shared workspace dock tied to the same musical anchor model as score interaction and chat.
+
+Visible and detached score rendering share one preparation function in `abcAudio.ts`: source normalization, engraving, audio-source binding, synthetic-rest cleanup, and initial timing. Measure occurrence collection consumes that prepared timing without repeating initialization. Presentation-specific SVG controls and annotations stay in SheetMusicView.
 
 ## 2. Dock composition
 
@@ -75,3 +78,7 @@ The current implementation provides:
 - live score cursor line and auto-scroll synchronization
 - repeat-aware playback timing and multi-voice tempo alignment
 - shared-anchor seeking path
+
+## 6. Optional waterfall pane
+
+The shared transport remains mounted while an active document exists, independently of pane visibility. The waterfall reads the same resolved synth notes and WebAudio clock, with the keyboard top edge representing note onset. The dock includes a 0.5–2× speed selector backed by abcjs warp; rebuilding the buffer preserves score position and ignores cancelled starts. See `spec/piano-waterfall.md` for visualization and interrupted-flow requirements.

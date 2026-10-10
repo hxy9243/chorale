@@ -85,6 +85,185 @@ describe('App Integration', () => {
     expect(screen.queryByPlaceholderText(/Parsed ABC code will appear here/)).toBeNull();
   }, 30000);
 
+  it('toggles the waterfall without adding a second playback dock', async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    const toggle = screen.getByRole('button', { name: 'Waterfall' });
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(toggle);
+    expect(screen.getByRole('region', { name: 'Waterfall pane' })).toBeDefined();
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    expect(document.querySelectorAll('.audio-player-card').length).toBe(1);
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Resize Waterfall pane' }), { key: 'ArrowLeft' });
+    expect((document.querySelector('.waterfall-workspace') as HTMLElement).style.getPropertyValue('--waterfall-width')).toBe('464px');
+    const transport = document.querySelector('.audio-player-card');
+    fireEvent.click(screen.getByRole('button', { name: 'Close Sheet pane' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close Waterfall pane' }));
+    expect(document.querySelector('.audio-player-card')).toBe(transport);
+    expect(screen.queryByRole('region', { name: 'Waterfall pane' })).toBeNull();
+    expect(document.querySelectorAll('.audio-player-card').length).toBe(1);
+  });
+
+  it('keeps active playback when Sheet is closed and reopened for unchanged source', async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    fireEvent.click(screen.getByTitle('Play Piano Synthesizer'));
+    const controllerCount = vi.mocked(abcjs.synth.SynthController).mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Close Sheet pane' }));
+    expect(screen.queryByTestId('sheet-svg')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Sheet' }));
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    expect(screen.getByTitle('Pause Audio')).toBeDefined();
+    expect(abcjs.synth.SynthController).toHaveBeenCalledTimes(controllerCount);
+  });
+
+  it('opens Waterfall from the pane menu and keeps a lone Waterfall workspace usable', async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'Open pane' }));
+    const waterfallMenu = screen.getByRole('menuitem', { name: /Waterfall.*Show/ });
+    fireEvent.click(waterfallMenu);
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Waterfall' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Sheet' }));
+    expect(screen.queryByText('No panes open')).toBeNull();
+    expect(screen.getByRole('region', { name: 'Waterfall pane' }).parentElement?.classList.contains('score-editor-shell')).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Open pane' }));
+    expect(screen.getByRole('menuitem', { name: /Waterfall.*Open/ })).toBeDefined();
+    fireEvent.click(screen.getByRole('menuitem', { name: /ABC source.*Show/ }));
+    expect(screen.getByRole('button', { name: 'ABC code' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Waterfall' }));
+    expect(screen.getByText('No panes open')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Open Pane' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Waterfall.*Show/ }));
+    expect(screen.getByRole('region', { name: 'Waterfall pane' })).toBeDefined();
+  });
+
+  it.each([false, true])('drags Waterfall in all four directions with ABC visible: %s', async (abcVisible) => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'Waterfall' }));
+    if (abcVisible) fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    const shell = document.querySelector<HTMLElement>('.score-editor-shell')!;
+    vi.spyOn(shell, 'getBoundingClientRect').mockReturnValue({
+      left: 100, top: 100, width: 800, height: 600, right: 900, bottom: 700,
+      x: 100, y: 100, toJSON: () => {},
+    });
+    const tab = screen.getByRole('tab', { name: 'Waterfall' });
+    const pane = screen.getByRole('region', { name: 'Waterfall pane' });
+    const transport = document.querySelector('.audio-player-card');
+    for (const [target, x, y, orientation, first] of [
+      ['left', 120, 400, 'horizontal', true], ['right', 880, 400, 'horizontal', false],
+      ['top', 500, 120, 'vertical', true], ['bottom', 500, 680, 'vertical', false],
+    ] as const) {
+      fireEvent.pointerDown(tab, { clientX: 500, clientY: 140, pointerId: 1 });
+      fireEvent.pointerMove(window, { clientX: x, clientY: y, pointerId: 1 });
+      expect(screen.getByTestId(`pane-snap-${target}`)).toBeDefined();
+      fireEvent.pointerUp(window, { clientX: x, clientY: y, pointerId: 1 });
+      expect(shell.classList.contains(`layout-${orientation}`)).toBe(true);
+      expect((pane as HTMLElement).style.getPropertyValue('--pane-order')).toBe(String(first ? 0 : abcVisible ? 6 : 3));
+      const ordered = [...shell.children]
+        .filter((element) => element.matches('.workspace-pane, .editor-divider, .waterfall-divider'))
+        .sort((a, b) => Number((a as HTMLElement).style.getPropertyValue('--pane-order')) - Number((b as HTMLElement).style.getPropertyValue('--pane-order')));
+      expect(ordered.map((element) => element.classList.contains('workspace-pane') ? 'pane' : 'divider'))
+        .toEqual(abcVisible ? ['pane', 'divider', 'pane', 'divider', 'pane'] : ['pane', 'divider', 'pane']);
+      expect(document.querySelector('.audio-player-card')).toBe(transport);
+      expect(screen.queryByTestId('pane-snap-overlay')).toBeNull();
+    }
+    // A lone Waterfall cannot start a rearrangement gesture.
+    fireEvent.click(screen.getByRole('button', { name: 'Sheet' }));
+    if (abcVisible) fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.pointerDown(tab, { clientX: 500, clientY: 140, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 120, clientY: 400, pointerId: 1 });
+    expect(screen.queryByTestId('pane-snap-overlay')).toBeNull();
+  });
+
+  it.each(['sheet-first', 'editor-first'])('resizes ABC from its displayed width with Waterfall present (%s)', async (order) => {
+    localStorage.setItem(EDITOR_WIDTH_KEY, '900');
+    localStorage.setItem('chorale.workspace.paneOrder', order);
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Waterfall' }));
+    const shell = document.querySelector<HTMLElement>('.score-editor-shell')!;
+    const editor = document.querySelector<HTMLElement>('.editor-pane')!;
+    const waterfall = screen.getByRole('region', { name: 'Waterfall pane' });
+    Object.defineProperty(shell, 'clientWidth', { configurable: true, value: 1000 });
+    Object.defineProperty(editor, 'clientWidth', { configurable: true, value: 250 });
+    Object.defineProperty(waterfall, 'clientWidth', { configurable: true, value: 400 });
+    const divider = screen.getByRole('button', { name: 'Resize ABC editor' });
+    const delta = order === 'sheet-first' ? 50 : -50;
+    fireEvent.pointerDown(divider, { clientX: 500, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 500 + delta, pointerId: 1 });
+    fireEvent.pointerUp(window, { clientX: 500 + delta, pointerId: 1 });
+    expect(editor.style.width).toBe('200px');
+    expect(localStorage.getItem(EDITOR_WIDTH_KEY)).toBe('200');
+    expect(document.querySelector<HTMLElement>('.waterfall-workspace')!.style.getPropertyValue('--waterfall-width')).toBe('400px');
+    // A second small drag should respond immediately in the other direction.
+    Object.defineProperty(editor, 'clientWidth', { configurable: true, value: 200 });
+    fireEvent.pointerDown(divider, { clientX: 500, pointerId: 2 });
+    fireEvent.pointerMove(window, { clientX: 500 - delta, pointerId: 2 });
+    fireEvent.pointerUp(window, { clientX: 500 - delta, pointerId: 2 });
+    expect(editor.style.width).toBe('250px');
+    Object.defineProperty(editor, 'clientWidth', { configurable: true, value: 250 });
+    fireEvent.pointerDown(divider, { clientX: 500, pointerId: 3 });
+    fireEvent.pointerMove(window, { clientX: order === 'sheet-first' ? -500 : 1500, pointerId: 3 });
+    fireEvent.pointerUp(window, { pointerId: 3 });
+    // Leave 140px for Sheet and preserve the 400px Waterfall width.
+    expect(editor.style.width).toBe('460px');
+    Object.defineProperty(editor, 'clientWidth', { configurable: true, value: 460 });
+    fireEvent.pointerDown(divider, { clientX: 500, pointerId: 4 });
+    fireEvent.pointerMove(window, { clientX: order === 'sheet-first' ? 1500 : -500, pointerId: 4 });
+    fireEvent.pointerUp(window, { pointerId: 4 });
+    expect(editor.style.width).toBe('140px');
+  });
+
+  it('rebuilds shared playback after source edits while Sheet is closed', async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'Waterfall' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
+    fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close Sheet pane' }));
+    const source = 'X:1\nT:Hidden score edit\nK:C\nCDEF|';
+    fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code will appear here/), { target: { value: source } });
+    await waitFor(() => expect(abcjs.renderAbc).toHaveBeenCalledWith(expect.any(HTMLElement), source));
+    expect(screen.queryByTestId('sheet-svg')).toBeNull();
+    expect(screen.getByRole('region', { name: 'Waterfall pane' })).toBeDefined();
+    fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code will appear here/), { target: { value: '' } });
+    await waitFor(() => expect(screen.getByText('No Score Loaded')).toBeDefined());
+    vi.mocked(abcjs.renderAbc).mockClear();
+    fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code will appear here/), { target: { value: source } });
+    await waitFor(() => expect(abcjs.renderAbc).toHaveBeenCalledWith(expect.any(HTMLElement), source));
+  });
+
+  it('prepares hidden-sheet duration and preserves a seek before first Play', async () => {
+    const realAbcjs = await vi.importActual<{ default: typeof abcjs }>('abcjs');
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close Sheet pane' }));
+    const controller = {
+      load: vi.fn(), setTune: vi.fn().mockResolvedValue(true),
+      play: vi.fn(), pause: vi.fn(), seek: vi.fn(),
+    };
+    vi.mocked(abcjs.synth.SynthController).mockImplementationOnce(function () { return controller as any; });
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce(realAbcjs.default.renderAbc);
+    const source = 'X:1\nM:4/4\nL:1/4\nQ:1/4=120\nK:C\nC D E F|G A B c|c B A G|F E D C|';
+    fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code will appear here/), { target: { value: source } });
+    await waitFor(() => expect(screen.getByText('/ 0:08')).toBeDefined());
+    expect(controller.play).not.toHaveBeenCalled();
+    const progress = screen.getByRole('button', { name: 'Seek playback' });
+    vi.spyOn(progress, 'getBoundingClientRect').mockReturnValue({ left: 0, width: 200 } as DOMRect);
+    fireEvent.click(progress, { clientX: 100 });
+    expect(screen.getByText('0:04')).toBeDefined();
+    fireEvent.click(screen.getByTitle('Play Piano Synthesizer'));
+    expect(controller.seek).toHaveBeenLastCalledWith(4, 'seconds');
+  });
+
   it('omits the standalone agent sidebar in plugin view', async () => {
     window.history.replaceState({}, '', '/?plugin=1');
     render(<App />);
@@ -778,7 +957,7 @@ describe('App Integration', () => {
     });
 
     // Both sheet tab and close button are present
-    expect(screen.getByText('Sheet')).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Sheet' })).toBeDefined();
     const closeSheetBtn = screen.getByRole('button', { name: 'Close Sheet pane' });
     expect(closeSheetBtn).toBeDefined();
 

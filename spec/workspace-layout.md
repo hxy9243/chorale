@@ -3,7 +3,7 @@ title: "Workspace Layout Spec"
 description: "Specification for the top-level desktop workspace structure, header, file rail, central score workspace, and chat panel"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-10-01
+updated: 2026-10-08
 status: "implemented"
 source_files:
   - src/App.tsx
@@ -73,9 +73,9 @@ Required regions:
 
 - left: edit history actions (`Undo` / `Redo` buttons without borders, tooltips indicating shortcuts Ctrl+Z / ⌘Z and Ctrl+Shift+Z / ⌘Shift+Z)
 - center: active file title/breadcrumb, dead-centered between the two flanking groups; it truncates with an ellipsis rather than overlapping anything
-- right: consolidated status group (`Auto-saved`/`Saving…`/`Save failed`, `SVG ready`/`SVG pending`, `Music ready`/`Music pending` with status dot indicators)
+- right: Sheet, ABC code, and Waterfall visibility toggles next to one status dot and label (`Music ready`, `Music pending`, `Saving…`, or `Save failed`)
 
-The three regions share one row and never collide with each other or with the side rails. Adaptivity is driven by the central column's own width (container queries), not the viewport: below 56rem of column width the SVG/Music pills drop out, below 34rem the status group hides entirely and history buttons collapse to icons; the title keeps truncating throughout.
+The three regions share one row and never collide with each other or with the side rails. Adaptivity is driven by the central column's own width (container queries), not the viewport: at narrow column widths pane toggles and history buttons collapse to icons while the single status stays visible; the title keeps truncating throughout.
 
 No branding icon or wordmark appears in either the header or the rails; the application name lives only in the window/document title.
 
@@ -119,15 +119,15 @@ It contains:
 
 - score metadata header (`ScoreMetadataHeader`): centered serif title (`--font-serif`), right-aligned score taglines/attribution (composer, author/lyricist, subtitle, origin, rhythm) with an Add Field menu (`+`), and centered interactive metadata chips (Key, Meter, Tempo) supporting inline ABC editing and validation
 - a compact rounded display-options panel (`ScoreCardHeader`) floating at the score's upper center; it is highly translucent at rest, becomes less translucent during score scrolling, and becomes clearest on hover or keyboard focus
-- pane-top tabs: each active pane (Sheet and ABC source) has a dedicated tab attached directly flush on top of the actual pane (`| Sheet ✕ |` and `| ABC code ✕ |`); the tab's left edge aligns with the pane card's left edge, and clicking `✕` on a tab closes that pane
+- pane-top tabs: each active pane (Sheet, ABC code, and Waterfall) has a dedicated tab attached directly flush on top of the actual pane (`| Sheet ✕ |` and `| ABC code ✕ |`); the tab's left edge aligns with the pane card's left edge, and clicking `✕` on a tab closes that pane
 - pane elevation and layout: a small gap separates panes, each pane features a 1px border and soft paper drop shadow, and their vertical heights align and extend cleanly flush to the bottom with zero bottom padding on the central workspace
-- `+` pane launcher: a `+` button in the workspace tab strip opens a small popover window listing the available panes ("Sheet" and "ABC source") to open/show; if all panes are closed, an empty desk state displays a prompt to open panes
+- `+` pane launcher: a `+` button in the workspace tab strip opens a small popover window listing the available panes ("Sheet", "ABC source", and "Waterfall") to open/show; if all panes are closed, an empty desk state displays a prompt to open panes
 - continuous full-page paper score surface (`.sheet-viewport` spanning 100% width and height with simple pure-CSS paper background, full-width notation track utilizing 100% of the Sheet tab pane width, auto-centering playback line, line-start measure numbers, and zoom layout space reservation)
 - optional split ABC editor pane with interactive drag divider:
   - in horizontal orientation (`layout-horizontal`), a full-height vertical divider (`.editor-divider` with `col-resize` cursor, full-height guide line, and centered terracotta grip capsule on hover) allows width adjustment (bounded between 320px and 720px, default 420px, persisted as `chorale.workspace.editorWidth`)
   - in vertical orientation (`layout-vertical`), a full-width horizontal divider (`.editor-divider.divider-horizontal` with `row-resize` cursor and centered horizontal grip capsule) allows height adjustment (bounded between 180px and the available shell content height minus the 200px Sheet minimum and 14px divider, default 320px, persisted as `chorale.workspace.editorHeight`; bounds are reapplied before paint on reload/reopen and whenever the shell resizes; if both minimum heights cannot fit, the vertical shell scrolls so panes and divider remain reachable)
   - both panes support structural editing with Measure Source toolbar belt
-- drag-and-snap pane rearrangement: users can drag any open pane by its tab (`.pane-tab`) using pointer events to snap and rearrange the panes. As the pointer moves across the workspace, four snap zones (top, bottom, left, right) activate a translucent accent drop overlay (`.pane-snap-overlay`) indicating the target layout. Releasing the pointer snaps the panes into that arrangement (horizontal or vertical, with the dragged pane placed in the target region), updating and persisting `paneOrientation` and `paneOrder` in `localStorage`. Only a primary-pointer release inside a nonempty workspace commits a snap; cancellation, Escape, lost capture, or an outside drop discards the preview without changing persisted layout. Stacked panes each use the full shell content width, without horizontal split constraints.
+- drag-and-snap pane rearrangement: users can drag any open pane by its tab (`.pane-tab`) using pointer events to snap and rearrange the panes. As the pointer moves across the workspace, four snap zones (top, bottom, left, right) activate a translucent accent drop overlay (`.pane-snap-overlay`) indicating the target layout. Releasing the pointer snaps the panes into that arrangement (horizontal or vertical, with the dragged pane placed in the target region), updating and persisting `paneOrientation` and the three-pane sequence in `localStorage`, while retaining the legacy Sheet/ABC `paneOrder` preference. Only a primary-pointer release inside a nonempty workspace commits a snap; cancellation, Escape, lost capture, or an outside drop discards the preview without changing persisted layout. Stacked panes each use the full shell content width, without horizontal split constraints.
 - playback dock anchored to the visible bottom of the central workspace with a distinct accent color (dark ink capsule surface) and drop shadow to separate cleanly from the desk background (expanded max-width bounded to 900px with playback progress occupying at least 60% of the width, and selected measure anchors rendered on a separate text metadata row to prevent blocking or clipping the track)
 
 The score and editor panes present clean physical paper depth above the desk surface, with no single/split toggle on the top right. Native system window controls (minimize, maximize, close) are enabled without an application menu bar.

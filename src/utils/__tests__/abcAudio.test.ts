@@ -9,6 +9,7 @@ import {
   prepareAbcForAudio,
   prepareAbcForEngraving,
   prepareAbcForPlayback,
+  renderPlaybackScore,
 } from '../abcAudio';
 
 describe('abcAudio utilities', () => {
@@ -59,6 +60,22 @@ V:1
 C4 | D4 | E4 | F4 |
 V:2
 x2 (3:2:2A,/ (D, (3:2:1C,3/2) | B,4 | C4 | D4 |`;
+
+  it.each([
+    abcWithMidNoteTempoChange,
+    abcWithHairpin,
+    abcWithInvisibleTupletRest,
+    abcWithSelfContainedTuplet,
+  ])('prepares the same audio and initial timing for visible and detached scores', (source) => {
+    const visible = renderPlaybackScore(document.createElement('div'), source, { add_classes: true, staffwidth: 740 });
+    const detached = renderPlaybackScore(document.createElement('div'), source);
+    expect(visible).toHaveLength(detached.length);
+    visible.forEach((tune, index) => {
+      expect(tune.getTotalTime()).toBeGreaterThan(0);
+      expect(tune.getTotalTime()).toBe(detached[index].getTotalTime());
+      expect(tune.setUpAudio({})).toEqual(detached[index].setUpAudio({}));
+    });
+  });
 
   it('removes unsupported inline playback directives while preserving source offsets', () => {
     const prepared = prepareAbcForPlayback(abcWithMidNoteTempoChange);

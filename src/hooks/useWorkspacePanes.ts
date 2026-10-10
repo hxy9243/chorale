@@ -3,9 +3,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export type PaneOrientation = 'horizontal' | 'vertical';
 export type PaneOrder = 'sheet-first' | 'editor-first';
 export type SnapTarget = 'left' | 'right' | 'top' | 'bottom';
-export type WorkspacePaneId = 'sheet' | 'editor';
+export type WorkspacePaneId = 'sheet' | 'editor' | 'waterfall';
 
 export const PANE_ORIENTATION_KEY = 'chorale.workspace.paneOrientation';
+export const PANE_SEQUENCE_KEY = 'chorale.workspace.paneSequence';
 export const PANE_ORDER_KEY = 'chorale.workspace.paneOrder';
 
 export interface UseWorkspacePanesResult {
@@ -14,7 +15,8 @@ export interface UseWorkspacePanesResult {
   paneOrientation: PaneOrientation;
   setPaneOrientation: React.Dispatch<React.SetStateAction<PaneOrientation>>;
   paneOrder: PaneOrder;
-  setPaneOrder: React.Dispatch<React.SetStateAction<PaneOrder>>;
+  paneSequence: WorkspacePaneId[];
+  setPaneOrder: (action: React.SetStateAction<PaneOrder>) => void;
   sheetPaneOnRight: boolean;
   setSheetPaneOnRight: (action: React.SetStateAction<boolean>) => void;
   rearrangePane: (draggedPane: WorkspacePaneId, target: SnapTarget) => void;
@@ -40,10 +42,32 @@ const readStoredOrder = (): PaneOrder => {
   return val === 'editor-first' ? 'editor-first' : 'sheet-first';
 };
 
+const readStoredSequence = (): WorkspacePaneId[] => {
+  const fallback: WorkspacePaneId[] = readStoredOrder() === 'editor-first'
+    ? ['editor', 'sheet', 'waterfall'] : ['sheet', 'editor', 'waterfall'];
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const value: unknown = JSON.parse(window.localStorage.getItem(PANE_SEQUENCE_KEY) || 'null');
+    if (Array.isArray(value) && value.length === 3 && new Set(value).size === 3
+      && value.every((id) => fallback.includes(id))) return value;
+  } catch { /* Use the legacy layout when the stored sequence is invalid. */ }
+  return fallback;
+};
+
 export function useWorkspacePanes(): UseWorkspacePanesResult {
   const [sheetVisible, setSheetVisible] = useState(true);
   const [paneOrientation, setPaneOrientation] = useState<PaneOrientation>(readStoredOrientation);
-  const [paneOrder, setPaneOrder] = useState<PaneOrder>(readStoredOrder);
+  const [paneSequence, setPaneSequence] = useState<WorkspacePaneId[]>(readStoredSequence);
+  const paneOrder: PaneOrder = paneSequence.indexOf('sheet') < paneSequence.indexOf('editor')
+    ? 'sheet-first' : 'editor-first';
+  const setPaneOrder = useCallback((action: React.SetStateAction<PaneOrder>) => {
+    setPaneSequence((sequence) => {
+      const current: PaneOrder = sequence.indexOf('sheet') < sequence.indexOf('editor') ? 'sheet-first' : 'editor-first';
+      const next = typeof action === 'function' ? action(current) : action;
+      if (next === current) return sequence;
+      return sequence.map((id) => id === 'sheet' ? 'editor' : id === 'editor' ? 'sheet' : id);
+    });
+  }, []);
   const [paneMenuOpen, setPaneMenuOpen] = useState(false);
   const paneMenuRef = useRef<HTMLDivElement>(null);
 
@@ -55,22 +79,14 @@ export function useWorkspacePanes(): UseWorkspacePanesResult {
       const nextOnRight = typeof action === 'function' ? action(currentOnRight) : action;
       return nextOnRight ? 'editor-first' : 'sheet-first';
     });
-  }, []);
+  }, [setPaneOrder]);
 
   const rearrangePane = useCallback((draggedPane: WorkspacePaneId, target: SnapTarget) => {
-    if (target === 'top') {
-      setPaneOrientation('vertical');
-      setPaneOrder(draggedPane === 'sheet' ? 'sheet-first' : 'editor-first');
-    } else if (target === 'bottom') {
-      setPaneOrientation('vertical');
-      setPaneOrder(draggedPane === 'sheet' ? 'editor-first' : 'sheet-first');
-    } else if (target === 'left') {
-      setPaneOrientation('horizontal');
-      setPaneOrder(draggedPane === 'sheet' ? 'sheet-first' : 'editor-first');
-    } else if (target === 'right') {
-      setPaneOrientation('horizontal');
-      setPaneOrder(draggedPane === 'sheet' ? 'editor-first' : 'sheet-first');
-    }
+    setPaneOrientation(target === 'top' || target === 'bottom' ? 'vertical' : 'horizontal');
+    setPaneSequence((sequence) => {
+      const others = sequence.filter((id) => id !== draggedPane);
+      return target === 'left' || target === 'top' ? [draggedPane, ...others] : [...others, draggedPane];
+    });
   }, []);
 
   const openSheetPane = useCallback((editorVisible: boolean) => {
@@ -79,7 +95,7 @@ export function useWorkspacePanes(): UseWorkspacePanesResult {
     }
     setSheetVisible(true);
     setPaneMenuOpen(false);
-  }, [sheetVisible, paneOrientation]);
+  }, [sheetVisible, paneOrientation, setPaneOrder]);
 
   const openEditorPane = useCallback((setEditorVisible: (visible: boolean) => void) => {
     if (paneOrientation === 'horizontal') {
@@ -87,7 +103,7 @@ export function useWorkspacePanes(): UseWorkspacePanesResult {
     }
     setEditorVisible(true);
     setPaneMenuOpen(false);
-  }, [paneOrientation]);
+  }, [paneOrientation, setPaneOrder]);
 
   const closeSheetPane = useCallback(() => {
     setSheetVisible(false);
@@ -104,6 +120,10 @@ export function useWorkspacePanes(): UseWorkspacePanesResult {
   useEffect(() => {
     window.localStorage.setItem(PANE_ORIENTATION_KEY, paneOrientation);
   }, [paneOrientation]);
+
+  useEffect(() => {
+    window.localStorage.setItem(PANE_SEQUENCE_KEY, JSON.stringify(paneSequence));
+  }, [paneSequence]);
 
   useEffect(() => {
     window.localStorage.setItem(PANE_ORDER_KEY, paneOrder);
@@ -137,6 +157,7 @@ export function useWorkspacePanes(): UseWorkspacePanesResult {
     paneOrientation,
     setPaneOrientation,
     paneOrder,
+    paneSequence,
     setPaneOrder,
     sheetPaneOnRight,
     setSheetPaneOnRight,

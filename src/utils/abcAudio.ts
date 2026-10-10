@@ -261,6 +261,22 @@ export function configureAudioPlayback(
   }
 }
 
+/** Prepare a visual tune for the shared transport, whether its score is
+ * visible or rendered into a detached element. Presentation-only render
+ * options stay with the caller; timing and audio preparation cannot diverge. */
+export function renderPlaybackScore(
+  target: HTMLElement,
+  source: string,
+  options?: abcjs.AbcVisualParams,
+): abcjs.TuneObject[] {
+  const prepared = prepareAbcForEngraving(source);
+  const tunes = options ? abcjs.renderAbc(target, prepared, options) : abcjs.renderAbc(target, prepared);
+  hideSyntheticTupletRests(source, tunes);
+  configureAudioPlayback(source, tunes);
+  tunes.forEach((tune) => tune.setTiming?.(tune.getBpm?.()));
+  return tunes;
+}
+
 type EngravedSelectable = {
   absEl?: {
     abcelem?: {

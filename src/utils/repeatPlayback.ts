@@ -32,6 +32,16 @@ export const buildMeasureOccurrences = (
     return [];
   }
 
+  return collectPreparedMeasureOccurrences(tune, mappingOrFirst);
+};
+
+/** Read timing already initialized by the shared score preparation pipeline. */
+export const collectPreparedMeasureOccurrences = (
+  tune: abcjs.TuneObject,
+  mappingOrFirst: number | { firstMeasureNumber: number; barToMeasure: readonly number[] } = 1,
+): MeasureOccurrence[] => {
+  if (!tune) return [];
+
   const firstMeasureNumber = typeof mappingOrFirst === 'number' ? mappingOrFirst : (mappingOrFirst?.firstMeasureNumber ?? 1);
   const mapBar = (barIndex: number): number => {
     if (typeof mappingOrFirst === 'object' && Array.isArray(mappingOrFirst.barToMeasure)) {
