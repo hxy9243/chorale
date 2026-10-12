@@ -30,6 +30,7 @@ import { useDocumentStore } from './hooks/useDocumentStore';
 import { useScoreExport, type ScoreExportFormat } from './hooks/useScoreExport';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { usePaneTabDrag } from './hooks/usePaneTabDrag';
+import { useSplitStackLayout } from './hooks/useSplitStackLayout';
 import {
   useWorkspacePanes,
   PANE_ORIENTATION_KEY,
@@ -60,6 +61,7 @@ export {
 };
 
 const DEFAULT_SHEET_ZOOM = 100;
+export const WATERFALL_VISIBLE_KEY = 'chorale.workspace.waterfallVisible';
 
 export const App: React.FC = () => {
   const {
@@ -106,6 +108,7 @@ export const App: React.FC = () => {
   const {
     sheetVisible,
     paneOrientation,
+    setPaneOrientation,
     paneOrder,
     paneSequence,
     sheetPaneOnRight,
@@ -121,7 +124,8 @@ export const App: React.FC = () => {
   } = useWorkspacePanes();
 
   const shellRef = useRef<HTMLDivElement>(null);
-  const [waterfallVisible, setWaterfallVisible] = useState(false);
+  const [waterfallVisible, setWaterfallVisible] = useState(() => window.localStorage.getItem(WATERFALL_VISIBLE_KEY) === 'true');
+  useEffect(() => { window.localStorage.setItem(WATERFALL_VISIBLE_KEY, String(waterfallVisible)); }, [waterfallVisible]);
 
   const {
     zoom,
@@ -149,6 +153,7 @@ export const App: React.FC = () => {
   const clampWaterfallWidth = useCallback((width: number) => Math.max(240, Math.min(width, (waterfallLayoutRef.current?.clientWidth || 900) * 0.65)), []);
   const [waterfallHeight, setWaterfallHeight] = useState(320);
   const visiblePanes = paneSequence.filter((id) => id === 'sheet' ? sheetVisible : id === 'editor' ? editorVisible : waterfallVisible);
+  const splitStack = useSplitStackLayout(shellRef, paneOrientation, paneSequence, visiblePanes);
   // Resize from the edge facing Sheet, so each gap has exactly one divider.
   const resizeFromEnd = (id: typeof paneSequence[number]) => sheetVisible
     ? visiblePanes.indexOf(id) < visiblePanes.indexOf('sheet') : visiblePanes[0] === id;
@@ -279,6 +284,7 @@ export const App: React.FC = () => {
   const { draggingPane, activeSnapTarget, handleTabPointerDown } = usePaneTabDrag({
     shellRef,
     bothPanesVisible: visiblePanes.length > 1,
+    allowSplitStack: visiblePanes.length === 3,
     rearrangePane,
   });
 
@@ -290,6 +296,16 @@ export const App: React.FC = () => {
     onOpenSheet={() => openSheetPane(editorVisible)}
     onOpenEditor={() => openEditorPane(setEditorVisible)}
     onOpenWaterfall={() => { setWaterfallVisible(true); closePaneMenu(); }}
+    paneOrientation={paneOrientation}
+    onLayoutChange={(layout) => {
+      setPaneOrientation(layout);
+      if (layout === 'split-left' || layout === 'split-right') {
+        setSheetVisible(true);
+        setEditorVisible(true);
+        setWaterfallVisible(true);
+      }
+      closePaneMenu();
+    }}
   />;
 
   // Adjust state during render when activeFileId changes
@@ -447,11 +463,12 @@ export const App: React.FC = () => {
           <div
             ref={shellRef}
             className={`score-editor-shell ${waterfallVisible ? 'waterfall-open' : ''} layout-${paneOrientation} order-${paneOrder} ${!sheetVisible ? 'sheet-hidden' : ''} ${!editorVisible ? 'editor-hidden' : ''}`}
+            style={splitStack.shellStyle}
           >
             {sheetVisible && (
               <section
                 className={`workspace-pane score-pane ${sheetPaneOnRight ? 'sheet-pane-on-right' : ''}`}
-                style={{ ...paneStyle('sheet'), ...(paneOrientation === 'vertical' ? { width: '100%', flex: '1 1 0', height: visiblePanes.length > 1 ? 'auto' : '100%' } : { flex: 1 }) }}
+                style={splitStack.active ? splitStack.paneStyle('sheet') : { ...paneStyle('sheet'), ...(paneOrientation === 'vertical' ? { width: '100%', flex: '1 1 0', height: visiblePanes.length > 1 ? 'auto' : '100%' } : { flex: 1 }) }}
               >
                 <div className="pane-tab-strip">
                   <div
@@ -570,7 +587,7 @@ export const App: React.FC = () => {
               </section>
             )}
 
-            {editorVisible && visiblePanes.length > 1 && (
+            {editorVisible && visiblePanes.length > 1 && !splitStack.active && (
               <button
                 type="button"
                 className={`editor-divider ${paneOrientation === 'vertical' ? 'divider-horizontal' : 'divider-vertical'} ${sheetPaneOnRight ? 'sheet-pane-on-right' : ''}`}
@@ -583,7 +600,7 @@ export const App: React.FC = () => {
             {editorVisible && (
               <section
                 className="workspace-pane editor-pane"
-                style={{ ...paneStyle('editor'), ...(
+                style={splitStack.active ? splitStack.paneStyle('editor') : { ...paneStyle('editor'), ...(
                   paneOrientation === 'vertical'
                     ? {
                         width: '100%',
@@ -633,7 +650,7 @@ export const App: React.FC = () => {
                 <div
                   className="workspace-pane-card editor-workspace-card"
                   style={
-                    paneOrientation === 'vertical'
+                    splitStack.active || paneOrientation === 'vertical'
                       ? { width: '100%', height: '100%' }
                       : { width: visiblePanes.length > 1 ? `${horizontalEditorWidth}px` : '100%' }
                   }
@@ -681,7 +698,7 @@ export const App: React.FC = () => {
               </div>
             )}
             {waterfallVisible && <>
-              {sheetVisible && <button
+              {sheetVisible && !splitStack.active && <button
                 type="button"
                 className={`waterfall-divider ${paneOrientation === 'vertical' ? 'divider-horizontal' : ''}`}
                 style={dividerStyle('waterfall')}
@@ -703,7 +720,7 @@ export const App: React.FC = () => {
                 onClose={() => setWaterfallVisible(false)}
                 onTabPointerDown={handleTabPointerDown('waterfall')}
                 dragging={draggingPane === 'waterfall'}
-                style={{ ...paneStyle('waterfall'), ...(paneOrientation === 'vertical'
+                style={splitStack.active ? splitStack.paneStyle('waterfall') : { ...paneStyle('waterfall'), ...(paneOrientation === 'vertical'
                   ? { width: '100%', height: visiblePanes.length > 1 ? `${waterfallHeight}px` : '100%', flex: sheetVisible ? '0 0 auto' : '1 1 0' }
                   : { flex: sheetVisible ? '0 1 var(--waterfall-width)' : '1 1 0' }) }}
                 actions={!sheetVisible && !editorVisible ? <div className="pane-tab-actions">
@@ -712,6 +729,18 @@ export const App: React.FC = () => {
                 </div> : null}
               />
             </>}
+            {splitStack.active && splitStack.hasColumns && <button
+              type="button" role="separator" aria-label="Resize split columns" aria-orientation="vertical"
+              aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(splitStack.columns * 100)}
+              className="stack-divider stack-column-divider" style={{ gridColumn: 2, gridRow: '1 / -1' }}
+              onPointerDown={splitStack.beginColumnResize} onKeyDown={splitStack.onColumnKeyDown}
+            ><span /></button>}
+            {splitStack.active && splitStack.hasRows && <button
+              type="button" role="separator" aria-label="Resize stacked panes" aria-orientation="horizontal"
+              aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(splitStack.rows * 100)}
+              className="stack-divider stack-row-divider" style={{ gridColumn: splitStack.stackColumn, gridRow: 2 }}
+              onPointerDown={splitStack.beginRowResize} onKeyDown={splitStack.onRowKeyDown}
+            ><span /></button>}
             {draggingPane && <PaneSnapOverlay activeSnapTarget={activeSnapTarget} />}
           </div>
           </div>

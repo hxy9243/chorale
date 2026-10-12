@@ -5,6 +5,7 @@ import type { SnapTarget, WorkspacePaneId } from './useWorkspacePanes';
 interface UsePaneTabDragOptions {
   shellRef: RefObject<HTMLElement | null>;
   bothPanesVisible: boolean;
+  allowSplitStack?: boolean;
   rearrangePane: (paneId: WorkspacePaneId, target: SnapTarget) => void;
 }
 
@@ -13,7 +14,7 @@ interface ActiveDrag {
   cancel: (resetState?: boolean) => void;
 }
 
-function getSnapTarget(shell: HTMLElement | null, clientX: number, clientY: number): SnapTarget | null {
+function getSnapTarget(shell: HTMLElement | null, clientX: number, clientY: number, allowSplitStack: boolean): SnapTarget | null {
   if (!shell) return null;
 
   const { left, top, width, height } = shell.getBoundingClientRect();
@@ -25,19 +26,23 @@ function getSnapTarget(shell: HTMLElement | null, clientX: number, clientY: numb
   const relY = (clientY - top) / height;
   if (relX < 0 || relX > 1 || relY < 0 || relY > 1) return null;
 
+  if (allowSplitStack && (relX < 0.3 || relX > 0.7) && (relY < 0.3 || relY > 0.7)) {
+    return `${relY < 0.5 ? 'top' : 'bottom'}-${relX < 0.5 ? 'left' : 'right'}`;
+  }
+
   if (relY < relX && relY < 1 - relX) return 'top';
   if (relY > relX && relY > 1 - relX) return 'bottom';
   return relX < 0.5 ? 'left' : 'right';
 }
 
-export function usePaneTabDrag({ shellRef, bothPanesVisible, rearrangePane }: UsePaneTabDragOptions) {
+export function usePaneTabDrag({ shellRef, bothPanesVisible, allowSplitStack = false, rearrangePane }: UsePaneTabDragOptions) {
   const [draggingPane, setDraggingPane] = useState<WorkspacePaneId | null>(null);
   const [activeSnapTarget, setActiveSnapTarget] = useState<SnapTarget | null>(null);
   const activeDragRef = useRef<ActiveDrag | null>(null);
 
   useEffect(() => {
-    if (!bothPanesVisible) activeDragRef.current?.cancel();
-  }, [bothPanesVisible]);
+    activeDragRef.current?.cancel();
+  }, [bothPanesVisible, allowSplitStack]);
 
   useEffect(() => () => activeDragRef.current?.cancel(false), []);
 
@@ -84,14 +89,14 @@ export function usePaneTabDrag({ shellRef, bothPanesVisible, rearrangePane }: Us
         document.body.classList.add('is-rearranging-panes');
       }
       if (hasMoved) {
-        setActiveSnapTarget(getSnapTarget(shellRef.current, moveEvent.clientX, moveEvent.clientY));
+        setActiveSnapTarget(getSnapTarget(shellRef.current, moveEvent.clientX, moveEvent.clientY, allowSplitStack));
       }
     };
 
     const handlePointerUp = (upEvent: PointerEvent) => {
       if (upEvent.pointerId !== pointerId) return;
       const finalTarget = hasMoved
-        ? getSnapTarget(shellRef.current, upEvent.clientX, upEvent.clientY)
+        ? getSnapTarget(shellRef.current, upEvent.clientX, upEvent.clientY, allowSplitStack)
         : null;
       cleanup();
       if (finalTarget) rearrangePane(paneId, finalTarget);
@@ -117,7 +122,7 @@ export function usePaneTabDrag({ shellRef, bothPanesVisible, rearrangePane }: Us
     } catch {
       // Window listeners still support environments without pointer capture.
     }
-  }, [bothPanesVisible, rearrangePane, shellRef]);
+  }, [bothPanesVisible, allowSplitStack, rearrangePane, shellRef]);
 
   return { handleTabPointerDown, draggingPane, activeSnapTarget };
 }

@@ -130,4 +130,33 @@ describe('useWorkspacePanes', () => {
     expect(result.current.paneSequence).toEqual(['editor', 'sheet', 'waterfall']);
   });
 
+  it.each([
+    ['top-left', 'split-left', ['editor', 'sheet', 'waterfall']],
+    ['bottom-left', 'split-left', ['sheet', 'editor', 'waterfall']],
+    ['top-right', 'split-right', ['editor', 'sheet', 'waterfall']],
+    ['bottom-right', 'split-right', ['sheet', 'editor', 'waterfall']],
+  ] as const)('persists a %s stack slot and can return to a flat layout', (target, orientation, sequence) => {
+    const hook = renderHook(() => useWorkspacePanes());
+    act(() => hook.result.current.rearrangePane('editor', target));
+    expect(hook.result.current.paneOrientation).toBe(orientation);
+    expect(hook.result.current.paneSequence).toEqual(sequence);
+    hook.unmount();
+    const restored = renderHook(() => useWorkspacePanes());
+    expect(restored.result.current.paneOrientation).toBe(orientation);
+    expect(restored.result.current.paneSequence).toEqual(sequence);
+    act(() => restored.result.current.rearrangePane('waterfall', 'right'));
+    expect(restored.result.current.paneOrientation).toBe('horizontal');
+    expect(restored.result.current.paneSequence.at(-1)).toBe('waterfall');
+  });
+
+  it('preserves stack slots when a pane is reopened through the menu', () => {
+    const { result } = renderHook(() => useWorkspacePanes());
+    act(() => result.current.rearrangePane('sheet', 'bottom-right'));
+    const sequence = result.current.paneSequence;
+    act(() => result.current.closeSheetPane());
+    act(() => result.current.openSheetPane(true));
+    act(() => result.current.openEditorPane(() => {}));
+    expect(result.current.paneSequence).toEqual(sequence);
+  });
+
 });

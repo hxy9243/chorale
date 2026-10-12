@@ -15,6 +15,7 @@ import './styles/controls.css'
 import './chorale-theme.css'
 import './styles/workspace-responsive.css'
 import './styles/waterfall.css'
+import './styles/workspace-split-stack.css'
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 

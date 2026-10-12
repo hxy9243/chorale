@@ -10,7 +10,7 @@ function pointerEvent(type: string, clientX = 500, clientY = 350, pointerId = 1)
   return Object.assign(new Event(type), { clientX, clientY, pointerId });
 }
 
-function setup(bothPanesVisible = true) {
+function setup(bothPanesVisible = true, allowSplitStack = false) {
   const shell = document.createElement('div');
   const tab = document.createElement('div');
   const close = document.createElement('button');
@@ -24,11 +24,12 @@ function setup(bothPanesVisible = true) {
   shell.getBoundingClientRect = getBoundingClientRect;
   const shellRef = { current: shell as HTMLElement | null };
   const rearrangePane = vi.fn();
-  const hook = renderHook(({ visible }) => usePaneTabDrag({
+  const hook = renderHook(({ visible, split = allowSplitStack }: { visible: boolean; split?: boolean }) => usePaneTabDrag({
     shellRef,
     bothPanesVisible: visible,
+    allowSplitStack: split,
     rearrangePane,
-  }), { initialProps: { visible: bothPanesVisible } });
+  }), { initialProps: { visible: bothPanesVisible } as { visible: boolean; split?: boolean } });
 
   function start(paneId: WorkspacePaneId = 'sheet', overrides: Partial<ReactPointerEvent> = {}) {
     act(() => hook.result.current.handleTabPointerDown(paneId)({
@@ -285,4 +286,41 @@ describe('usePaneTabDrag', () => {
     expect(drag.rearrangePane).toHaveBeenCalledExactlyOnceWith('sheet', 'top');
     drag.expectIdle();
   });
+  it.each([
+    ['top-left', 120, 70], ['bottom-left', 120, 630],
+    ['top-right', 880, 70], ['bottom-right', 880, 630],
+  ] as const)('previews and commits the %s corner when three panes are open', (zone, x, y) => {
+    const drag = setup(true, true);
+    drag.start('waterfall');
+    drag.dispatch('pointermove', x, y);
+    expect(drag.result.current.activeSnapTarget).toBe(zone);
+    drag.dispatch('pointerup', x, y);
+    expect(drag.rearrangePane).toHaveBeenCalledExactlyOnceWith('waterfall', zone);
+    drag.expectIdle();
+  });
+
+  it('retains edge snapping in a two-pane layout and cancels a corner preview on Escape', () => {
+    const pair = setup();
+    pair.start(); pair.dispatch('pointermove', 120, 70);
+    expect(pair.result.current.activeSnapTarget).not.toContain('-');
+    pair.unmount();
+    const drag = setup(true, true);
+    drag.start(); drag.dispatch('pointermove', 120, 70);
+    act(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
+    drag.dispatch('pointerup', 120, 70);
+    expect(drag.rearrangePane).not.toHaveBeenCalled();
+    drag.expectIdle();
+  });
+
+  it('discards a corner drop when the third pane closes during a drag', () => {
+    const drag = setup(true, true);
+    drag.start();
+    drag.dispatch('pointermove', 120, 70);
+    expect(drag.result.current.activeSnapTarget).toBe('top-left');
+    drag.rerender({ visible: true, split: false });
+    drag.dispatch('pointerup', 120, 70);
+    expect(drag.rearrangePane).not.toHaveBeenCalled();
+    drag.expectIdle();
+  });
+
 });

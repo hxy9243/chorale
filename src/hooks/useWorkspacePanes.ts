@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export type PaneOrientation = 'horizontal' | 'vertical';
+export type PaneOrientation = 'horizontal' | 'vertical' | 'split-left' | 'split-right';
 export type PaneOrder = 'sheet-first' | 'editor-first';
-export type SnapTarget = 'left' | 'right' | 'top' | 'bottom';
+export type SnapTarget = 'left' | 'right' | 'top' | 'bottom' | 'top-left' | 'bottom-left' | 'top-right' | 'bottom-right';
 export type WorkspacePaneId = 'sheet' | 'editor' | 'waterfall';
 
 export const PANE_ORIENTATION_KEY = 'chorale.workspace.paneOrientation';
@@ -33,7 +33,7 @@ export interface UseWorkspacePanesResult {
 const readStoredOrientation = (): PaneOrientation => {
   if (typeof window === 'undefined') return 'horizontal';
   const val = window.localStorage.getItem(PANE_ORIENTATION_KEY);
-  return val === 'vertical' ? 'vertical' : 'horizontal';
+  return val === 'vertical' || val === 'split-left' || val === 'split-right' ? val : 'horizontal';
 };
 
 const readStoredOrder = (): PaneOrder => {
@@ -82,9 +82,12 @@ export function useWorkspacePanes(): UseWorkspacePanesResult {
   }, [setPaneOrder]);
 
   const rearrangePane = useCallback((draggedPane: WorkspacePaneId, target: SnapTarget) => {
-    setPaneOrientation(target === 'top' || target === 'bottom' ? 'vertical' : 'horizontal');
+    const corner = target.includes('-');
+    setPaneOrientation(corner ? (target.endsWith('left') ? 'split-left' : 'split-right')
+      : target === 'top' || target === 'bottom' ? 'vertical' : 'horizontal');
     setPaneSequence((sequence) => {
       const others = sequence.filter((id) => id !== draggedPane);
+      if (corner) return target.startsWith('top') ? [draggedPane, ...others] : [others[0], draggedPane, others[1]];
       return target === 'left' || target === 'top' ? [draggedPane, ...others] : [...others, draggedPane];
     });
   }, []);

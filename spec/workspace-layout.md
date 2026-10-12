@@ -3,10 +3,11 @@ title: "Workspace Layout Spec"
 description: "Specification for the top-level desktop workspace structure, header, file rail, central score workspace, and chat panel"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-10-08
+updated: 2026-10-12
 status: "implemented"
 source_files:
   - src/App.tsx
+  - src/main.tsx
   - src/components/Header.tsx
   - src/components/FileRail.tsx
   - src/components/DeleteFileConfirmModal.tsx
@@ -20,8 +21,11 @@ source_files:
   - src/hooks/useWorkspaceLayout.ts
   - src/hooks/useWorkspacePanes.ts
   - src/hooks/usePaneTabDrag.ts
+  - src/hooks/useSplitStackLayout.ts
+  - src/components/workspace/WorkspacePaneMenu.tsx
   - src/hooks/useResizablePanel.ts
   - src/styles/workspace-responsive.css
+  - src/styles/workspace-split-stack.css
   - tokens.css
 test_files:
   - src/App.test.tsx
@@ -36,6 +40,7 @@ test_files:
   - src/hooks/__tests__/useWorkspacePanes.test.ts
   - src/hooks/__tests__/useWorkspaceLayout.test.tsx
   - src/hooks/__tests__/usePaneTabDrag.test.ts
+  - src/hooks/__tests__/useSplitStackLayout.test.ts
   - src/styles/__tests__/workspaceLayoutCss.test.ts
   - src/test/usability.test.tsx
 related_specs:
@@ -130,7 +135,19 @@ It contains:
 - drag-and-snap pane rearrangement: users can drag any open pane by its tab (`.pane-tab`) using pointer events to snap and rearrange the panes. As the pointer moves across the workspace, four snap zones (top, bottom, left, right) activate a translucent accent drop overlay (`.pane-snap-overlay`) indicating the target layout. Releasing the pointer snaps the panes into that arrangement (horizontal or vertical, with the dragged pane placed in the target region), updating and persisting `paneOrientation` and the three-pane sequence in `localStorage`, while retaining the legacy Sheet/ABC `paneOrder` preference. Only a primary-pointer release inside a nonempty workspace commits a snap; cancellation, Escape, lost capture, or an outside drop discards the preview without changing persisted layout. Stacked panes each use the full shell content width, without horizontal split constraints.
 - playback dock anchored to the visible bottom of the central workspace with a distinct accent color (dark ink capsule surface) and drop shadow to separate cleanly from the desk background (expanded max-width bounded to 900px with playback progress occupying at least 60% of the width, and selected measure anchors rendered on a separate text metadata row to prevent blocking or clipping the track)
 
-The score and editor panes present clean physical paper depth above the desk surface, with no single/split toggle on the top right. Native system window controls (minimize, maximize, close) are enabled without an application menu bar.
+### Split stack layouts
+
+The pane launcher includes Columns, Rows, Split stack left, and Split stack right. Selecting a split stack opens all three panes. The first two panes in the saved sequence occupy the top and bottom of the stacked column; the third occupies the other full-height column. The mirrored option retains the same stacked pair. A default sequence places Sheet above ABC on the left and Waterfall on the right.
+
+The launcher menu renders above pane clipping boundaries, stays beside its launcher when space permits, and flips above it near the viewport bottom. Its placement accounts for interface zoom and remains scrollable in short windows.
+
+With three panes open, dragging a tab into a workspace corner previews and selects that half-column slot. The dragged pane takes the selected top/bottom slot, the next remaining pane fills the other stacked slot, and the last remaining pane fills the opposite column. Existing edge-center targets return to a single row or column. Two-pane drag behavior is unchanged.
+
+Two independent keyboard/pointer resize handles adjust column widths and stacked heights. Proportions persist as `chorale.workspace.stackColumns` and `chorale.workspace.stackRows`; `paneOrientation` additionally accepts `split-left` and `split-right`, preserving existing horizontal/vertical settings and `paneSequence`/legacy `paneOrder`. Resize calculations use the rendered content box and account for interface zoom. Each column retains a 240px minimum and each stacked row a 180px minimum; undersized workspaces scroll to keep all panes and handles reachable.
+
+Closing a pane collapses its empty slot while retaining the saved split arrangement: a remaining stack member fills its column, the stacked pair fills the workspace if the solo pane closes, and a lone pane fills the workspace. Reopening restores its slot without reordering. Waterfall visibility persists so the selected three-pane layout survives reload. Pane components stay under the same parent across layout changes, and the single shared playback dock continues uninterrupted.
+
+The score and editor panes present clean physical paper depth above the desk surface. Native system window controls (minimize, maximize, close) are enabled without an application menu bar.
 
 
 ## 5. Right work rail and chat panel

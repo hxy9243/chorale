@@ -140,6 +140,54 @@ describe('App Integration', () => {
     expect(screen.getByRole('region', { name: 'Waterfall pane' })).toBeDefined();
   });
 
+
+  it('opens split stacks, resizes both axes, restores closed slots, and retains playback across layouts', async () => {
+    const { unmount } = render(<App />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined(), { timeout: 4000 });
+    fireEvent.click(screen.getByTitle('Play Piano Synthesizer'));
+    const transport = document.querySelector('.audio-player-card');
+    const sheetPane = document.querySelector<HTMLElement>('.score-pane')!;
+    const controllerCount = vi.mocked(abcjs.synth.SynthController).mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Open pane' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Split stack left' }));
+    const editorPane = document.querySelector<HTMLElement>('.editor-pane')!;
+    const waterfallPane = screen.getByRole('region', { name: 'Waterfall pane' });
+    expect(sheetPane.style.gridColumn).toBe('1');
+    expect(editorPane.style.gridRow).toBe('3');
+    expect(waterfallPane.style.gridColumn).toBe('3');
+    expect(document.querySelector('.score-pane')).toBe(sheetPane);
+    expect(document.querySelector('.audio-player-card')).toBe(transport);
+    expect(screen.getByTitle('Pause Audio')).toBeDefined();
+    expect(abcjs.synth.SynthController).toHaveBeenCalledTimes(controllerCount);
+    const shell = document.querySelector<HTMLElement>('.score-editor-shell')!;
+    Object.defineProperty(shell, 'clientWidth', { value: 1100 });
+    Object.defineProperty(shell, 'clientHeight', { value: 800 });
+    const columnHandle = screen.getByRole('separator', { name: 'Resize split columns' });
+    fireEvent.keyDown(columnHandle, { key: 'ArrowRight' });
+    expect(columnHandle.getAttribute('aria-valuenow')).toBe('58');
+    const rowHandle = screen.getByRole('separator', { name: 'Resize stacked panes' });
+    fireEvent.keyDown(rowHandle, { key: 'ArrowDown' });
+    expect(rowHandle.getAttribute('aria-valuenow')).toBe('53');
+    fireEvent.click(screen.getByRole('button', { name: 'Open pane' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Split stack right' }));
+    expect(sheetPane.style.gridColumn).toBe('3');
+    expect(waterfallPane.style.gridColumn).toBe('1');
+    expect(document.querySelector('.editor-pane')).toBe(editorPane);
+    fireEvent.click(screen.getByRole('button', { name: 'Close ABC source pane' }));
+    expect(sheetPane.style.gridRow).toBe('1 / -1');
+    expect(screen.queryByRole('separator', { name: 'Resize stacked panes' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Open pane' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /ABC source.*Show/ }));
+    expect(document.querySelector<HTMLElement>('.editor-pane')?.style.gridRow).toBe('3');
+    expect(screen.getByRole('separator', { name: 'Resize stacked panes' }).getAttribute('aria-valuenow')).toBe('53');
+    unmount();
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined(), { timeout: 4000 });
+    expect(document.querySelector('.score-editor-shell')?.classList.contains('layout-split-right')).toBe(true);
+    expect(screen.getByRole('region', { name: 'Waterfall pane' }).style.gridColumn).toBe('1');
+    expect(screen.getByRole('separator', { name: 'Resize split columns' }).getAttribute('aria-valuenow')).toBe('58');
+  }, 30000);
+
   it.each([false, true])('drags Waterfall in all four directions with ABC visible: %s', async (abcVisible) => {
     render(<App />);
     await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
