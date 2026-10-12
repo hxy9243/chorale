@@ -175,6 +175,67 @@ export interface ExtractedScoreData {
   audioBuffer?: AudioBuffer | null;
 }
 
+interface PreparedScoreAudio {
+  audioBuffer: AudioBuffer | null;
+  waterfallNotes?: WaterfallNote[];
+}
+
+/** One source/context entry, owned and discarded by the export modal session. */
+export interface ScoreVideoAudioCache {
+  current?: {
+    source: string;
+    audioContext: AudioContext | null | undefined;
+    promise: Promise<PreparedScoreAudio>;
+  };
+}
+
+export interface ScoreVideoExtractionOptions {
+  audioCache?: ScoreVideoAudioCache;
+  signal?: AbortSignal;
+}
+
+async function prepareScoreAudio(
+  source: string,
+  tune: abcjs.TuneObject,
+  audioContext: AudioContext | null | undefined,
+  cache?: ScoreVideoAudioCache,
+): Promise<PreparedScoreAudio> {
+  const cached = cache?.current;
+  if (cached?.source === source && cached.audioContext === audioContext) return cached.promise;
+
+  const promise = (async (): Promise<PreparedScoreAudio> => {
+    let waterfallNotes: WaterfallNote[] | undefined;
+    const createSynth = new (abcjs as any).synth.CreateSynth();
+    await initAbcjsSynth(createSynth, {
+      visualObj: tune,
+      audioContext,
+      soundFontVolumeMultiplier: 0.8,
+      sequenceCallback: (tracks) => {
+        waterfallNotes = waterfallNotesFromNoteMap(tracks, secondsPerWholeNote(createSynth));
+      },
+    });
+    await createSynth.prime();
+    const rawBuffers: AudioBuffer[] = createSynth.audioBuffers?.length
+      ? createSynth.audioBuffers
+      : (createSynth.getAudioBuffer?.() ? [createSynth.getAudioBuffer()] : []);
+    return {
+      audioBuffer: rawBuffers.length && audioContext ? mixAudioBuffers(audioContext, rawBuffers) : null,
+      waterfallNotes,
+    };
+  })();
+
+  if (cache) {
+    const entry = { source, audioContext, promise };
+    cache.current = entry;
+    const forget = () => { if (cache.current === entry) cache.current = undefined; };
+    // Failed/incomplete preparation must remain retryable; [] is valid for rests.
+    void promise.then((audio) => {
+      if (!audio.audioBuffer || !audio.waterfallNotes) forget();
+    }, forget);
+  }
+  return promise;
+}
+
 export function mixAudioBuffers(audioCtx: AudioContext, buffers: AudioBuffer[]): AudioBuffer | null {
   if (!buffers || buffers.length === 0) return null;
   const sampleRate = buffers[0].sampleRate;
@@ -227,6 +288,7 @@ export async function extractScoreSystems(
   theme: ScoreVideoTheme = 'dark',
   audioCtx?: AudioContext | null,
   visualization: ScoreVideoVisualization = 'sheet',
+  options: ScoreVideoExtractionOptions = {},
 ): Promise<ExtractedScoreData> {
   if (visualization === 'waterfall' && typeof source !== 'string') {
     throw new Error('Piano waterfall export requires the ABC score. Reopen export from the score file.');
@@ -237,6 +299,13 @@ export async function extractScoreSystems(
   let cleanupContainer: HTMLElement | null = null;
   let activeTune: any = null;
   let waterfallNotes: WaterfallNote[] | undefined;
+  const checkCancelled = () => {
+    if (options.signal?.aborted) {
+      cleanupContainer?.remove();
+      throw new DOMException('Video preparation cancelled.', 'AbortError');
+    }
+  };
+  checkCancelled();
 
   if (typeof source === 'string' && typeof document !== 'undefined') {
     const container = document.createElement('div');
@@ -274,23 +343,7 @@ export async function extractScoreSystems(
         // Synthesize audio buffer using abcjs CreateSynth
         if (typeof window !== 'undefined' && (abcjs as any).synth?.CreateSynth) {
           try {
-            const synthApi = (abcjs as any).synth;
-            const createSynth = new synthApi.CreateSynth();
-            await initAbcjsSynth(createSynth, {
-              visualObj: tune,
-              audioContext: audioCtx,
-              soundFontVolumeMultiplier: 0.8,
-              sequenceCallback: visualization === 'waterfall' ? (tracks) => {
-                waterfallNotes = waterfallNotesFromNoteMap(tracks, secondsPerWholeNote(createSynth));
-              } : undefined,
-            });
-            await createSynth.prime();
-            const rawBuffers: AudioBuffer[] = (createSynth.audioBuffers && createSynth.audioBuffers.length > 0)
-              ? createSynth.audioBuffers
-              : (createSynth.getAudioBuffer?.() ? [createSynth.getAudioBuffer()] : []);
-            if (rawBuffers.length > 0 && audioCtx) {
-              audioBuffer = mixAudioBuffers(audioCtx, rawBuffers);
-            }
+            ({ audioBuffer, waterfallNotes } = await prepareScoreAudio(source, tune, audioCtx, options.audioCache));
           } catch (synthErr) {
             console.warn('CreateSynth audio buffer generation warning:', synthErr);
           }
@@ -304,6 +357,8 @@ export async function extractScoreSystems(
   } else if (source && typeof (source as SVGSVGElement).querySelectorAll === 'function') {
     svgElement = source as SVGSVGElement;
   }
+
+  checkCancelled();
 
   if (!svgElement) {
     if (cleanupContainer) cleanupContainer.remove();
@@ -361,6 +416,7 @@ export async function extractScoreSystems(
   const systemImages: RenderableSystem[] = [];
 
   for (let i = 0; i < rawSystems.length; i++) {
+    checkCancelled();
     const raw = rawSystems[i];
     let top = Math.round(raw.staffMidY - uniformHeight / 2);
     // Ensure top slice boundary never encroaches on annotations or tempo markings above staff
@@ -453,6 +509,7 @@ export async function extractScoreSystems(
       image,
     });
   }
+  checkCancelled();
 
   // Map abcjs line indices / class names to sequential systemIndex (0..N-1) in `systems`.
   // In abcjs, tune.lines indexes all lines including subtitles, header metadata, or parts.

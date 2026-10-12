@@ -1,4 +1,6 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as mediabunny from 'mediabunny';
+import { WATERFALL_COLORS } from '../waterfallLayout';
 import {
   isMp4RecordingSupported,
   isWebCodecsSupported,
@@ -12,6 +14,12 @@ import {
   type ExtractedScoreData,
   type ScoreVideoExportOptions,
 } from '../scoreVideoRecorder';
+
+// Expose configurable exports so individual tests can replace the encoder
+// boundary while the normal recorder, timeline, and canvas rendering stay real.
+vi.mock('mediabunny', async (importOriginal) => ({
+  ...await importOriginal<typeof import('mediabunny')>(),
+}));
 
 describe('scoreVideoRecorder', () => {
   const originalMediaRecorder = globalThis.MediaRecorder;
@@ -280,6 +288,164 @@ describe('scoreVideoRecorder', () => {
       expect(createdOptions.audioBitsPerSecond).toBe(192_000);
       expect(createdOptions.mimeType).toBe('video/webm;codecs=vp9,opus');
       expect(blob.type).toBe('video/webm;codecs=vp9,opus');
+    });
+  });
+
+  describe('waterfall recording integration', () => {
+    const options: ScoreVideoExportOptions = {
+      width: 720, height: 1280, aspectRatio: '9:16', theme: 'warm',
+      visualization: 'waterfall', format: 'webm', fps: 4,
+      introDurationSec: 0.5, outroDurationSec: 0.5,
+      metadata: { title: 'Synchronized waterfall' },
+    };
+    const extracted: ExtractedScoreData = {
+      systems: [], noteEvents: [], systemImages: [], totalScoreTimeSec: 1,
+      audioBuffer: { duration: 1 } as AudioBuffer,
+      waterfallNotes: [{ id: 'c', midiPitch: 60, voice: 1, onsetSeconds: 0.25, durationSeconds: 0.5 }],
+    };
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.stubGlobal('VideoEncoder', class {});
+      vi.stubGlobal('VideoFrame', class {});
+    });
+    afterEach(() => {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    });
+
+    function recordingCanvas() {
+      const rectangleColors: string[] = [];
+      let rectanglePath = false;
+      const ctx = {
+        fillStyle: '' as string | CanvasGradient,
+        createLinearGradient: () => ({ addColorStop: vi.fn() }),
+        createRadialGradient: () => ({ addColorStop: vi.fn() }),
+        beginPath: () => { rectanglePath = false; },
+        roundRect: () => { rectanglePath = true; },
+        fill: () => {
+          if (rectanglePath && typeof ctx.fillStyle === 'string') rectangleColors.push(ctx.fillStyle);
+        },
+        fillRect: vi.fn(), fillText: vi.fn(), stroke: vi.fn(), arc: vi.fn(),
+        moveTo: vi.fn(), lineTo: vi.fn(), save: vi.fn(), restore: vi.fn(),
+        translate: vi.fn(), rect: vi.fn(), clip: vi.fn(), drawImage: vi.fn(),
+        measureText: (text: string) => ({ width: text.length * 8 }),
+      };
+      const videoTrack = { requestFrame: vi.fn() };
+      const canvas = {
+        width: 0, height: 0,
+        getContext: () => ctx,
+        captureStream: vi.fn(() => ({ getVideoTracks: () => [videoTrack] })),
+      } as unknown as HTMLCanvasElement;
+      return { canvas, videoTrack, takeFrame: () => rectangleColors.splice(0) };
+    }
+
+    function expectSynchronizedFrames(frames: Map<number, string[]>) {
+      // Only a sounding piano key uses this voice color in a filled rectangle.
+      // The real renderer must receive the extracted note, subtract the intro,
+      // and clear the key at the note's exact release (video time 1.25).
+      expect(frames.get(0.25)).not.toContain(WATERFALL_COLORS[1]);
+      expect(frames.get(0.5)).not.toContain(WATERFALL_COLORS[1]);
+      expect(frames.get(0.75)).toContain(WATERFALL_COLORS[1]);
+      expect(frames.get(1)).toContain(WATERFALL_COLORS[1]);
+      expect(frames.get(1.25)).not.toContain(WATERFALL_COLORS[1]);
+      expect(frames.get(1.5)).not.toContain(WATERFALL_COLORS[1]);
+    }
+
+    it('encodes real waterfall frames and offsets the audio track by the intro with WebCodecs', async () => {
+      const { canvas, takeFrame } = recordingCanvas();
+      const frames = new Map<number, string[]>();
+      const addAudio = vi.fn(async () => {});
+      vi.spyOn(mediabunny, 'BufferTarget').mockImplementation(function () {
+        return { buffer: null };
+      } as never);
+      vi.spyOn(mediabunny, 'Output').mockImplementation(function ({ target }: { target: { buffer: ArrayBuffer | null } }) {
+        return {
+          addVideoTrack: vi.fn(), addAudioTrack: vi.fn(), start: vi.fn(async () => {}),
+          finalize: vi.fn(async () => { target.buffer = new ArrayBuffer(4); }),
+        };
+      } as never);
+      vi.spyOn(mediabunny, 'CanvasSource').mockImplementation(function () {
+        return { add: vi.fn(async (timestamp: number) => { frames.set(timestamp, takeFrame()); }) };
+      } as never);
+      const audioSource = vi.spyOn(mediabunny, 'AudioBufferSource').mockImplementation(function () {
+        return { add: addAudio };
+      } as never);
+
+      const recording = recordScoreVideo(canvas, extracted, options);
+      await vi.runAllTimersAsync();
+      const blob = await recording;
+
+      expect(blob.type).toBe('video/webm');
+      expect(blob.size).toBeGreaterThan(0);
+      expectSynchronizedFrames(frames);
+      expect(audioSource).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ codec: 'opus' }), { startTimestamp: options.introDurationSec },
+      );
+      expect(addAudio).toHaveBeenCalledExactlyOnceWith(extracted.audioBuffer);
+      expect(canvas.captureStream).not.toHaveBeenCalled();
+    });
+
+    it('keeps waterfall frames and audio aligned after WebCodecs fails and MediaRecorder takes over', async () => {
+      const { canvas, videoTrack, takeFrame } = recordingCanvas();
+      const frames = new Map<number, string[]>();
+      const encoderFailure = new Error('Video encoder unavailable');
+      const cancelOutput = vi.fn(async () => {});
+      vi.spyOn(mediabunny, 'Output').mockImplementation(function () {
+        return {
+          addVideoTrack: vi.fn(), addAudioTrack: vi.fn(),
+          start: vi.fn(async () => { throw encoderFailure; }), cancel: cancelOutput,
+        };
+      } as never);
+      vi.spyOn(mediabunny, 'CanvasSource').mockImplementation(function () { return {}; } as never);
+      vi.spyOn(mediabunny, 'AudioBufferSource').mockImplementation(function () { return {}; } as never);
+      const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const audioTrack = { kind: 'audio' };
+      const destination = { stream: { getAudioTracks: () => [audioTrack] } };
+      const source = { buffer: null, connect: vi.fn(), start: vi.fn(), stop: vi.fn() };
+      const gain = { gain: { setValueAtTime: vi.fn() }, connect: vi.fn() };
+      const audioContext = {
+        state: 'running', currentTime: 12,
+        createMediaStreamDestination: () => destination,
+        createBufferSource: () => source, createGain: () => gain,
+      } as unknown as AudioContext;
+      vi.stubGlobal('AudioContext', class {});
+      const combineTracks = vi.fn();
+      vi.stubGlobal('MediaStream', class {
+        constructor(tracks: MediaStreamTrack[]) { combineTracks(tracks); }
+      });
+      let recordingStart = 0;
+      vi.stubGlobal('MediaRecorder', class {
+        static isTypeSupported(type: string) { return type.startsWith('video/webm'); }
+        ondataavailable: ((event: { data: Blob }) => void) | null = null;
+        onstop: (() => void) | null = null;
+        start() { recordingStart = performance.now(); }
+        stop() {
+          this.ondataavailable?.({ data: new Blob(['encoded waterfall']) });
+          this.onstop?.();
+        }
+      });
+      videoTrack.requestFrame.mockImplementation(() => {
+        frames.set((performance.now() - recordingStart) / 1000, takeFrame());
+      });
+
+      const recording = recordScoreVideo(canvas, extracted, options, audioContext);
+      await vi.runAllTimersAsync();
+      const blob = await recording;
+
+      expect(blob.type).toBe('video/webm;codecs=vp9,opus');
+      expect(blob.size).toBeGreaterThan(0);
+      expect(warning).toHaveBeenCalledWith(expect.stringContaining('falling back'), encoderFailure);
+      expect(cancelOutput).toHaveBeenCalledOnce();
+      expectSynchronizedFrames(frames);
+      expect(source.buffer).toBe(extracted.audioBuffer);
+      expect(source.start).toHaveBeenCalledExactlyOnceWith(audioContext.currentTime + options.introDurationSec);
+      expect(source.connect).toHaveBeenCalledWith(gain);
+      expect(gain.connect).toHaveBeenCalledWith(destination);
+      expect(combineTracks).toHaveBeenCalledExactlyOnceWith([videoTrack, audioTrack]);
+      expect(source.stop).toHaveBeenCalledOnce();
     });
   });
 
@@ -1012,4 +1178,3 @@ describe('scoreVideoRecorder', () => {
     });
   });
 });
-

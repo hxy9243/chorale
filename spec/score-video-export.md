@@ -50,6 +50,7 @@ The existing Video export dialog offers **Sheet music** (default) and **Piano wa
 - The whole score pitch range fits in both export orientations, including extreme pitches, with no horizontal scrolling or cropped keys. Portrait uses a taller falling-note field; landscape uses the available width. Header and progress areas stay outside the keyboard/note field.
 - Notes retain transparent gradient tails, flat merge occlusion, exact note-width contact light, and small concentrated sparks. No waterfall notes or contact sparks appear in intro/outro cards.
 - Waterfall export requires ABC source and successfully synthesized audio/note timing. Loading, missing data, and failures are visible; preview/export cannot use stale data after source, theme or video-style changes. An all-rest score may export an empty keyboard with its synthesized silent audio.
+- During one open export dialog, style and theme changes reuse the same source/context audio preparation, including an in-flight result. Closing the dialog releases that cache; changed source/context or failed preparation must not reuse stale audio. Abandoned sheet preparation stops before doing further rasterization work.
 - Waterfall size estimates use the configured video/audio bitrate budget rather than the empirical static-sheet compression estimate.
 
 Allow musicians to export the active score as an MP4/WebM video suitable for sharing on YouTube, Instagram Reels, TikTok, or educational presentations:
@@ -206,3 +207,4 @@ Pure rendering module for HTML5 Canvas (`OffscreenCanvas` or `HTMLCanvasElement`
 - `ScoreVideoExportModal.test.tsx`: Modal rendering, control changes, preview transport controls, both waterfall orientations and filenames, stale preparation results, and visible preparation failures.
 - `waterfallCanvasRenderer.test.ts`: Complete pitch-range framing in both resolutions/orientations, exact contact widths and release boundaries, transparent tails, deterministic seeking, and intro/outro time routing.
 - `waterfallVideoExtraction.test.ts`: Resolved synth note-map conversion, audio release-tail duration, source/audio requirements, and motion-specific size estimates.
+- `scoreVideoRecorder.test.ts`: Both recording backends retain waterfall note data, draw active keys at score time, and offset audio by the intro duration.

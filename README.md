@@ -129,7 +129,8 @@ For complete, step-by-step agent installation guides and MCP configurations, see
 - **MusicXML & MXL Import**: Drag-and-drop or programmatic import of `.xml`, `.musicxml`, and compressed `.mxl` files converted via `@educandu/abc-tools`.
 - **Interactive Sheet Music**: High-legibility SVG score rendered via `abcjs` with dynamic zoom (60% to 180%) and key transposition.
 - **WebAudio Piano Synthesizer**: Audio player with tempo scaling (50% to 180%), volume control, and active note cursor highlighting (`#e11d48`) on the SVG score during audio playback.
-- **Score Video Export**: Export sheet music video animations with WebCodecs AAC/MP4 rendering.
+- **Score Video Export**: Export sheet music or piano waterfall videos in landscape or portrait, with synchronized audio and MP4/WebM output.
+- **Split Stack Workspace**: Stack two panes beside a full-height third pane, with corner dragging and independently resizable rows and columns.
 - **Desktop Electron Archive**: The original standalone Electron desktop shell is preserved intact on branch `electron` (tag `v0.1-electron-archive`).
 
 ---

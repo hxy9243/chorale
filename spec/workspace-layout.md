@@ -41,6 +41,7 @@ test_files:
   - src/hooks/__tests__/useWorkspaceLayout.test.tsx
   - src/hooks/__tests__/usePaneTabDrag.test.ts
   - src/hooks/__tests__/useSplitStackLayout.test.ts
+  - src/components/workspace/__tests__/WorkspacePaneMenu.test.tsx
   - src/styles/__tests__/workspaceLayoutCss.test.ts
   - src/test/usability.test.tsx
 related_specs:
@@ -140,6 +141,8 @@ It contains:
 The pane launcher includes Columns, Rows, Split stack left, and Split stack right. Selecting a split stack opens all three panes. The first two panes in the saved sequence occupy the top and bottom of the stacked column; the third occupies the other full-height column. The mirrored option retains the same stacked pair. A default sequence places Sheet above ABC on the left and Waterfall on the right.
 
 The launcher menu renders above pane clipping boundaries, stays beside its launcher when space permits, and flips above it near the viewport bottom. Its placement accounts for interface zoom and remains scrollable in short windows.
+
+Opening the launcher moves keyboard focus into its menu. Arrow keys and Home/End navigate pane and layout actions; Escape dismisses the menu and returns focus to the launcher. Selecting an action also restores launcher focus when it remains mounted, while clicking outside preserves the user's new focus target.
 
 With three panes open, dragging a tab into a workspace corner previews and selects that half-column slot. The dragged pane takes the selected top/bottom slot, the next remaining pane fills the other stacked slot, and the last remaining pane fills the opposite column. Existing edge-center targets return to a single row or column. Two-pane drag behavior is unchanged.
 

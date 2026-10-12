@@ -261,7 +261,7 @@ describe('ScoreVideoExportModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /Piano waterfall.*Falling/ }));
     fireEvent.click(screen.getByRole('button', { name: new RegExp(String(label)) }));
     await vi.waitFor(() => expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Export Piano Waterfall' }).disabled).toBe(false));
-    expect(extract).toHaveBeenLastCalledWith(expect.any(String), 'warm', null, 'waterfall');
+    expect(extract).toHaveBeenLastCalledWith(expect.any(String), 'warm', null, 'waterfall', expect.objectContaining({ audioCache: expect.any(Object), signal: expect.any(AbortSignal) }));
     fireEvent.click(screen.getByRole('button', { name: 'Export Piano Waterfall' }));
     await vi.waitFor(() => expect(filename).toBe(`waterfall_study-waterfall-${suffix}.mp4`));
     expect(record).toHaveBeenCalledWith(expect.any(HTMLCanvasElement), preparedWaterfall, expect.objectContaining({
@@ -290,6 +290,24 @@ describe('ScoreVideoExportModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /Piano waterfall.*Falling/ }));
     expect(screen.getByRole('alert').textContent).toContain('requires the ABC score');
     expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Export Piano Waterfall' }).disabled).toBe(true);
+  });
+
+  it('shares one audio cache within an open session and discards it when closed', async () => {
+    const extract = vi.spyOn(recorder, 'extractScoreSystems').mockResolvedValue(preparedWaterfall);
+    const props = { onClose: vi.fn(), abcSource: 'X:1\nK:C\nC', scoreTitle: 'Test' };
+    const { rerender } = render(<ScoreVideoExportModal {...props} open />);
+    const first = extract.mock.calls[0][4]!;
+    fireEvent.click(screen.getByRole('button', { name: /Piano waterfall.*Falling/ }));
+    const second = extract.mock.calls[1][4]!;
+    expect(first.signal?.aborted).toBe(true);
+    expect(second.audioCache).toBe(first.audioCache);
+    fireEvent.click(screen.getByRole('button', { name: 'Modern Dark' }));
+    expect(extract.mock.calls[2][4]?.audioCache).toBe(first.audioCache);
+    rerender(<ScoreVideoExportModal {...props} open={false} />);
+    expect(second.signal?.aborted).toBe(true);
+    rerender(<ScoreVideoExportModal {...props} open />);
+    expect(extract.mock.calls[3][4]?.audioCache).not.toBe(first.audioCache);
+    await act(async () => {});
   });
 
 });

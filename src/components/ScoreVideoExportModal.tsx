@@ -8,6 +8,7 @@ import {
   type ScoreVideoExportProgress,
   type ScoreVideoFormat,
   type ScoreVideoQuality,
+  type ScoreVideoAudioCache,
 } from '../music/scoreVideoRecorder';
 import {
   ScoreVideoTimeline,
@@ -65,6 +66,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
   const previewTimeRef = useRef<number>(0);
   const audioContextRef = useRef<AudioContext | null>(null);
   const previewAudioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const audioCacheRef = useRef<ScoreVideoAudioCache>({});
 
   // Synchronize refs with state
   isPlayingRef.current = isPreviewPlaying;
@@ -94,6 +96,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
   // Extract score data and synthesize audio buffer when modal opens or theme/source changes
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     stopPreviewAudio();
     setIsPreviewPlaying(false);
     setPreviewTimeSec(0);
@@ -102,6 +105,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
     setIsPreparing(false);
 
     if (!open) {
+      audioCacheRef.current = {};
       stopPreviewAudio();
       setExtractedData(null);
       setIsPreviewPlaying(false);
@@ -119,7 +123,10 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
 
     if (sourceToExtract) {
       setIsPreparing(true);
-      void extractScoreSystems(sourceToExtract, theme, audioCtx, visualization).then((data) => {
+      void extractScoreSystems(sourceToExtract, theme, audioCtx, visualization, {
+        audioCache: audioCacheRef.current,
+        signal: controller.signal,
+      }).then((data) => {
         if (!cancelled) setExtractedData(data);
       }).catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Could not prepare the video. Please try again.');
@@ -163,6 +170,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [open, abcSource, theme, visualization, svgContainerSelector, getAudioContext, stopPreviewAudio]);
 

@@ -13,7 +13,10 @@ export interface WorkspacePaneMenuProps {
   onOpenWaterfall: () => void;
   paneOrientation: PaneOrientation;
   onLayoutChange: (layout: PaneOrientation) => void;
+  onClose: () => void;
 }
+
+const MENU_ITEM_SELECTOR = 'button[role^="menuitem"]:not(:disabled)';
 
 export const WorkspacePaneMenu: React.FC<WorkspacePaneMenuProps> = ({
   paneMenuRef,
@@ -25,8 +28,10 @@ export const WorkspacePaneMenu: React.FC<WorkspacePaneMenuProps> = ({
   onOpenWaterfall,
   paneOrientation,
   onLayoutChange,
+  onClose,
 }) => {
   const anchorRef = useRef<HTMLSpanElement>(null);
+  const restoreFocusRef = useRef(false);
   const [position, setPosition] = useState<React.CSSProperties>({ visibility: 'hidden' });
   useLayoutEffect(() => {
     const place = () => {
@@ -56,6 +61,41 @@ export const WorkspacePaneMenu: React.FC<WorkspacePaneMenuProps> = ({
       window.removeEventListener('scroll', place, true);
     };
   }, [paneMenuRef]);
+  useLayoutEffect(() => {
+    if (position.visibility !== 'visible') return;
+    const launcher = anchorRef.current?.parentElement?.querySelector<HTMLButtonElement>('.workspace-add-tab-btn');
+    paneMenuRef.current?.querySelector<HTMLButtonElement>(MENU_ITEM_SELECTOR)?.focus();
+    return () => {
+      if (!restoreFocusRef.current) return;
+      // Opening a pane can replace the launcher. Wait for that commit before restoring focus.
+      queueMicrotask(() => {
+        const target = launcher?.isConnected ? launcher : document.querySelector<HTMLButtonElement>('.workspace-add-tab-btn');
+        target?.focus();
+      });
+    };
+  }, [paneMenuRef, position.visibility]);
+  const select = (action: () => void) => {
+    restoreFocusRef.current = true;
+    action();
+    onClose();
+  };
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      restoreFocusRef.current = true;
+      onClose();
+      return;
+    }
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const items = [...event.currentTarget.querySelectorAll<HTMLButtonElement>(MENU_ITEM_SELECTOR)];
+    const current = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1
+      : event.key === 'ArrowDown' ? (current + 1) % items.length
+      : current <= 0 ? items.length - 1 : current - 1;
+    items[next]?.focus();
+  };
   return <><span ref={anchorRef} aria-hidden="true" />{createPortal(
     <div
       ref={paneMenuRef}
@@ -63,13 +103,14 @@ export const WorkspacePaneMenu: React.FC<WorkspacePaneMenuProps> = ({
       style={position}
       role="menu"
       aria-label="Open pane options"
+      onKeyDown={handleKeyDown}
     >
       <div className="workspace-pane-menu-header">Panes</div>
       <button
         type="button"
         role="menuitem"
         className={`workspace-pane-menu-item ${sheetVisible ? 'is-active' : ''}`}
-        onClick={onOpenSheet}
+        onClick={() => select(onOpenSheet)}
       >
         <FileMusic size={15} aria-hidden="true" />
         <span className="pane-menu-title">Sheet</span>
@@ -83,7 +124,7 @@ export const WorkspacePaneMenu: React.FC<WorkspacePaneMenuProps> = ({
         type="button"
         role="menuitem"
         className={`workspace-pane-menu-item ${editorVisible ? 'is-active' : ''}`}
-        onClick={onOpenEditor}
+        onClick={() => select(onOpenEditor)}
       >
         <FileCode2 size={15} aria-hidden="true" />
         <span className="pane-menu-title">ABC source</span>
@@ -97,7 +138,7 @@ export const WorkspacePaneMenu: React.FC<WorkspacePaneMenuProps> = ({
         type="button"
         role="menuitem"
         className={`workspace-pane-menu-item ${waterfallVisible ? 'is-active' : ''}`}
-        onClick={onOpenWaterfall}
+        onClick={() => select(onOpenWaterfall)}
       >
         <Piano size={15} aria-hidden="true" />
         <span className="pane-menu-title">Waterfall</span>
@@ -110,7 +151,7 @@ export const WorkspacePaneMenu: React.FC<WorkspacePaneMenuProps> = ({
       ] as const).map(([layout, label]) => (
         <button key={layout} type="button" role="menuitemradio" aria-checked={paneOrientation === layout}
           className={`workspace-pane-menu-item ${paneOrientation === layout ? 'is-active' : ''}`}
-          onClick={() => onLayoutChange(layout)}>
+          onClick={() => select(() => onLayoutChange(layout))}>
           <span className={`pane-layout-icon layout-icon-${layout}`} aria-hidden="true"><i /><i /><i /></span>
           <span className="pane-menu-title">{label}</span>
         </button>

@@ -297,6 +297,7 @@ export const App: React.FC = () => {
     onOpenEditor={() => openEditorPane(setEditorVisible)}
     onOpenWaterfall={() => { setWaterfallVisible(true); closePaneMenu(); }}
     paneOrientation={paneOrientation}
+    onClose={closePaneMenu}
     onLayoutChange={(layout) => {
       setPaneOrientation(layout);
       if (layout === 'split-left' || layout === 'split-right') {
