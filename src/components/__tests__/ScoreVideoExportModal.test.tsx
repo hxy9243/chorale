@@ -1,8 +1,11 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ScoreVideoExportModal } from '../ScoreVideoExportModal';
 
+import * as recorder from '../../music/scoreVideoRecorder';
+
 describe('ScoreVideoExportModal', () => {
+  afterEach(() => vi.restoreAllMocks());
   beforeEach(() => {
     // Mock HTMLCanvasElement getContext
     HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue({
@@ -18,6 +21,9 @@ describe('ScoreVideoExportModal', () => {
       moveTo: vi.fn(),
       lineTo: vi.fn(),
       save: vi.fn(),
+      translate: vi.fn(),
+      rect: vi.fn(),
+      clip: vi.fn(),
       restore: vi.fn(),
       drawImage: vi.fn(),
       set fillStyle(_val: any) {},
@@ -40,8 +46,8 @@ describe('ScoreVideoExportModal', () => {
       />,
     );
 
-    expect(screen.getByRole('dialog', { name: 'Export Sheet Video' })).toBeDefined();
-    expect(screen.getByRole('heading', { name: 'Export Sheet Video' })).toBeDefined();
+    expect(screen.getByRole('dialog', { name: 'Export Video' })).toBeDefined();
+    expect(screen.getByRole('heading', { name: 'Export Video' })).toBeDefined();
     expect(screen.getByRole('button', { name: /Export Sheet Video/ })).toBeDefined();
     expect(screen.getByText('MP4 (.mp4)')).toBeDefined();
     expect(screen.getByText('WebM (.webm)')).toBeDefined();
@@ -237,4 +243,53 @@ describe('ScoreVideoExportModal', () => {
     recordScoreVideoMock.mockRestore();
     vi.restoreAllMocks();
   });
+  const preparedWaterfall: recorder.ExtractedScoreData = {
+    systems: [], noteEvents: [], systemImages: [], totalScoreTimeSec: 8,
+    waterfallNotes: [{ id: 'c', midiPitch: 60, voice: 0, onsetSeconds: 0, durationSeconds: 1 }],
+    audioBuffer: { duration: 8 } as AudioBuffer,
+  };
+
+  it.each([
+    ['16:9 Landscape', 1280, 720, 'landscape'],
+    ['9:16 Portrait', 720, 1280, 'portrait'],
+  ])('exports synchronized waterfall data for %s', async (label, width, height, suffix) => {
+    const extract = vi.spyOn(recorder, 'extractScoreSystems').mockResolvedValue(preparedWaterfall);
+    const record = vi.spyOn(recorder, 'recordScoreVideo').mockResolvedValue(new Blob(['video'], { type: 'video/mp4' }));
+    let filename = '';
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { filename = this.download; });
+    render(<ScoreVideoExportModal open onClose={vi.fn()} abcSource="X:1\nK:C\nC" scoreTitle="Waterfall Study" />);
+    fireEvent.click(screen.getByRole('button', { name: /Piano waterfall.*Falling/ }));
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(String(label)) }));
+    await vi.waitFor(() => expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Export Piano Waterfall' }).disabled).toBe(false));
+    expect(extract).toHaveBeenLastCalledWith(expect.any(String), 'warm', null, 'waterfall');
+    fireEvent.click(screen.getByRole('button', { name: 'Export Piano Waterfall' }));
+    await vi.waitFor(() => expect(filename).toBe(`waterfall_study-waterfall-${suffix}.mp4`));
+    expect(record).toHaveBeenCalledWith(expect.any(HTMLCanvasElement), preparedWaterfall, expect.objectContaining({
+      width, height, visualization: 'waterfall', theme: 'warm', format: 'mp4', quality: 'compact',
+    }), null);
+  });
+
+  it('ignores a stale preparation result and blocks export on the current preparation error', async () => {
+    let resolveSheet!: (data: recorder.ExtractedScoreData) => void;
+    let rejectWaterfall!: (error: Error) => void;
+    vi.spyOn(recorder, 'extractScoreSystems')
+      .mockImplementationOnce(() => new Promise(resolve => { resolveSheet = resolve; }))
+      .mockImplementationOnce(() => new Promise((_, reject) => { rejectWaterfall = reject; }));
+    render(<ScoreVideoExportModal open onClose={vi.fn()} abcSource="X:1\nK:C\nC" scoreTitle="Test" />);
+    fireEvent.click(screen.getByRole('button', { name: /Piano waterfall.*Falling/ }));
+    await act(async () => resolveSheet(preparedWaterfall));
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Export Piano Waterfall' }).disabled).toBe(true);
+    expect(screen.getByRole('status').textContent).toContain('Preparing');
+    await act(async () => rejectWaterfall(new Error('Soundfont unavailable')));
+    expect(screen.getByRole('alert').textContent).toBe('Soundfont unavailable');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Export Piano Waterfall' }).disabled).toBe(true);
+  });
+
+  it('requires score source for waterfall instead of exporting an empty keyboard', () => {
+    render(<ScoreVideoExportModal open onClose={vi.fn()} scoreTitle="Test" />);
+    fireEvent.click(screen.getByRole('button', { name: /Piano waterfall.*Falling/ }));
+    expect(screen.getByRole('alert').textContent).toContain('requires the ABC score');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Export Piano Waterfall' }).disabled).toBe(true);
+  });
+
 });

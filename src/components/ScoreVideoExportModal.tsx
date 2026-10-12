@@ -16,6 +16,7 @@ import {
   ScoreVideoRenderer,
   type ScoreVideoTheme,
   type ScoreVideoAspectRatio,
+  type ScoreVideoVisualization,
 } from '../music/scoreVideoRenderer';
 
 export interface ScoreVideoExportModalProps {
@@ -41,6 +42,9 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
   abcSource,
   svgContainerSelector = '#paper svg',
 }) => {
+  const [visualization, setVisualization] = useState<ScoreVideoVisualization>('sheet');
+  const [isPreparing, setIsPreparing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [format, setFormat] = useState<ScoreVideoFormat>('mp4');
   const [quality, setQuality] = useState<ScoreVideoQuality>('compact');
   const [aspectRatio, setAspectRatio] = useState<ScoreVideoAspectRatio>('16:9');
@@ -90,6 +94,12 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
   // Extract score data and synthesize audio buffer when modal opens or theme/source changes
   useEffect(() => {
     let cancelled = false;
+    stopPreviewAudio();
+    setIsPreviewPlaying(false);
+    setPreviewTimeSec(0);
+    setExtractedData(null);
+    setError(null);
+    setIsPreparing(false);
 
     if (!open) {
       stopPreviewAudio();
@@ -108,11 +118,16 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
     const sourceToExtract = abcSource || document.querySelector<SVGSVGElement>(svgContainerSelector) || '';
 
     if (sourceToExtract) {
-      void extractScoreSystems(sourceToExtract, theme, audioCtx).then((data) => {
-        if (!cancelled) {
-          setExtractedData(data);
-        }
+      setIsPreparing(true);
+      void extractScoreSystems(sourceToExtract, theme, audioCtx, visualization).then((data) => {
+        if (!cancelled) setExtractedData(data);
+      }).catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not prepare the video. Please try again.');
+      }).finally(() => {
+        if (!cancelled) setIsPreparing(false);
       });
+    } else if (visualization === 'waterfall') {
+      setError('Piano waterfall export requires the ABC score. Reopen export from the score file.');
     } else {
       // Fallback empty data if no source is available
       setExtractedData({
@@ -149,7 +164,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [open, abcSource, theme, svgContainerSelector, getAudioContext, stopPreviewAudio]);
+  }, [open, abcSource, theme, visualization, svgContainerSelector, getAudioContext, stopPreviewAudio]);
 
   const previewTimeline = React.useMemo(() => {
     return new ScoreVideoTimeline(
@@ -166,44 +181,32 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
 
   const totalDuration = previewTimeline.totalDurationSec;
 
-  const currentEstimate = getEstimatedScoreVideoSize(totalDuration, quality, format);
-  const compactEstimate = getEstimatedScoreVideoSize(totalDuration, 'compact', format);
-  const compressedEstimate = getEstimatedScoreVideoSize(totalDuration, 'compressed', format);
-  const highEstimate = getEstimatedScoreVideoSize(totalDuration, 'high', format);
+  const currentEstimate = getEstimatedScoreVideoSize(totalDuration, quality, format, visualization);
+  const compactEstimate = getEstimatedScoreVideoSize(totalDuration, 'compact', format, visualization);
+  const compressedEstimate = getEstimatedScoreVideoSize(totalDuration, 'compressed', format, visualization);
+  const highEstimate = getEstimatedScoreVideoSize(totalDuration, 'high', format, visualization);
 
-  // Render preview frame onto preview canvas
+  const previewRenderer = React.useMemo(() => new ScoreVideoRenderer({
+    width: aspectRatio === '16:9' ? 960 : 540,
+    height: aspectRatio === '16:9' ? 540 : 960,
+    theme, aspectRatio, visualization,
+    waterfallNotes: extractedData?.waterfallNotes,
+    metadata: { title: scoreTitle || 'Untitled Score', composer, key: keySignature, meter, tempoBpm },
+  }), [aspectRatio, theme, visualization, extractedData?.waterfallNotes, scoreTitle, composer, keySignature, meter, tempoBpm]);
+
+  // The preview and encoder share one deterministic frame renderer.
   const renderPreview = useCallback(() => {
     const canvas = previewCanvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
-    const width = aspectRatio === '16:9' ? 960 : 540;
-    const height = aspectRatio === '16:9' ? 540 : 960;
-
+    const { width, height } = previewRenderer.options;
     if (canvas.width !== width || canvas.height !== height) {
       canvas.width = width;
       canvas.height = height;
     }
-
-    const renderer = new ScoreVideoRenderer({
-      width,
-      height,
-      theme,
-      aspectRatio,
-      metadata: {
-        title: scoreTitle || 'Untitled Score',
-        composer,
-        key: keySignature,
-        meter,
-        tempoBpm,
-      },
-    });
-
-    const frameState = previewTimeline.getFrameState(previewTimeRef.current);
-    renderer.renderFrame(ctx, frameState, extractedData?.systemImages ?? []);
-  }, [aspectRatio, theme, scoreTitle, composer, keySignature, meter, tempoBpm, previewTimeline, extractedData]);
+    previewRenderer.renderFrame(ctx, previewTimeline.getFrameState(previewTimeRef.current), extractedData?.systemImages ?? []);
+  }, [previewRenderer, previewTimeline, extractedData]);
 
   // Re-render preview on state or time changes
   useEffect(() => {
@@ -230,9 +233,8 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
           if (currentTime < introDurationSec) {
             const delay = introDurationSec - currentTime;
             src.start(audioCtx.currentTime + delay, 0);
-          } else {
-            const offset = currentTime - introDurationSec;
-            src.start(0, offset);
+          } else if (currentTime - introDurationSec < extractedData.audioBuffer.duration) {
+            src.start(0, currentTime - introDurationSec);
           }
           previewAudioSourceRef.current = src;
         }
@@ -281,7 +283,9 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
 
   // Export video handler
   const handleExport = async () => {
-    if (!extractedData) return;
+    if (!extractedData || isPreparing) return;
+    setError(null);
+    setExportProgress(null);
     setIsPreviewPlaying(false);
     stopPreviewAudio();
     setIsExporting(true);
@@ -321,6 +325,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
             height,
             theme,
             aspectRatio,
+            visualization,
             format,
             quality,
             introDurationSec,
@@ -348,7 +353,9 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
         const url = URL.createObjectURL(videoBlob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${sanitizedTitle}-video.${extension}`;
+        a.download = visualization === 'waterfall'
+          ? `${sanitizedTitle}-waterfall-${aspectRatio === '16:9' ? 'landscape' : 'portrait'}.${extension}`
+          : `${sanitizedTitle}-video.${extension}`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -358,6 +365,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
       }
     } catch (err) {
       console.error('Failed to export score video:', err);
+      setError(err instanceof Error ? err.message : 'Video export failed. Please try again.');
     } finally {
       setIsExporting(false);
     }
@@ -382,7 +390,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
         <div className="modal-header">
           <div className="modal-header-title-group">
             <Film size={20} className="modal-header-icon" />
-            <h2 id="video-export-modal-title" className="modal-title">Export Sheet Video</h2>
+            <h2 id="video-export-modal-title" className="modal-title">Export Video</h2>
           </div>
           <button
             type="button"
@@ -407,6 +415,8 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
               <canvas
                 ref={previewCanvasRef}
                 className="video-preview-canvas"
+                role="img"
+                aria-label={`${visualization === 'waterfall' ? 'Piano waterfall' : 'Sheet music'} video preview`}
                 style={{
                   aspectRatio: aspectRatio === '16:9' ? '16 / 9' : '9 / 16',
                 }}
@@ -419,7 +429,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
                 type="button"
                 className="btn-circle btn-play-preview"
                 onClick={handleTogglePlayPreview}
-                disabled={isExporting}
+                disabled={isExporting || isPreparing || !extractedData}
                 aria-label={isPreviewPlaying ? 'Pause preview' : 'Play preview'}
               >
                 {isPreviewPlaying ? <Pause size={16} /> : <Play size={16} />}
@@ -433,7 +443,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
                   setIsPreviewPlaying(false);
                   setPreviewTimeSec(0);
                 }}
-                disabled={isExporting}
+                disabled={isExporting || isPreparing || !extractedData}
                 aria-label="Reset preview"
               >
                 <RotateCcw size={15} />
@@ -441,6 +451,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
 
               <input
                 type="range"
+                aria-label="Video preview position"
                 min={0}
                 max={totalDuration}
                 step={0.1}
@@ -451,7 +462,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
                   setPreviewTimeSec(Number(e.target.value));
                 }}
                 className="video-preview-scrubber"
-                disabled={isExporting}
+                disabled={isExporting || isPreparing || !extractedData}
               />
 
               <span className="video-preview-time">
@@ -462,6 +473,19 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
 
           {/* Right Column: Settings & Configuration */}
           <div className="video-options-pane">
+            <div className="option-section">
+              <span className="option-label">Video style</span>
+              <div className="option-toggle-group" role="group" aria-label="Video style">
+                <button type="button" className={`option-toggle-btn ${visualization === 'sheet' ? 'active' : ''}`}
+                  aria-pressed={visualization === 'sheet'} onClick={() => setVisualization('sheet')} disabled={isExporting}>
+                  Sheet music<span className="option-hint">Following the score</span>
+                </button>
+                <button type="button" className={`option-toggle-btn ${visualization === 'waterfall' ? 'active' : ''}`}
+                  aria-pressed={visualization === 'waterfall'} onClick={() => { setVisualization('waterfall'); setTheme('warm'); }} disabled={isExporting}>
+                  Piano waterfall<span className="option-hint">Falling notes and piano keys</span>
+                </button>
+              </div>
+            </div>
             <div className="option-section">
               <label className="option-label">Video Format</label>
               <div className="option-toggle-group">
@@ -530,20 +554,22 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
                 <button
                   type="button"
                   className={`option-toggle-btn ${aspectRatio === '16:9' ? 'active' : ''}`}
+                  aria-pressed={aspectRatio === '16:9'}
                   onClick={() => setAspectRatio('16:9')}
                   disabled={isExporting}
                 >
                   16:9 Landscape
-                  <span className="option-hint">YouTube / Desktop</span>
+                  <span className="option-hint">Desktop / YouTube</span>
                 </button>
                 <button
                   type="button"
                   className={`option-toggle-btn ${aspectRatio === '9:16' ? 'active' : ''}`}
+                  aria-pressed={aspectRatio === '9:16'}
                   onClick={() => setAspectRatio('9:16')}
                   disabled={isExporting}
                 >
                   9:16 Portrait
-                  <span className="option-hint">Shorts / Reels</span>
+                  <span className="option-hint">Mobile / Shorts / Reels</span>
                 </button>
               </div>
             </div>
@@ -633,6 +659,9 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
               </div>
             )}
 
+            {isPreparing && <p role="status">Preparing video and audio…</p>}
+            {error && <p role="alert" className="video-export-error">{error}</p>}
+
             {/* Action Buttons */}
             <div className="video-modal-actions">
               <button
@@ -650,7 +679,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
                 type="button"
                 className="btn btn-primary btn-export-video"
                 onClick={handleExport}
-                disabled={isExporting || !extractedData}
+                disabled={isExporting || isPreparing || !extractedData}
               >
                 {isExporting ? (
                   <>
@@ -660,7 +689,7 @@ export const ScoreVideoExportModal: React.FC<ScoreVideoExportModalProps> = ({
                 ) : (
                   <>
                     <Download size={16} />
-                    Export Sheet Video
+                    {visualization === 'waterfall' ? 'Export Piano Waterfall' : 'Export Sheet Video'}
                   </>
                 )}
               </button>

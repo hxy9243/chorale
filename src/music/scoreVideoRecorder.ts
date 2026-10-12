@@ -9,11 +9,13 @@ import {
   ScoreVideoRenderer,
   type ScoreVideoRenderOptions,
   type ScoreVideoTheme,
+  type ScoreVideoVisualization,
   type RenderableSystem,
 } from './scoreVideoRenderer';
 import { hideSyntheticTupletRests, initAbcjsSynth, prepareAbcForPlayback } from '../utils/abcAudio';
 import { scanScoreSystems } from './scoreSystemScanner';
 import { isFirstMeasurePickup, isFirstMeasurePickupAbc } from './scoreSnapshot';
+import { secondsPerWholeNote, waterfallNotesFromNoteMap, type WaterfallNote } from './waterfallPlayback';
 
 export interface ScoreVideoExportProgress {
   currentSec: number;
@@ -51,6 +53,7 @@ export function getEstimatedScoreVideoSize(
   totalDurationSec: number,
   quality: ScoreVideoQuality = 'compact',
   format: ScoreVideoFormat = 'mp4',
+  visualization: ScoreVideoVisualization = 'sheet',
 ): ScoreVideoSizeEstimate {
   const safeDuration = Math.max(0, totalDurationSec);
 
@@ -73,7 +76,9 @@ export function getEstimatedScoreVideoSize(
     },
   };
 
-  const bps = bitratesBps[quality]?.[format] ?? bitratesBps.compact.mp4;
+  const bps = visualization === 'waterfall'
+    ? (DEFAULT_VIDEO_BITRATES[quality] + DEFAULT_AUDIO_BITRATES[quality]) * 1.04
+    : bitratesBps[quality]?.[format] ?? bitratesBps.compact.mp4;
   const rawBytes = Math.round((bps * safeDuration) / 8);
   // Add base container header overhead (~30 KB)
   const totalBytes = rawBytes + 30_000;
@@ -162,6 +167,7 @@ export function isMp4RecordingSupported(): boolean {
 }
 
 export interface ExtractedScoreData {
+  waterfallNotes?: WaterfallNote[];
   systems: ScoreSystemBBox[];
   noteEvents: ScoreNoteEvent[];
   systemImages: RenderableSystem[];
@@ -220,12 +226,17 @@ export async function extractScoreSystems(
   source: string | SVGSVGElement,
   theme: ScoreVideoTheme = 'dark',
   audioCtx?: AudioContext | null,
+  visualization: ScoreVideoVisualization = 'sheet',
 ): Promise<ExtractedScoreData> {
+  if (visualization === 'waterfall' && typeof source !== 'string') {
+    throw new Error('Piano waterfall export requires the ABC score. Reopen export from the score file.');
+  }
   let svgElement: SVGSVGElement | null = null;
   let totalScoreTimeSec = 30;
   let audioBuffer: AudioBuffer | null = null;
   let cleanupContainer: HTMLElement | null = null;
   let activeTune: any = null;
+  let waterfallNotes: WaterfallNote[] | undefined;
 
   if (typeof source === 'string' && typeof document !== 'undefined') {
     const container = document.createElement('div');
@@ -269,6 +280,9 @@ export async function extractScoreSystems(
               visualObj: tune,
               audioContext: audioCtx,
               soundFontVolumeMultiplier: 0.8,
+              sequenceCallback: visualization === 'waterfall' ? (tracks) => {
+                waterfallNotes = waterfallNotesFromNoteMap(tracks, secondsPerWholeNote(createSynth));
+              } : undefined,
             });
             await createSynth.prime();
             const rawBuffers: AudioBuffer[] = (createSynth.audioBuffers && createSynth.audioBuffers.length > 0)
@@ -293,6 +307,7 @@ export async function extractScoreSystems(
 
   if (!svgElement) {
     if (cleanupContainer) cleanupContainer.remove();
+    if (visualization === 'waterfall') throw new Error('Could not prepare the piano waterfall. Check that the score contains valid ABC notation.');
     return {
       systems: [],
       noteEvents: [],
@@ -370,7 +385,7 @@ export async function extractScoreSystems(
 
     // Create high-res isolated SVG image slice with explicit theme styling and namespaces
     let image: HTMLImageElement | null = null;
-    if (typeof document !== 'undefined') {
+    if (typeof document !== 'undefined' && visualization !== 'waterfall') {
       try {
         const svgClone = svgElement.cloneNode(true) as SVGSVGElement;
         svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
@@ -546,12 +561,21 @@ export async function extractScoreSystems(
     cleanupContainer.remove();
   }
 
+  if (visualization === 'waterfall') {
+    if (!audioBuffer || !waterfallNotes) {
+      throw new Error('Could not prepare synchronized piano audio. Check your soundfont connection and try again.');
+    }
+    // Use the same synthesized duration as the audio track, including its release tail.
+    totalScoreTimeSec = audioBuffer.duration;
+  }
+
   return {
     systems,
     noteEvents,
     systemImages,
     totalScoreTimeSec,
     audioBuffer,
+    waterfallNotes,
   };
 }
 
@@ -590,7 +614,7 @@ export async function recordScoreVideoWithWebCodecs(
     extracted.noteEvents,
   );
 
-  const renderer = new ScoreVideoRenderer(options);
+  const renderer = new ScoreVideoRenderer({ ...options, waterfallNotes: extracted.waterfallNotes });
   const totalDuration = timeline.totalDurationSec;
 
   onProgress?.({
@@ -715,6 +739,9 @@ export async function recordScoreVideo(
   options: ScoreVideoExportOptions,
   audioContext?: AudioContext | null,
 ): Promise<Blob> {
+  if (options.visualization === 'waterfall' && (!extracted.audioBuffer || !extracted.waterfallNotes)) {
+    throw new Error('Prepare synchronized piano notes and audio before exporting a waterfall video.');
+  }
   if (isWebCodecsSupported()) {
     try {
       return await recordScoreVideoWithWebCodecs(canvas, extracted, options);
@@ -754,7 +781,7 @@ export async function recordScoreVideoWithMediaRecorder(
     extracted.noteEvents,
   );
 
-  const renderer = new ScoreVideoRenderer(options);
+  const renderer = new ScoreVideoRenderer({ ...options, waterfallNotes: extracted.waterfallNotes });
   const totalDuration = timeline.totalDurationSec;
 
   onProgress?.({

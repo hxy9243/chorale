@@ -1,14 +1,20 @@
 ---
 title: "Score Video Export Spec"
-description: "Specification for exporting scores as synchronized two-line sheet videos with audio playback, progress indicator, and intro/outro cards"
+description: "Sheet music and piano waterfall video export with synchronized audio, landscape/portrait layouts, and intro/outro cards"
 category: "core-workspace"
 date: 2026-09-12
+updated: 2026-10-12
 status: "implemented"
 source_files:
   - src/music/scoreSystemScanner.ts
   - src/music/scoreVideoTimeline.ts
   - src/music/scoreVideoRenderer.ts
   - src/music/scoreVideoRecorder.ts
+  - src/music/waterfallCanvasRenderer.ts
+  - src/music/waterfallVisuals.ts
+  - src/music/waterfallPlayback.ts
+  - src/utils/abcAudio.ts
+  - src/chorale-theme.css
   - src/components/ScoreVideoExportModal.tsx
   - src/components/FileRail.tsx
   - src/components/workspace/WorkspaceModals.tsx
@@ -18,10 +24,14 @@ test_files:
   - src/music/__tests__/scoreVideoRenderer.test.ts
   - src/music/__tests__/scoreVideoRecorder.test.ts
   - src/components/__tests__/ScoreVideoExportModal.test.tsx
+  - src/music/__tests__/waterfallCanvasRenderer.test.ts
+  - src/music/__tests__/waterfallVideoExtraction.test.ts
+  - src/components/__tests__/FileRail.test.tsx
 related_specs:
   - spec/score-export.md
   - spec/score-surface.md
   - spec/playback-dock.md
+  - spec/piano-waterfall.md
 ---
 
 # Score Video Export Spec
@@ -30,6 +40,17 @@ Date: 2026-09-12
 Source: `spec/score-video-export.md`
 
 ## 1. Goal
+
+The existing Video export dialog offers **Sheet music** (default) and **Piano waterfall**. Both support **16:9 Landscape / Desktop** and **9:16 Portrait / Mobile**, MP4 and WebM, the existing quality presets, preview playback/seeking, and intro/outro cards. Selecting waterfall starts with the approved Warm Paper appearance; Modern Dark remains available. Downloads distinguish waterfall and orientation in their filenames.
+
+### Piano waterfall contract
+
+- Extract pitches, voices, onsets and durations from the exact resolved abcjs synth note map used to generate the exported audio, including repeats, ties, chords, rests and tempo. The audio buffer duration, including its release tail, determines waterfall score duration. No approximation from SVG note positions is allowed.
+- The pane and canvas renderer share pitch geometry, note-tail opacity stops and deterministic contact-spark calculations. Preview and both encoding paths use the same canvas renderer at score time (video time minus intro duration).
+- The whole score pitch range fits in both export orientations, including extreme pitches, with no horizontal scrolling or cropped keys. Portrait uses a taller falling-note field; landscape uses the available width. Header and progress areas stay outside the keyboard/note field.
+- Notes retain transparent gradient tails, flat merge occlusion, exact note-width contact light, and small concentrated sparks. No waterfall notes or contact sparks appear in intro/outro cards.
+- Waterfall export requires ABC source and successfully synthesized audio/note timing. Loading, missing data, and failures are visible; preview/export cannot use stale data after source, theme or video-style changes. An all-rest score may export an empty keyboard with its synthesized silent audio.
+- Waterfall size estimates use the configured video/audio bitrate budget rather than the empirical static-sheet compression estimate.
 
 Allow musicians to export the active score as an MP4/WebM video suitable for sharing on YouTube, Instagram Reels, TikTok, or educational presentations:
 - **Two-Line Lookahead Layout**: Viewport displays the active system (top or active row) and the next upcoming system (lookahead row) with smooth transitions.
@@ -162,10 +183,11 @@ Pure rendering module for HTML5 Canvas (`OffscreenCanvas` or `HTMLCanvasElement`
 - Context menu entry in `FileRail.tsx` under `Export ▸`:
   - `MusicXML (.musicxml)`
   - `PDF (.pdf)`
-  - `Sheet Video` (opens video export modal)
+  - `Video` (opens the shared sheet music / piano waterfall export modal)
 - Modal `ScoreVideoExportModal.tsx`:
   - Live preview canvas with Play / Pause / Seek / Time display.
   - Controls:
+    - Video style: Sheet music vs Piano waterfall.
     - Format: `MP4 (.mp4)` (default, universal playback) vs `WebM (.webm)` (open web standard).
     - Quality & Compression:
       - `Compact`: 720p resolution, ~750 kbps video / 112 kbps audio (Fast Share under 10MB for Discord, Email, and Chat).
@@ -175,10 +197,12 @@ Pure rendering module for HTML5 Canvas (`OffscreenCanvas` or `HTMLCanvasElement`
     - Aspect Ratio: 16:9 Landscape vs 9:16 Portrait.
     - Theme: Modern Dark vs Warm Paper.
     - Intro duration (0–4s) and Outro duration (0–3s).
-  - "Export Sheet Video" action: runs through the timeline, captures stream at chosen resolution, bitrate, and MIME format, and downloads file.
+  - The export action is labeled "Export Sheet Video" or "Export Piano Waterfall" for the selected style. It runs through the timeline, captures frames at the chosen resolution, bitrate, and MIME format, and downloads the file.
 
 ## 6. Testing Strategy
 
 - `scoreVideoTimeline.test.ts`: Phase transitions, beat calculation, time-to-system mapping, cursor interpolation.
 - `scoreVideoRenderer.test.ts`: Canvas dimensions, frame drawing without errors, theme palette tokens.
-- `ScoreVideoExportModal.test.tsx`: Modal rendering, control changes, preview transport controls.
+- `ScoreVideoExportModal.test.tsx`: Modal rendering, control changes, preview transport controls, both waterfall orientations and filenames, stale preparation results, and visible preparation failures.
+- `waterfallCanvasRenderer.test.ts`: Complete pitch-range framing in both resolutions/orientations, exact contact widths and release boundaries, transparent tails, deterministic seeking, and intro/outro time routing.
+- `waterfallVideoExtraction.test.ts`: Resolved synth note-map conversion, audio release-tail duration, source/audio requirements, and motion-specific size estimates.

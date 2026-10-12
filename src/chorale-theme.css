@@ -11097,6 +11097,13 @@ body.is-resizing-col .editor-divider::before {
   gap: 20px;
 }
 
+.video-export-error {
+  color: var(--color-danger, #a43e37);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
 .option-section {
   display: flex;
   flex-direction: column;
@@ -11164,7 +11171,8 @@ body.is-resizing-col .editor-divider::before {
   background: rgba(0, 0, 0, 0.02);
 }
 
-.option-toggle-btn.active {
+.option-toggle-btn.active,
+.option-toggle-btn.active:hover:not(:disabled) {
   background: var(--color-ink, #1c1917);
   color: var(--color-paper, #ffffff);
   border-color: var(--color-ink, #1c1917);

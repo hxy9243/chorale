@@ -325,6 +325,7 @@ export function hideSyntheticTupletRests(
 }
 
 export interface InitAbcjsSynthOptions {
+  sequenceCallback?: (tracks: import('../music/waterfallPlayback').SynthSequenceNote[][]) => void;
   visualObj: abcjs.TuneObject;
   audioContext?: AudioContext | null;
   soundFontVolumeMultiplier?: number;
@@ -349,6 +350,7 @@ export async function initAbcjsSynth(
   if (options.pan) {
     baseOptions.pan = options.pan;
   }
+  if (options.sequenceCallback) baseOptions.sequenceCallback = options.sequenceCallback;
 
   const primaryInitOptions: Record<string, unknown> = {
     visualObj: options.visualObj,
@@ -378,4 +380,3 @@ export async function initAbcjsSynth(
     await createSynth.init(fallbackInitOptions);
   }
 }
-

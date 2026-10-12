@@ -9,6 +9,8 @@ source_files:
   - src/components/WaterfallView.tsx
   - src/components/WaterfallPane.tsx
   - src/music/waterfallLayout.ts
+  - src/music/waterfallVisuals.ts
+  - src/music/waterfallCanvasRenderer.ts
   - src/music/waterfallPlayback.ts
   - src/utils/abcAudio.ts
   - src/utils/repeatPlayback.ts
@@ -22,6 +24,7 @@ source_files:
   - src/styles/waterfall.css
 test_files:
   - src/music/__tests__/waterfallLayout.test.ts
+  - src/music/__tests__/waterfallCanvasRenderer.test.ts
   - src/music/__tests__/waterfallPlayback.test.ts
   - src/utils/__tests__/abcAudio.test.ts
   - src/utils/__tests__/repeatPlayback.test.ts
@@ -32,6 +35,7 @@ test_files:
   - src/hooks/__tests__/useResizablePanel.test.ts
   - src/components/__tests__/AudioPlayer.test.tsx
 related_specs:
+  - spec/score-video-export.md
   - spec/playback-dock.md
   - spec/workspace-layout.md
 ---
@@ -46,7 +50,7 @@ The lower/leading edge of each descending note reaches the exact top edge of the
 
 At contact, a shallow glow and bright seam span exactly the falling note's width, including the narrower black-key notes. Small, dense sparks rise only a short distance above that footprint, with a brief onset burst and quieter sustained emission. Contact effects render in front of the notes and keyboard rail, clipped above the keys; they never form a broad halo or travel up the note's tail. Spark positions are derived from note onset and the shared playback clock, so pause and arbitrary seeks remain deterministic. Pausing clears contact effects along with active key highlights. White and black note lanes use the same pitch geometry as the keyboard, with correct two/three black-key groups. The range expands to include the score's notes, with at least two full octaves and readable horizontally scrollable keys when needed. Muted voice colors are consistent between notes, active keys and a labeled legend. Keyboard colors and note timing remain unchanged.
 
-Animation runs only in the visible pane, uses bounded visible-note lookup, and cleans up its animation frame and resize subscriptions. The renderer never modifies score content or abcjs SVG children. Component, timing, pitch geometry and transport tests supplement browser playback QA. Video export is outside this feature.
+Animation runs only in the visible pane, uses bounded visible-note lookup, and cleans up its animation frame and resize subscriptions. The renderer never modifies score content or abcjs SVG children. Component, timing, pitch geometry and transport tests supplement browser playback QA. The shared Video export dialog also supports piano waterfall videos in landscape and portrait; see `spec/score-video-export.md`. Pane and video renderers share note geometry, tail opacity stops and contact spark calculations.
 
 When the Sheet pane is closed, source changes are engraved into a detached element using the same audio preparation pipeline, keeping playback current without a visible score. Hiding panes alone does not rebuild or stop the transport. A shared speed selector offers 0.5–2× playback; visualization uses score-time seconds and the actual audio clock scaled by the selected speed.
 
