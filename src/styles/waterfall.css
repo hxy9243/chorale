@@ -8,6 +8,11 @@
 .waterfall-viewport { position: relative; flex: 1; min-height: 0; overflow-x: auto; overflow-y: hidden; }
 .waterfall-piano { display: block; }
 .waterfall-lane { stroke: #dfddd5; stroke-width: 0.5; }
+.waterfall-keyboard-rail { stroke: #383630; stroke-width: 1.5; }
+.waterfall-illuminating-shadow { pointer-events: none; }
+.waterfall-splash-particle { pointer-events: none; }
+.waterfall-tail-particle { pointer-events: none; }
+.waterfall-note-tail { pointer-events: none; }
 .waterfall-key-label { fill: #66665d; font-size: 10px; }
 .waterfall-empty { position: absolute; inset: 30% 15px auto; text-align: center; color: #77776e; font-size: 13px; }
 .waterfall-divider { flex: 0 0 12px; border: 0; padding: 0; background: transparent; cursor: col-resize; display: flex; align-items: center; justify-content: center; touch-action: none; }

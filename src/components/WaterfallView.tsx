@@ -59,33 +59,139 @@ export function WaterfallView({ playback }: { playback: WaterfallPlayback | null
         <defs>
           <clipPath id={clipId}><rect width={width} height={keyboardY} /></clipPath>
           {WATERFALL_COLORS.map((voiceColor, voice) => (
-            <linearGradient key={voice} id={`${clipId}-note-${voice}`} x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor={voiceColor} stopOpacity={0.12} />
-              <stop offset="25%" stopColor={voiceColor} stopOpacity={0.55} />
-              <stop offset="50%" stopColor={voiceColor} stopOpacity={0.85} />
-              <stop offset="100%" stopColor={voiceColor} stopOpacity={0.85} />
-            </linearGradient>
+            <radialGradient
+              key={voice}
+              id={`${clipId}-illuminating-shadow-${voice}`}
+              cx="50%"
+              cy="100%"
+              r="100%"
+            >
+              <stop offset="0%" stopColor="#ffffff" stopOpacity={0.95} />
+              <stop offset="22%" stopColor={voiceColor} stopOpacity={0.85} />
+              <stop offset="55%" stopColor={voiceColor} stopOpacity={0.4} />
+              <stop offset="85%" stopColor={voiceColor} stopOpacity={0.1} />
+              <stop offset="100%" stopColor={voiceColor} stopOpacity={0} />
+            </radialGradient>
           ))}
         </defs>
         <g clipPath={`url(#${clipId})`}>
           {keys.filter((key) => !key.black).map((key) => <line key={key.midiPitch} x1={key.x * keyWidth} x2={key.x * keyWidth} y1={0} y2={keyboardY} className="waterfall-lane" />)}
+          {position.isPlaying && visible.map((note) => {
+            if (note.onsetSeconds > position.currentSeconds || note.onsetSeconds + note.durationSeconds <= position.currentSeconds) return null;
+            const key = keyMap.get(note.midiPitch);
+            if (!key) return null;
+            const kw = key.width * keyWidth;
+            const shadowWidth = Math.max(kw * 1.6, 22);
+            const shadowHeight = Math.min(32, Math.max(16, keyboardY * 0.16));
+            const cx = (key.x + key.width / 2) * keyWidth;
+            const voiceColor = color(note.voice);
+            return (
+              <g key={`glow-group-${note.id}`} className="waterfall-merge-glow">
+                <ellipse
+                  cx={cx}
+                  cy={keyboardY}
+                  rx={shadowWidth / 2}
+                  ry={shadowHeight}
+                  fill={`url(#${clipId}-illuminating-shadow-${note.voice % WATERFALL_COLORS.length})`}
+                  className="waterfall-illuminating-shadow"
+                />
+                <line
+                  x1={cx - kw * 0.4}
+                  y1={keyboardY}
+                  x2={cx + kw * 0.4}
+                  y2={keyboardY}
+                  stroke="#ffffff"
+                  strokeWidth={2.2}
+                  opacity={0.85}
+                />
+                {[0, 1, 2, 3, 4, 5, 6].map((p) => {
+                  const phase = ((position.currentSeconds * 7 + p * 0.14) % 1);
+                  const angle = -Math.PI / 2 + (p - 3) * 0.28 + Math.sin(p * 2.5) * 0.12;
+                  const speed = 14 + (p % 3) * 7;
+                  const dist = speed * phase;
+                  const px = cx + Math.cos(angle) * dist;
+                  const py = keyboardY + Math.sin(angle) * dist + phase * phase * 6;
+                  const pSize = Math.max(0.7, (1 - phase * 0.5) * (1.6 + (p % 2) * 0.5));
+                  const pOpacity = (1 - phase) * 0.85;
+                  return (
+                    <circle
+                      key={`splash-${p}`}
+                      cx={px}
+                      cy={py}
+                      r={pSize}
+                      fill={p % 2 === 0 ? '#ffffff' : voiceColor}
+                      opacity={pOpacity}
+                      className="waterfall-splash-particle"
+                    />
+                  );
+                })}
+              </g>
+            );
+          })}
           {visible.map((note) => {
             const key = keyMap.get(note.midiPitch);
             if (!key) return null;
             const geometry = noteGeometry(note, position.currentSeconds, keyboardY);
+            if (geometry.height <= 0) return null;
+            const noteX = key.x * keyWidth + 1;
             const noteWidth = Math.max(1, key.width * keyWidth - 2);
-            return <rect
-              key={note.id}
-              data-note={note.id}
-              x={key.x * keyWidth + 1}
-              y={geometry.y}
-              width={noteWidth}
-              height={geometry.height}
-              rx={noteWidth / 2}
-              fill={`url(#${clipId}-note-${note.voice % WATERFALL_COLORS.length})`}
-            />;
+            const isMerging = geometry.bottom >= keyboardY;
+            const rx = Math.max(1, Math.min(noteWidth / 2, 4));
+            const renderHeight = isMerging
+              ? Math.max(0, keyboardY - geometry.y + noteWidth)
+              : geometry.height;
+            const voiceColor = color(note.voice);
+            return (
+              <g key={note.id} className="waterfall-note-item">
+                <rect
+                  data-note={note.id}
+                  x={noteX}
+                  y={geometry.y}
+                  width={noteWidth}
+                  height={renderHeight}
+                  rx={rx}
+                  fill={voiceColor}
+                  opacity={0.88}
+                  className="waterfall-note-body"
+                />
+                {/* Dynamic particle fading effect at the tail */}
+                <g className="waterfall-note-tail" pointerEvents="none">
+                  {[0, 1, 2, 3, 4, 5].map((i) => {
+                    const phase = ((position.currentSeconds * 4 + i * 0.16 + note.midiPitch * 0.05) % 1);
+                    const xSpread = (((i * 1.618) % 1) - 0.5) * (noteWidth * 0.7);
+                    const px = noteX + noteWidth / 2 + xSpread;
+                    const riseDist = 2 + phase * 18;
+                    const py = geometry.y - riseDist;
+                    if (py < 0) return null;
+                    const pSize = Math.max(0.6, (1 - phase * 0.4) * 1.6);
+                    const pOpacity = (1 - phase) * 0.75;
+                    return (
+                      <circle
+                        key={`tail-p-${i}`}
+                        cx={px}
+                        cy={py}
+                        r={pSize}
+                        fill={i % 3 === 0 ? '#ffffff' : voiceColor}
+                        opacity={pOpacity}
+                        className="waterfall-tail-particle"
+                      />
+                    );
+                  })}
+                  {noteWidth >= 4 && geometry.height >= 4 && (
+                    <path
+                      d={`M ${noteX + 1} ${geometry.y + rx} A ${rx} ${rx} 0 0 1 ${noteX + noteWidth - 1} ${geometry.y + rx}`}
+                      fill="none"
+                      stroke="rgba(255, 255, 255, 0.75)"
+                      strokeWidth={1.2}
+                      strokeLinecap="round"
+                    />
+                  )}
+                </g>
+              </g>
+            );
           })}
         </g>
+        <line x1={0} y1={keyboardY} x2={width} y2={keyboardY} className="waterfall-keyboard-rail" />
         {[...keys.filter((key) => !key.black), ...keys.filter((key) => key.black)].map((key) => {
           const voice = active.get(key.midiPitch);
           return <g key={key.midiPitch} data-pitch={key.midiPitch} data-active={voice !== undefined}>

@@ -48,4 +48,38 @@ describe('WaterfallView', () => {
     expect(container.querySelector('[data-note="old"]')).toBeNull();
     expect(screen.getByText('Waiting for score audio…')).toBeDefined();
   });
+  it('renders flat merge behind keyboard, illuminating background shadow, and distinct tail effect', () => {
+    let position = { currentSeconds: 0.5, isPlaying: true };
+    const playback: WaterfallPlayback = {
+      notes: [{ id: 'note-1', midiPitch: 60, voice: 0, onsetSeconds: 1, durationSeconds: 2 }],
+      getPosition: () => position,
+    };
+    const { container } = render(<WaterfallView playback={playback} />);
+    // Note in flight before onset: tail effect and tail particles exist, no splash or illuminating shadow
+    expect(container.querySelector('.waterfall-note-tail')).not.toBeNull();
+    expect(container.querySelector('.waterfall-tail-particle')).not.toBeNull();
+    expect(container.querySelector('.waterfall-illuminating-shadow')).toBeNull();
+    expect(container.querySelector('.waterfall-splash-particle')).toBeNull();
+    const rectBefore = container.querySelector('[data-note="note-1"]');
+    expect(rectBefore).not.toBeNull();
+
+    // Note merging at onset: concentrated illuminating shadow and splash particles appear
+    position = { currentSeconds: 1.2, isPlaying: true };
+    act(() => nextFrame(0));
+    const shadow = container.querySelector('.waterfall-illuminating-shadow');
+    expect(shadow).not.toBeNull();
+    expect(shadow?.getAttribute('cy')).toBeDefined();
+    expect(container.querySelector('.waterfall-splash-particle')).not.toBeNull();
+    const rectMerging = container.querySelector('[data-note="note-1"]');
+    expect(Number(rectMerging?.getAttribute('height'))).toBeGreaterThan(0);
+    expect(container.querySelector('.waterfall-keyboard-rail')).not.toBeNull();
+    expect(container.querySelector('.waterfall-note-tail path')).not.toBeNull();
+    expect(container.querySelector('.waterfall-tail-particle')).not.toBeNull();
+
+    // Pausing clears illuminating shadow and splash particles
+    position = { currentSeconds: 1.2, isPlaying: false };
+    act(() => nextFrame(1));
+    expect(container.querySelector('.waterfall-illuminating-shadow')).toBeNull();
+    expect(container.querySelector('.waterfall-splash-particle')).toBeNull();
+  });
 });
