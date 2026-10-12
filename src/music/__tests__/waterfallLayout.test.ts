@@ -29,7 +29,7 @@ describe('waterfall pitch and time geometry', () => {
   });
   it('places leading edge exactly at the keyboard at onset without a strike gap', () => {
     expect(noteGeometry(note(60), 0, 400).bottom).toBe(320);
-    expect(noteGeometry(note(60), 1, 400)).toEqual({ y: 320, height: 80, bottom: 400 });
+    expect(noteGeometry(note(60), 1, 400)).toEqual({ top: 320, y: 320, height: 80, bottom: 400 });
     expect(noteGeometry(note(60), 1.5, 400).height).toBe(40);
     expect(noteGeometry(note(60), 2, 400).height).toBe(0);
   });

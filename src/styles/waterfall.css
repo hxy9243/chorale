@@ -1,18 +1,14 @@
 .waterfall-workspace { display: flex; flex: 1 1 0; min-height: 0; min-width: 0; overflow: hidden; container-type: inline-size; }
 .waterfall-workspace > .score-editor-shell { min-width: 0; flex: 1 1 0; }
 .waterfall-pane { flex: 0 1 var(--waterfall-width, 440px); width: var(--waterfall-width, 440px); max-width: 65%; min-width: 140px; min-height: 0; padding: 0; box-sizing: border-box; }
-.waterfall-card { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; background: #f6f4ef; border: 1px solid #dcd8ce; border-radius: 0 5px 0 0; }
+.waterfall-card { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; background: var(--surface-raised, #fffdfa); border: 1px solid #dcd8ce; border-radius: 0 5px 0 0; }
 .waterfall-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding: 10px 12px; min-height: 35px; box-sizing: border-box; font-size: 11px; color: #67665e; }
 .waterfall-legend span { display: inline-flex; gap: 5px; align-items: center; }
 .waterfall-legend i { width: 8px; height: 8px; border-radius: 50%; }
 .waterfall-viewport { position: relative; flex: 1; min-height: 0; overflow-x: auto; overflow-y: hidden; }
 .waterfall-piano { display: block; }
-.waterfall-lane { stroke: #dfddd5; stroke-width: 0.5; }
-.waterfall-keyboard-rail { stroke: #383630; stroke-width: 1.5; }
-.waterfall-illuminating-shadow { pointer-events: none; }
-.waterfall-splash-particle { pointer-events: none; }
-.waterfall-tail-particle { pointer-events: none; }
-.waterfall-note-tail { pointer-events: none; }
+.waterfall-lane { stroke: #dfddd5; stroke-width: 0.5; opacity: 0.65; }
+.waterfall-keyboard-rail { stroke: #b8b6ae; stroke-width: 1; }
 .waterfall-key-label { fill: #66665d; font-size: 10px; }
 .waterfall-empty { position: absolute; inset: 30% 15px auto; text-align: center; color: #77776e; font-size: 13px; }
 .waterfall-divider { flex: 0 0 12px; border: 0; padding: 0; background: transparent; cursor: col-resize; display: flex; align-items: center; justify-content: center; touch-action: none; }
