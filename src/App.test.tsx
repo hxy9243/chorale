@@ -312,6 +312,42 @@ describe('App Integration', () => {
     expect(controller.seek).toHaveBeenLastCalledWith(4, 'seconds');
   });
 
+  it('connects ABC keyboard preview to the committed shared transport and stops on Enter', async () => {
+    const { default: realAbcjs } = await vi.importActual<{ default: typeof abcjs }>('abcjs');
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close Sheet pane' }));
+    const originalParse = vi.mocked(abcjs.parseOnly).getMockImplementation()!;
+    const originalRender = vi.mocked(abcjs.renderAbc).getMockImplementation()!;
+    const controller = { load: vi.fn(), setTune: vi.fn().mockResolvedValue(true), play: vi.fn(), pause: vi.fn(), seek: vi.fn() };
+    const originalSynth = vi.mocked(abcjs.synth.SynthController).getMockImplementation()!;
+    vi.mocked(abcjs.parseOnly).mockImplementation(realAbcjs.parseOnly);
+    vi.mocked(abcjs.renderAbc).mockImplementation(realAbcjs.renderAbc);
+    vi.mocked(abcjs.synth.SynthController).mockImplementation(function () { return controller as any; });
+    try {
+      fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code/), { target: { value: 'X:1\nM:4/4\nL:1/4\nQ:1/4=120\nK:C\nC4 | D4 |' } });
+      await waitFor(() => expect(screen.getByText('/ 0:04')).toBeDefined());
+      fireEvent.click(screen.getByRole('tab', { name: 'Measure Source' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Edit voice-1, measure 2' }));
+      fireEvent.change(screen.getByRole('textbox', { name: 'Edit voice-1, measure 2' }), { target: { value: 'E4 |' } });
+      fireEvent.keyDown(screen.getByRole('textbox', { name: 'Edit voice-1, measure 2' }), { key: 'Enter' });
+      await waitFor(() => expect(controller.play).toHaveBeenCalledTimes(1));
+      expect(controller.seek).toHaveBeenLastCalledWith(2, 'seconds');
+      expect(vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[1]).toContain('E4 |');
+      const measure = screen.getByRole('button', { name: 'Edit voice-1, measure 2' });
+      fireEvent.keyDown(measure, { key: 'Enter' });
+      await waitFor(() => expect(screen.getByTitle('Play Piano Synthesizer')).toBeDefined());
+      expect(controller.play).toHaveBeenCalledTimes(1);
+      expect(controller.pause).toHaveBeenCalled();
+    } finally {
+      vi.mocked(abcjs.parseOnly).mockImplementation(originalParse);
+      vi.mocked(abcjs.renderAbc).mockImplementation(originalRender);
+      vi.mocked(abcjs.synth.SynthController).mockImplementation(originalSynth);
+    }
+  });
+
   it('omits the standalone agent sidebar in plugin view', async () => {
     window.history.replaceState({}, '', '/?plugin=1');
     render(<App />);

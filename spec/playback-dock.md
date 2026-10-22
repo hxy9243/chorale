@@ -3,7 +3,7 @@ title: "Playback Dock Spec"
 description: "Specification for the WebAudio playback dock, volume/mute GainNode, progress seek track, and unified score-anchor synchronization"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-10-09
+updated: 2026-10-22
 status: "implemented"
 source_files:
   - src/components/AudioPlayer.tsx
@@ -11,17 +11,20 @@ source_files:
   - src/utils/repeatPlayback.ts
   - src/utils/autoScroll.ts
   - src/utils/anchor.ts
+  - src/App.tsx
 test_files:
   - src/components/__tests__/AudioPlayer.test.tsx
   - src/utils/__tests__/abcAudio.test.ts
   - src/utils/__tests__/repeatPlayback.test.ts
   - src/utils/__tests__/autoScroll.test.ts
+  - src/App.test.tsx
 related_specs:
   - spec/design.md
   - spec/workspace-layout.md
   - spec/score-surface.md
   - spec/interaction-model.md
   - spec/piano-waterfall.md
+  - spec/abc-editor.md
 ---
 
 # Playback Dock Spec
@@ -67,6 +70,17 @@ The progress track represents transport progress, audio synthesis, and score loc
 - WebAudio Master GainNode controls master volume without re-initializing soundfonts
 - audio preparation sanitizes inline tempo markings across voices, handles extended tuplets, hides synthetic rests, and keeps hairpin voices audible
 - transport state remains synchronized with the currently rendered ABC revision
+
+Measure Source's Enter shortcut sends a single-measure preview request to this
+same transport. Requests wait for their exact committed document/source and synth
+readiness. Preview seeks to the current repeat occurrence of the written measure,
+plays every voice, and stops at the next occurrence boundary (or tune end), using
+prepared abcjs timing with the written-measure map for pickups and meter changes.
+WebAudio source stops are scheduled on the audio clock so hidden-tab throttling
+cannot continue audible playback beyond the measure. The visible transport returns
+to the preview start. Enter during playback stops and resets the shared transport;
+a stop request cannot become a new preview after a source rebuild. Ordinary
+transport Play resumes continuous playback, and an explicit seek exits preview.
 
 ## 5. Relationship to current implementation
 

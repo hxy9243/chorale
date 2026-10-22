@@ -10,6 +10,7 @@ import {
   transposeAbcMeasureText,
   validateAbcHeaderEdit,
   validateAbcMeasureEdit,
+  type AbcPresentation,
   type AbcHeaderLine,
   type AbcMeasureCell,
   type AbcTextRange,
@@ -37,6 +38,7 @@ interface AbcEditorProps {
   onNavigateMeasure?: (anchor: ScoreAnchor) => void;
   onMeasureMutation?: (mutation: MeasureMutation) => MeasureMutationResult;
   playbackSourceRanges?: PlaybackSourceRanges | null;
+  onPreviewMeasure?: (measure: number, source: string) => void;
   validationState?: "idle" | "building" | "valid" | "invalid";
   validationMessage?: string | null;
   visible?: boolean;
@@ -145,6 +147,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   onNavigateMeasure,
   onMeasureMutation,
   playbackSourceRanges = null,
+  onPreviewMeasure,
   validationState = "idle",
   validationMessage,
   visible = true,
@@ -154,6 +157,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   const [horizontalScrollProgress, setHorizontalScrollProgress] = useState(0);
 
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [pendingNavigation, setPendingNavigation] = useState<{ cellId: string; source: string; caret: number; documentId?: string } | null>(null);
   const [headerDraft, setHeaderDraft] = useState<HeaderDraft | null>(null);
   const [toolbeltOpen, setToolbeltOpen] = useState(true);
   const [toolbeltHeight, setToolbeltHeight] = useState<number>(() => {
@@ -490,7 +494,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
           ? "Invalid ABC"
           : "Waiting for source";
 
-  const selectMeasure = (measure: number, shiftKey: boolean) => {
+  const selectMeasure = (measure: number, shiftKey: boolean, selectRange = false) => {
     const origin =
       shiftKey && selectionOriginRef.current !== null
         ? selectionOriginRef.current
@@ -507,7 +511,8 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
           ? `m. ${measure}`
           : `mm. ${startMeasure}–${endMeasure}`,
     };
-    if (onNavigateMeasure) onNavigateMeasure(anchor);
+    if (selectRange && onSelectAnchor) onSelectAnchor(anchor);
+    else if (onNavigateMeasure) onNavigateMeasure(anchor);
     else onSelectAnchor?.(anchor);
   };
 
@@ -594,66 +599,37 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
     });
   };
 
-  const commitDraft = (navigateBy = 0, refocus = false): boolean => {
-    if (committingRef.current) return true;
-    if (!draft || !presentation) return false;
-    const target = cells.find(({ id }) => id === draft.cellId);
+  const commitDraft = (refocus = false, preserveSelection = false): AbcPresentation | null => {
+    if (committingRef.current || !draft || !presentation) return null;
+    const target = findCell(cells, draft.cellId);
     if (!target) {
       setDraft(null);
-      return false;
+      return null;
+    }
+    if (draft.baseDocumentId !== documentId || draft.baseRevision !== revision) {
+      setDraft({ ...draft, error: "The source changed. Reopen this measure before editing." });
+      return null;
     }
     if (draft.value === target.text && !draft.error) {
       setDraft(null);
-      if (refocus || navigateBy !== 0) {
-        const sourceOrder = [...cells].sort(
-          (a, b) => a.range.start - b.range.start,
-        );
-        const currentIndex = sourceOrder.findIndex(
-          ({ id }) => id === draft.cellId,
-        );
-        const nextCell = navigateBy
-          ? sourceOrder[currentIndex + navigateBy]
-          : null;
-        focusCell(nextCell?.id || draft.cellId);
-      }
-      return true;
+      if (refocus) focusCell(draft.cellId);
+      return presentation;
     }
-    if (
-      draft.baseDocumentId !== documentId ||
-      draft.baseRevision !== revision
-    ) {
-      setDraft({
-        ...draft,
-        error: "The source changed. Reopen this measure before editing.",
-      });
-      return false;
-    }
-    const result = validateAbcMeasureEdit(
-      presentation,
-      draft.cellId,
-      draft.value,
-    );
+    const result = validateAbcMeasureEdit(presentation, draft.cellId, draft.value);
     if (!result.ok) {
       setDraft({ ...draft, error: result.error });
-      return false;
+      return null;
     }
-    const sourceOrder = [...cells].sort(
-      (a, b) => a.range.start - b.range.start,
-    );
-    const currentIndex = sourceOrder.findIndex(({ id }) => id === draft.cellId);
-    const nextCell = navigateBy ? sourceOrder[currentIndex + navigateBy] : null;
-    const committedCellId = draft.cellId;
     committingRef.current = true;
     try {
       setDraft(null);
-      onAbcChange(result.abc);
-      if (refocus || navigateBy !== 0) {
-        focusCell(nextCell?.id || committedCellId);
-      }
+      if (preserveSelection) onAbcChange(result.abc, { preserveSelection: true });
+      else onAbcChange(result.abc);
+      if (refocus) focusCell(draft.cellId);
     } finally {
       committingRef.current = false;
     }
-    return true;
+    return result.presentation;
   };
 
   const restoreDraftSelection = (start: number, end = start) => {
@@ -664,6 +640,65 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
       input.focus();
       input.setSelectionRange(start, end);
     });
+  };
+
+  // Open the destination only after a committed source has reached this editor.
+  // Its ranges and revision may have changed when the previous input was saved.
+  useEffect(() => {
+    if (pendingNavigation && pendingNavigation.documentId !== documentId) {
+      setPendingNavigation(null);
+      return;
+    }
+    if (!pendingNavigation || abcCode !== pendingNavigation.source || !presentation) return;
+    const target = findCell(cells, pendingNavigation.cellId);
+    setPendingNavigation(null);
+    if (!target) return;
+    if (target.editable) {
+      setDraft({ cellId: target.id, value: target.text, baseDocumentId: documentId, baseRevision: revision, error: null });
+      restoreDraftSelection(Math.min(pendingNavigation.caret, target.text.length));
+    } else {
+      focusCell(target.id);
+    }
+  }, [pendingNavigation, abcCode, presentation, cells, documentId, revision]);
+
+  const handleMeasureKeyDown = (event: React.KeyboardEvent, cell: AbcMeasureCell) => {
+    if (composingRef.current || event.nativeEvent.isComposing || event.altKey) return;
+    const editing = draft?.cellId === cell.id;
+    if (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.repeat) return;
+      const committed = editing ? commitDraft(true) : presentation;
+      if (committed) onPreviewMeasure?.(cell.measureNumber, committed.abc);
+      return;
+    }
+    const acrossVoices = (event.key === "ArrowUp" || event.key === "ArrowDown")
+      && !event.shiftKey && !event.ctrlKey && !event.metaKey;
+    const acrossMeasures = (event.key === "ArrowLeft" || event.key === "ArrowRight") && event.shiftKey;
+    if (!acrossVoices && !acrossMeasures) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (!presentation) return;
+    const direction = event.key === "ArrowUp" || event.key === "ArrowLeft" ? -1 : 1;
+    let target: AbcMeasureCell | undefined;
+    if (acrossVoices) {
+      const voices = presentation.voices.filter((voice) => voice.cells.some((entry) => entry.measureNumber === cell.measureNumber));
+      const index = voices.findIndex((voice) => voice.id === cell.voiceId);
+      target = voices[index + direction]?.cells.find((entry) => entry.measureNumber === cell.measureNumber);
+    } else {
+      const voiceCells = presentation.voices.find((voice) => voice.id === cell.voiceId)?.cells || [];
+      const index = voiceCells.findIndex((entry) => entry.id === cell.id);
+      target = voiceCells[index + direction];
+    }
+    if (!target) return;
+    const caret = editing ? measureInputRef.current?.selectionStart ?? 0 : 0;
+    const committed = editing ? commitDraft(false, true) : presentation;
+    if (!committed) return;
+    // Ctrl/Cmd+Shift extends from the existing origin; a plain jump resets it.
+    const extend = acrossMeasures && (event.ctrlKey || event.metaKey);
+    if (extend && selectionOriginRef.current === null) selectionOriginRef.current = cell.measureNumber;
+    selectMeasure(target.measureNumber, extend, extend);
+    setPendingNavigation({ cellId: target.id, source: committed.abc, caret, documentId });
   };
 
   const applyToolDraft = (nextValue: string, selectionStart: number, selectionEnd = selectionStart) => {
@@ -852,7 +887,8 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
             selectMeasure(cell.measureNumber, event.shiftKey);
             if (!editing && cell.editable) beginEdit(cell);
           }}
-          tabIndex={!editing && cell.editable ? 0 : undefined}
+          title="↑/↓: voice · Shift+←/→: measure · Ctrl/Cmd+Shift+←/→: select measures · Enter: preview/stop · Space: edit"
+          tabIndex={!editing ? 0 : undefined}
           role={!editing && cell.editable ? "button" : undefined}
           aria-label={
             !editing && cell.editable
@@ -860,12 +896,11 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
               : undefined
           }
           onKeyDown={(event) => {
-            if (
-              !editing &&
-              cell.editable &&
-              (event.key === "Enter" || event.key === " ")
-            ) {
+            if (editing) return; // The input handles its own keys without bubbling twice.
+            handleMeasureKeyDown(event, cell);
+            if (!event.defaultPrevented && cell.editable && event.key === " ") {
               event.preventDefault();
+              selectMeasure(cell.measureNumber, false);
               beginEdit(cell);
             }
           }}
@@ -899,17 +934,18 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
                 }}
                 onBlur={(event) => {
                   if (!event.currentTarget.contains(event.relatedTarget)) {
-                    commitDraft(0, false);
+                    commitDraft();
                   }
                 }}
                 onKeyDown={(event) => {
+                  if (composingRef.current || event.nativeEvent.isComposing) return;
                   if (event.key === "Escape") {
                     event.preventDefault();
+                    event.stopPropagation();
                     setDraft(null);
                     focusCell(cell.id);
-                  } else if (event.key === "Enter" && !composingRef.current) {
-                    event.preventDefault();
-                    commitDraft(0, true);
+                  } else {
+                    handleMeasureKeyDown(event, cell);
                   }
                 }}
               />

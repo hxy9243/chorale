@@ -3,7 +3,7 @@ title: "ABC Editor Spec"
 description: "Specification for the ABC code editor pane, split view, draggable divider, and score/playback synchronization"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-09-06
+updated: 2026-10-22
 status: "implemented"
 source_files:
   - src/components/AbcEditor.tsx
@@ -139,6 +139,26 @@ When entering editing mode in Measure View:
 - The sizer dynamically scales with the draft value (maintaining at least the original measure text width plus caret buffer), ensuring long measures remain fully visible without horizontal clipping or scroll jumps, and expanding smoothly if additional notes are entered.
 
 ## 5. Selection, navigation, and playback
+
+### 5.0 Measure Source keyboard shortcuts
+
+Shortcuts apply to focused measure cells and their editing inputs. Up/Down moves
+to the adjacent available voice in the same written measure, preserving the caret
+column when editing. Shift+Left/Right moves to the previous/next available measure
+in the same voice. Ctrl+Shift+Left/Right (also Cmd+Shift on macOS) extends or shrinks
+the shared measure selection from its original measure while moving focus.
+Navigation stops at the available voice/measure boundaries. Ordinary Left/Right
+and other text-selection shortcuts retain their normal input behavior.
+
+Navigation commits a valid draft before moving and opens the destination for
+editing; invalid drafts keep their text, focus, and validation error. Enter commits
+a valid draft and previews all voices of that written measure once, automatically
+stopping at its playback boundary. Enter during playback stops it. Preview waits
+for the committed source's shared transport to be ready and respects repeat
+occurrences, pickups, meter, and tempo. Repeated keydown and IME composition do
+not trigger playback. Space opens a focused display cell for editing; Escape
+cancels a draft. Header and Raw Source editing keep their normal key behavior.
+Measure cells expose the shortcuts through their tooltip.
 
 ### 5.1 Measure Source tool belt and duration safety
 

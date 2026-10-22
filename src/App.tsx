@@ -6,7 +6,7 @@ import { FileRail } from './components/FileRail';
 import { ScoreCardHeader } from './components/ScoreCardHeader';
 import { ScoreMetadataHeader } from './components/ScoreMetadataHeader';
 import { SheetMusicView } from './components/SheetMusicView';
-import { AudioPlayer } from './components/AudioPlayer';
+import { AudioPlayer, type MeasurePreviewRequest } from './components/AudioPlayer';
 import { WaterfallPane } from './components/WaterfallPane';
 import type { WaterfallPlayback } from './music/waterfallPlayback';
 import { useResizablePanel } from './hooks/useResizablePanel';
@@ -265,6 +265,15 @@ export const App: React.FC = () => {
   const renderedSourceRef = useRef('');
   const displayPlaybackSourceKey = JSON.stringify([activeDocument?.id, displayAbc]);
   const [renderedPlaybackSourceKey, setRenderedPlaybackSourceKey] = useState<string | null>(null);
+  const [measurePreviewRequest, setMeasurePreviewRequest] = useState<MeasurePreviewRequest | null>(null);
+  const handlePreviewMeasure = (measure: number, source: string) => {
+    setMeasurePreviewRequest({ measure, sourceKey: JSON.stringify([activeDocument?.id, source]), stop: playbackPositionRef.current.isPlaying });
+  };
+  const [previousPreviewSourceKey, setPreviousPreviewSourceKey] = useState(displayPlaybackSourceKey);
+  if (previousPreviewSourceKey !== displayPlaybackSourceKey) {
+    setPreviousPreviewSourceKey(displayPlaybackSourceKey);
+    if (measurePreviewRequest?.sourceKey !== displayPlaybackSourceKey) setMeasurePreviewRequest(null);
+  }
   const handlePlaybackTuneRendered = useCallback((rendered: abcjs.TuneObject[] | null) => {
     if (rendered?.length) renderedSourceRef.current = displayPlaybackSourceKey;
     setRenderedPlaybackSourceKey(rendered?.length ? displayPlaybackSourceKey : null);
@@ -666,6 +675,7 @@ export const App: React.FC = () => {
                     onNavigateMeasure={handleNavigateMeasure}
                     onMeasureMutation={handleMeasureMutation}
                     playbackSourceRanges={playbackSourceRanges}
+                    onPreviewMeasure={handlePreviewMeasure}
                     validationState={buildStatus}
                     validationMessage={workspaceMessage}
                     visible={editorVisible}
@@ -754,6 +764,7 @@ export const App: React.FC = () => {
                 sourceKey={renderedPlaybackSourceKey}
                 totalMeasures={totalMeasures}
                 activeAnchor={activeAnchor}
+                measurePreviewRequest={measurePreviewRequest}
                 onPlaybackPositionChange={handlePlaybackPositionChange}
                 onPlaybackSourceRangesChange={setPlaybackSourceRanges}
               />
