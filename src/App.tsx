@@ -245,6 +245,16 @@ export const App: React.FC = () => {
     handleMeasureMutation,
   });
 
+  const [draftSheetPreview, setDraftSheetPreview] = useState<{ documentId?: string; revision: number; source: string } | null>(null);
+  const [transportPlaying, setTransportPlaying] = useState(false);
+  const handleDraftSheetPreview = useCallback((source: string | null) => {
+    setDraftSheetPreview((current) => source === null ? null
+      : current?.source === source && current.documentId === activeDocument?.id && current.revision === abcRevision ? current
+      : { source, documentId: activeDocument?.id, revision: abcRevision });
+  }, [activeDocument?.id, abcRevision]);
+  const draftSheetSource = !transportPlaying && !scorePreview && draftSheetPreview?.documentId === activeDocument?.id
+    && draftSheetPreview?.revision === abcRevision ? draftSheetPreview.source : null;
+
   // ABC syntax compilation & validation lifecycle
   const {
     buildStatus,
@@ -369,6 +379,7 @@ export const App: React.FC = () => {
 
   const handlePlaybackPositionChange = useCallback((position: PlaybackPosition) => {
     playbackPositionRef.current = position;
+    setTransportPlaying(position.isPlaying);
   }, []);
 
   const { exportState: exportStatus, exportDocument, dismissStatus: dismissExportStatus } = useScoreExport();
@@ -572,12 +583,12 @@ export const App: React.FC = () => {
                               disabled={Boolean(scorePreview)}
                             />
                           )}
-                          abcCode={canRenderScore ? displayAbc : ''}
+                          abcCode={canRenderScore ? (draftSheetSource ?? displayAbc) : ''}
                           annotations={activeDocument?.annotations || []}
                           activeAnchor={activeAnchor}
                           navigationAnchor={scoreNavigationAnchor}
                           onSelectAnchor={handleSelectAnchor}
-                          onTuneRendered={handlePlaybackTuneRendered}
+                          onTuneRendered={draftSheetSource ? undefined : handlePlaybackTuneRendered}
                           documentId={activeDocument.id}
                           revision={abcRevision}
                           getPlaybackPosition={getPlaybackPosition}
@@ -676,6 +687,7 @@ export const App: React.FC = () => {
                     onMeasureMutation={handleMeasureMutation}
                     playbackSourceRanges={playbackSourceRanges}
                     onPreviewMeasure={handlePreviewMeasure}
+                    onDraftPreview={handleDraftSheetPreview}
                     validationState={buildStatus}
                     validationMessage={workspaceMessage}
                     visible={editorVisible}

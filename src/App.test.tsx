@@ -348,6 +348,40 @@ describe('App Integration', () => {
     }
   });
 
+  it('renders idle ABC drafts without saving them or replacing the audio transport', async () => {
+    const { default: realAbcjs } = await vi.importActual<{ default: typeof abcjs }>('abcjs');
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+    const originalParse = vi.mocked(abcjs.parseOnly).getMockImplementation()!;
+    const originalRender = vi.mocked(abcjs.renderAbc).getMockImplementation()!;
+    vi.mocked(abcjs.parseOnly).mockImplementation(realAbcjs.parseOnly);
+    vi.mocked(abcjs.renderAbc).mockImplementation(realAbcjs.renderAbc);
+    try {
+      const source = 'X:1\nM:4/4\nL:1/4\nQ:1/4=120\nK:C\nC D E F | G4 |';
+      fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code/), { target: { value: source } });
+      await waitFor(() => expect(screen.getByText('/ 0:04')).toBeDefined());
+      fireEvent.click(screen.getByRole('tab', { name: 'Measure Source' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Edit voice-1, measure 1' }));
+      const input = screen.getByRole('textbox', { name: 'Edit voice-1, measure 1' });
+      const synthCount = vi.mocked(abcjs.synth.SynthController).mock.calls.length;
+      vi.mocked(abcjs.renderAbc).mockClear();
+      fireEvent.change(input, { target: { value: 'E D E F |' } });
+      expect(abcjs.renderAbc).not.toHaveBeenCalled();
+      await waitFor(() => expect(abcjs.renderAbc).toHaveBeenCalledWith(expect.any(HTMLElement), expect.stringContaining('E D E F |'), expect.any(Object)));
+      expect(document.activeElement).toBe(input);
+      expect(abcjs.synth.SynthController).toHaveBeenCalledTimes(synthCount);
+      fireEvent.keyDown(input, { key: 'Escape' });
+      await waitFor(() => expect(vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[1]).toBe(source));
+      fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+      expect((screen.getByPlaceholderText(/Parsed ABC code/) as HTMLTextAreaElement).value).toBe(source);
+    } finally {
+      vi.mocked(abcjs.parseOnly).mockImplementation(originalParse);
+      vi.mocked(abcjs.renderAbc).mockImplementation(originalRender);
+    }
+  });
+
   it('omits the standalone agent sidebar in plugin view', async () => {
     window.history.replaceState({}, '', '/?plugin=1');
     render(<App />);

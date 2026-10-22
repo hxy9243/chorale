@@ -7,7 +7,9 @@ updated: 2026-10-22
 status: "implemented"
 source_files:
   - src/components/AbcEditor.tsx
+  - src/chorale-theme.css
   - src/music/abcPresentation.ts
+  - src/music/abcCompletions.ts
   - src/components/SheetMusicView.tsx
   - src/components/AudioPlayer.tsx
   - src/components/ScoreMetadataHeader.tsx
@@ -19,6 +21,7 @@ source_files:
 test_files:
   - src/components/__tests__/AbcEditor.test.tsx
   - src/music/__tests__/abcPresentation.test.ts
+  - src/music/__tests__/abcCompletions.test.ts
   - src/components/__tests__/SheetMusicView.test.tsx
   - src/components/__tests__/AudioPlayer.test.tsx
   - src/components/__tests__/ScoreMetadataHeader.test.tsx
@@ -159,6 +162,26 @@ occurrences, pickups, meter, and tempo. Repeated keydown and IME composition do
 not trigger playback. Space opens a focused display cell for editing; Escape
 cancels a draft. Header and Raw Source editing keep their normal key behavior.
 Measure cells expose the shortcuts through their tooltip.
+
+### Completion and delayed visual preview
+
+Measure inputs offer local, deterministic ABC completions for decoration syntax
+(`!fe` → `!fermata!`), names (`fermata`, `piano`, `sharp`, `triplet`), and inline
+key/voice/meter directives. Ordinary note letters do not open a popup. Matching
+items appear immediately in a small accessible listbox; Ctrl+Space opens it
+explicitly. Up/Down changes its active suggestion, Tab accepts, Escape dismisses,
+and pointer selection retains the input focus. Enter dismisses the popup and
+continues to commit/preview the measure. Closed syntax, chord-name strings,
+comments, selected text, and IME composition do not trigger automatic completion.
+Dismissing a popup restores the existing voice-navigation shortcuts.
+
+After 400 ms without typing, a valid measure draft updates only the visible sheet.
+The input and caret remain unchanged, and canonical ABC, revisions, autosave,
+exports, agent state, and audio remain untouched until the normal commit action.
+The last valid preview stays visible while syntax is incomplete. Escape, leaving
+Measure Source, hiding the editor, document/revision changes, or ending a draft
+clears it. While playback is active, visual draft preview is deferred so the
+playing score and audio keep their existing timing targets.
 
 ### 5.1 Measure Source tool belt and duration safety
 

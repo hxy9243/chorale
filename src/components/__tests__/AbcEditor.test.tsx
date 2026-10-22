@@ -141,6 +141,114 @@ K:C
     expect(onPreview).not.toHaveBeenCalled();
   });
 
+  it('accepts a syntax completion with Tab without committing or moving focus', async () => {
+    const onAbcChange = vi.fn();
+    render(<AbcEditor abcCode={formattedAbc} onAbcChange={onAbcChange} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    const input = screen.getByRole('textbox', { name: 'Edit upper, measure 1' }) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '!fe C D E F |', selectionStart: 3, selectionEnd: 3 } });
+    expect(screen.getByRole('listbox', { name: 'ABC completions' })).toBeDefined();
+    expect(screen.getByRole('option', { name: /fermata/ }).getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(input, { key: 'Tab' });
+    expect(input.value).toBe('!fermata! C D E F |');
+    expect(screen.queryByRole('listbox')).toBeNull();
+    await waitFor(() => expect(input.selectionStart).toBe(9));
+    expect(document.activeElement).toBe(input);
+    expect(onAbcChange).not.toHaveBeenCalled();
+  });
+
+  it('supports named completions, popup arrow navigation, dismissal, and voice navigation', () => {
+    render(<AbcEditor abcCode={formattedAbc} onAbcChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    const input = screen.getByRole('textbox', { name: 'Edit upper, measure 1' }) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'pian C D E F |', selectionStart: 4, selectionEnd: 4 } });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(screen.getByRole('option', { name: /pianissimo/ }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('textbox', { name: 'Edit upper, measure 1' })).toBe(input);
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(input.value).toBe('pian C D E F |');
+    // Restore valid ABC; arrow navigation resumes when suggestions are dismissed.
+    fireEvent.change(input, { target: { value: ' C D E F |' } });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(screen.getByRole('textbox', { name: 'Edit lower, measure 1' })).toBeDefined();
+  });
+
+  it('opens suggestions explicitly and accepts a pointer choice without blurring the draft', () => {
+    const onAbcChange = vi.fn();
+    render(<AbcEditor abcCode={formattedAbc} onAbcChange={onAbcChange} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    const input = screen.getByRole('textbox', { name: 'Edit upper, measure 1' }) as HTMLInputElement;
+    input.setSelectionRange(1, 1);
+    fireEvent.keyDown(input, { key: ' ', code: 'Space', ctrlKey: true });
+    const option = screen.getByRole('option', { name: /fermata/ });
+    expect(fireEvent.mouseDown(option)).toBe(false);
+    fireEvent.click(option);
+    expect(input.value).toBe(' !fermata!C D E F |');
+    expect(onAbcChange).not.toHaveBeenCalled();
+  });
+
+  it('keeps Enter as commit and playback instead of accepting a completion', () => {
+    const onAbcChange = vi.fn();
+    const onPreviewMeasure = vi.fn();
+    render(<AbcEditor abcCode={formattedAbc} onAbcChange={onAbcChange} onPreviewMeasure={onPreviewMeasure} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    const input = screen.getByRole('textbox', { name: 'Edit upper, measure 1' });
+    fireEvent.change(input, { target: { value: '!fe C D E F |', selectionStart: 3, selectionEnd: 3 } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(onAbcChange).not.toHaveBeenCalled();
+    expect(onPreviewMeasure).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toBeDefined();
+  });
+
+  it('previews after an idle delay, retains the last valid rendering, and clears on cancel', async () => {
+    vi.useFakeTimers();
+    try {
+      const onAbcChange = vi.fn();
+      const onDraftPreview = vi.fn();
+      render(<AbcEditor abcCode={formattedAbc} onAbcChange={onAbcChange} onDraftPreview={onDraftPreview} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+      const input = screen.getByRole('textbox', { name: 'Edit upper, measure 1' });
+      fireEvent.change(input, { target: { value: 'E D E F |' } });
+      onDraftPreview.mockClear();
+      await act(async () => { vi.advanceTimersByTime(399); });
+      expect(onDraftPreview).not.toHaveBeenCalled();
+      await act(async () => { vi.advanceTimersByTime(1); });
+      expect(onDraftPreview).toHaveBeenLastCalledWith(expect.stringContaining('E D E F |'));
+      onDraftPreview.mockClear();
+      fireEvent.change(input, { target: { value: 'C8 |' } });
+      await act(async () => { vi.advanceTimersByTime(400); });
+      expect(onDraftPreview).not.toHaveBeenCalled();
+      expect(onAbcChange).not.toHaveBeenCalled();
+      fireEvent.keyDown(input, { key: 'Escape' });
+      expect(onDraftPreview).toHaveBeenLastCalledWith(null);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('cancels pending visual updates on document changes and during IME composition', async () => {
+    vi.useFakeTimers();
+    try {
+      const onDraftPreview = vi.fn();
+      const view = render(<AbcEditor abcCode={formattedAbc} documentId="one" onAbcChange={vi.fn()} onDraftPreview={onDraftPreview} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+      const input = screen.getByRole('textbox', { name: 'Edit upper, measure 1' });
+      fireEvent.compositionStart(input);
+      fireEvent.change(input, { target: { value: 'E D E F |' } });
+      onDraftPreview.mockClear();
+      await act(async () => { vi.advanceTimersByTime(500); });
+      expect(onDraftPreview).not.toHaveBeenCalled();
+      fireEvent.compositionEnd(input);
+      await act(async () => { vi.advanceTimersByTime(400); });
+      expect(onDraftPreview).toHaveBeenLastCalledWith(expect.stringContaining('E D E F |'));
+      fireEvent.change(input, { target: { value: 'G D E F |' } });
+      view.rerender(<AbcEditor abcCode={formattedAbc} documentId="two" onAbcChange={vi.fn()} onDraftPreview={onDraftPreview} />);
+      onDraftPreview.mockClear();
+      await act(async () => { vi.advanceTimersByTime(500); });
+      expect(onDraftPreview).not.toHaveBeenCalled();
+    } finally { vi.useRealTimers(); }
+  });
+
   it('renders and changes the raw ABC source', () => {
     const onAbcChange = vi.fn();
     const initialAbc = 'X:1\nT:Test Score\nK:C\nC D E F|';

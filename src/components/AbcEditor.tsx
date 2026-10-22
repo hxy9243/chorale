@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { getAbcCompletions, type AbcCompletionResult } from "../music/abcCompletions";
 import { AlertTriangle, Check, Copy, LoaderCircle } from "lucide-react";
 
 import type { ScoreAnchor } from "../types/document";
@@ -38,6 +40,7 @@ interface AbcEditorProps {
   onNavigateMeasure?: (anchor: ScoreAnchor) => void;
   onMeasureMutation?: (mutation: MeasureMutation) => MeasureMutationResult;
   playbackSourceRanges?: PlaybackSourceRanges | null;
+  onDraftPreview?: (source: string | null) => void;
   onPreviewMeasure?: (measure: number, source: string) => void;
   validationState?: "idle" | "building" | "valid" | "invalid";
   validationMessage?: string | null;
@@ -148,10 +151,15 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   onMeasureMutation,
   playbackSourceRanges = null,
   onPreviewMeasure,
+  onDraftPreview,
   validationState = "idle",
   validationMessage,
   visible = true,
 }) => {
+  const completionId = useId();
+  const [completion, setCompletion] = useState<{ result: AbcCompletionResult; index: number; value: string; cellId: string; caret: number; left: number; top: number } | null>(null);
+  const previewCallbackRef = useRef(onDraftPreview);
+  useEffect(() => { previewCallbackRef.current = onDraftPreview; }, [onDraftPreview]);
   const [copied, setCopied] = useState(false);
   const [view, setView] = useState<"measures" | "raw">("measures");
   const [horizontalScrollProgress, setHorizontalScrollProgress] = useState(0);
@@ -177,6 +185,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   const [measureToolErrors, setMeasureToolErrors] = useState<readonly string[]>([]);
   const selectionOriginRef = useRef<number | null>(null);
   const composingRef = useRef(false);
+  const [compositionActive, setCompositionActive] = useState(false);
   const committingRef = useRef(false);
   const editorCardRef = useRef<HTMLElement>(null);
   const editorBodyRef = useRef<HTMLDivElement>(null);
@@ -322,6 +331,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
       analyzeRawAbcLines(abcCode, presentation, activeAnchor, playingMeasure),
     [abcCode, presentation, activeAnchor, playingMeasure],
   );
+  const completionOpen = completion !== null;
   const draftCellId = draft?.cellId;
   const draftValue = draft?.value;
 
@@ -362,21 +372,29 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   }, [documentId, draft, revision]);
 
   useEffect(() => {
-    if (!draftCellId || draftValue === undefined || !presentation) return;
+    if (!draftCellId || draftValue === undefined || !presentation || view !== "measures" || !visible) {
+      previewCallbackRef.current?.(null);
+      return;
+    }
+    if (compositionActive) return;
     const timeout = window.setTimeout(() => {
       const result = validateAbcMeasureEdit(
         presentation,
         draftCellId,
         draftValue,
       );
+      if (result.ok && !composingRef.current) previewCallbackRef.current?.(result.abc === abcCode ? null : result.abc);
       setDraft((current) =>
         current?.cellId === draftCellId
-        ? { ...current, error: result.ok ? null : result.error }
+        ? { ...current, error: result.ok || completionOpen ? null : result.error }
           : current,
       );
-    }, 140);
+    }, 400);
     return () => window.clearTimeout(timeout);
-  }, [draftCellId, draftValue, presentation]);
+  }, [draftCellId, draftValue, presentation, abcCode, view, visible, documentId, revision, compositionActive, completionOpen]);
+
+  useEffect(() => () => { previewCallbackRef.current?.(null); }, []);
+  useEffect(() => { setCompletion(null); }, [draftCellId, documentId, revision, view, visible]);
 
   useEffect(() => {
     if (view !== "measures" || activeAnchor?.startMeasure === undefined) return;
@@ -861,6 +879,34 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
     setHorizontalScrollProgress(progress);
   };
 
+  const updateCompletions = (input: HTMLInputElement, cellId: string, explicit = false) => {
+    if (composingRef.current || input.selectionStart !== input.selectionEnd) {
+      setCompletion(null);
+      return;
+    }
+    const result = getAbcCompletions(input.value, input.selectionStart ?? input.value.length,
+      presentation?.voices.map((voice) => voice.id), explicit);
+    if (!result) { setCompletion(null); return; }
+    const rect = input.getBoundingClientRect();
+    const popupHeight = Math.min(result.items.length * 45 + 32, 320);
+    setCompletion({ result, index: 0, value: input.value, cellId, caret: input.selectionStart ?? input.value.length,
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - 328)),
+      top: rect.top >= popupHeight + 8 ? rect.top - popupHeight
+        : Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - popupHeight - 8)),
+    });
+  };
+
+  const acceptCompletion = (index: number) => {
+    if (!completion || !draft || completion.cellId !== draft.cellId || completion.value !== draft.value) return;
+    const item = completion.result.items[index];
+    if (!item) return;
+    const value = draft.value.slice(0, completion.result.from) + item.insert + draft.value.slice(completion.result.to);
+    // Keep incomplete ABC local; validation and visual preview happen after idle.
+    setDraft({ ...draft, value, error: null });
+    setCompletion(null);
+    restoreDraftSelection(completion.result.from + item.insert.length);
+  };
+
   const renderTimelineCell = (
     cell: AbcMeasureCell,
     colorIndex: number,
@@ -887,7 +933,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
             selectMeasure(cell.measureNumber, event.shiftKey);
             if (!editing && cell.editable) beginEdit(cell);
           }}
-          title="↑/↓: voice · Shift+←/→: measure · Ctrl/Cmd+Shift+←/→: select measures · Enter: preview/stop · Space: edit"
+          title="Ctrl/Cmd+Space: suggestions · ↑/↓: voice · Shift+←/→: measure · Ctrl/Cmd+Shift+←/→: select measures · Enter: preview/stop · Space: edit"
           tabIndex={!editing ? 0 : undefined}
           role={!editing && cell.editable ? "button" : undefined}
           aria-label={
@@ -906,7 +952,9 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
           }}
         >
           {editing ? (
-            <div className="abc-measure-edit-wrapper">
+            <div className="abc-measure-edit-wrapper" role="combobox" aria-label="ABC suggestions"
+              aria-expanded={Boolean(completion && completion.cellId === cell.id)}
+              aria-haspopup="listbox" aria-controls={completion ? completionId : undefined}>
               <span className="abc-measure-edit-ghost" aria-hidden="true">
                 {ghostText || "\u00A0"}
               </span>
@@ -919,8 +967,16 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
                 autoFocus
                 size={Math.max(draft.value.length, cell.text.length, 1)}
                 readOnly={!cell.editable}
-                onChange={(event) => updateDraft(cell, event.target.value)}
+                aria-autocomplete="list"
+                aria-controls={completion ? completionId : undefined}
+                aria-activedescendant={completion ? `${completionId}-${completion.index}` : undefined}
+                onChange={(event) => {
+                  updateDraft(cell, event.target.value);
+                  updateCompletions(event.currentTarget, cell.id);
+                }}
                 onSelect={(event) => {
+                  if (completion && (event.currentTarget.selectionStart !== completion.caret
+                    || event.currentTarget.selectionStart !== event.currentTarget.selectionEnd)) setCompletion(null);
                   draftSelectionRef.current = {
                     start: event.currentTarget.selectionStart || 0,
                     end: event.currentTarget.selectionEnd || 0,
@@ -928,17 +984,40 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
                 }}
                 onCompositionStart={() => {
                   composingRef.current = true;
+                  setCompositionActive(true);
+                  setCompletion(null);
                 }}
-                onCompositionEnd={() => {
+                onCompositionEnd={(event) => {
                   composingRef.current = false;
+                  setCompositionActive(false);
+                  updateCompletions(event.currentTarget, cell.id);
                 }}
                 onBlur={(event) => {
                   if (!event.currentTarget.contains(event.relatedTarget)) {
+                    setCompletion(null);
                     commitDraft();
                   }
                 }}
                 onKeyDown={(event) => {
                   if (composingRef.current || event.nativeEvent.isComposing) return;
+                  if ((event.ctrlKey || event.metaKey) && (event.code === "Space" || event.key === " ")) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    updateCompletions(event.currentTarget, cell.id, true);
+                    return;
+                  }
+                  if (completion && completion.cellId === cell.id) {
+                    if (event.key === "Escape" || (event.key === "Tab" && !event.shiftKey && !event.ctrlKey && !event.metaKey) ||
+                      (!event.shiftKey && !event.ctrlKey && !event.metaKey && (event.key === "ArrowUp" || event.key === "ArrowDown"))) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (event.key === "Escape") setCompletion(null);
+                      else if (event.key === "Tab") acceptCompletion(completion.index);
+                      else setCompletion({ ...completion, index: (completion.index + (event.key === "ArrowDown" ? 1 : -1) + completion.result.items.length) % completion.result.items.length });
+                      return;
+                    }
+                    setCompletion(null);
+                  }
                   if (event.key === "Escape") {
                     event.preventDefault();
                     event.stopPropagation();
@@ -974,6 +1053,23 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
       className={`abc-editor-card glass-panel ${visible ? "" : "is-collapsed"}`}
       aria-label="ABC editor pane"
     >
+      {completion && draft?.cellId === completion.cellId && createPortal(
+        <div className="abc-completion-popup" style={{ left: completion.left, top: completion.top }}
+          onMouseDown={(event) => event.preventDefault()}>
+          <div className="abc-completion-hint">Tab to insert · Esc to dismiss</div>
+          <div id={completionId} role="listbox" aria-label="ABC completions">
+            {completion.result.items.map((item, index) => (
+              <div key={item.insert} id={`${completionId}-${index}`} role="option"
+                aria-selected={index === completion.index} className="abc-completion-option"
+                onMouseEnter={() => setCompletion({ ...completion, index })}
+                onClick={() => acceptCompletion(index)}>
+                <span><strong>{item.label}</strong><code>{item.insert}</code></span>
+                <small>{item.detail}</small>
+              </div>
+            ))}
+          </div>
+        </div>, document.body,
+      )}
       <div className="abc-editor-chrome">
         <div className="editor-header">
           <div
@@ -1000,6 +1096,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
             </button>
           </div>
           <div className="editor-actions">
+            {draft && draft.value !== findCell(cells, draft.cellId)?.text && <span className="editor-draft-status">Draft · Enter to save & play</span>}
             <span className={`editor-status-pill ${validationState}`}>
               {validationState === "building" && (
                 <LoaderCircle size={13} className="spin" />
@@ -1113,6 +1210,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
         <div
           className={`editor-body${view === "raw" ? " is-raw-view" : " is-measure-view"}`}
           ref={editorBodyRef}
+          onScroll={() => setCompletion(null)}
         >
           {view === "raw" ? (
             <div className="abc-raw-editor">

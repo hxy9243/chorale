@@ -11303,3 +11303,45 @@ body.is-resizing-col .editor-divider::before {
     transform: rotate(360deg);
   }
 }
+
+.abc-completion-popup {
+  position: fixed;
+  z-index: 1000;
+  width: min(320px, calc(100vw - 16px));
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid var(--color-border, #cfc9bf);
+  border-radius: 9px;
+  background: var(--color-paper, #fffdf8);
+  color: var(--color-ink, #292822);
+  box-shadow: 0 6px 24px #0002;
+}
+
+.abc-completion-hint {
+  padding: 4px 7px 7px;
+  font: 400 11px / 1.3 var(--font-body);
+  opacity: 0.65;
+}
+
+.abc-completion-option {
+  padding: 5px 7px;
+  border-radius: 5px;
+  cursor: pointer;
+  font: 400 12px / 1.3 var(--font-body);
+}
+
+.abc-completion-option[aria-selected="true"] {
+  background: #e5ecdf;
+  color: #252c20;
+}
+
+.abc-completion-option > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.abc-completion-option code { font: 400 12px / 1.3 var(--font-mono); }
+.abc-completion-option small { display: block; font-size: 11px; opacity: 0.7; }
+.editor-draft-status { font: 400 11px / 1.3 var(--font-body); opacity: 0.7; white-space: nowrap; }
