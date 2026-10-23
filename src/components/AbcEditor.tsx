@@ -135,6 +135,15 @@ const noteToken = (defaultLength: readonly [number, number], duration: readonly 
   return `C${suffix}`;
 };
 
+const MEASURE_SHORTCUTS = [
+  "Ctrl/Cmd+Space: suggestions",
+  "↑/↓: voice",
+  "Shift+←/→: measure",
+  "Ctrl/Cmd+Shift+←/→: select measures",
+  "Enter: preview/stop",
+  "Space: edit",
+].join("\n");
+
 const TOOLBELT_HEIGHT_KEY = "chorale.workspace.toolbeltHeight";
 const DEFAULT_TOOLBELT_HEIGHT = 328;
 const MIN_TOOLBELT_HEIGHT = 80;
@@ -157,7 +166,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   visible = true,
 }) => {
   const completionId = useId();
-  const [completion, setCompletion] = useState<{ result: AbcCompletionResult; index: number; value: string; cellId: string; caret: number; left: number; top: number } | null>(null);
+  const [completion, setCompletion] = useState<{ result: AbcCompletionResult; index: number; value: string; cellId: string; caret: number; left: number; top: number; above: boolean; maxHeight: number } | null>(null);
   const previewCallbackRef = useRef(onDraftPreview);
   useEffect(() => { previewCallbackRef.current = onDraftPreview; }, [onDraftPreview]);
   const [copied, setCopied] = useState(false);
@@ -887,12 +896,18 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
     const result = getAbcCompletions(input.value, input.selectionStart ?? input.value.length,
       presentation?.voices.map((voice) => voice.id), explicit);
     if (!result) { setCompletion(null); return; }
-    const rect = input.getBoundingClientRect();
-    const popupHeight = Math.min(result.items.length * 45 + 32, 320);
+    const measure = input.closest<HTMLElement>(".abc-timeline-measure");
+    const rect = (measure ?? input).getBoundingClientRect();
+    const gap = 6;
+    const roomAbove = rect.top - gap - 8;
+    const roomBelow = window.innerHeight - rect.bottom - gap - 8;
+    const above = roomAbove >= 96 || roomAbove >= roomBelow;
     setCompletion({ result, index: 0, value: input.value, cellId, caret: input.selectionStart ?? input.value.length,
       left: Math.max(8, Math.min(rect.left, window.innerWidth - 328)),
-      top: rect.top >= popupHeight + 8 ? rect.top - popupHeight
-        : Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - popupHeight - 8)),
+      // Anchor the bottom edge using CSS, rather than estimating menu height.
+      top: above ? rect.top - gap : rect.bottom + gap,
+      above,
+      maxHeight: Math.max(48, Math.min(320, above ? roomAbove : roomBelow)),
     });
   };
 
@@ -933,7 +948,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
             selectMeasure(cell.measureNumber, event.shiftKey);
             if (!editing && cell.editable) beginEdit(cell);
           }}
-          title="Ctrl/Cmd+Space: suggestions · ↑/↓: voice · Shift+←/→: measure · Ctrl/Cmd+Shift+←/→: select measures · Enter: preview/stop · Space: edit"
+          title={MEASURE_SHORTCUTS}
           tabIndex={!editing ? 0 : undefined}
           role={!editing && cell.editable ? "button" : undefined}
           aria-label={
@@ -1054,7 +1069,12 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
       aria-label="ABC editor pane"
     >
       {completion && draft?.cellId === completion.cellId && createPortal(
-        <div className="abc-completion-popup" style={{ left: completion.left, top: completion.top }}
+        <div className="abc-completion-popup" style={{
+          left: completion.left,
+          top: completion.top,
+          transform: completion.above ? "translateY(-100%)" : undefined,
+          maxHeight: completion.maxHeight,
+        }}
           onMouseDown={(event) => event.preventDefault()}>
           <div className="abc-completion-hint">Tab to insert · Esc to dismiss</div>
           <div id={completionId} role="listbox" aria-label="ABC completions">
@@ -1309,6 +1329,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
                       <button
                         type="button"
                         className="abc-timeline-measure-number"
+                        tabIndex={-1}
                         aria-label={`Select measure ${measure}`}
                         aria-pressed={selected}
                           onClick={(event) =>

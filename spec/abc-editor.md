@@ -3,7 +3,7 @@ title: "ABC Editor Spec"
 description: "Specification for the ABC code editor pane, split view, draggable divider, and score/playback synchronization"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-10-22
+updated: 2026-10-23
 status: "implemented"
 source_files:
   - src/components/AbcEditor.tsx
@@ -161,7 +161,9 @@ for the committed source's shared transport to be ready and respects repeat
 occurrences, pickups, meter, and tempo. Repeated keydown and IME composition do
 not trigger playback. Space opens a focused display cell for editing; Escape
 cancels a draft. Header and Raw Source editing keep their normal key behavior.
-Measure cells expose the shortcuts through their tooltip.
+Measure cells expose the shortcuts through their tooltip, with one shortcut per
+line. Measure-number headers remain clickable selection controls but are excluded
+from Tab/Shift+Tab traversal; keyboard focus visits the actionable voice cells.
 
 ### Completion and delayed visual preview
 
@@ -174,6 +176,12 @@ and pointer selection retains the input focus. Enter dismisses the popup and
 continues to commit/preview the measure. Closed syntax, chord-name strings,
 comments, selected text, and IME composition do not trigger automatic completion.
 Dismissing a popup restores the existing voice-navigation shortcuts.
+
+The popup is aligned with the active measure card's left edge, immediately above
+its top border. Its actual rendered height determines its upper edge, so changing
+the number of suggestions never leaves a gap above the measure. When the viewport
+has insufficient room above, it opens below the measure instead. The list stays
+within the viewport and scrolls when needed.
 
 After 400 ms without typing, a valid measure draft updates only the visible sheet.
 The input and caret remain unchanged, and canonical ABC, revisions, autosave,

@@ -141,6 +141,59 @@ K:C
     expect(onPreview).not.toHaveBeenCalled();
   });
 
+  it('anchors suggestions immediately above the measure regardless of suggestion count', () => {
+    const { container } = render(<AbcEditor abcCode={formattedAbc} onAbcChange={vi.fn()} />);
+    const measure = container.querySelector<HTMLElement>('[data-timeline-measure="1"]')!;
+    vi.spyOn(measure, 'getBoundingClientRect').mockReturnValue({ left: 240, top: 440, bottom: 550, width: 300, height: 110 } as DOMRect);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit lower, measure 1' }));
+    const input = screen.getByRole('textbox', { name: 'Edit lower, measure 1' }) as HTMLInputElement;
+    vi.spyOn(input, 'getBoundingClientRect').mockReturnValue({ left: 260, top: 500, bottom: 526, width: 260, height: 26 } as DOMRect);
+    for (const word of ['!fe', '!']) {
+      fireEvent.change(input, { target: { value: `${word} G,4 |`, selectionStart: word.length, selectionEnd: word.length } });
+      const popup = screen.getByRole('listbox').parentElement!;
+      expect(popup.style.left).toBe('240px');
+      expect(popup.style.top).toBe('434px');
+      expect(popup.style.transform).toBe('translateY(-100%)');
+    }
+  });
+
+  it('places suggestions below a measure when it is too near the viewport top', () => {
+    const { container } = render(<AbcEditor abcCode={formattedAbc} onAbcChange={vi.fn()} />);
+    const measure = container.querySelector<HTMLElement>('[data-timeline-measure="1"]')!;
+    vi.spyOn(measure, 'getBoundingClientRect').mockReturnValue({ left: 240, top: 20, bottom: 130, width: 300, height: 110 } as DOMRect);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    const input = screen.getByRole('textbox', { name: 'Edit upper, measure 1' });
+    fireEvent.change(input, { target: { value: '!fe C D E F |', selectionStart: 3, selectionEnd: 3 } });
+    const popup = screen.getByRole('listbox').parentElement!;
+    expect(popup.style.left).toBe('240px');
+    expect(popup.style.top).toBe('136px');
+    expect(popup.style.transform).toBe('');
+    expect(Number.parseFloat(popup.style.maxHeight)).toBeLessThanOrEqual(window.innerHeight - 144);
+  });
+
+  it('shows each navigation shortcut on its own tooltip line', () => {
+    render(<AbcEditor abcCode={formattedAbc} onAbcChange={vi.fn()} />);
+    const title = screen.getByRole('button', { name: 'Edit upper, measure 1' }).getAttribute('title')!;
+    expect(title.split('\n')).toEqual([
+      'Ctrl/Cmd+Space: suggestions', '↑/↓: voice', 'Shift+←/→: measure',
+      'Ctrl/Cmd+Shift+←/→: select measures', 'Enter: preview/stop', 'Space: edit',
+    ]);
+  });
+
+  it('skips measure headers in keyboard traversal while retaining pointer selection', () => {
+    const onSelectAnchor = vi.fn();
+    const { container } = render(<AbcEditor abcCode={formattedAbc} onAbcChange={vi.fn()} onSelectAnchor={onSelectAnchor} />);
+    const header = screen.getByRole('button', { name: 'Select measure 1' });
+    expect(header.tabIndex).toBe(-1);
+    const stops = Array.from(container.querySelectorAll<HTMLElement>('.abc-measure-timeline button, .abc-measure-timeline [tabindex]'))
+      .filter((element) => element.tabIndex >= 0);
+    expect(stops.map((element) => element.getAttribute('aria-label'))).toEqual([
+      'Edit upper, measure 1', 'Edit lower, measure 1', 'Edit upper, measure 2', 'Edit lower, measure 2',
+    ]);
+    fireEvent.click(header);
+    expect(onSelectAnchor).toHaveBeenLastCalledWith(expect.objectContaining({ startMeasure: 1, endMeasure: 1 }));
+  });
+
   it('accepts a syntax completion with Tab without committing or moving focus', async () => {
     const onAbcChange = vi.fn();
     render(<AbcEditor abcCode={formattedAbc} onAbcChange={onAbcChange} />);
