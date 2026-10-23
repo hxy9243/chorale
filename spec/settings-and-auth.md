@@ -3,13 +3,19 @@ title: "Settings & Application Configuration Spec"
 description: "Specification for application settings modal presentation, interface scaling, and system info"
 category: "configuration"
 date: 2026-07-29
-updated: 2026-09-14
+updated: 2026-10-22
 status: "implemented"
 source_files:
   - src/components/SettingsModal.tsx
+  - src/components/AISettingsModal.tsx
+  - src/agent/useAIProviders.ts
+  - electron/ai/connectionStore.ts
+  - electron/ai/electronCipher.ts
   - src/hooks/useInterfaceZoom.ts
 test_files:
   - src/components/__tests__/SettingsModal.test.tsx
+  - src/components/__tests__/AISettingsModal.test.tsx
+  - src/agent/__tests__/connectionStore.test.ts
   - src/hooks/__tests__/useInterfaceZoom.test.ts
 related_specs:
   - spec/design.md
@@ -19,14 +25,14 @@ related_specs:
 # Settings & Application Configuration Spec
 
 Date: 2026-07-29  
-Updated: 2026-09-14  
-Status: Web & MCP App implementation (Desktop AI providers archived on `electron` branch)
+Updated: 2026-10-22
+Status: Browser settings and optional desktop provider settings implemented
 
 ## 1. Goal
 
 Provide an accessible, streamlined Settings modal for application-level preferences in the web/plugin workspace, specifically interface scaling and application/runtime information.
 
-*Note on AI Providers:* In the plugin and skill-first architecture, AI agent credentials and model interactions are managed externally via MCP servers (e.g., Antigravity, Claude Code, Codex). Embedded in-app AI provider configuration and agent traces from the legacy desktop app are preserved on the `electron` branch.
+*AI providers:* Browser/plugin clients keep provider configuration in the external agent. The optional Electron workspace restores API providers, Appearance, Agent traces, and About tabs through `AISettingsModal`. Credentials remain in the main process, encrypted with Electron safeStorage when available; otherwise the connection store keeps secrets only in memory and labels them session-only. Provider requests use immutable score snapshots and return proposals for review. See `spec/desktop-chat-restoration.md`.
 
 ## 2. Access and presentation
 

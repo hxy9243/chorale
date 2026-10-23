@@ -119,3 +119,20 @@ describe('vertical workspace sizing', () => {
     expect(disconnect).toHaveBeenCalled();
   });
 });
+
+
+describe('desktop chat sizing', () => {
+  it('reserves a chat column only when the desktop bridge is available', () => {
+    vi.stubGlobal('innerWidth', 1920);
+    localStorage.setItem(EDITOR_VISIBLE_KEY, 'false');
+    const shellRef = { current: shell };
+    const { result, rerender } = renderHook(({ available }) => useWorkspaceLayout({ zoom: 100 }, {
+      shellRef, vertical: false, sheetVisible: true, chatAvailable: available,
+    }), { initialProps: { available: false } });
+    const browserScoreWidth = result.current.fittedPanelLayout.scoreWorkspaceWidth;
+    rerender({ available: true });
+    expect(result.current.fittedPanelLayout.scoreWorkspaceWidth).toBeLessThan(browserScoreWidth);
+    act(() => result.current.setChatOpen(false));
+    expect(result.current.fittedPanelLayout.scoreWorkspaceWidth).toBe(browserScoreWidth);
+  });
+});

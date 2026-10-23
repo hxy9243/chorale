@@ -112,7 +112,7 @@ export const pullLatestRelease = async (options = {}) => {
 };
 
 export const ensureDaemon = async (options = {}) => {
-  const port = options.port || CHORALE_PORT;
+  const port = options.port || Number(process.env.CHORALE_PORT) || CHORALE_PORT;
   const probe = options.probe || probeHealth;
   const waitForHealthy = options.waitForHealthy || waitForHealthyDaemon;
   const spawnImpl = options.spawnImpl || spawn;
@@ -135,7 +135,7 @@ export const ensureDaemon = async (options = {}) => {
 };
 
 export const runDaemon = async (options = {}) => {
-  const port = options.port || CHORALE_PORT;
+  const port = options.port || Number(process.env.CHORALE_PORT) || CHORALE_PORT;
   const probe = options.probe || probeHealth;
   const waitForHealthy = options.waitForHealthy || waitForHealthyDaemon;
   const start = options.startServer || startServer;
@@ -227,7 +227,7 @@ export const resolveListeningPid = async (port = CHORALE_PORT) => {
 };
 
 export const stopDaemon = async (options = {}) => {
-  const port = options.port || CHORALE_PORT;
+  const port = options.port || Number(process.env.CHORALE_PORT) || CHORALE_PORT;
   const probe = options.probe || probeHealth;
   const read = options.readRuntime || readRuntime;
   const kill = options.kill || process.kill.bind(process);
@@ -296,7 +296,7 @@ Options:
 export const runCli = async (options = {}) => {
   const args = options.args || process.argv.slice(2);
   const command = args[0] || 'start';
-  const port = options.port || CHORALE_PORT;
+  const port = options.port || Number(process.env.CHORALE_PORT) || CHORALE_PORT;
   const logger = options.logger || console;
   const entrypoint = options.entrypoint || process.argv[1];
   const ensure = options.ensureDaemon || ensureDaemon;

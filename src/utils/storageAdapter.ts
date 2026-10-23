@@ -21,6 +21,7 @@ let sharedServiceAvailable: boolean | null = null;
 // authority and no browser-profile migration is attempted.
 const sharedServiceBase = (): string | null => {
   if (typeof window === 'undefined') return null;
+  if (window.choraleAI && window.location.protocol === 'app:') return 'app://chorale';
   const configured = new URLSearchParams(window.location.search).get('choraleBridge');
   if (configured) return configured;
   if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
@@ -113,6 +114,7 @@ export const storageAdapter = {
         sharedServiceAvailable = true;
         return normalizeDocuments(workspace.documents || []);
       } catch {
+        if (window.choraleAI) throw new Error('The shared Chorale service is unavailable. Your scores have not been replaced.');
         sharedServiceAvailable = false;
         console.info('Shared Chorale service unavailable, falling back to local storage.');
       }
@@ -153,6 +155,7 @@ export const storageAdapter = {
         sharedServiceAvailable = true;
         return true;
       } catch {
+        if (window.choraleAI) throw new Error('The shared Chorale service is unavailable. Changes could not be saved.');
         sharedServiceAvailable = false;
         console.info('Shared Chorale service unavailable, saving to local storage.');
       }

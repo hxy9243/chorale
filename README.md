@@ -92,7 +92,26 @@ npm install
 npm run dev
 ```
 
-`npm run dev` starts the Vite development server at `http://localhost:5173/`. Before opening a pull request, run:
+`npm run dev` starts the Vite development server at `http://localhost:5173/`.
+
+For the desktop app with passage-aware chat, AI provider settings, annotations, and reviewable score edits:
+
+```bash
+npm run dev:electron
+```
+
+`npm run run:electron` is an alias. The desktop launcher starts or reuses the shared Chorale daemon, so desktop, browser, and MCP clients use the same score database. The current ABC editor, waterfall, split layouts, and video exports remain available. Provider credentials stay in the Electron main process; chat history stays in the desktop profile. Background agents are not started automatically.
+
+To run a built desktop app, first run `npm run build` and `npm run build:electron`, then `npm run start:electron`. On Linux, if Electron reports an incorrectly configured SUID sandbox helper, configure the installed helper once:
+
+```bash
+sudo chown root node_modules/electron/dist/chrome-sandbox
+sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+```
+
+`npm run smoke:electron` checks desktop launch, chat and proposal review with simulated provider responses and an isolated score database. It makes no provider requests. In a restricted test container that cannot use Chromium sandboxing, the smoke test alone accepts `CHORALE_SMOKE_NO_SANDBOX=1`.
+
+Before opening a pull request, run:
 
 ```bash
 npm test
@@ -131,7 +150,7 @@ For complete, step-by-step agent installation guides and MCP configurations, see
 - **WebAudio Piano Synthesizer**: Audio player with tempo scaling (50% to 180%), volume control, and active note cursor highlighting (`#e11d48`) on the SVG score during audio playback.
 - **Score Video Export**: Export sheet music or piano waterfall videos in landscape or portrait, with synchronized audio and MP4/WebM output.
 - **Split Stack Workspace**: Stack two panes beside a full-height third pane, with corner dragging and independently resizable rows and columns.
-- **Desktop Electron Archive**: The original standalone Electron desktop shell is preserved intact on branch `electron` (tag `v0.1-electron-archive`).
+- **Desktop Chat**: Optional Electron app with passage-aware conversations, provider settings, queued follow-ups and steering, annotation proposals, and score preview/apply. Run `npm run dev:electron`. The original desktop snapshot remains on branch `electron` (tag `v0.1-electron-archive`).
 
 ---
 

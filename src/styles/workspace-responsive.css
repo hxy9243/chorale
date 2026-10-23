@@ -49,3 +49,10 @@
 .score-editor-shell.layout-vertical {
   overflow-y: auto;
 }
+
+/* The browser grid deliberately has two columns. Desktop restores the third
+ * column without allowing its rail to become an implicit second grid row. */
+.workspace-body.desktop-workspace {
+  grid-template-columns: var(--desktop-workspace-columns) !important;
+  grid-template-rows: minmax(0, 1fr);
+}

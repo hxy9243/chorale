@@ -3,10 +3,11 @@ title: "Playback Dock Spec"
 description: "Specification for the WebAudio playback dock, volume/mute GainNode, progress seek track, and unified score-anchor synchronization"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-10-22
+updated: 2026-10-23
 status: "implemented"
 source_files:
   - src/components/AudioPlayer.tsx
+  - src/styles/waterfall.css
   - src/utils/abcAudio.ts
   - src/utils/repeatPlayback.ts
   - src/utils/autoScroll.ts
@@ -14,6 +15,7 @@ source_files:
   - src/App.tsx
 test_files:
   - src/components/__tests__/AudioPlayer.test.tsx
+  - scripts/playback-layout-smoke.mjs
   - src/utils/__tests__/abcAudio.test.ts
   - src/utils/__tests__/repeatPlayback.test.ts
   - src/utils/__tests__/autoScroll.test.ts
@@ -30,7 +32,7 @@ related_specs:
 # Playback Dock Spec
 
 Date: 2026-07-28  
-Updated: 2026-10-09
+Updated: 2026-10-23
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 ## 1. Goal
@@ -50,6 +52,13 @@ Expected elements:
 - active score anchor label badge (e.g. `Selected m.5`)
 - audio status indicator (`Synth Ready`, `Buffering Audio...`, `No Score Loaded`, or error banner)
 - WebAudio master gain volume slider (0–100%) and mute toggle, with a high-contrast percentage readout
+
+The volume track stays 4rem long at every supported width, with fixed space for
+mute and the percentage. Only the timeline stretches. When the card's available
+width falls below 34rem, transport, timeline and measure status stay on the first
+row; speed and the compact volume group move to the second row, aligned to
+opposite edges. This responds to the score column shrinking beside chat or file
+rails, as well as to window resizing.
 
 ## 3. Shared cursor behavior
 
