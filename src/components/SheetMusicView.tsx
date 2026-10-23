@@ -521,6 +521,7 @@ interface SheetMusicViewProps {
   activeAnchor?: ScoreAnchor | null;
   navigationAnchor?: ScoreAnchor | null;
   editorFocusMeasure?: number | null;
+  onPlayFromMeasure?: (measure: number) => void;
   onSelectAnchor?: (anchor: ScoreAnchor | null) => void;
   onTuneRendered?: (tune: abcjs.TuneObject[] | null) => void;
   documentId?: string;
@@ -543,6 +544,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   activeAnchor = null,
   navigationAnchor = null,
   editorFocusMeasure = null,
+  onPlayFromMeasure,
   onSelectAnchor,
   onTuneRendered,
   documentId,
@@ -1324,7 +1326,23 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                 <div className="sheet-layout-balance" aria-hidden="true" />
                 <div className="sheet-notation-column">
                   {header}
-                  <div ref={containerRef} id="paper" className="abcjs-paper-container" />
+                  <div ref={containerRef} id="paper" className="abcjs-paper-container"
+                    tabIndex={0}
+                    aria-label="Sheet music"
+                    title="Enter: play from selection / stop"
+                    onClickCapture={(event) => {
+                      const hitArea = (event.target as Element).closest<SVGElement>('.abcjs-measure-hit-area');
+                      (hitArea ?? event.currentTarget).focus({ preventScroll: true });
+                    }}
+                    onKeyDownCapture={(event) => {
+                      if (!onPlayFromMeasure || event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (event.repeat) return;
+                      const hitArea = (event.target as Element).closest<SVGElement>('.abcjs-measure-hit-area');
+                      onPlayFromMeasure(activeAnchor?.startMeasure ?? (hitArea ? Number(hitArea.dataset.measure) : firstMeasureNumber));
+                    }}
+                  />
                   <AnnotationOverlay
                     paperRef={containerRef}
                     abcCode={abcCode}

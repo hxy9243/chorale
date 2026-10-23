@@ -1143,6 +1143,7 @@ describe('SheetMusicView Component', () => {
 
   it('selects a measure from its full hit target on the first click', () => {
     const onSelectAnchor = vi.fn();
+    const onPlayFromMeasure = vi.fn();
     vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
       if (element && typeof element !== 'string') {
         element.innerHTML = `
@@ -1168,10 +1169,14 @@ describe('SheetMusicView Component', () => {
     });
 
     const { container } = render(
-      <SheetMusicView abcCode={sampleAbc} onSelectAnchor={onSelectAnchor} />,
+      <SheetMusicView abcCode={sampleAbc} onSelectAnchor={onSelectAnchor} onPlayFromMeasure={onPlayFromMeasure} />,
     );
 
     fireEvent.click(container.querySelector('[data-measure="2"]')!);
+    expect(document.activeElement).toBe(container.querySelector('[data-measure="2"]'));
+    fireEvent.keyDown(document.activeElement!, { key: 'Enter' });
+    fireEvent.keyDown(document.activeElement!, { key: 'Enter', repeat: true });
+    expect(onPlayFromMeasure).toHaveBeenCalledExactlyOnceWith(2);
     expect(onSelectAnchor).toHaveBeenCalledOnce();
     expect(onSelectAnchor).toHaveBeenCalledWith({
       startMeasure: 2,

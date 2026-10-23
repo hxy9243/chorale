@@ -3,7 +3,7 @@ title: "Playback Dock Spec"
 description: "Specification for the WebAudio playback dock, volume/mute GainNode, progress seek track, and unified score-anchor synchronization"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-10-22
+updated: 2026-10-23
 status: "implemented"
 source_files:
   - src/components/AudioPlayer.tsx
@@ -81,6 +81,11 @@ cannot continue audible playback beyond the measure. The visible transport retur
 to the preview start. Enter during playback stops and resets the shared transport;
 a stop request cannot become a new preview after a source rebuild. Ordinary
 transport Play resumes continuous playback, and an explicit seek exits preview.
+
+Sheet-focused Enter uses the same source-bound request path in continuous mode.
+It seeks to the selected measure's repeat-aware occurrence without installing a
+single-measure stop boundary. A second Enter stops, including a pending audio
+start. ABC Measure Source retains its single-measure preview behavior.
 
 ## 5. Relationship to current implementation
 

@@ -65,6 +65,7 @@ export interface MeasurePreviewRequest {
   sourceKey: string;
   measure: number;
   stop?: boolean;
+  continuous?: boolean;
 }
 
 interface AudioPlayerProps {
@@ -578,7 +579,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       if (!(end > occurrence.startTimeSec)) throw new Error('Measure timing is unavailable.');
       if (synthControllerRef.current?.isLooping) synthControllerRef.current.toggleLoop();
       seekTo(occurrence.startTimeSec, 'seconds');
-      void handlePlayToggle({ start: occurrence.startTimeSec, end });
+      void handlePlayToggle(measurePreviewRequest.continuous ? undefined : { start: occurrence.startTimeSec, end });
     } catch {
       setAudioError('Could not preview this measure: playback timing is unavailable.');
     }

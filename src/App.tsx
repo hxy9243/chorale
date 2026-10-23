@@ -280,6 +280,9 @@ export const App: React.FC = () => {
   const handlePreviewMeasure = (measure: number, source: string) => {
     setMeasurePreviewRequest({ measure, sourceKey: JSON.stringify([activeDocument?.id, source]), stop: playbackPositionRef.current.isPlaying });
   };
+  const handlePlayFromMeasure = useCallback((measure: number) => {
+    setMeasurePreviewRequest({ measure, sourceKey: displayPlaybackSourceKey, continuous: true, stop: playbackPositionRef.current.isPlaying });
+  }, [displayPlaybackSourceKey]);
   const [previousPreviewSourceKey, setPreviousPreviewSourceKey] = useState(displayPlaybackSourceKey);
   if (previousPreviewSourceKey !== displayPlaybackSourceKey) {
     setPreviousPreviewSourceKey(displayPlaybackSourceKey);
@@ -590,6 +593,7 @@ export const App: React.FC = () => {
                           activeAnchor={activeAnchor}
                           navigationAnchor={scoreNavigationAnchor}
                           editorFocusMeasure={editorVisible ? editorFocusMeasure : null}
+                          onPlayFromMeasure={handlePlayFromMeasure}
                           onSelectAnchor={handleSelectAnchor}
                           onTuneRendered={draftSheetSource ? undefined : handlePlaybackTuneRendered}
                           documentId={activeDocument.id}

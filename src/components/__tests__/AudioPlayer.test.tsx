@@ -441,6 +441,32 @@ describe('AudioPlayer Component', () => {
     } finally { frameSpy.mockRestore(); }
   });
 
+  it('plays continuously past the selected measure and stops on a second sheet request', async () => {
+    const tune = await previewTune('C4 | D4 | E4 |');
+    const { controller, context, buffer } = installClockController();
+    const source = { stop: vi.fn() };
+    Object.assign(buffer, { directSource: [source] });
+    let frame: FrameRequestCallback = () => {};
+    const frameSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => { frame = callback; return 1; });
+    try {
+      const request = { measure: 2, sourceKey: 'sheet', continuous: true };
+      const view = render(<AudioPlayer tunes={[tune]} sourceKey="sheet" measurePreviewRequest={request} />);
+      await waitFor(() => expect(controller.play).toHaveBeenCalledTimes(1));
+      expect(controller.seek).toHaveBeenLastCalledWith(2, 'seconds');
+      expect(source.stop).not.toHaveBeenCalled();
+      context.currentTime += 2.1;
+      act(() => frame(0));
+      expect(screen.getByTitle('Pause Audio')).toBeDefined();
+      expect(controller.pause).not.toHaveBeenCalled();
+      view.rerender(<AudioPlayer tunes={[tune]} sourceKey="sheet" measurePreviewRequest={{ ...request }} />);
+      expect(screen.getByTitle('Play Piano Synthesizer')).toBeDefined();
+      expect(controller.pause).toHaveBeenCalled();
+      expect(controller.play).toHaveBeenCalledTimes(1);
+      expect(controller.seek).toHaveBeenLastCalledWith(0, 'seconds');
+      view.unmount();
+    } finally { frameSpy.mockRestore(); }
+  });
+
   it('stops an active preview on the next Enter request without restarting it', async () => {
     const tune = await previewTune();
     const { controller } = installClockController();
@@ -518,14 +544,14 @@ describe('AudioPlayer Component', () => {
     expect(controller.play).not.toHaveBeenCalled();
   });
 
-  it('cancels a pending preview start when Enter stops a suspended audio context', async () => {
+  it.each([false, true])('cancels a pending keyboard start when Enter stops a suspended audio context (continuous=%s)', async (continuous) => {
     const tune = await previewTune();
     const { controller, context } = installClockController();
     let resume!: () => void;
     Object.assign(context, { state: 'suspended', resume: vi.fn(() => new Promise<void>((resolve) => { resume = resolve; })) });
-    const view = render(<AudioPlayer tunes={[tune]} sourceKey="preview" measurePreviewRequest={{ measure: 1, sourceKey: 'preview' }} />);
+    const view = render(<AudioPlayer tunes={[tune]} sourceKey="preview" measurePreviewRequest={{ measure: 1, sourceKey: 'preview', continuous }} />);
     await waitFor(() => expect(screen.getByTitle('Pause Audio')).toBeDefined());
-    view.rerender(<AudioPlayer tunes={[tune]} sourceKey="preview" measurePreviewRequest={{ measure: 1, sourceKey: 'preview' }} />);
+    view.rerender(<AudioPlayer tunes={[tune]} sourceKey="preview" measurePreviewRequest={{ measure: 1, sourceKey: 'preview', continuous }} />);
     await act(async () => resume());
     expect(controller.play).not.toHaveBeenCalled();
     expect(screen.getByTitle('Play Piano Synthesizer')).toBeDefined();

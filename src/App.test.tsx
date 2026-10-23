@@ -348,6 +348,46 @@ describe('App Integration', () => {
     }
   });
 
+  it('plays from the selected sheet range on Enter and stops on Enter again', async () => {
+    const { default: realAbcjs } = await vi.importActual<{ default: typeof abcjs }>('abcjs');
+    const originalRender = vi.mocked(abcjs.renderAbc).getMockImplementation()!;
+    const originalSynth = vi.mocked(abcjs.synth.SynthController).getMockImplementation()!;
+    const controller = { load: vi.fn(), setTune: vi.fn().mockResolvedValue(true), play: vi.fn(), pause: vi.fn(), seek: vi.fn() };
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+    vi.mocked(abcjs.synth.SynthController).mockImplementation(function () { return controller as any; });
+    vi.mocked(abcjs.renderAbc).mockImplementation((element, source, options) => {
+      const tunes = realAbcjs.renderAbc(element, source, options);
+      if (element && typeof element !== 'string') {
+        element.querySelectorAll<SVGGraphicsElement>('[class*="abcjs-mm"]').forEach((node) => {
+          const index = Number(node.getAttribute('class')?.match(/abcjs-mm(\d+)/)?.[1] ?? 0);
+          Object.defineProperty(node, 'getBBox', { configurable: true, value: () => ({ x: 10 + index * 120 + (node.classList.contains('abcjs-bar') ? 100 : 0), y: 20, width: 20, height: 40 }) });
+        });
+      }
+      return tunes;
+    });
+    try {
+      fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code/), { target: { value: 'X:1\nM:4/4\nL:1/4\nQ:1/4=120\nK:C\nC4 | D4 | E4 |' } });
+      await waitFor(() => expect(screen.getByText('/ 0:06')).toBeDefined());
+      const second = screen.getByRole('button', { name: 'Select measure 2' });
+      fireEvent.click(second);
+      fireEvent.click(screen.getByRole('button', { name: 'Select measure 3' }), { shiftKey: true });
+      fireEvent.keyDown(document.activeElement!, { key: 'Enter' });
+      await waitFor(() => expect(controller.play).toHaveBeenCalledTimes(1));
+      expect(controller.seek).toHaveBeenLastCalledWith(2, 'seconds');
+      expect(document.querySelectorAll('.abcjs-measure-hit-area[aria-pressed="true"]')).toHaveLength(2);
+      fireEvent.keyDown(document.activeElement!, { key: 'Enter' });
+      await waitFor(() => expect(screen.getByTitle('Play Piano Synthesizer')).toBeDefined());
+      expect(controller.pause).toHaveBeenCalled();
+      expect(controller.play).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.mocked(abcjs.renderAbc).mockImplementation(originalRender);
+      vi.mocked(abcjs.synth.SynthController).mockImplementation(originalSynth);
+    }
+  });
+
   it('renders idle ABC drafts without saving them or replacing the audio transport', async () => {
     const { default: realAbcjs } = await vi.importActual<{ default: typeof abcjs }>('abcjs');
     render(<App />);
