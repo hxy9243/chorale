@@ -207,6 +207,7 @@ export const App: React.FC = () => {
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [newScoreModalOpen, setNewScoreModalOpen] = useState(false);
   const [videoExportModalOpen, setVideoExportModalOpen] = useState(false);
+  const [editorFocusMeasure, setEditorFocusMeasure] = useState<number | null>(null);
   const [scoreNavigationAnchor, setScoreNavigationAnchor] = useState<ScoreAnchor | null>(null);
   const [playbackSourceRanges, setPlaybackSourceRanges] = useState<PlaybackSourceRanges | null>(null);
 
@@ -332,6 +333,7 @@ export const App: React.FC = () => {
   const [prevActiveFileId, setPrevActiveFileId] = useState(activeFileId);
   if (activeFileId !== prevActiveFileId) {
     setPrevActiveFileId(activeFileId);
+    setEditorFocusMeasure(null);
     setScoreNavigationAnchor(null);
     setPlaybackSourceRanges(null);
   }
@@ -587,6 +589,7 @@ export const App: React.FC = () => {
                           annotations={activeDocument?.annotations || []}
                           activeAnchor={activeAnchor}
                           navigationAnchor={scoreNavigationAnchor}
+                          editorFocusMeasure={editorVisible ? editorFocusMeasure : null}
                           onSelectAnchor={handleSelectAnchor}
                           onTuneRendered={draftSheetSource ? undefined : handlePlaybackTuneRendered}
                           documentId={activeDocument.id}
@@ -688,6 +691,7 @@ export const App: React.FC = () => {
                     playbackSourceRanges={playbackSourceRanges}
                     onPreviewMeasure={handlePreviewMeasure}
                     onDraftPreview={handleDraftSheetPreview}
+                    onFocusMeasure={setEditorFocusMeasure}
                     validationState={buildStatus}
                     validationMessage={workspaceMessage}
                     visible={editorVisible}

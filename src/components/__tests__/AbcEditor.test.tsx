@@ -27,6 +27,29 @@ K:C
       onSelectAnchor={(next) => { setAnchor(next); onSelect(next); }} onPreviewMeasure={onPreview} />;
   }
 
+  it('follows the editing destination rather than the start of an extended selection', async () => {
+    const onFocusMeasure = vi.fn();
+    const centerSpy = vi.spyOn(autoScroll, 'calculateCenterScrollLeft');
+    const onSelectAnchor = vi.fn();
+    const view = render(<AbcEditor abcCode={formattedAbc} onAbcChange={vi.fn()}
+      activeAnchor={{ startMeasure: 1, endMeasure: 2 }} onSelectAnchor={onSelectAnchor} onFocusMeasure={onFocusMeasure} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    await waitFor(() => expect(onFocusMeasure).toHaveBeenLastCalledWith(1));
+    centerSpy.mockClear();
+    fireEvent.keyDown(screen.getByRole('textbox', { name: /^Edit/ }), { key: 'ArrowRight', shiftKey: true, ctrlKey: true });
+    const target = screen.getByRole('textbox', { name: 'Edit upper, measure 2' });
+    await waitFor(() => {
+      expect(onFocusMeasure).toHaveBeenLastCalledWith(2);
+      expect(document.activeElement).toBe(target);
+      expect(centerSpy).toHaveBeenLastCalledWith(expect.any(HTMLElement), view.container.querySelector('[data-timeline-measure="2"]'));
+    });
+    expect(onSelectAnchor).toHaveBeenLastCalledWith(expect.objectContaining({ startMeasure: 1, endMeasure: 2 }));
+    expect(view.container.querySelector('[data-timeline-measure="2"]')?.classList.contains('is-edit-focused')).toBe(true);
+    fireEvent.blur(target, { relatedTarget: document.body });
+    expect(onFocusMeasure).toHaveBeenLastCalledWith(null);
+    centerSpy.mockRestore();
+  });
+
   it('moves up/down through voices in the same measure and preserves the caret column', async () => {
     render(<EditableWorkspace />);
     fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 2' }));

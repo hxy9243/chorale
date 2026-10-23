@@ -40,6 +40,7 @@ interface AbcEditorProps {
   onNavigateMeasure?: (anchor: ScoreAnchor) => void;
   onMeasureMutation?: (mutation: MeasureMutation) => MeasureMutationResult;
   playbackSourceRanges?: PlaybackSourceRanges | null;
+  onFocusMeasure?: (measure: number | null) => void;
   onDraftPreview?: (source: string | null) => void;
   onPreviewMeasure?: (measure: number, source: string) => void;
   validationState?: "idle" | "building" | "valid" | "invalid";
@@ -161,10 +162,14 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   playbackSourceRanges = null,
   onPreviewMeasure,
   onDraftPreview,
+  onFocusMeasure,
   validationState = "idle",
   validationMessage,
   visible = true,
 }) => {
+  const [focusedMeasure, setFocusedMeasure] = useState<number | null>(null);
+  const focusCallbackRef = useRef(onFocusMeasure);
+  useEffect(() => { focusCallbackRef.current = onFocusMeasure; }, [onFocusMeasure]);
   const completionId = useId();
   const [completion, setCompletion] = useState<{ result: AbcCompletionResult; index: number; value: string; cellId: string; caret: number; left: number; top: number; above: boolean; maxHeight: number } | null>(null);
   const previewCallbackRef = useRef(onDraftPreview);
@@ -406,12 +411,19 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   useEffect(() => { setCompletion(null); }, [draftCellId, documentId, revision, view, visible]);
 
   useEffect(() => {
-    if (view !== "measures" || activeAnchor?.startMeasure === undefined) return;
+    setFocusedMeasure(null);
+    focusCallbackRef.current?.(null);
+  }, [documentId, view, visible]);
+  useEffect(() => () => { focusCallbackRef.current?.(null); }, []);
+
+  useEffect(() => {
+    const destinationMeasure = focusedMeasure ?? activeAnchor?.startMeasure;
+    if (view !== "measures" || destinationMeasure === undefined) return;
     const body = editorBodyRef.current;
     if (!body) return;
     const frame = window.requestAnimationFrame(() => {
       const target = body.querySelector<HTMLElement>(
-        `[data-timeline-measure="${activeAnchor.startMeasure}"]`,
+        `[data-timeline-measure="${destinationMeasure}"]`,
       );
       if (target) {
         const targetScrollLeft = calculateCenterScrollLeft(body, target);
@@ -427,7 +439,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
       window.cancelAnimationFrame(frame);
       horizontalScrollControllerRef.current?.cancel();
     };
-  }, [activeAnchor?.startMeasure, view]);
+  }, [focusedMeasure, activeAnchor?.startMeasure, view]);
 
   useEffect(() => {
     if (view !== "measures" || playingMeasure == null) return;
@@ -944,6 +956,10 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
         <div
           className={`abc-source-container${editing ? " is-editing" : ""}`}
           data-cell-text={cell.id}
+          onFocus={() => {
+            setFocusedMeasure(cell.measureNumber);
+            onFocusMeasure?.(cell.measureNumber);
+          }}
           onClick={(event) => {
             selectMeasure(cell.measureNumber, event.shiftKey);
             if (!editing && cell.editable) beginEdit(cell);
@@ -1067,6 +1083,12 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
       ref={editorCardRef}
       className={`abc-editor-card glass-panel ${visible ? "" : "is-collapsed"}`}
       aria-label="ABC editor pane"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setFocusedMeasure(null);
+          onFocusMeasure?.(null);
+        }
+      }}
     >
       {completion && draft?.cellId === completion.cellId && createPortal(
         <div className="abc-completion-popup" style={{
@@ -1322,7 +1344,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
                     );
                   return (
                     <section
-                        className={`abc-timeline-measure${selected ? " is-selected" : ""}${playingMeasure === measure ? " is-playing" : ""}`}
+                        className={`abc-timeline-measure${focusedMeasure === measure ? " is-edit-focused" : ""}${selected ? " is-selected" : ""}${playingMeasure === measure ? " is-playing" : ""}`}
                       data-timeline-measure={measure}
                       key={measure}
                     >

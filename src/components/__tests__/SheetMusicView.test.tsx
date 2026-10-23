@@ -1620,6 +1620,37 @@ describe('SheetMusicView Component', () => {
     expect(getPlaybackPosition().isPlaying).toBe(false);
   });
 
+  it('follows editor focus independently of range selection and leaves the typing cursor in ABC', () => {
+    vi.mocked(abcjs.renderAbc).mockImplementation((element) => {
+      if (element && typeof element !== 'string') {
+        element.innerHTML = '<svg><g class="abcjs-note abcjs-mm0"></g><g class="abcjs-bar abcjs-mm0"></g><g class="abcjs-note abcjs-mm1"></g><g class="abcjs-bar abcjs-mm1"></g></svg>';
+        element.querySelectorAll<SVGGraphicsElement>('[class*="abcjs-mm"]').forEach((node, index) => {
+          Object.defineProperty(node, 'getBBox', { value: () => ({ x: 10 + index * 40, y: 20, width: 30, height: 24 }) });
+        });
+      }
+      return [{ getBpm: () => 120 }] as any;
+    });
+    const onSelectAnchor = vi.fn();
+    const anchor = { startMeasure: 1, endMeasure: 2 };
+    const view = render(<><input aria-label="ABC typing cursor" /><SheetMusicView abcCode={sampleAbc} activeAnchor={anchor} onSelectAnchor={onSelectAnchor} /></>);
+    const input = screen.getByRole('textbox', { name: 'ABC typing cursor' });
+    input.focus();
+    const target = view.container.querySelector<SVGElement>('.abcjs-measure-hit-area[data-measure="2"]')!;
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(target, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+    view.rerender(<><input aria-label="ABC typing cursor" /><SheetMusicView abcCode={sampleAbc} activeAnchor={anchor} editorFocusMeasure={2} onSelectAnchor={onSelectAnchor} /></>);
+    expect(target.classList.contains('is-editor-focused')).toBe(true);
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    expect(document.activeElement).toBe(input);
+    expect(onSelectAnchor).not.toHaveBeenCalled();
+    expect(view.container.querySelectorAll('[aria-pressed="true"].abcjs-measure-hit-area')).toHaveLength(2);
+    // A score rebuild must restore the cue on the new SVG.
+    view.rerender(<><input aria-label="ABC typing cursor" /><SheetMusicView abcCode={sampleAbc} revision={1} activeAnchor={anchor} editorFocusMeasure={2} onSelectAnchor={onSelectAnchor} /></>);
+    expect(view.container.querySelector('.abcjs-measure-hit-area.is-editor-focused')?.getAttribute('data-measure')).toBe('2');
+    view.rerender(<><input aria-label="ABC typing cursor" /><SheetMusicView abcCode={sampleAbc} revision={1} activeAnchor={anchor} editorFocusMeasure={null} onSelectAnchor={onSelectAnchor} /></>);
+    expect(view.container.querySelector('.is-editor-focused')).toBeNull();
+  });
+
   it('renders optional header inside the zoom wrapper notation column so title and score zoom together', () => {
     const { container } = render(
       <SheetMusicView

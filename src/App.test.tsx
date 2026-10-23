@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { act, render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import abcjs from 'abcjs';
 import App, {
@@ -376,6 +376,60 @@ describe('App Integration', () => {
       await waitFor(() => expect(vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[1]).toBe(source));
       fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
       expect((screen.getByPlaceholderText(/Parsed ABC code/) as HTMLTextAreaElement).value).toBe(source);
+    } finally {
+      vi.mocked(abcjs.parseOnly).mockImplementation(originalParse);
+      vi.mocked(abcjs.renderAbc).mockImplementation(originalRender);
+    }
+  });
+
+  it('keeps editing position synchronized across sheet and ABC while extending a measure range', async () => {
+    const { default: realAbcjs } = await vi.importActual<{ default: typeof abcjs }>('abcjs');
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+    const originalParse = vi.mocked(abcjs.parseOnly).getMockImplementation()!;
+    const originalRender = vi.mocked(abcjs.renderAbc).getMockImplementation()!;
+    vi.mocked(abcjs.parseOnly).mockImplementation(realAbcjs.parseOnly);
+    vi.mocked(abcjs.renderAbc).mockImplementation((element, source, options) => {
+      const tunes = realAbcjs.renderAbc(element, source, options);
+      if (element && typeof element !== 'string') {
+        element.querySelectorAll<SVGGraphicsElement>('[class*="abcjs-mm"]').forEach((node) => {
+          const index = Number(node.getAttribute('class')?.match(/abcjs-mm(\d+)/)?.[1] ?? 0);
+          Object.defineProperty(node, 'getBBox', { configurable: true, value: () => ({ x: 10 + index * 120 + (node.classList.contains('abcjs-bar') ? 100 : 0), y: 20, width: 20, height: 40 }) });
+        });
+      }
+      return tunes;
+    });
+    try {
+      fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code/), { target: { value: 'X:1\nM:4/4\nL:1/4\nQ:1/4=120\nK:C\nC4 | D4 | E4 |' } });
+      await waitFor(() => expect(screen.getByText('/ 0:06')).toBeDefined());
+      fireEvent.click(screen.getByRole('tab', { name: 'Measure Source' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Edit voice-1, measure 1' }));
+      for (const [key, measure] of [['ArrowRight', 2], ['ArrowRight', 3], ['ArrowLeft', 2]] as const) {
+        fireEvent.keyDown(screen.getByRole('textbox', { name: /^Edit/ }), { key, shiftKey: true, ctrlKey: true });
+        await waitFor(() => {
+          expect(document.activeElement).toBe(screen.getByRole('textbox', { name: `Edit voice-1, measure ${measure}` }));
+          expect(document.querySelector('.abcjs-measure-hit-area.is-editor-focused')?.getAttribute('data-measure')).toBe(String(measure));
+          expect(document.querySelector('.abc-timeline-measure.is-edit-focused')?.getAttribute('data-timeline-measure')).toBe(String(measure));
+        });
+        expect(document.querySelectorAll('.abc-timeline-measure.is-selected')).toHaveLength(measure);
+      }
+      // Tab/Shift+Tab focuses display cells natively, without a selection callback.
+      act(() => screen.getByRole('button', { name: 'Edit voice-1, measure 1' }).focus());
+      await waitFor(() => expect(document.querySelector('.abcjs-measure-hit-area.is-editor-focused')?.getAttribute('data-measure')).toBe('1'));
+      expect(document.querySelectorAll('.abc-timeline-measure.is-selected')).toHaveLength(2);
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Edit voice-1, measure 1' }), { key: ' ' });
+      fireEvent.change(screen.getByRole('textbox', { name: /^Edit/ }), { target: { value: 'F4 |' } });
+      fireEvent.keyDown(screen.getByRole('textbox', { name: /^Edit/ }), { key: 'ArrowRight', shiftKey: true });
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Edit voice-1, measure 2' }));
+        expect(document.querySelector('.abcjs-measure-hit-area.is-editor-focused')?.getAttribute('data-measure')).toBe('2');
+        expect(document.querySelector('.abc-timeline-measure.is-edit-focused')?.getAttribute('data-timeline-measure')).toBe('2');
+      });
+      expect(document.querySelectorAll('.abc-timeline-measure.is-selected')).toHaveLength(1);
+      fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+      await waitFor(() => expect(document.querySelector('.abcjs-measure-hit-area.is-editor-focused')).toBeNull());
     } finally {
       vi.mocked(abcjs.parseOnly).mockImplementation(originalParse);
       vi.mocked(abcjs.renderAbc).mockImplementation(originalRender);

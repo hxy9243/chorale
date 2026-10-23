@@ -165,6 +165,13 @@ Measure cells expose the shortcuts through their tooltip, with one shortcut per
 line. Measure-number headers remain clickable selection controls but are excluded
 from Tab/Shift+Tab traversal; keyboard focus visits the actionable voice cells.
 
+While editing, measure jumps and Tab/Shift+Tab move a shared editing-position cue
+in both the ABC timeline and the sheet. Both panes scroll the destination measure
+into view, while the typing cursor stays in the destination ABC voice cell.
+Ctrl/Cmd+Shift range extension follows the moving end rather than the range's
+first measure, without collapsing the selection. Leaving the ABC pane, switching
+documents or source view, or hiding the editor clears the editing-position cue.
+
 ### Completion and delayed visual preview
 
 Measure inputs offer local, deterministic ABC completions for decoration syntax

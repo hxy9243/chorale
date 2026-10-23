@@ -520,6 +520,7 @@ interface SheetMusicViewProps {
   annotations?: readonly Annotation[];
   activeAnchor?: ScoreAnchor | null;
   navigationAnchor?: ScoreAnchor | null;
+  editorFocusMeasure?: number | null;
   onSelectAnchor?: (anchor: ScoreAnchor | null) => void;
   onTuneRendered?: (tune: abcjs.TuneObject[] | null) => void;
   documentId?: string;
@@ -541,6 +542,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   annotations = [],
   activeAnchor = null,
   navigationAnchor = null,
+  editorFocusMeasure = null,
   onSelectAnchor,
   onTuneRendered,
   documentId,
@@ -991,6 +993,19 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       hitArea?.focus();
     }
   }, [navigationAnchor, onSelectAnchor, resolvePlaybackAnchor]);
+
+  // Editing focus is independent of the selected range. Follow its moving
+  // endpoint visually without seeking audio or taking the ABC typing cursor.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    container.querySelectorAll('.abcjs-measure-hit-area.is-editor-focused').forEach((area) => area.classList.remove('is-editor-focused'));
+    if (editorFocusMeasure === null) return;
+    const target = container.querySelector<SVGElement>(`.abcjs-measure-hit-area[data-measure="${editorFocusMeasure}"]`);
+    if (!target) return;
+    target.classList.add('is-editor-focused');
+    target.scrollIntoView?.({ behavior: anchorScrollBehavior(), block: 'center', inline: 'nearest' });
+  }, [editorFocusMeasure, renderGeneration]);
 
   const isPlayingRef = useRef<boolean>(false);
   const isUserPausedRef = useRef<boolean>(false);
