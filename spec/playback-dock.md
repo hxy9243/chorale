@@ -55,13 +55,13 @@ Expected elements:
 - progress timeline seek track with high-contrast elapsed and total duration (`mm:ss`)
 - active score anchor label badge (e.g. `Selected m.5`)
 - audio status indicator (`Synth Ready`, `Buffering Audio...`, `No Score Loaded`, or error banner)
+- `Voices` mixer popover toggle (`grid-area: voices`) and `Speed` selector (`grid-area: speed`)
 - WebAudio master gain volume slider (0–100%) and mute toggle, with a high-contrast percentage readout
 
 The volume track stays 4rem long at every supported width, with fixed space for
-mute and the percentage. Only the timeline stretches. When the card's available
+mute and the percentage. Only the timeline stretches. On desktop widths all six groups (`transport progress status voices speed volume`) share one single horizontal row without orphan wrapping. When the card's available
 width falls below 34rem, transport, timeline and measure status stay on the first
-row; speed and the compact volume group move to the second row, aligned to
-opposite edges. This responds to the score column shrinking beside chat or file
+row; voices, speed and the compact volume group move to the second row. This responds to the score column shrinking beside chat or file
 rails, as well as to window resizing.
 
 After building, `node scripts/playback-layout-smoke.mjs` checks the real workspace

@@ -12,20 +12,20 @@ describe('useWorkspacePanes', () => {
     window.localStorage.clear();
   });
 
-  it('initializes with default horizontal orientation and sheet-first order', () => {
+  it('initializes with default vertical orientation (Lower ABC Strip) and sheet-first order', () => {
     const { result } = renderHook(() => useWorkspacePanes());
     expect(result.current.sheetVisible).toBe(true);
-    expect(result.current.paneOrientation).toBe('horizontal');
+    expect(result.current.paneOrientation).toBe('vertical');
     expect(result.current.paneOrder).toBe('sheet-first');
     expect(result.current.sheetPaneOnRight).toBe(false);
   });
 
   it('restores stored orientation and order from localStorage', () => {
-    window.localStorage.setItem(PANE_ORIENTATION_KEY, 'vertical');
+    window.localStorage.setItem(PANE_ORIENTATION_KEY, 'horizontal');
     window.localStorage.setItem(PANE_ORDER_KEY, 'editor-first');
 
     const { result } = renderHook(() => useWorkspacePanes());
-    expect(result.current.paneOrientation).toBe('vertical');
+    expect(result.current.paneOrientation).toBe('horizontal');
     expect(result.current.paneOrder).toBe('editor-first');
   });
 
@@ -90,6 +90,7 @@ describe('useWorkspacePanes', () => {
   it('supports backwards-compatible sheetPaneOnRight setter', () => {
     const { result } = renderHook(() => useWorkspacePanes());
     act(() => {
+      result.current.setPaneOrientation('horizontal');
       result.current.setSheetPaneOnRight(true);
     });
     expect(result.current.sheetPaneOnRight).toBe(true);

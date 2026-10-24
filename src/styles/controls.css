@@ -433,14 +433,14 @@ button.btn-chorale:hover:not(:disabled) {
 }
 
 /* ==========================================================================
-   6. Siderails (Left & Right): Shared warm non-black tone matching the desk
+   6. Siderails (Left & Right): Deep Charcoal Outer Frame (#292824)
    ========================================================================== */
 
 .file-rail-tabs,
 .right-rail,
 .right-rail-tabs {
   width: 56px !important;
-  background: var(--surface-desk) !important;
+  background: var(--surface-siderail, #292824) !important;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -450,13 +450,13 @@ button.btn-chorale:hover:not(:disabled) {
 }
 
 .file-rail-tabs {
-  border-right: 1px solid var(--border-subtle) !important;
+  border-right: 1px solid #38352f !important;
   border-left: 0 !important;
 }
 
 .right-rail,
 .right-rail-tabs {
-  border-left: 1px solid var(--border-subtle) !important;
+  border-left: 1px solid #38352f !important;
   border-right: 0 !important;
 }
 
@@ -470,30 +470,30 @@ button.btn-chorale:hover:not(:disabled) {
   border-radius: var(--radius-control) !important;
   border: 1px solid transparent !important;
   background: transparent !important;
-  color: var(--text-secondary) !important;
+  color: #b8b2a6 !important;
   cursor: pointer;
   transition: all var(--dur-micro) var(--ease-out);
 }
 
 .file-rail-tab:hover,
 .right-rail-tab:hover {
-  background: var(--surface-hover) !important;
-  color: var(--text-primary) !important;
+  background: #36342e !important;
+  color: #f5f2eb !important;
 }
 
 .file-rail-tab.active,
 .file-rail-tab[aria-selected='true'],
 .right-rail-tab.active,
 .right-rail-tab[aria-selected='true'] {
-  background: var(--surface-raised) !important;
-  border-color: var(--border-subtle) !important;
-  color: var(--accent-rust) !important;
-  box-shadow: 0 1px 2px rgba(66, 52, 30, 0.06) !important;
+  background: #3d3a33 !important;
+  border-color: #524d43 !important;
+  color: #f5f2eb !important;
+  box-shadow: inset 2px 0 0 var(--accent-rust, #b85233), 0 1px 2px rgba(0, 0, 0, 0.2) !important;
 }
 
 .file-rail-tab.rail-toggle,
 .right-rail-tab.rail-toggle {
-  color: var(--text-primary) !important;
+  color: #d6d0c4 !important;
 }
 
 /* Paper Sidebar: warm paper, fluid adjustable width with clean edge */

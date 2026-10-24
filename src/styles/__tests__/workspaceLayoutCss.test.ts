@@ -209,5 +209,12 @@ describe('workspace layout CSS contract', () => {
     expect(responsiveCss).toMatch(/\.score-editor-shell\.layout-vertical\s*{[^}]*overflow-y:\s*auto;/s);
   });
 
+  it('uses deep charcoal outer siderails, single-row 6-slot transport grid, and top-aligned measure source timeline', () => {
+    const waterfallCss = readFileSync(resolve(process.cwd(), 'src/styles/waterfall.css'), 'utf8');
+    expect(controlsCss).toMatch(/\.file-rail-tabs,\s*\.right-rail,\s*\.right-rail-tabs\s*{[^}]*background:\s*var\(--surface-siderail,\s*#292824\)\s*!important;/s);
+    expect(waterfallCss).toMatch(/grid-template-areas:\s*'transport progress status voices speed volume'\s*!important;/);
+    expect(themeCss).toMatch(/\.abc-editor-card\s+\.editor-body\.is-measure-view\s*{[^}]*justify-content:\s*flex-start;/s);
+  });
+
 });
 

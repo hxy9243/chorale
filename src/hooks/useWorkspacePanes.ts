@@ -31,9 +31,9 @@ export interface UseWorkspacePanesResult {
 }
 
 const readStoredOrientation = (): PaneOrientation => {
-  if (typeof window === 'undefined') return 'horizontal';
+  if (typeof window === 'undefined') return 'vertical';
   const val = window.localStorage.getItem(PANE_ORIENTATION_KEY);
-  return val === 'vertical' || val === 'split-left' || val === 'split-right' ? val : 'horizontal';
+  return val === 'horizontal' || val === 'vertical' || val === 'split-left' || val === 'split-right' ? val : 'vertical';
 };
 
 const readStoredOrder = (): PaneOrder => {

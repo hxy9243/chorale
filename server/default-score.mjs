@@ -489,5 +489,44 @@ export const DEFAULT_SCORE_ANNOTATIONS = [
     },
     "chordSymbol": "G",
     "romanNumeral": "I"
+  },
+  {
+    "id": "ann-range-01",
+    "span": {
+      "startMeasure": 1,
+      "endMeasure": 2
+    },
+    "label": "Tonic Prolongation & Passing Bass",
+    "body": "Opening G major phrase prolongs tonic harmony across mm. 1–2 via vi (Em) and first-inversion dominant V6 (D/F#), with stepwise contrary motion between soprano and bass.",
+    "source": "assistant",
+    "createdAt": "2026-09-19T22:12:53.428Z",
+    "updatedAt": "2026-09-19T22:12:53.428Z",
+    "kind": "explanation"
+  },
+  {
+    "id": "ann-range-02",
+    "span": {
+      "startMeasure": 6,
+      "endMeasure": 7
+    },
+    "label": "Stollen Cadential Progression",
+    "body": "Ascending bass scale (F#–G–A–B–C–D) drives through IV7 and V7 with a 4–3 suspension in the alto voice to close the Stollen with a Perfect Authentic Cadence.",
+    "source": "assistant",
+    "createdAt": "2026-09-19T22:12:53.428Z",
+    "updatedAt": "2026-09-19T22:12:53.428Z",
+    "kind": "voice-leading"
+  },
+  {
+    "id": "ann-range-03",
+    "span": {
+      "startMeasure": 11,
+      "endMeasure": 12
+    },
+    "label": "Tonicization of Relative Minor (vi)",
+    "body": "In mm. 11–12, a secondary dominant prepares a deceptive/phrygian inflection toward E minor (vi) before returning to the home dominant.",
+    "source": "assistant",
+    "createdAt": "2026-09-19T22:12:53.428Z",
+    "updatedAt": "2026-09-19T22:12:53.428Z",
+    "kind": "modulation"
   }
 ];

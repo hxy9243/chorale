@@ -23,8 +23,8 @@
 .score-editor-shell.layout-horizontal.waterfall-open:not(.editor-hidden) > .editor-pane { flex-shrink: 1 !important; }
 .score-editor-shell.layout-horizontal.waterfall-open > .editor-pane > .editor-workspace-card { width: 100% !important; }
 .central-workspace > .playback-dock-container .player-controls-bar {
-  grid-template-columns: max-content minmax(5rem, 1fr) auto auto auto !important;
-  grid-template-areas: 'transport progress status speed volume' !important;
+  grid-template-columns: max-content minmax(5rem, 1fr) auto auto auto auto !important;
+  grid-template-areas: 'transport progress status voices speed volume' !important;
 }
 .playback-speed-control { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #f7f5f0; white-space: nowrap; }
 .playback-speed-control select { color: #f7f5f0; background: #52504a; border: 1px solid #89867e; border-radius: 5px; padding: 3px; font: inherit; }
@@ -39,6 +39,14 @@
 .central-workspace > .playback-dock-container .main-play-buttons { grid-area: transport !important; }
 .central-workspace > .playback-dock-container .playback-progress { grid-area: progress !important; }
 .central-workspace > .playback-dock-container .playback-status-stack { grid-area: status !important; max-width: 8rem !important; }
+.central-workspace > .playback-dock-container .voices-toggle {
+  grid-area: voices !important;
+  justify-self: start;
+  white-space: nowrap;
+  padding: 4px 9px;
+  font-size: 11px;
+  line-height: 1.2;
+}
 .playback-speed-control { grid-area: speed !important; justify-self: start; }
 .central-workspace > .playback-dock-container .control-slider-group {
   grid-area: volume !important;
@@ -72,10 +80,17 @@
 @container playback-card (max-width: 34rem) {
   .central-workspace > .playback-dock-container .player-controls-bar {
     grid-template-columns: max-content minmax(0, 1fr) auto !important;
-    grid-template-areas: 'transport progress status' 'speed volume volume' !important;
+    grid-template-areas: 'transport progress status' 'speed voices volume' !important;
   }
   .central-workspace > .playback-dock-container .playback-status-stack {
     width: auto !important;
     max-width: min(8rem, 30cqw) !important;
   }
 }
+@container playback-card (max-width: 25rem) {
+  .central-workspace > .playback-dock-container .player-controls-bar {
+    grid-template-columns: max-content minmax(0, 1fr) auto !important;
+    grid-template-areas: 'transport progress status' 'speed volume volume' 'voices voices voices' !important;
+  }
+}
+

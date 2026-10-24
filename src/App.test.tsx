@@ -117,6 +117,7 @@ describe('App Integration', () => {
   }, 30000);
 
   it('toggles the waterfall without adding a second playback dock', async () => {
+    localStorage.setItem('chorale.workspace.paneOrientation', 'horizontal');
     render(<App />);
     await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
     const toggle = screen.getByRole('button', { name: 'Waterfall' });
@@ -259,6 +260,7 @@ describe('App Integration', () => {
   });
 
   it.each(['sheet-first', 'editor-first'])('resizes ABC from its displayed width with Waterfall present (%s)', async (order) => {
+    localStorage.setItem('chorale.workspace.paneOrientation', 'horizontal');
     localStorage.setItem(EDITOR_WIDTH_KEY, '900');
     localStorage.setItem('chorale.workspace.paneOrder', order);
     render(<App />);
@@ -741,9 +743,11 @@ describe('App Integration', () => {
     expect(localStorage.getItem(FILE_RAIL_WIDTH_KEY))
       .toBe(String(defaultFileRailWidth(window.innerWidth)));
     expect(localStorage.getItem(EDITOR_WIDTH_KEY)).toBe('420');
+    expect(document.querySelector('.score-editor-shell')?.classList.contains('layout-vertical')).toBe(true);
   });
 
   it('restores every panel width and sheet zoom across a refresh', async () => {
+    localStorage.setItem('chorale.workspace.paneOrientation', 'horizontal');
     localStorage.setItem(FILE_RAIL_WIDTH_KEY, '360');
     localStorage.setItem(EDITOR_WIDTH_KEY, '520');
     localStorage.setItem(SHEET_ZOOM_KEY, '130');
@@ -1193,6 +1197,7 @@ describe('App Integration', () => {
   });
 
   it('controls pane visibility via pane tabs and the + popover menu', async () => {
+    localStorage.setItem('chorale.workspace.paneOrientation', 'horizontal');
     render(<App />);
 
     await waitFor(() => {
@@ -1269,7 +1274,7 @@ describe('App Integration', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /ABC source/ }));
 
     const shell = document.querySelector<HTMLElement>('.score-editor-shell')!;
-    expect(shell.classList.contains('layout-horizontal')).toBe(true);
+    expect(shell.classList.contains('layout-vertical')).toBe(true);
 
     // Mock getBoundingClientRect for shell
     vi.spyOn(shell, 'getBoundingClientRect').mockReturnValue({
@@ -1329,6 +1334,7 @@ describe('App Integration', () => {
   });
 
   it.each(['pointercancel', 'outside'] as const)('discards a %s tab drop without persisting a new layout', async (end) => {
+    localStorage.setItem('chorale.workspace.paneOrientation', 'horizontal');
     render(<App />);
     await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
     fireEvent.click(screen.getByRole('button', { name: 'Open pane' }));

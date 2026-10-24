@@ -46,15 +46,15 @@ Define the ABC editor as a first-class workspace pane rather than a loose debug 
 
 ## 2. Pane behavior
 
-The editor appears as an optional right-side pane within the central workspace.
+The editor appears as an optional pane within the central workspace, defaulting to a horizontal **Lower ABC Strip** (`layout-vertical`, default height 240px) docked beneath the Sheet pane so the score and its right-hand Margin Annotation Rail retain 100% horizontal width, while also supporting side-by-side (`layout-horizontal`) and split-stack arrangements.
 
 Required behavior:
 
 - split view with the score remaining primary
-- draggable divider between score and editor (width bounded between 320px and 720px, default 420px)
-- persistent editor visibility and width state stored in local storage (`chorale.workspace.editorVisible`, `chorale.workspace.editorWidth`)
-- editor width that can be adjusted without collapsing the score
-- opening from the left-rail **Tools** panel through the `ABC display` toggle
+- draggable divider between score and editor (height bounded between 180px and available workspace height minus 200px Sheet minimum, default 240px in vertical mode; width bounded between 320px and 720px, default 420px in horizontal mode)
+- persistent editor visibility, height, and width state stored in local storage (`chorale.workspace.editorVisible`, `chorale.workspace.editorHeight`, `chorale.workspace.editorWidth`)
+- editor dimensions that can be adjusted without collapsing the score
+- opening from the global header `ABC code` toggle, the `+` pane launcher, or the left-rail **Tools** panel through the `ABC display` toggle
 
 ## 3. Editor chrome
 
@@ -65,6 +65,7 @@ Expected UI elements:
   - view switcher (`Measure Source` / `Raw Source`)
   - visible validity status pill (`Valid ABC`, `Checking…`, `Invalid ABC`)
   - copy ABC action button
+- collapsible `Tool belt` drawer (collapsed by default so the horizontal measure timeline is immediately visible without vertical obstruction; expands to 328px by default when opened and supports pointer/keyboard resizing between 80px and 640px)
 - line numbers (in Raw Source)
 - live refresh or rebuild status indicator
 
@@ -79,7 +80,7 @@ editor content scrolls. ABC metadata is part of the source content and scrolls n
 The pane provides three views over one canonical ABC string:
 
 - **Measure View** is the default experimental workspace. It lays every written measure on
-  one horizontally scrollable timeline, stacks all voices inside each measure, and positions
+  one top-aligned horizontally scrollable timeline (with zero empty vertical void above the measure cards), stacks all voices inside each measure, and positions
   note events by cumulative duration so simultaneous beats align vertically. Sheet info header
   fields (`X:1`, `T:Title`, `M:Meter`, `K:Key`, `C:Composer`, etc.) are directly editable inline
   with underscore indicators. In display mode, measure events render separated by beat columns
