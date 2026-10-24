@@ -74,7 +74,16 @@ jobs:
         run: pip install --requirement server/python/requirements-music21.txt
 
       - name: Install Python sandbox
-        run: sudo apt-get update && sudo apt-get install -y bubblewrap
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap
+          # Ubuntu's AppArmor policy blocks unprivileged user namespaces on the
+          # disposable hosted runner. Permit them here so the real isolation
+          # tests can run; production hosts must supply their own sandbox policy.
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          bwrap --unshare-all --ro-bind / / /usr/bin/true
 
       - name: Run test suite with music21 required
         env:
