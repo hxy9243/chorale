@@ -62,8 +62,11 @@ npm install -g github:hxy9243/chorale
 chorale
 ```
 
-`chorale` starts the local HTTP/MCP service and opens the desktop app. Closing
-its window leaves the service available for connected agents. On npm 12, Git
+`chorale` starts the local HTTP/MCP service and opens the desktop app, then returns
+the terminal once the window loads. The app keeps running when you close the
+terminal. Use `chorale --debug` to keep it attached and stream desktop logs;
+normal launches save logs to `~/.chorale/desktop.log` (or `CHORALE_HOME/desktop.log`).
+Closing its window leaves the service available for connected agents. On npm 12, Git
 fetching is disabled by default; opt into this install with
 `npm install -g github:hxy9243/chorale --allow-git=root`. Respect any additional
 lifecycle-script policy set by your npm administrator. A local installation can
@@ -115,11 +118,10 @@ npm run dev:electron
 Electron 45 downloads its binary on the first launch, so that launch may take
 longer. Later launches reuse the downloaded binary.
 
-To run a built desktop app, first run `npm run build` and `npm run build:electron`, then `npm run start:electron`. On Linux, if Electron reports an incorrectly configured SUID sandbox helper, configure the installed helper once:
+To run a built desktop app, first run `npm run build` and `npm run build:electron`, then `npm run start:electron`. On Linux, installation and Electron builds automatically configure the installed sandbox helper with root ownership and mode `4755`, requesting sudo when needed. Already configured helpers are left alone. Unattended installs attempt passwordless sudo and print a warning if setup is unavailable. To retry setup from a regular terminal:
 
 ```bash
-sudo chown root node_modules/electron/dist/chrome-sandbox
-sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+npm run setup:electron-sandbox
 ```
 
 `npm run smoke:electron` checks desktop launch, chat and proposal review with simulated provider responses and an isolated score database. It makes no provider requests. In a restricted test container that cannot use Chromium sandboxing, the smoke test alone accepts `CHORALE_SMOKE_NO_SANDBOX=1`.

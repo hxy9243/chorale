@@ -293,6 +293,7 @@ Options:
   -v, --version    Show version number
       --stdio      Start MCP server over stdio (alias for 'mcp')
       --browser    Open the browser workspace instead of the desktop app
+      --debug      Keep the desktop attached to the terminal and stream logs
       --serve      Run daemon in foreground (internal)
       --skip-pull  Skip pulling the latest release during upgrade
       --           Pass remaining arguments to Electron (advanced)
@@ -397,6 +398,7 @@ export const runCli = async (options = {}) => {
     }
     const desktop = await (options.launchDesktop || launchDesktop)({
       ...options, packageRoot: options.packageRoot || resolvePackageRoot(entrypoint), logger,
+      debug: args.slice(0, args.includes('--') ? args.indexOf('--') : args.length).includes('--debug'),
       desktopArguments: args.includes('--') ? args.slice(args.indexOf('--') + 1) : [],
     });
     return { health, started, ...desktop };

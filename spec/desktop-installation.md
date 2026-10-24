@@ -7,6 +7,7 @@ source_files:
   - server/cli.mjs
   - server/desktop.mjs
   - server/desktop-lifecycle.mjs
+  - server/electron-sandbox.mjs
   - server/client-setup.mjs
   - server/api_server.mjs
   - electron/clientSetup.ts
@@ -17,6 +18,9 @@ test_files:
   - test/http-mcp.node.mjs
   - test/install.smoke.mjs
   - test/install-git.smoke.mjs
+  - test/electron-sandbox.node.mjs
+  - test/desktop-launch.node.mjs
+  - test/desktop-detach.smoke.mjs
   - src/agent/__tests__/clientSetup.test.ts
 related_specs:
   - spec/desktop-chat-restoration.md
@@ -36,14 +40,35 @@ command. Respect npm's Git/lifecycle policy and document explicit package-scoped
 opt-ins where required, rather than changing global npm configuration.
 
 `chorale` and `chorale start` start/reuse the authoritative loopback daemon,
-then launch/focus the Electron workspace. Keep its existing single-instance
-behavior. Closing the app leaves the daemon available for other MCP clients.
+then launch/focus the Electron workspace. By default Electron runs detached from
+the terminal, with no inherited terminal streams. The CLI waits for the desktop's
+window-load readiness message, then disconnects its startup IPC channel, releases
+the child process and returns. Closing the terminal must leave the app running.
+Desktop output is appended to `desktop.log` in `CHORALE_HOME` (default
+`~/.chorale`). Early process failures retain actionable diagnostics and a nonzero
+CLI status; startup without a readiness message times out after 30 seconds.
+`chorale --debug` and `chorale start --debug` keep Electron attached, stream its
+logs to the terminal, forward termination signals, and return its exit status.
+The CLI consumes `--debug` before the `--` separator; arguments after `--` are
+passed unchanged to Electron. The development launcher remains attached.
+Keep the existing single-instance behavior: a repeat launch focuses the existing
+window and returns successfully. Closing the app leaves the daemon available for other MCP clients.
 `chorale --browser` opens the browser workspace; `chorale serve` and the existing
 `--serve` run the daemon in the foreground. Keep status, stop, upgrade, music21
 setup, `chorale mcp`, and `--stdio` available. Stdio startup must never launch a
 GUI, prompt, or emit ordinary application messages on stdout. Missing desktop
 assets and Linux sandbox failures must produce actionable errors and nonzero
 exit status. Production sandboxing stays enabled by default.
+
+On Linux, installation and Electron builds check the installed Electron
+`chrome-sandbox` helper and configure root ownership and mode `4755` when needed.
+This step is idempotent and runs `chown` before `chmod` because changing ownership
+can clear the setuid bit. It uses sudo when not already root, with a password
+prompt only when a terminal is available. Unattended installs use noninteractive
+sudo; if elevation is unavailable, installation/build still succeeds and prints
+actionable setup instructions. `npm run setup:electron-sandbox` retries explicitly
+and fails if the helper cannot be configured. Other platforms skip this step.
+The installed package includes the setup script; no dev dependencies are needed.
 
 ## HTTP MCP
 

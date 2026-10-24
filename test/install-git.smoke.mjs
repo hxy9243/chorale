@@ -54,9 +54,11 @@ test('Git-source global installation launches Electron and shares HTTP/stdio sco
     });
     let debugUrl;
     for (let i = 0; i < 200; i++) {
-      debugUrl = output.match(/DevTools listening on (ws:\/\/[^\s]+)/)?.[1];
+      let desktopOutput = '';
+      try { desktopOutput = await readFile(join(environment.CHORALE_HOME, 'desktop.log'), 'utf8'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+      debugUrl = desktopOutput.match(/DevTools listening on (ws:\/\/[^\s]+)/)?.[1];
       if (debugUrl) break;
-      if (application.exitCode !== null) assert.fail(output);
+      if (application.exitCode !== null && application.exitCode !== 0) assert.fail(output);
       await new Promise(resolveDelay => setTimeout(resolveDelay, 100));
     }
     assert.ok(debugUrl, output);
@@ -64,6 +66,8 @@ test('Git-source global installation launches Electron and shares HTTP/stdio sco
     const context = browser.contexts()[0];
     const page = context.pages()[0] || await context.waitForEvent('page');
     await page.locator('.chorale-app-shell').waitFor({ timeout: 20000 });
+    assert.equal(await exited, 0, 'Default CLI must exit while the desktop is still open');
+    assert.equal(await page.locator('.chorale-app-shell').isVisible(), true, 'Desktop survives launcher exit');
     assert.equal(await page.evaluate(() => Boolean(window.choraleAI)), true);
     const base = `http://127.0.0.1:${port}`;
     const health = await (await fetch(`${base}/v1/health`)).json();

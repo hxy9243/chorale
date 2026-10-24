@@ -225,7 +225,7 @@ test('runCli defaults to desktop after ensuring the shared daemon', async () => 
         ensured = true;
         return { health: { port: 1685 }, started: true };
       },
-      launchDesktop: async () => { assert.equal(ensured, true); launched = true; return { statusCode: 0 }; },
+      launchDesktop: async (options) => { assert.equal(ensured, true); assert.equal(options.debug, false); launched = true; return { statusCode: 0 }; },
       openBrowser: () => assert.fail('desktop must not open the browser'),
     });
 
@@ -246,6 +246,23 @@ test('runCli --browser preserves browser startup without loading Electron', asyn
   });
   assert.equal(url, 'http://127.0.0.1:1685');
   assert.equal(result.started, false);
+});
+
+test('runCli consumes --debug only before the Electron argument separator', async () => {
+  for (const [args, debug, desktopArguments] of [
+    [['--debug'], true, []],
+    [['start', '--debug', '--', '--remote-debugging-port=0'], true, ['--remote-debugging-port=0']],
+    [['--', '--debug'], false, ['--debug']],
+  ]) {
+    await runCli({ args, logger: { log() {}, error() {} },
+      ensureDaemon: async () => ({ health: { port: 1685 }, started: false }),
+      launchDesktop: async (options) => {
+        assert.equal(options.debug, debug);
+        assert.deepEqual(options.desktopArguments, desktopArguments);
+        return { statusCode: 0 };
+      },
+    });
+  }
 });
 
 test('stopDaemon stops a verified legacy chorale daemon when runtime.json is absent by resolving the listening PID', async () => {

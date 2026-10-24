@@ -101,6 +101,9 @@ The CLI binary is located at `bin/chorale.mjs` (or `chorale` when linked globall
 # Start/reuse the service and launch/focus the desktop app
 chorale
 
+# Keep the desktop attached to this terminal and stream its logs
+chorale --debug
+
 # Check daemon health, port, and PID without starting a service
 chorale status
 
@@ -121,7 +124,7 @@ chorale mcp
 ```
 
 ### Command Behavior:
-- `chorale` (or `chorale start`): Idempotent launch. Checks `http://127.0.0.1:1685/v1/health`. Starts or reuses the HTTP + MCP service and launches/focuses the Electron desktop. Use `chorale --browser` for the browser workspace and `chorale serve` for the foreground service.
+- `chorale` (or `chorale start`): Idempotent launch. Checks `http://127.0.0.1:1685/v1/health`. Starts or reuses the HTTP + MCP service and launches/focuses the Electron desktop, returning the terminal once its window loads. The desktop keeps running if the terminal closes. Logs are saved to `~/.chorale/desktop.log` (or `CHORALE_HOME/desktop.log`). Use `chorale --debug` to keep the desktop attached with live terminal logs, `chorale --browser` for the browser workspace, and `chorale serve` for the foreground service.
 - `chorale mcp`: Starts the MCP stdio adapter. Ensures the background service is running on port 1685 and proxies all score tool calls to it.
 - `chorale status`: Reports health, port, and PID from recorded runtime metadata without starting a daemon.
 - `chorale stop`: Stops only the healthy daemon whose PID and port match `~/.chorale/runtime.json`.

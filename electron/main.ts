@@ -204,6 +204,9 @@ if (!hasSingleInstanceLock) {
     removeIPCHandlers = registerAIIPC(controller, () => mainWindow);
     removeFileIPCHandlers = registerFileIPC(() => mainWindow);
     await createWindow();
+    // The CLI only stays connected until the initial desktop window loads.
+    // A send callback also handles a launching terminal disappearing early.
+    if (process.connected) process.send?.({ type: 'chorale:desktop-ready' }, () => {});
     if (mainWindow) void offerClientSetup(mainWindow, projectDirectory).catch(error => console.error('Client setup could not open:', error.message));
 
     app.on('activate', () => {
