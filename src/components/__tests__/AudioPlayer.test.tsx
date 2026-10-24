@@ -39,6 +39,7 @@ describe('AudioPlayer Component', () => {
   } as any;
 
   beforeEach(() => {
+    localStorage.clear();
     vi.clearAllMocks();
     (abcjs as any).synth.activeAudioContext.mockReturnValue(null);
   });
@@ -414,6 +415,54 @@ describe('AudioPlayer Component', () => {
     tune.setTiming(120);
     return tune;
   }
+
+  it('keeps the hidden abcjs tempo input available for real transport rebuilds', async () => {
+    const { default: realAbcjs } = await vi.importActual<{ default: typeof abcjs }>('abcjs');
+    const realControl = new realAbcjs.synth.SynthController();
+    const control = { ...mockSynthControl, load: vi.fn((parent, cursor, options) => realControl.load(parent, cursor, options)) };
+    vi.mocked((abcjs as any).synth.SynthController).mockImplementationOnce(function () { return control; });
+    render(<AudioPlayer tunes={[mockTune]} />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    expect(() => (realControl as any).control.setWarp(120, 150)).not.toThrow();
+    expect((document.querySelector('.hidden-synth .abcjs-midi-tempo') as HTMLInputElement).value).toBe('150');
+  });
+
+  it('applies voice settings to shared playback, preserves clock and speed, and isolates documents', async () => {
+    const { default: realAbcjs } = await vi.importActual<{ default: typeof abcjs }>('abcjs');
+    const source = 'X:1\nM:4/4\nL:1/4\nQ:1/4=120\nV:S name="Melody"\nV:B name="Bass" clef=bass\nK:C\n[V:S] C4 | D4 | E4 | F4 |\n[V:B] C,4 | D,4 | E,4 | F,4 |';
+    const [tune] = realAbcjs.renderAbc(document.createElement('div'), source);
+    tune.setTiming(120);
+    const original = JSON.stringify(tune.setUpAudio({}));
+    const { controller, context } = installClockController();
+    const view = render(<AudioPlayer documentId="a" abcCode={source} tunes={[tune]} sourceKey="a" />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    fireEvent.click(screen.getByTitle('Play Piano Synthesizer'));
+    context.currentTime += 2;
+    fireEvent.change(screen.getByRole('combobox', { name: 'Playback speed' }), { target: { value: '1.5' } });
+    await waitFor(() => expect(screen.getByTitle('Pause Audio')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'Voices' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Instrument for Melody' }));
+    fireEvent.change(screen.getByRole('combobox', { name: /Search instruments/ }), { target: { value: 'violin' } });
+    fireEvent.keyDown(screen.getByRole('combobox', { name: /Search instruments/ }), { key: 'Enter' });
+    await waitFor(() => expect(screen.getByTitle('Pause Audio')).toBeDefined());
+    expect(controller.setWarp).toHaveBeenLastCalledWith(150);
+    expect(controller.seek.mock.lastCall[0]).toBeCloseTo(2 / 1.5, 8);
+    expect(controller.seek.mock.lastCall[1]).toBe('seconds');
+    fireEvent.click(screen.getByRole('button', { name: 'Solo Melody' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Solo Melody' }).hasAttribute('disabled')).toBe(false));
+    const mixed = controller.setTune.mock.lastCall[0].setUpAudio({});
+    expect(mixed.tracks[0].filter((event: any) => event.cmd === 'note').every((event: any) => event.instrument === 40 && event.volume > 0)).toBe(true);
+    expect(mixed.tracks[1].filter((event: any) => event.cmd === 'note').every((event: any) => event.volume === 0)).toBe(true);
+    expect(JSON.stringify(tune.setUpAudio({}))).toBe(original);
+    view.rerender(<AudioPlayer documentId="b" abcCode={source} tunes={[tune]} sourceKey="b" />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    expect(screen.getByRole('button', { name: 'Instrument for Melody' }).textContent).toContain('Grand Piano');
+    expect(screen.getByRole('button', { name: 'Solo Melody' }).getAttribute('aria-pressed')).toBe('false');
+    view.rerender(<AudioPlayer documentId="a" abcCode={source} tunes={[tune]} sourceKey="a" />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    expect(screen.getByRole('button', { name: 'Instrument for Melody' }).textContent).toContain('Violin');
+    expect(screen.getByRole('button', { name: 'Solo Melody' }).getAttribute('aria-pressed')).toBe('true');
+  });
 
   it('previews exactly one measure on the audio clock and returns to its beginning', async () => {
     const tune = await previewTune();

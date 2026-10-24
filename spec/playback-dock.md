@@ -3,10 +3,13 @@ title: "Playback Dock Spec"
 description: "Specification for the WebAudio playback dock, volume/mute GainNode, progress seek track, and unified score-anchor synchronization"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-10-23
+updated: 2026-10-24
 status: "implemented"
 source_files:
   - src/components/AudioPlayer.tsx
+  - src/components/VoicesPanel.tsx
+  - src/music/voiceMixer.ts
+  - src/music/instruments.ts
   - src/utils/abcAudio.ts
   - src/utils/repeatPlayback.ts
   - src/utils/autoScroll.ts
@@ -25,6 +28,7 @@ related_specs:
   - spec/interaction-model.md
   - spec/piano-waterfall.md
   - spec/abc-editor.md
+  - spec/voices-panel.md
 ---
 
 # Playback Dock Spec
@@ -86,6 +90,11 @@ Sheet-focused Enter uses the same source-bound request path in continuous mode.
 It seeks to the selected measure's repeat-aware occurrence without installing a
 single-measure stop boundary. A second Enter stops, including a pending audio
 start. ABC Measure Source retains its single-measure preview behavior.
+
+The Voices panel provides per-voice instrument, sample preview, mute and solo
+listening controls; see `spec/voices-panel.md`. The hidden abcjs UI retains its
+tempo input because controller rebuilds update it even though users interact
+with the application's own playback controls.
 
 ## 5. Relationship to current implementation
 

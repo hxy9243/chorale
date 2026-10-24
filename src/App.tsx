@@ -780,6 +780,8 @@ export const App: React.FC = () => {
             <div className="playback-dock-container">
               <AudioPlayer
                 onWaterfallPlaybackChange={setWaterfallPlayback}
+                documentId={activeDocument.id}
+                abcCode={displayAbc}
                 tunes={canRenderScore ? tunes : null}
                 sourceKey={renderedPlaybackSourceKey}
                 totalMeasures={totalMeasures}
