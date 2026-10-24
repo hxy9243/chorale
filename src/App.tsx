@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FileMusic, Plus, X } from 'lucide-react';
 import { Header } from './components/Header';
 import { FileRail } from './components/FileRail';
+import { ScoreScanModal } from './components/ScoreScanModal';
 import { RightRail } from './components/RightRail';
 import { AgentChatPanel } from './components/AgentChatPanel';
 import { useAIProviders } from './agent/useAIProviders';
@@ -10,6 +11,7 @@ import { FILE_RAIL_BAR_WIDTH } from './utils/workspaceSizing';
 import { ScoreCardHeader } from './components/ScoreCardHeader';
 import { ScoreMetadataHeader } from './components/ScoreMetadataHeader';
 import { SheetMusicView } from './components/SheetMusicView';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { AudioPlayer, type MeasurePreviewRequest } from './components/AudioPlayer';
 import { WaterfallPane } from './components/WaterfallPane';
 import type { WaterfallPlayback } from './music/waterfallPlayback';
@@ -68,6 +70,7 @@ const DEFAULT_SHEET_ZOOM = 100;
 export const WATERFALL_VISIBLE_KEY = 'chorale.workspace.waterfallVisible';
 
 export const App: React.FC = () => {
+  const [scanModalOpen, setScanModalOpen] = useState(false);
   const {
     documents,
     activeFileId,
@@ -443,6 +446,7 @@ export const App: React.FC = () => {
           activeFileId={activeFileId}
           onSelectDocument={handleSelectFile}
           onFileLoaded={handleProcessMusicXml}
+          onScanScore={window.choraleScan ? () => setScanModalOpen(true) : undefined}
           onNewScore={() => setNewScoreModalOpen(true)}
           onDeleteDocument={handleDeleteDocument}
           onDuplicateDocument={handleDuplicateDocument}
@@ -572,6 +576,18 @@ export const App: React.FC = () => {
                       )}
 
                       <div className="score-view-wrapper">
+                        <ErrorBoundary
+                          resetKey={displayPlaybackSourceKey}
+                          onError={() => handlePlaybackTuneRendered(null)}
+                          fallback={(_error, retry) => (
+                            <div className="workspace-status-row invalid" role="alert">
+                              <span>This score could not be displayed.</span>
+                              <span>Your source remains available. Edit it or open another score to continue.</span>
+                              <button type="button" onClick={() => openEditorPane(setEditorVisible)}>Open ABC source</button>
+                              <button type="button" onClick={retry}>Retry score</button>
+                            </div>
+                          )}
+                        >
                         <SheetMusicView
                           header={(
                             <ScoreMetadataHeader
@@ -606,6 +622,7 @@ export const App: React.FC = () => {
                           onUpdateAnnotation={handleUpdateAnnotation}
                           onDeleteAnnotation={handleDeleteAnnotation}
                         />
+                        </ErrorBoundary>
                       </div>
                     </div>
                   </div>
@@ -834,6 +851,9 @@ export const App: React.FC = () => {
         </div>
         )}
       </div>
+      {scanModalOpen && <ScoreScanModal onClose={() => setScanModalOpen(false)} onImport={(abc, name) => {
+        handleCreateDocument(abc, parseAbcHeaderMetadata(abc).title || name.replace(/\.abc$/i, ''));
+      }} />}
       <WorkspaceModals
         aiProviders={aiProviders}
         settingsOpen={settingsOpen}

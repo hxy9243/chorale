@@ -64,7 +64,7 @@ export async function extractMusicXml(fileOrBuffer: File | ArrayBuffer | string)
 }
 
 const MAX_XML_CACHE_SIZE = 50;
-const xmlToAbcCache = new Map<string, string>();
+const xmlToAbcCache = new Map<string, { abc: string; warnings: string[] }>();
 
 /**
  * Clears the in-memory MusicXML to ABC conversion cache.
@@ -77,6 +77,10 @@ export function clearMusicXmlCache(): void {
  * Converts MusicXML string into ABC notation string.
  */
 export function parseMusicXmlToAbc(xmlContent: string): string {
+  return parseMusicXmlForImport(xmlContent).abc;
+}
+
+export function parseMusicXmlForImport(xmlContent: string): { abc: string; warnings: string[] } {
   if (!xmlContent || !xmlContent.trim()) {
     throw new Error('Empty MusicXML content provided.');
   }
@@ -95,7 +99,7 @@ export function parseMusicXmlToAbc(xmlContent: string): string {
     const abc = typeof output === 'string' ? output : output?.result || String(output || '');
 
     if (!abc || !abc.trim()) {
-      return '% Error converting MusicXML to ABC notation.';
+      throw new Error('MusicXML conversion produced no notation.');
     }
 
     if (xmlToAbcCache.size >= MAX_XML_CACHE_SIZE) {
@@ -104,9 +108,12 @@ export function parseMusicXmlToAbc(xmlContent: string): string {
         xmlToAbcCache.delete(firstKey);
       }
     }
-    xmlToAbcCache.set(xmlContent, abc);
+    const warnings = typeof output?.warningMessage === 'string' && output.warningMessage.trim()
+      ? [output.warningMessage.trim()] : [];
+    const result = { abc, warnings };
+    xmlToAbcCache.set(xmlContent, result);
 
-    return abc;
+    return result;
   } catch (error: any) {
     console.error('MusicXML to ABC conversion error:', error);
     throw new Error(`Failed to convert MusicXML to ABC: ${error?.message || error}`);

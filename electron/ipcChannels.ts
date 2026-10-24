@@ -21,3 +21,10 @@ export const FILE_IPC = {
   savePdfFile: 'chorale-file:save-pdf',
 } as const;
 
+export const SCAN_IPC = {
+  status: 'chorale-scan:status',
+  scan: 'chorale-scan:scan',
+  cancel: 'chorale-scan:cancel',
+  openSourceFolder: 'chorale-scan:open-source-folder',
+} as const;
+

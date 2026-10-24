@@ -13,6 +13,24 @@ import {
 } from '../abcAudio';
 
 describe('abcAudio utilities', () => {
+  it('rejects excessive multimeasure-rest expansion before allocating notation', () => {
+    expect(() => prepareAbcForEngraving('X:1\nK:C\nZ10001|')).toThrow(/too many measures/i);
+    expect(() => prepareAbcForEngraving('X:1\nK:C\nZ1000000000|')).toThrow(/too many measures/i);
+    expect(() => prepareAbcForEngraving('X:1\nK:C\nZ6000|X6000|')).toThrow(/too many measures/i);
+    expect(prepareAbcForEngraving('X:1\nK:C\nZ3|')).toContain('Z|Z|Z|');
+  });
+
+  it('removes partial output even when engraving succeeds but timing fails', () => {
+    const target = document.createElement('div');
+    const render = vi.spyOn(abcjs, 'renderAbc').mockImplementationOnce(() => {
+      target.innerHTML = '<svg />';
+      return [{ setTiming: () => { throw new Error('Unsupported timing'); } }] as unknown as ReturnType<typeof abcjs.renderAbc>;
+    });
+    try {
+      expect(() => renderPlaybackScore(target, 'X:1\nK:C\nC4|')).toThrow('Unsupported timing');
+      expect(target.childNodes).toHaveLength(0);
+    } finally { render.mockRestore(); }
+  });
   const abcWithMidNoteTempoChange = `X:1
 T:Tempo synchronization regression
 L:1/4

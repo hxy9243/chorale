@@ -12,6 +12,7 @@ import App, {
 import * as xmlParser from './utils/xmlParser';
 import { defaultFileRailWidth } from './utils/workspaceSizing';
 import { storageAdapter } from './utils/storageAdapter';
+import * as sheetMusicView from './components/SheetMusicView';
 
 vi.mock('abcjs', () => ({
   default: {
@@ -62,6 +63,34 @@ describe('App Integration', () => {
         text: () => Promise.resolve(`<?xml version="1.0" encoding="UTF-8"?><score-partwise version="3.1"><part-list><score-part id="P1"><part-name>Test</part-name></score-part></part-list><part id="P1"><measure number="1"><attributes><divisions>1</divisions></attributes><note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration></note></measure></part></score-partwise>`),
       } as Response);
     });
+  });
+
+  it('keeps source editing and workspace controls available after an unexpected score error', async () => {
+    const OriginalSheet = sheetMusicView.SheetMusicView;
+    const source = 'X:1\nT:Crashing score\nM:4/4\nL:1/4\nK:C\nC4|';
+    const sheet = vi.spyOn(sheetMusicView, 'SheetMusicView').mockImplementation((props) => {
+      if (props.abcCode.includes('Crashing score')) throw new Error('Unexpected score failure');
+      return <OriginalSheet {...props} />;
+    });
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      render(<App />);
+      await screen.findByText('Synth Ready');
+      fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+      fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+      fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code/), { target: { value: source } });
+      await screen.findByText('This score could not be displayed.');
+      await screen.findByText('No Score Loaded');
+      expect((screen.getByPlaceholderText(/Parsed ABC code/) as HTMLTextAreaElement).value).toBe(source);
+      expect(screen.getAllByRole('button', { name: 'New Score' }).length).toBeGreaterThan(0);
+      expect(screen.queryByTestId('sheet-svg')).toBeNull();
+      fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code/), { target: { value: source.replace('Crashing score', 'Repaired score') } });
+      await screen.findByTestId('sheet-svg');
+      await screen.findByText('Synth Ready');
+      expect(screen.queryByText('This score could not be displayed.')).toBeNull();
+    } finally {
+      sheet.mockRestore(); log.mockRestore();
+    }
   });
 
   it('renders the Figma workspace and opens the ABC editor on demand', async () => {

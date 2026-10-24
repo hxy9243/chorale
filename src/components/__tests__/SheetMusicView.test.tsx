@@ -46,6 +46,28 @@ describe('SheetMusicView Component', () => {
     expect(abcjs.renderAbc).toHaveBeenCalled();
   });
 
+  it('clears partial notation and playback on a renderer exception and recovers after an edit', () => {
+    const onTuneRendered = vi.fn();
+    const onMeasureSystemsChange = vi.fn();
+    const { container, rerender } = render(<SheetMusicView abcCode={sampleAbc} onTuneRendered={onTuneRendered} onMeasureSystemsChange={onMeasureSystemsChange} />);
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
+      (element as HTMLElement).innerHTML = '<svg data-partial-score="true" />';
+      throw new Error('Unsupported notation');
+    });
+    try {
+      rerender(<SheetMusicView abcCode={sampleAbc + 'D4|'} onTuneRendered={onTuneRendered} onMeasureSystemsChange={onMeasureSystemsChange} />);
+      expect(screen.getByRole('alert').textContent).toContain('source remains available');
+      expect(container.querySelector('#paper svg')).toBeNull();
+      expect(onTuneRendered).toHaveBeenLastCalledWith(null);
+      expect(onMeasureSystemsChange).toHaveBeenLastCalledWith(null);
+      rerender(<SheetMusicView abcCode={sampleAbc} onTuneRendered={onTuneRendered} onMeasureSystemsChange={onMeasureSystemsChange} />);
+      expect(screen.queryByRole('alert')).toBeNull();
+      expect(screen.getByTestId('mock-svg-paper')).toBeDefined();
+      expect(onTuneRendered.mock.calls.at(-1)?.[0]).not.toBeNull();
+    } finally { log.mockRestore(); }
+  });
+
   it('renders from ABC without inline directives that shift visual and audio timing', () => {
     const abcWithTempoChange = sampleAbc.replace(
       'C D',

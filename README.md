@@ -2,6 +2,8 @@
 
 # 🎼 Chorale
 
+Experimental desktop PDF/PNG recognition: see [the scan-import trial](docs/score-scan-import.md).
+
 **A high-precision music notation workspace and MCP tool server for AI coding agents.**
 
 [![Version](https://img.shields.io/badge/version-0.0.1-rose.svg)](package.json)
