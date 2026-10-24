@@ -212,10 +212,10 @@ test('runCli logs error and returns status code 1 on unknown command', async () 
   assert.equal(logs.length, 0);
 });
 
-test('runCli defaults to "start" when no command is provided or when "start" is explicit', async () => {
+test('runCli defaults to desktop after ensuring the shared daemon', async () => {
   for (const args of [[], ['start']]) {
     let ensured = false;
-    let openedUrl = null;
+    let launched = false;
     const logs = [];
     const logger = { log: (msg) => logs.push(msg), error: () => {} };
     const result = await runCli({
@@ -225,17 +225,27 @@ test('runCli defaults to "start" when no command is provided or when "start" is 
         ensured = true;
         return { health: { port: 1685 }, started: true };
       },
-      openBrowser: async (url) => {
-        openedUrl = url;
-      },
+      launchDesktop: async () => { assert.equal(ensured, true); launched = true; return { statusCode: 0 }; },
+      openBrowser: () => assert.fail('desktop must not open the browser'),
     });
 
     assert.equal(ensured, true);
-    assert.equal(openedUrl, 'http://127.0.0.1:1685');
+    assert.equal(launched, true);
     assert.equal(result.started, true);
     assert.equal(logs.length, 1);
     assert.match(logs[0], /Chorale service started on http:\/\/127.0.0.1:1685/);
   }
+});
+
+test('runCli --browser preserves browser startup without loading Electron', async () => {
+  let url;
+  const result = await runCli({ args: ['--browser'], logger: { log() {}, error() {} },
+    ensureDaemon: async () => ({ health: { port: 1685 }, started: false }),
+    launchDesktop: () => assert.fail('browser launch must not start Electron'),
+    openBrowser: async value => { url = value; },
+  });
+  assert.equal(url, 'http://127.0.0.1:1685');
+  assert.equal(result.started, false);
 });
 
 test('stopDaemon stops a verified legacy chorale daemon when runtime.json is absent by resolving the listening PID', async () => {
@@ -344,7 +354,7 @@ test('pullLatestRelease pulls git commits and builds workspace assets in a git r
   assert.equal(result.strategy, 'git');
   assert.equal(commands.length, 2);
   assert.deepEqual(commands[0], { cmd: 'git', args: ['pull'], opts: { cwd: '/test/repo' } });
-  assert.deepEqual(commands[1], { cmd: 'npm', args: ['run', 'build'], opts: { cwd: '/test/repo' } });
+    assert.deepEqual(commands[1], { cmd: 'npm', args: ['run', 'prepare'], opts: { cwd: '/test/repo' } });
   assert.ok(logs.some((l) => l.includes('Pulling latest release from git')));
   assert.ok(logs.some((l) => l.includes('Building workspace assets')));
 });

@@ -45,7 +45,28 @@ Chorale functions as a standalone CLI application (`chorale`) that launches and 
 
 ## 2. Prerequisites & Quick Build
 
-Ensure you have **Node.js (22.13+ on the 22.x line, or 24+)** and **npm** installed. The repository `.npmrc` permits its pinned Git dependency on npm 12; npm archives bundle that dependency. Harmonic evidence is optional and additionally requires **Python 3.10+**.
+Ensure you have **Node.js (22.19+ on the 22.x line, or 24+)** and **npm** installed. The repository `.npmrc` permits its pinned Git dependency on npm 12; npm archives bundle that dependency. Harmonic evidence is optional and additionally requires **Python 3.10+**.
+
+For the desktop app and its local HTTP MCP service:
+
+```bash
+npm install -g github:hxy9243/chorale
+chorale
+```
+
+On npm 12, use `npm install -g github:hxy9243/chorale --allow-git=root` to
+explicitly permit the Git install. Source installs build both browser and
+Electron bundles in `prepare`; newly built archives include both. Electron 45
+fetches its binary on first launch. See the README's Linux sandbox-helper setup
+if the first launch reports a sandbox configuration error.
+
+`chorale setup mcp` previews optional client registration and asks for confirmation.
+It preserves existing servers and backs up JSON configurations. Supported client
+IDs are `claude-desktop`, `claude-code`, `antigravity`, `codex`, and `chatgpt`.
+ChatGPT's connector requires an authenticated public HTTPS MCP endpoint and
+account-side confirmation; setup provides guidance and never opens a tunnel.
+
+For development:
 
 ```bash
 # 1. Clone the repository
@@ -68,7 +89,7 @@ npm test
 chorale setup music21
 ```
 
-After `npm link`, the `chorale` command will be accessible anywhere in your shell. Use this source-build path while direct global GitHub installation remains unverified. Allow npm lifecycle scripts to run. No `@chorale/cli` registry release is currently provided. Built npm archives include the browser workspace and can be installed with `npm install --global /path/to/chorale-0.0.1.tgz`.
+After `npm link`, the `chorale` command is accessible anywhere in your shell. No `@chorale/cli` registry release is currently provided. Built npm archives include the browser and desktop workspaces and can be installed with `npm install --global /path/to/chorale-0.0.1.tgz`.
 
 ---
 
@@ -77,7 +98,7 @@ After `npm link`, the `chorale` command will be accessible anywhere in your shel
 The CLI binary is located at `bin/chorale.mjs` (or `chorale` when linked globally):
 
 ```bash
-# Start the service and open default browser workspace (idempotent no-op if already running)
+# Start/reuse the service and launch/focus the desktop app
 chorale
 
 # Check daemon health, port, and PID without starting a service
@@ -100,7 +121,7 @@ chorale mcp
 ```
 
 ### Command Behavior:
-- `chorale` (or `chorale start`): Idempotent launch. Checks `http://127.0.0.1:1685/v1/health`. If running, opens the workspace in the default browser. If not running, launches the HTTP + MCP server in the background, waits for health, and opens the browser.
+- `chorale` (or `chorale start`): Idempotent launch. Checks `http://127.0.0.1:1685/v1/health`. Starts or reuses the HTTP + MCP service and launches/focuses the Electron desktop. Use `chorale --browser` for the browser workspace and `chorale serve` for the foreground service.
 - `chorale mcp`: Starts the MCP stdio adapter. Ensures the background service is running on port 1685 and proxies all score tool calls to it.
 - `chorale status`: Reports health, port, and PID from recorded runtime metadata without starting a daemon.
 - `chorale stop`: Stops only the healthy daemon whose PID and port match `~/.chorale/runtime.json`.

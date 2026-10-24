@@ -4,6 +4,7 @@ import { createServer as createHttpServer } from 'node:http';
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
 import { createMcpServer } from './mcp/index.mjs';
 import { CHORALE_PORT } from './runtime.mjs';
@@ -96,7 +97,7 @@ export const startServer = async (options = {}) => {
     if (hasOrigin) {
       res.setHeader('access-control-allow-origin', origin);
       res.setHeader('access-control-allow-methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      res.setHeader('access-control-allow-headers', 'content-type');
+      res.setHeader('access-control-allow-headers', 'content-type, mcp-protocol-version, mcp-session-id');
       res.setHeader('vary', 'Origin');
     }
 
@@ -117,6 +118,37 @@ export const startServer = async (options = {}) => {
         pid: process.pid,
         status: 'ok',
       }));
+      return;
+    }
+
+    // Each HTTP request shares the authoritative store and views, with no
+    // session-specific library or long-lived transport to leak after a request.
+    if (url.pathname === '/mcp') {
+      if (req.method !== 'POST') {
+        res.writeHead(405, { allow: 'POST' }).end();
+        return;
+      }
+      let server;
+      try {
+        const body = await requestBody(req);
+        const transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: undefined, enableJsonResponse: true,
+        });
+        ({ server } = createMcpServer(store, views, () => boundPort));
+        res.once('close', () => { void server.close(); });
+        await server.connect(transport);
+        await transport.handleRequest(req, res, body);
+      } catch (error) {
+        await server?.close();
+        if (!res.headersSent) {
+          const invalid = error instanceof PluginError;
+          res.writeHead(invalid ? (error.code === 'PAYLOAD_TOO_LARGE' ? 413 : 400) : 500, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ jsonrpc: '2.0', id: null, error: {
+            code: invalid ? -32700 : -32603,
+            message: invalid ? error.message : 'Unable to process the MCP request.',
+          } }));
+        }
+      }
       return;
     }
 
@@ -218,6 +250,7 @@ export const startServer = async (options = {}) => {
           kind,
           key: prefMatch && decodeURIComponent(prefMatch[1]),
           value: kind === 'documents' ? patch.documents : kind === 'active' ? patch.activeFileId : patch.value,
+          baseRevisions: kind === 'documents' ? patch.baseRevisions : undefined,
         });
         res.setHeader('content-type', 'application/json');
         res.writeHead(200).end(JSON.stringify(next));

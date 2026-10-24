@@ -7,7 +7,7 @@
 [![Version](https://img.shields.io/badge/version-0.0.1-rose.svg)](package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-amber.svg)](LICENSE)
 [![Tests](https://github.com/hxy9243/chorale/actions/workflows/ci.yml/badge.svg)](https://github.com/hxy9243/chorale/actions/workflows/ci.yml)
-[![Node](https://img.shields.io/badge/node-22.13%2B%20or%2024%2B-blue.svg)](package.json)
+[![Node](https://img.shields.io/badge/node-22.19%2B%20or%2024%2B-blue.svg)](package.json)
 
 [Overview](#-overview) •
 [Quick Start](#-quick-start) •
@@ -51,25 +51,33 @@ Once Chorale is connected, ask your agent to create and open a score:
 Use Chorale to compose an original 16-measure piano piece inspired by Mozart's Classical-era style. Write it in C major, 4/4, at a moderate tempo, with a singable right-hand melody and an Alberti-bass accompaniment in the left hand. Use clear phrase structure, then open the finished score in Chorale so I can review and play it.
 ```
 
-### Manual setup
+### Install and launch
 
-Build Chorale from GitHub (Node.js 22.13+ on the 22.x line, or 24+ required):
-
-```bash
-git clone https://github.com/hxy9243/chorale.git
-cd chorale
-npm ci
-npm link
-```
-
-`npm ci` builds the browser workspace automatically. The project configuration permits its pinned Git dependency on npm 12. Direct global installation from a GitHub URL is still being verified; use the source-build steps above for now.
-
-Start Chorale from the command line:
+Use Node.js 22.19+ on the 22.x line, or 24+. Install the GitHub package globally:
 
 ```bash
-# Start the background service on port 1685 and open the workspace
+npm install -g github:hxy9243/chorale
 chorale
 ```
+
+`chorale` starts the local HTTP/MCP service and opens the desktop app. Closing
+its window leaves the service available for connected agents. On npm 12, Git
+fetching is disabled by default; opt into this install with
+`npm install -g github:hxy9243/chorale --allow-git=root`. Respect any additional
+lifecycle-script policy set by your npm administrator. A local installation can
+be launched with `npx chorale`.
+
+For a source checkout, run `npm ci` and `npm link`. Installation prepares both
+the browser and desktop builds. `chorale --browser` opens the browser workspace;
+`chorale serve` runs the HTTP service in the foreground. `chorale mcp` remains a
+headless stdio adapter. The service stays on `http://127.0.0.1:1685`, with
+Streamable HTTP MCP at `/mcp` and legacy SSE at `/sse`.
+
+The first desktop launch offers optional AI-app connections. Each change is
+previewed and requires confirmation. Reopen setup from **Chorale → Connect AI
+apps…** or run `chorale setup mcp`. Claude Desktop, Claude Code, Antigravity and
+Codex can be registered locally; ChatGPT receives HTTPS connector guidance.
+Nothing is registered during npm installation.
 
 To start it from an agent, register its MCP command. The MCP adapter starts the same background service automatically:
 
@@ -92,7 +100,29 @@ npm install
 npm run dev
 ```
 
-`npm run dev` starts the Vite development server at `http://localhost:5173/`. Before opening a pull request, run:
+`npm run dev` starts the Vite development server at `http://localhost:5173/`.
+
+For the desktop app with passage-aware chat, AI provider settings, annotations, and reviewable score edits:
+
+```bash
+npm run dev:electron
+```
+
+`npm run run:electron` is an alias. The desktop launcher starts or reuses the shared Chorale daemon, so desktop, browser, and MCP clients use the same score database. The current ABC editor, waterfall, split layouts, and video exports remain available. Provider credentials stay in the Electron main process; chat history stays in the desktop profile. Background agents are not started automatically.
+
+Electron 45 downloads its binary on the first launch, so that launch may take
+longer. Later launches reuse the downloaded binary.
+
+To run a built desktop app, first run `npm run build` and `npm run build:electron`, then `npm run start:electron`. On Linux, if Electron reports an incorrectly configured SUID sandbox helper, configure the installed helper once:
+
+```bash
+sudo chown root node_modules/electron/dist/chrome-sandbox
+sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+```
+
+`npm run smoke:electron` checks desktop launch, chat and proposal review with simulated provider responses and an isolated score database. It makes no provider requests. In a restricted test container that cannot use Chromium sandboxing, the smoke test alone accepts `CHORALE_SMOKE_NO_SANDBOX=1`.
+
+Before opening a pull request, run:
 
 ```bash
 npm test
@@ -120,7 +150,7 @@ For complete, step-by-step agent installation guides and MCP configurations, see
 
 ## ✨ Features
 
-- **CLI-First Architecture**: Run `chorale` as an independent CLI tool that manages the server in the background and opens the interactive workspace in your browser on demand.
+- **CLI-First Architecture**: Run `chorale` to open the desktop app with its shared HTTP/MCP service, or `chorale --browser` for the browser workspace.
 - **Model Context Protocol (MCP)**: Full stdio and SSE MCP server on port 1685 exposing 18 registered musical score tool names to Codex, Claude Code, and Antigravity (`edit_measure` remains an alias of `edit_measures`).
 - **Durable Local Storage (`~/.chorale/`)**: Scores and revisions persist directly in `~/.chorale/chorale.db` (SQLite via `node:sqlite`) and `~/.chorale/scores/`.
 - **Bounded Measure Operations**: Fast, deterministic measure reading (`read_measure`), insertion (`insert_measure`), replacement (`edit_measures` / `edit_measure`), and deletion (`delete_measures`) with optimistic revision guards.
@@ -131,7 +161,7 @@ For complete, step-by-step agent installation guides and MCP configurations, see
 - **WebAudio Piano Synthesizer**: Audio player with tempo scaling (50% to 180%), volume control, and active note cursor highlighting (`#e11d48`) on the SVG score during audio playback.
 - **Score Video Export**: Export sheet music or piano waterfall videos in landscape or portrait, with synchronized audio and MP4/WebM output.
 - **Split Stack Workspace**: Stack two panes beside a full-height third pane, with corner dragging and independently resizable rows and columns.
-- **Desktop Electron Archive**: The original standalone Electron desktop shell is preserved intact on branch `electron` (tag `v0.1-electron-archive`).
+- **Desktop Chat**: Optional Electron app with passage-aware conversations, provider settings, queued follow-ups and steering, annotation proposals, and score preview/apply. Run `npm run dev:electron`. The original desktop snapshot remains on branch `electron` (tag `v0.1-electron-archive`).
 
 ---
 

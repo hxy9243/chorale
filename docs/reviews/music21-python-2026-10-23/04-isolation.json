@@ -1,0 +1,47 @@
+{
+  "security": {
+    "range": {
+      "startMeasure": 1,
+      "endMeasure": 1
+    },
+    "engine": {
+      "name": "music21",
+      "version": "10.5.0",
+      "pythonVersion": "3.12.3"
+    },
+    "sandbox": {
+      "backend": "bubblewrap",
+      "network": "isolated",
+      "hostHome": "unmounted",
+      "runtime": "read-only",
+      "syscalls": "seccomp",
+      "childProcesses": "blocked",
+      "scratchMiB": 64,
+      "cpuSeconds": 5,
+      "memoryMiB": 768
+    },
+    "durationMs": 1022,
+    "inputSummary": {
+      "pitchedEvents": 3,
+      "measures": 1,
+      "voices": [
+        "voice-1"
+      ]
+    },
+    "result": {
+      "blocked": {
+        "hostFile": true,
+        "network": true
+      },
+      "networkNamespace": "net:[4026534191]"
+    },
+    "stdout": "",
+    "warning": "Read-only computed evidence; verify interpretation against the written score. Rest gaps are silence, and tied notes are merged pitched events."
+  },
+  "hostNamespace": "net:[4026531840]",
+  "timeout": {
+    "code": "MUSIC21_TIMEOUT",
+    "message": "music21 did not finish within 2 seconds."
+  },
+  "passed": true
+}

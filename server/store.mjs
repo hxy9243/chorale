@@ -905,10 +905,31 @@ export class LocalDocumentStore {
     return this.getWorkspace();
   }
 
-  async patchWorkspace({ kind, key, value }) {
+  async patchWorkspace({ kind, key, value, baseRevisions }) {
     return this.serializeMutation(async () => {
       const current = await this.getWorkspace();
       if (kind === 'documents') {
+        if (baseRevisions !== undefined) {
+          if (!baseRevisions || typeof baseRevisions !== 'object' || Array.isArray(baseRevisions)
+            || !Object.values(baseRevisions).every(revision => Number.isInteger(revision) && revision > 0)
+            || !Array.isArray(value)) throw new PluginError('INVALID_WORKSPACE', 'Invalid document save baseline.');
+          const currentById = new Map(current.documents.map(doc => [doc.id, doc]));
+          const incomingIds = new Set(value.map(doc => doc.id));
+          for (const [id, revision] of Object.entries(baseRevisions)) {
+            const existing = currentById.get(id);
+            if ((existing && existing.revision !== revision) || (!existing && incomingIds.has(id))) {
+              throw new PluginError('REVISION_CONFLICT', 'The shared library changed. Refresh scores before saving.');
+            }
+          }
+          for (const doc of value) {
+            if (currentById.has(doc.id) && !Object.hasOwn(baseRevisions, doc.id)) {
+              throw new PluginError('REVISION_CONFLICT', 'A score with this ID was created by another client. Refresh scores before saving.');
+            }
+          }
+          // Omission can delete only a score the saving client actually read.
+          const unseen = current.documents.filter(doc => !incomingIds.has(doc.id) && !Object.hasOwn(baseRevisions, doc.id));
+          return this.putWorkspaceUnsafe({ ...current, documents: [...value, ...unseen] });
+        }
         return this.putWorkspaceUnsafe({ ...current, documents: value });
       }
       if (kind === 'active') {

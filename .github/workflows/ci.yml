@@ -73,6 +73,9 @@ jobs:
       - name: Install pinned music21
         run: pip install --requirement server/python/requirements-music21.txt
 
+      - name: Install Python sandbox
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap
+
       - name: Run test suite with music21 required
         env:
           CHORALE_REQUIRE_MUSIC21: "1"

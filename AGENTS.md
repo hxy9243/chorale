@@ -9,8 +9,8 @@ Welcome to **Chorale** (`hxy9243/chorale`). This document outlines engineering c
 > **Plugin & Skill First Architecture:**  
 > Chorale is a score-focused music workspace, agent skill, and MCP server for AI coding agents (Codex, Claude Code, Antigravity). It provides deterministic score inspection, bounded measure reads, annotation proposals, safe musical mutations, and an interactive MCP Apps workspace view.
 >
-> **Note on Electron Implementation:**  
-> The original standalone desktop Electron application has been preserved intact on the `electron` branch (and archived at tag `v0.1-electron-archive`).
+> **Electron Desktop:**
+> The installed `chorale` command launches the desktop app and its shared HTTP/MCP daemon. `chorale --browser` retains browser operation; `chorale mcp` stays headless. `npm run dev:electron` runs the development workspace. See `spec/desktop-installation.md` and `spec/desktop-chat-restoration.md`.
 
 ### Roadmap Stages (from [Issue #18](https://github.com/hxy9243/chorale/issues/18))
 - **Stage 1: Durable Foundation** — Multi-file session model, document store, autosave, revision history, and editing history ([#13](https://github.com/hxy9243/chorale/issues/13)).
@@ -43,7 +43,7 @@ Welcome to **Chorale** (`hxy9243/chorale`). This document outlines engineering c
   git worktree remove .agents/worktrees/<feature-name>
   ```
 - **Rule:** Never create worktrees in the repository root (e.g. `worktrees/`). `.agents/` is gitignored.
-- **Electron Branch Worktree:** The archived desktop Electron application lives in `.agents/worktrees/electron` on the `electron` branch. On Linux, node_modules in that worktree must configure the Electron SUID sandbox helper binary (`chrome-sandbox`) with `sudo chown root` and `sudo chmod 4755`.
+- **Electron Branch Worktree:** The archived desktop Electron application lives in `.agents/worktrees/electron` on the `electron` branch. On Linux, each desktop worktree must configure the Electron SUID sandbox helper binary (`chrome-sandbox`) with `sudo chown root` and `sudo chmod 4755`.
 
 
 ### 2.3 Quality Gates & Verification

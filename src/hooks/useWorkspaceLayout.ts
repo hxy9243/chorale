@@ -34,6 +34,7 @@ export const clampEditorPanelHeight = (height: number, shellContentHeight = Infi
 type WorkspacePaneLayout = {
   shellRef: RefObject<HTMLDivElement | null>;
   vertical: boolean;
+  chatAvailable?: boolean;
   sheetVisible: boolean;
 };
 const DEFAULT_SHEET_ZOOM = 100;
@@ -228,12 +229,12 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }, panes?: Work
   const fittedPanelLayout = useMemo(() => fitWorkspacePanelLayout({
     viewportWidth: layoutWidth,
     fileRailWidth: railWidth,
-    chatPanelWidth: 0,
+    chatPanelWidth: panes?.chatAvailable && chatOpen ? chatWidth : 0,
     editorPanelWidth: editorWidth,
     fileRailVisible: !railCollapsed,
-    chatPanelVisible: false,
+    chatPanelVisible: Boolean(panes?.chatAvailable && chatOpen),
     editorPanelVisible: editorVisible,
-  }), [editorVisible, editorWidth, layoutWidth, railCollapsed, railWidth]);
+  }), [panes?.chatAvailable, chatOpen, chatWidth, editorVisible, editorWidth, layoutWidth, railCollapsed, railWidth]);
 
   return {
     zoom,

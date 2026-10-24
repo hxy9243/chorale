@@ -1,0 +1,46 @@
+{
+  "provider": "simulated",
+  "analysis": "real sandboxed Python/music21",
+  "cases": [
+    {
+      "id": "01-inversions",
+      "title": "Dominant inversion in C major",
+      "passed": true,
+      "engine": {
+        "name": "music21",
+        "version": "10.5.0",
+        "pythonVersion": "3.12.3"
+      },
+      "durationMs": 1068,
+      "explanation": "The middle G-major sonority has B in the bass: first inversion. This is a sonority/inversion check, not an automatic functional or cadence judgment.",
+      "trace": "traces/2026-10-23T08-56-52-501Z-01-inversions.jsonl"
+    },
+    {
+      "id": "02-parallel-fifths",
+      "title": "Parallel fifths across two voices",
+      "passed": true,
+      "engine": {
+        "name": "music21",
+        "version": "10.5.0",
+        "pythonVersion": "3.12.3"
+      },
+      "durationMs": 1323,
+      "explanation": "All three successive voice pairs preserve a perfect fifth in similar motion. Whether to revise them depends on the intended style.",
+      "trace": "traces/2026-10-23T08-56-55-950Z-02-parallel-fifths.jsonl"
+    },
+    {
+      "id": "03-pickup-accidental-tie",
+      "title": "Pickup, chromatic pitch and carried tie",
+      "passed": true,
+      "engine": {
+        "name": "music21",
+        "version": "10.5.0",
+        "pythonVersion": "3.12.3"
+      },
+      "durationMs": 994,
+      "explanation": "The pickup remains written measure 0, the explicit C-sharp is preserved, and the tied final D lasts six quarter notes across written measures 3–4.",
+      "trace": "traces/2026-10-23T08-56-59-689Z-03-pickup-accidental-tie.jsonl"
+    }
+  ],
+  "isolationPassed": true
+}

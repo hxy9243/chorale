@@ -13,6 +13,8 @@ Use the local Chorale MCP server tools (`chorale`) as the primary interface for 
 
 For detailed rules, standards, and musical examples, consult the topic-specific references:
 
+- **[Sandboxed music21 Python](references/music21-python.md)**: Read-only custom music21 calculations through `analyze_music21`, exact score timing, supported namespace, isolation limits, examples, and reviewable evidence.
+
 - **[Basic MCP Usage & Workflows](references/basic-usage.md)**: Headless inspection, revision guards (`expectedRevision`), atomic measure mutations (`edit_measures`, `insert_measure`), annotations (`add_notation`), and view synchronization.
 - **[MIDI Instrument Assignment & Verification](references/midi-playback.md)**: abcjs directive scope, per-voice General MIDI programs, safe measure-one repairs, and synthesized-track verification. Read this when instrument names are correct but playback uses the wrong sounds.
 - **[ABC Syntax, Engraving & Ergonomics](references/abc-syntax-and-rules.md)**: ABC pitch octaves, key signature inheritance, metric beam grouping (no spaces in beams), phrasing, vocal/instrumental ranges (SATB), and piano hand-reach ergonomics.
@@ -46,6 +48,11 @@ For detailed rules, standards, and musical examples, consult the topic-specific 
 ---
 
 ## 3. Mandatory Pre-Annotation Verification
+
+For computed musical evidence, read the passage and call `analyze_music21` with
+a short Python snippet, or use `analyze_harmony` for predefined chord evidence.
+See [Sandboxed music21 Python](references/music21-python.md). Never present
+tool output as ground truth or claim that a failed/unavailable analysis ran.
 
 Before adding, editing, or endorsing harmonic annotations:
 

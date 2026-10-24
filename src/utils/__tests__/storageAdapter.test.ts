@@ -10,6 +10,8 @@ describe('storageAdapter', () => {
   });
 
   afterEach(() => {
+    delete window.choraleAI;
+    window.history.replaceState({}, '', '/');
     vi.unstubAllGlobals();
   });
 
@@ -41,6 +43,26 @@ describe('storageAdapter', () => {
     expect(localStorage.getItem('chorale.workspace.documents')).toBeNull();
   });
 
+  it('keeps desktop scores in shared storage and fails closed if that service disappears', async () => {
+    window.history.replaceState({}, '', '/?choraleBridge=http://127.0.0.1:1685');
+    window.choraleAI = {} as NonNullable<Window['choraleAI']>;
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => ({ documents: [sampleDoc] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await storageAdapter.getDocuments()).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:1685/v1/workspace', undefined);
+    fetchMock.mockRejectedValue(new Error('service stopped'));
+    await expect(storageAdapter.saveDocuments([sampleDoc])).rejects.toThrow('could not be saved');
+    await expect(storageAdapter.getDocuments()).rejects.toThrow('have not been replaced');
+    delete window.choraleAI;
+    window.history.replaceState({}, '', '/');
+    storageAdapter.clearMemoryStore();
+    expect(await storageAdapter.getDocuments()).toEqual([]);
+  });
+
   it('normalizes memory documents before returning them', async () => {
     vi.stubGlobal('indexedDB', undefined);
     await storageAdapter.saveDocuments([{
@@ -55,6 +77,18 @@ describe('storageAdapter', () => {
     expect(docs[0].annotations).toEqual([]);
     expect(docs[0].chats).toEqual([]);
     expect(docs[0]).not.toBe(sampleDoc);
+  });
+
+  it('reports concurrent shared saves without switching browser or desktop scores to local storage', async () => {
+    window.history.replaceState({}, '', '/?choraleBridge=http://127.0.0.1:1685');
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false, status: 409,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(storageAdapter.saveDocuments([sampleDoc])).rejects.toThrow('Refresh scores before saving');
+    window.choraleAI = {} as NonNullable<Window['choraleAI']>;
+    await expect(storageAdapter.saveDocuments([sampleDoc])).rejects.toThrow('Refresh scores before saving');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('rejects the save when IndexedDB cannot be opened', async () => {
