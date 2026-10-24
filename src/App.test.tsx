@@ -75,6 +75,7 @@ describe('App Integration', () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
       render(<App />);
+      await screen.findByTestId('sheet-svg');
       await screen.findByText('Synth Ready');
       fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
       fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));

@@ -79,7 +79,9 @@ const results = [];
 const errors = [];
 let sandboxDisabled = false;
 try {
-  application = await _electron.launch({ executablePath:require('electron'),args:[...(process.env.CHORALE_SMOKE_NO_SANDBOX==='1'?['--no-sandbox']:[]),join(root,'dist-electron/main.js')],cwd:root,env,timeout:30000 });
+  // Electron's Wayland compositor cannot capture this hidden offscreen fixture.
+  // Use X11 for the Linux test; the application's normal launch is unaffected.
+  application = await _electron.launch({ executablePath:require('electron'),args:[...(process.platform==='linux'?['--ozone-platform=x11']:[]),...(process.env.CHORALE_SMOKE_NO_SANDBOX==='1'?['--no-sandbox']:[]),join(root,'dist-electron/main.js')],cwd:root,env,timeout:30000 });
   sandboxDisabled = application.process().spawnargs.includes('--no-sandbox');
   const page = await application.firstWindow();
   page.setDefaultTimeout(20000);

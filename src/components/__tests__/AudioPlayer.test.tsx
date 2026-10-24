@@ -727,6 +727,7 @@ describe('AudioPlayer Component', () => {
     });
     render(<AudioPlayer tunes={[mockTune]} activeAnchor={{ startMeasure: 1, endMeasure: 1, playbackSeconds: 1.137 }} />);
     await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    await waitFor(() => expect(controller.seek).toHaveBeenLastCalledWith(1.137, 'seconds'));
     act(() => controller.load.mock.lastCall[1].onReady());
     expect(controller.percent).toBeCloseTo(1.137 / 8, 10);
     fireEvent.click(screen.getByTitle('Play Piano Synthesizer'));

@@ -90,6 +90,27 @@ try {
   console.log('Desktop settings and panes passed');
   await page.getByRole('button', { name: 'Close ABC source pane', exact: true }).click();
   await page.getByRole('button', { name: 'Close Waterfall pane', exact: true }).click();
+  // Exercise the controls combined from the playback and desktop branches before
+  // accepting a revision. Listening preferences must never edit the shared score.
+  const beforeMixer = await page.evaluate(async () => (await fetch('/v1/workspace')).json());
+  await page.getByRole('button', { name: 'Voices', exact: true }).click();
+  const voices = page.getByRole('region', { name: 'Voices', exact: true });
+  await voices.getByRole('button', { name: /^Instrument for / }).first().click();
+  const instrumentSearch = voices.getByRole('combobox', { name: /^Search instruments for / });
+  await instrumentSearch.fill('Flute');
+  await instrumentSearch.press('Enter');
+  assert.match(await voices.getByRole('button', { name: /^Instrument for / }).first().innerText(), /^Flute\s*⌄$/);
+  const mute = voices.getByRole('button', { name: /^Mute / }).first();
+  await mute.click();
+  assert.equal(await mute.getAttribute('aria-pressed'), 'true');
+  const afterMixer = await page.evaluate(async () => (await fetch('/v1/workspace')).json());
+  assert.deepEqual(afterMixer.documents, beforeMixer.documents, 'Mixer must not change score revisions or content');
+  await voices.getByRole('button', { name: 'Reset voices', exact: true }).click();
+  await voices.getByRole('button', { name: 'Close Voices', exact: true }).click();
+  await page.getByRole('button', { name: 'Scan PDF / PNG', exact: true }).click();
+  await page.getByLabel('Sheet music file').waitFor();
+  await page.getByRole('button', { name: 'Close scan', exact: true }).click();
+  console.log('Desktop voice mixer and scan entry passed; shared score unchanged');
   await input.fill('Add an annotation');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await page.getByRole('button', { name: 'Apply All', exact: true }).click();

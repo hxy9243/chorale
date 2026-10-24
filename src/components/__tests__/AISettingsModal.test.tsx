@@ -79,7 +79,7 @@ describe('AISettingsModal', () => {
       headers: undefined,
       clearHeaders: false,
     }));
-    expect(screen.getByText('Connection saved and model access verified.')).toBeDefined();
+    expect(await screen.findByText('Connection saved and model access verified.')).toBeDefined();
   });
 
   it('can explicitly remove all saved custom headers', async () => {

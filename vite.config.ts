@@ -73,6 +73,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    // Bound independent browser environments so workstation core counts do not
+    // overwhelm rendering checks or the unchanged presentation timing budget.
+    maxWorkers: 2,
     setupFiles: ['./src/test/setup.ts'],
     testTimeout: 20000,
     exclude: [...configDefaults.exclude, '.agents/**', 'worktrees/**', 'dist-electron/**'],

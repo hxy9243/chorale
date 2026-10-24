@@ -35,7 +35,7 @@ describe('scan review acceptance',()=>{
     const { onImport, container } = setup();
     await choose();
     await screen.findByRole('button', { name: 'Import recognized score' });
-    expect(container.querySelector('.scan-notation .abcjs-triplet')).not.toBeNull();
+    await waitFor(() => expect(container.querySelector('.scan-notation .abcjs-triplet')).not.toBeNull());
     expect(container.querySelectorAll('.scan-notation .abcjs-rest[visibility="hidden"]')).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Import recognized score' }));
     expect(onImport.mock.calls[0][0]).toContain(source);

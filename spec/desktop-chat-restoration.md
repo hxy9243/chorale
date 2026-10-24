@@ -1,7 +1,8 @@
 ---
 title: Desktop chat restoration
-status: implementing
+status: implemented
 date: 2026-10-22
+updated: 2026-10-24
 source_files:
   - electron/main.ts
   - electron/preload.ts
@@ -44,7 +45,8 @@ Restore file-specific conversations, captured passage/revision context, cancella
 
 The desktop uses matched Pi agent-core/AI 1.4.0 packages, Electron 45.0.0,
 assistant-ui 0.15.31, Streamdown 2.7.1 and Playwright Core 1.64.1. Pi requires
-Node.js 22.19+ on the 22.x line or 24+ for source installs and the local daemon.
+Node.js 22.19+ on the 22.x line or 24+; Chorale's full dependency set requires
+22.22.2+ on the 22.x line, 24.15+ on the 24.x line, or 26+.
 Keep exact desktop runtime pins and the lockfile synchronized. Electron 45
 downloads its binary on first use instead of using an npm postinstall script;
 the previous version-specific install-script permission is no longer needed.
@@ -58,3 +60,6 @@ This change restores the interactive agent foundation. Autonomous scheduled/back
 ## Verification
 
 Run restored agent and chat tests, current workspace regression tests, the complete unit/integration suite, TypeScript checks, lint, browser and desktop builds, and a desktop launch smoke test. Exercise annotations, proposals and current pane layouts in the smoke test without making paid provider requests.
+
+The combined desktop smoke also checks instrument search and mute without score
+mutations, and opening/cancelling scan import before applying chat proposals.
