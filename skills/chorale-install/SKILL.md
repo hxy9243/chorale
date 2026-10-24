@@ -49,7 +49,7 @@ For bounded harmonic evidence, install Python 3.10+ and run:
 chorale setup music21
 ```
 
-This creates `~/.chorale/music21-venv` and installs the evaluated `music21==9.9.1` release without modifying system Python packages. It is optional; all other Chorale features remain available when it is not installed.
+This creates `~/.chorale/music21-venv` and installs the evaluated `music21==9.9.2` release without modifying system Python packages. It is optional; all other Chorale features remain available when it is not installed.
 
 ## 2. Launch and Inspect
 

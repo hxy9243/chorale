@@ -53,7 +53,7 @@ musical context before proposing annotations. Preserve student authorship and
 use the ordinary reviewable proposal flow for revisions.
 
 Custom Python currently requires Linux, Bubblewrap and a music21-capable Python
-interpreter (`chorale setup music21` installs the evaluated 9.9.1 environment).
+interpreter (`chorale setup music21` installs the evaluated 9.9.2 environment).
 The worker has isolated network/PID/mount namespaces, read-only runtime mounts,
 64 MiB private temporary storage, no host home or credentials, a 5-second CPU limit,
 768 MiB address-space limit, a 12-second wall limit and bounded output. Missing

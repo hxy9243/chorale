@@ -67,7 +67,7 @@ Chorale is redesigned from a monolithic script and fragmented plugin wrappers in
   - `chorale upgrade`:
     - Pulls the latest git commits and rebuilds workspace assets in a source checkout, then gracefully restarts the verified background daemon while preserving the local score store. Private archive installs must install the new archive explicitly before running `chorale upgrade --skip-pull`; a future publishable package may update through npm. Supports `--skip-pull` or `--no-pull` to bypass pulling if desired.
   - `chorale setup music21`:
-    - Creates `~/.chorale/music21-venv` and installs the benchmarked `music21==9.9.1` dependency without changing the system Python environment.
+    - Creates `~/.chorale/music21-venv` and installs the benchmarked `music21==9.9.2` dependency without changing the system Python environment.
   - `chorale help`, `chorale --help`, or `chorale -h`:
     - Displays usage instructions, available CLI commands, and supported flags.
   - `chorale version`, `chorale --version`, or `chorale -v`:

@@ -171,7 +171,7 @@ For complete, step-by-step agent installation guides and MCP configurations, see
 
 - **CLI & MCP Server**: Node.js + `@modelcontextprotocol/sdk` + `zod`
 - **Notation & Audio**: `abcjs` + `@educandu/abc-tools` + `abc-utils`
-- **Harmony Evidence**: optional managed Python environment with `music21==9.9.1`
+- **Harmony Evidence**: optional managed Python environment with `music21==9.9.2`
 - **Video Export**: `@mediabunny/aac-encoder` + `mediabunny`
 - **Frontend Framework**: React 19 + Vite + TypeScript
 - **Archive Extraction**: `jszip`

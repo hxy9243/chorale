@@ -109,7 +109,7 @@ test('installed CLI includes the built UI and preserves scores across restart', 
       assert.equal(evidence.revision, reopened.revision);
       assert.deepEqual(evidence.range, { startMeasure: 1, endMeasure: 2 });
       assert.equal(evidence.engine.name, 'music21');
-      if (process.env.CHORALE_REQUIRE_MUSIC21 === '1') assert.equal(evidence.engine.version, '9.9.1');
+      if (process.env.CHORALE_REQUIRE_MUSIC21 === '1') assert.equal(evidence.engine.version, '9.9.2');
       assert.equal(evidence.estimatedPassageKey, 'C major');
       assert.equal(evidence.keySource, 'written');
       assert.deepEqual(evidence.slices.map(({ position, durationQuarterLength, soundingPitches, literalBass }) => ({

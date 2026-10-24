@@ -187,15 +187,15 @@ test('runCli setup music21 installs the managed analyzer without starting the da
     logger: { log: (message) => logs.push(message), error: () => {} },
     installMusic21: async ({ choraleHome }) => {
       assert.equal(choraleHome, '/tmp/chorale-test-home');
-      return { version: '9.9.1', pythonVersion: '3.12.3', source: 'managed' };
+      return { version: '9.9.2', pythonVersion: '3.12.3', source: 'managed' };
     },
     ensureDaemon: () => assert.fail('setup must not start the daemon'),
   });
 
   assert.equal(result.statusCode, 0);
-  assert.equal(result.installed.version, '9.9.1');
+  assert.equal(result.installed.version, '9.9.2');
   assert.match(logs[0], /Installing the pinned music21 analyzer/);
-  assert.match(logs[1], /music21 9.9.1 is ready with Python 3.12.3/);
+  assert.match(logs[1], /music21 9.9.2 is ready with Python 3.12.3/);
 });
 
 test('runCli logs error and returns status code 1 on unknown command', async () => {

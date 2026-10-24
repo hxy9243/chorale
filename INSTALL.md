@@ -110,7 +110,7 @@ chorale stop
 # Pull the latest release and restart the verified daemon, preserving score data
 chorale upgrade
 
-# Install music21==9.9.1 into an isolated Chorale-managed environment
+# Install music21==9.9.2 into an isolated Chorale-managed environment
 chorale setup music21
 
 # Show command line help and available options
@@ -126,7 +126,7 @@ chorale mcp
 - `chorale status`: Reports health, port, and PID from recorded runtime metadata without starting a daemon.
 - `chorale stop`: Stops only the healthy daemon whose PID and port match `~/.chorale/runtime.json`.
 - `chorale upgrade`: Pulls git updates and rebuilds workspace assets in a source checkout, then restarts the verified daemon. Private archive installs require installing the new archive explicitly first. Existing SQLite score data stays in `~/.chorale/`. (Supports `--skip-pull` if you only want to restart).
-- `chorale setup music21`: Creates an isolated environment in `~/.chorale/music21-venv` and installs the benchmarked `music21==9.9.1`. The analyzer is optional; all other Chorale tools work without it.
+- `chorale setup music21`: Creates an isolated environment in `~/.chorale/music21-venv` and installs the benchmarked `music21==9.9.2`. The analyzer is optional; all other Chorale tools work without it.
 - `chorale help`: Displays usage guidance, available commands, and options.
 
 ---

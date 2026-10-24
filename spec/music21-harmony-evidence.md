@@ -3,7 +3,7 @@ title: "music21 Harmony Evidence"
 description: "Managed music21 installation and read-only harmonic-evidence tool for agent analysis"
 category: "agent-tools"
 date: 2026-09-20
-updated: 2026-10-01
+updated: 2026-10-24
 status: "implemented"
 source_files:
   - shared/score-timing.mjs
@@ -49,7 +49,7 @@ Chorale exposes music21 as fallible, read-only evidence for an agent performing 
 
 ## Installation
 
-`chorale setup music21` creates a managed Python virtual environment at `~/.chorale/music21-venv` and installs the benchmarked dependency `music21==9.9.1`. Installation is explicit because it requires Python 3.10+ and network access. Score creation, reading, editing, playback, and annotations continue to work when music21 is unavailable.
+`chorale setup music21` creates a managed Python virtual environment at `~/.chorale/music21-venv` and installs the benchmarked dependency `music21==9.9.2`. Installation is explicit because it requires Python 3.10+ and network access. Score creation, reading, editing, playback, and annotations continue to work when music21 is unavailable.
 
 At runtime Chorale resolves Python in this order:
 
