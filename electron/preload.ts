@@ -8,7 +8,15 @@ import type {
   SheetAgentSteerRequest,
 } from '../src/agent/aiTypes';
 import type { SavePdfFileRequest, SaveTextFileRequest } from '../src/types/fileBridge';
-import { AI_IPC, FILE_IPC } from './ipcChannels';
+import { AI_IPC, FILE_IPC, SCAN_IPC } from './ipcChannels';
+import type { ScoreScanBridge } from '../src/types/scoreScan';
+
+const scanBridge: ScoreScanBridge = {
+  status: () => ipcRenderer.invoke(SCAN_IPC.status),
+  scan: (request) => ipcRenderer.invoke(SCAN_IPC.scan, request),
+  cancel: () => ipcRenderer.invoke(SCAN_IPC.cancel),
+  openSourceFolder: (jobId) => ipcRenderer.invoke(SCAN_IPC.openSourceFolder, jobId),
+};
 
 const filesBridge = {
   saveTextFile: (request: SaveTextFileRequest) => (
@@ -60,3 +68,4 @@ const bridge: ChoraleAIBridge = {
 
 contextBridge.exposeInMainWorld('choraleAI', bridge);
 contextBridge.exposeInMainWorld('choraleFiles', filesBridge);
+contextBridge.exposeInMainWorld('choraleScan', scanBridge);

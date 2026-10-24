@@ -3,10 +3,11 @@ title: "Score Surface Spec"
 description: "Specification for score rendering, continuous range selection, chord overlays, range annotation rail, line measure numbers, and auto-centering playback"
 category: "core-workspace"
 date: 2026-08-05
-updated: 2026-10-23
+updated: 2026-10-24
 status: "implemented"
 source_files:
   - src/App.tsx
+  - src/components/ErrorBoundary.tsx
   - src/components/SheetMusicView.tsx
   - src/components/ScoreMetadataHeader.tsx
   - src/components/ScoreCardHeader.tsx
@@ -27,6 +28,7 @@ source_files:
   - src/chorale-theme.css
 test_files:
   - src/App.test.tsx
+  - src/components/__tests__/ErrorBoundary.test.tsx
   - src/components/__tests__/SheetMusicView.test.tsx
   - src/components/__tests__/ScoreMetadataHeader.test.tsx
   - src/utils/__tests__/abcAudio.test.ts
@@ -197,3 +199,19 @@ The `ScoreMetadataHeader` component provides visual display and inline editing f
   - Non-standard odd note durations (such as `A10` in `L:1/16` representing a 5/16 note) are rewritten as tied glyphs (`A8-A2`) for clean visual engraving without altering the underlying audio timeline.
   - Audio synthesis remains bound to the canonical unexpanded tune to ensure automatic chord accompaniment is not distorted by visual layout barlines.
 
+## 10. Score failure containment
+
+- A notation/layout exception must clear partial SVG, tune, playback and derived
+  overlays and show an accessible error inside the score pane. The document's
+  original ABC remains available for editing, saving and export as source.
+- Unexpected React errors in the score surface are contained by a local error
+  boundary. Files, the ABC editor and workspace controls remain available.
+  Changing document or source resets that boundary automatically; a retry is
+  also available. Failure must never play a previously rendered score.
+- Scan review and the workspace use the same prepared engraving path. Invisible
+  tuplet rests keep their silent duration and original stored source; temporary
+  anchor glyphs are hidden in every preview.
+- Engraving rejects multimeasure-rest expansion beyond 10,000 bars before
+  allocating glyph source. Report a score-specific limit instead of exhausting
+  renderer memory. This boundary contains thrown errors; it does not promise
+  recovery from arbitrary dependency hangs or operating-system termination.

@@ -31,7 +31,10 @@
     "build:electron": "vite build --config vite.main.config.ts && vite build --config vite.preload.config.ts",
     "start:electron": "node scripts/dev-electron.mjs --production",
     "run:electron": "npm run dev:electron",
-    "smoke:electron": "node scripts/electron-smoke.mjs"
+    "smoke:electron": "node scripts/electron-smoke.mjs",
+    "setup:scanner": "node scripts/setup-score-scanner.mjs",
+    "smoke:scan": "node scripts/scan-import-smoke.mjs",
+    "smoke:scan-pages": "node scripts/scan-pages-smoke.mjs"
   },
   "dependencies": {
     "@assistant-ui/react": "0.15.31",
@@ -60,7 +63,8 @@
     "remark-gfm": "4.0.1",
     "streamdown": "2.7.1",
     "typebox": "^1.4.3",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "pdfjs-dist": "6.4.299"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.2",

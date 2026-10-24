@@ -15,6 +15,7 @@ import { ElectronCodexOAuthAdapter } from './ai/codexOAuth';
 import { ElectronSecretCipher } from './ai/electronCipher';
 import { registerAIIPC } from './ipc';
 import { registerFileIPC } from './fileIpc';
+import { registerScanIPC } from './scanIpc';
 import { JSONLAgentTraceStore } from './ai/agentTrace';
 import { resolveChoraleDataPaths } from './dataPaths';
 import { ensureDesktopDaemon } from './daemon';
@@ -40,6 +41,7 @@ let mainWindow: BrowserWindow | null = null;
 let controller: AIController | null = null;
 let removeIPCHandlers: (() => void) | null = null;
 let removeFileIPCHandlers: (() => void) | null = null;
+let removeScanIPCHandlers: (() => void) | null = null;
 let storageFlushed = false;
 let daemonUrl = 'http://127.0.0.1:1685';
 // Explicit isolation is useful for local smoke tests; normal launches keep the existing profile.
@@ -89,6 +91,8 @@ const installAppProtocol = () => {
 };
 
 const createWindow = async () => {
+  removeScanIPCHandlers?.();
+  removeScanIPCHandlers = registerScanIPC(() => mainWindow, projectDirectory);
   mainWindow = new BrowserWindow({
     title: 'Chorale',
     width: 1480,
@@ -130,9 +134,17 @@ const createWindow = async () => {
     }
   });
   mainWindow.webContents.on('did-start-navigation', (_event, _url, _inPlace, isMainFrame) => {
-    if (isMainFrame && mainWindow?.webContents.getURL()) controller?.abortAll();
+    if (isMainFrame && mainWindow?.webContents.getURL()) {
+      controller?.abortAll();
+      removeScanIPCHandlers?.();
+      removeScanIPCHandlers = registerScanIPC(() => mainWindow, projectDirectory);
+    }
   });
-  mainWindow.webContents.on('render-process-gone', () => controller?.abortAll());
+  mainWindow.webContents.on('render-process-gone', () => {
+    controller?.abortAll();
+    removeScanIPCHandlers?.();
+    removeScanIPCHandlers = null;
+  });
   mainWindow.webContents.on('destroyed', () => controller?.abortAll());
   mainWindow.once('ready-to-show', () => mainWindow?.show());
   mainWindow.webContents.on('did-finish-load', () => {
@@ -141,6 +153,8 @@ const createWindow = async () => {
     }
   });
   mainWindow.on('closed', () => {
+    removeScanIPCHandlers?.();
+    removeScanIPCHandlers = null;
     mainWindow = null;
   });
 
@@ -210,6 +224,7 @@ app.on('before-quit', (event) => {
     storageFlushed = true;
     removeIPCHandlers?.();
     removeFileIPCHandlers?.();
+    removeScanIPCHandlers?.();
     app.quit();
   });
 });

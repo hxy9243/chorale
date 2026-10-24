@@ -1297,8 +1297,9 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       </div>
 
       {renderError && (
-        <div className="error-banner">
-          <span>Sheet music render issue: {renderError}</span>
+        <div className="error-banner" role="alert">
+          <span>This score could not be displayed. Your source remains available; edit it or open another score.</span>
+          <details><summary>Rendering details</summary>{renderError}</details>
         </div>
       )}
 
@@ -1343,7 +1344,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                       onPlayFromMeasure(activeAnchor?.startMeasure ?? (hitArea ? Number(hitArea.dataset.measure) : firstMeasureNumber));
                     }}
                   />
-                  <AnnotationOverlay
+                  {!renderError && <AnnotationOverlay
                     paperRef={containerRef}
                     abcCode={abcCode}
                     annotations={annotations}
@@ -1358,7 +1359,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                       onSelectAnchor?.(resolvePlaybackAnchor(annotation.span));
                       setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
                     }}
-                  />
+                  />}
                 </div>
                 <div className="annotation-rail-viewport">
                   <AnnotationRail
