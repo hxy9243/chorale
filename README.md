@@ -9,7 +9,7 @@ Experimental desktop PDF/PNG recognition: see [the scan-import trial](docs/score
 [![Version](https://img.shields.io/badge/version-0.0.1-rose.svg)](package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-amber.svg)](LICENSE)
 [![Tests](https://github.com/hxy9243/chorale/actions/workflows/ci.yml/badge.svg)](https://github.com/hxy9243/chorale/actions/workflows/ci.yml)
-[![Node](https://img.shields.io/badge/node-22.19%2B%20or%2024%2B-blue.svg)](package.json)
+[![Node](https://img.shields.io/badge/node-22.22.2%2B%20or%2024.15%2B%20or%2026%2B-blue.svg)](package.json)
 
 [Overview](#-overview) •
 [Quick Start](#-quick-start) •
@@ -55,7 +55,7 @@ Use Chorale to compose an original 16-measure piano piece inspired by Mozart's C
 
 ### Install and launch
 
-Use Node.js 22.19+ on the 22.x line, or 24+. Install the GitHub package globally:
+Use Node.js 22.22.2+ on the 22.x line, 24.15+ on the 24.x line, or 26+. Install the GitHub package globally:
 
 ```bash
 npm install -g github:hxy9243/chorale
