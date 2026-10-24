@@ -3,7 +3,7 @@ title: "Annotations and Proposals Implementation Spec"
 description: "Specification for canonical annotation data model, storage normalization, proposal lifecycle, atomic Apply All, and overlay/rail rendering"
 category: "annotations"
 date: 2026-08-05
-updated: 2026-09-03
+updated: 2026-10-24
 status: "implemented"
 source_files:
   - src/types/document.ts
@@ -40,7 +40,7 @@ related_specs:
 # Annotations and Proposals Implementation Spec
 
 Date: 2026-08-05  
-Updated: 2026-09-03
+Updated: 2026-10-24
 Status: Implemented in shared music libraries and renderer UI
 
 ## 1. Purpose
@@ -132,7 +132,7 @@ Pure functions in `src/music/documentSchema.ts` normalize untrusted persisted va
 - `normalizeAnnotation(value)`
 - `normalizeFileDocument(value)`
 
-`storageAdapter.getDocuments()` invokes document normalization for both IndexedDB and test-memory paths. `useDocumentStore` owns state and mutations only.
+`storageAdapter.getDocuments()` invokes document normalization for shared SQLite service responses. `useDocumentStore` owns state and mutations only.
 
 Legacy kinds normalize as follows:
 
@@ -140,7 +140,7 @@ Legacy kinds normalize as follows:
 - `analysis`, `phrase`, `comment`, and `edit-note` to `explanation`;
 - valid unknown records to `explanation`.
 
-Annotations stay inline in stored `FileDocument` values, so no IndexedDB object-store migration is required.
+Annotations stay inline in SQLite-backed `FileDocument` values. Browser storage is not read or migrated.
 
 ### 3.1 Mutation validation and safe failures
 
@@ -265,10 +265,10 @@ link reference to the measure, navigating to and selecting the referenced passag
 ## 7. Conversation persistence
 
 Conversation storage uses schema version 4 and stores proposal states, profile routes, ordered
-text/reasoning/tool parts, token usage, pending messages, and optional score proposals. Version-2 and
-version-3 threads migrate to v4 while preserving the v3 key for rollback. IndexedDB is the
-full-fidelity store; local storage is a compact synchronous mirror and fallback. Once a valid v4 store
-exists it is authoritative, so clearing v4 history cannot resurrect preserved v3 data.
+text/reasoning/tool parts, token usage, pending messages, and optional score proposals in the shared
+SQLite service. Both browser and Electron hydrate from that service before saving. There is no
+IndexedDB or local-storage mirror, fallback, or legacy import. Service failures retain unsaved
+in-memory content and surface an error without replacing saved data.
 
 Accepted annotations are durable document data. Proposal records are chat data. A failed document save retains the in-memory annotation and surfaces the existing save-error status.
 

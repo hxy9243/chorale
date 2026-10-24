@@ -11,16 +11,7 @@ import type { AgentProfileId } from '../types/document';
 import { validateAnnotationProposal, validateScoreChangeProposal } from '../music/documentSchema';
 import { storageAdapter } from '../utils/storageAdapter';
 
-export const LEGACY_CONVERSATION_STORAGE_KEY = 'chorale.pi-agent-conversation.v1';
-export const VERSION_2_CONVERSATION_STORAGE_KEY = 'chorale.pi-agent-conversation.v2';
-export const VERSION_3_CONVERSATION_STORAGE_KEY = 'chorale.pi-agent-conversation.v3';
-export const VERSION_4_CONVERSATION_STORAGE_KEY = 'chorale.pi-agent-conversation.v4';
-export const CONVERSATION_STORAGE_KEY = VERSION_4_CONVERSATION_STORAGE_KEY;
-export const DURABLE_CONVERSATION_MARKER_PREFIX = 'chorale.pi-agent-conversation.durable.';
-
-const durableConversationMarkerKey = (fileId: string): string => (
-  `${DURABLE_CONVERSATION_MARKER_PREFIX}${fileId}`
-);
+export const CONVERSATION_STORAGE_KEY = 'chorale.pi-agent-conversation.v4';
 
 const PROFILE_IDS: AgentProfileId[] = [
   'general',
@@ -290,11 +281,11 @@ export const getConversationTotalTokens = (thread: ChatThread): number => (
   thread.messages.reduce((total, message) => total + (message.usage?.totalTokens ?? 0), 0)
 );
 
-export const migrateConversationStore = (value: unknown): PersistedConversationStore => {
+export const normalizeConversationStore = (value: unknown): PersistedConversationStore => {
   if (!value || typeof value !== 'object') return { version: 4, files: {} };
   const parsed = value as { version?: unknown; files?: unknown };
   if (
-    (parsed.version !== 2 && parsed.version !== 3 && parsed.version !== 4)
+    parsed.version !== 4
     || !parsed.files
     || typeof parsed.files !== 'object'
     || Array.isArray(parsed.files)
@@ -332,223 +323,17 @@ export const migrateConversationStore = (value: unknown): PersistedConversationS
   return { version: 4, files };
 };
 
-const parseStored = (serialized: string | null): unknown => {
-  if (!serialized) return null;
-  try {
-    return JSON.parse(serialized);
-  } catch {
-    return null;
-  }
-};
-
-const isVersion4Store = (value: unknown): value is Record<string, unknown> => (
-  Boolean(
-    value
-    && typeof value === 'object'
-    && !Array.isArray(value)
-    && (value as { version?: unknown }).version === 4
-    && (value as { files?: unknown }).files
-    && typeof (value as { files: unknown }).files === 'object'
-    && !Array.isArray((value as { files: unknown }).files)
-  )
+const loadDurableStore = async (): Promise<PersistedConversationStore> => (
+  normalizeConversationStore(await storageAdapter.getItem<unknown>(CONVERSATION_STORAGE_KEY, null))
 );
-
-const loadStore = (storage: Storage): PersistedConversationStore => {
-  const storedV4 = parseStored(storage.getItem(VERSION_4_CONVERSATION_STORAGE_KEY));
-  const v4 = migrateConversationStore(storedV4);
-  if (isVersion4Store(storedV4)) {
-    return v4;
-  }
-
-  const v3 = migrateConversationStore(parseStored(storage.getItem(VERSION_3_CONVERSATION_STORAGE_KEY)));
-  const v2 = migrateConversationStore(parseStored(storage.getItem(VERSION_2_CONVERSATION_STORAGE_KEY)));
-
-  return {
-    version: 4,
-    files: {
-      ...v2.files,
-      ...v3.files,
-      // Early v3 builds briefly wrote their payload to the now-v4 key.
-      // Preserve that migration path while treating a valid v4 payload as authoritative.
-      ...v4.files,
-    },
-  };
-};
-
-const loadDurableStore = async (): Promise<PersistedConversationStore> => {
-  const indexedV4 = await storageAdapter.getItem<unknown>(VERSION_4_CONVERSATION_STORAGE_KEY, null);
-  let indexedStore = migrateConversationStore(indexedV4);
-
-  if (!isVersion4Store(indexedV4)) {
-    const indexedV3 = await storageAdapter.getItem<unknown>(VERSION_3_CONVERSATION_STORAGE_KEY, null);
-    const migratedV3 = migrateConversationStore(indexedV3);
-    if (Object.keys(migratedV3.files).length > 0) {
-      indexedStore = migratedV3;
-      await storageAdapter.setItem(VERSION_4_CONVERSATION_STORAGE_KEY, indexedStore);
-      // Keep v3 in IndexedDB intact for rollback
-    }
-  }
-
-  const localStore = loadStore(window.localStorage);
-  const mergedStore: PersistedConversationStore = {
-    version: 4,
-    files: {
-      ...localStore.files,
-      ...indexedStore.files,
-    },
-  };
-  const hasLocalOnlyFiles = Object.keys(localStore.files).some((fileId) => (
-    !Object.prototype.hasOwnProperty.call(indexedStore.files, fileId)
-  ));
-  if (hasLocalOnlyFiles) {
-    await storageAdapter.setItem(VERSION_4_CONVERSATION_STORAGE_KEY, mergedStore);
-  }
-  return mergedStore;
-};
-
-const saveStore = (
-  store: PersistedConversationStore,
-  storage: Storage,
-) => {
-  const serialized = JSON.stringify(store);
-  storage.setItem(VERSION_4_CONVERSATION_STORAGE_KEY, serialized);
-};
-
-const loadLegacyMessages = (storage: Storage): ChatMessage[] => {
-  try {
-    const serialized = storage.getItem(LEGACY_CONVERSATION_STORAGE_KEY);
-    if (!serialized) return [];
-    const parsed = JSON.parse(serialized) as Partial<{ version: number; messages: ChatMessage[] }>;
-    if (parsed.version !== 1 || !Array.isArray(parsed.messages)) return [];
-    return normalizeMessages(parsed.messages);
-  } catch {
-    return [];
-  }
-};
-
-export const loadConversation = (
-  fileId: string,
-  storage: Storage = window.localStorage,
-): PersistedFileConversation => {
-  const store = loadStore(storage);
-  const storedV4 = parseStored(storage.getItem(VERSION_4_CONVERSATION_STORAGE_KEY));
-  if (!isVersion4Store(storedV4) && (
-    storedV4
-    || storage.getItem(VERSION_3_CONVERSATION_STORAGE_KEY)
-    || storage.getItem(VERSION_2_CONVERSATION_STORAGE_KEY)
-  )) {
-    saveStore(store, storage);
-  }
-  const existing = store.files[fileId];
-  if (existing) return existing;
-
-  const legacyMessages = loadLegacyMessages(storage);
-  if (legacyMessages.length > 0) {
-    const title = legacyMessages.find((message) => message.role === 'user')?.content.slice(0, 48) || 'Imported thread';
-    return {
-      activeThreadId: 'thread-legacy',
-      threads: [{
-        id: 'thread-legacy',
-        title,
-        updatedAt: legacyMessages[legacyMessages.length - 1]?.createdAt || new Date().toISOString(),
-        messages: legacyMessages,
-        pendingMessages: [],
-      }],
-    };
-  }
-
-  return createDefaultFileConversation();
-};
 
 export const loadConversationAsync = async (
   fileId: string,
 ): Promise<PersistedFileConversation> => {
+  // Wait for this renderer's queued writes before restoring a switched/reopened file.
+  await durableSaveQueue;
   const store = await loadDurableStore();
   return store.files[fileId] || createDefaultFileConversation();
-};
-
-export const saveConversation = (
-  fileId: string,
-  conversation: PersistedFileConversation,
-  storage: Storage = window.localStorage,
-) => {
-  let nextStore: PersistedConversationStore | null = null;
-  try {
-    nextStore = {
-      version: 4,
-      files: {
-        ...loadStore(storage).files,
-        [fileId]: {
-          activeThreadId: conversation.activeThreadId,
-          threads: conversation.threads.map((thread) => ({
-            ...thread,
-            messages: normalizeMessages(thread.messages),
-            pendingMessages: Array.isArray(thread.pendingMessages)
-              ? thread.pendingMessages.filter(isQueuedChatMessage)
-              : [],
-          })),
-        },
-      },
-    };
-    saveStore(nextStore, storage);
-    storage.removeItem(durableConversationMarkerKey(fileId));
-    storage.removeItem(VERSION_2_CONVERSATION_STORAGE_KEY);
-    storage.removeItem(LEGACY_CONVERSATION_STORAGE_KEY);
-  } catch {
-    if (!nextStore) return;
-    try {
-      const compactStore: PersistedConversationStore = {
-        version: 4,
-        files: Object.fromEntries(Object.entries(nextStore.files).map(([storedFileId, storedConversation]) => [
-          storedFileId,
-          {
-            ...storedConversation,
-            threads: storedConversation.threads.map((thread) => ({
-              ...thread,
-              messages: thread.messages.map((message) => ({ ...message, scoreProposals: [] })),
-            })),
-          },
-        ])),
-      };
-      saveStore(compactStore, storage);
-      for (const [storedFileId, storedConversation] of Object.entries(nextStore.files)) {
-        if (storedConversation.threads.some((thread) => (
-          thread.messages.some((message) => (message.scoreProposals?.length || 0) > 0)
-        ))) {
-          storage.setItem(durableConversationMarkerKey(storedFileId), '1');
-        }
-      }
-    } catch {
-      // Conversation persistence is best-effort in private or quota-limited browsers.
-    }
-  }
-};
-
-export const savePendingQueue = (
-  fileId: string,
-  threadId: string,
-  pendingMessages: QueuedChatMessage[],
-  storage: Storage = window.localStorage,
-) => {
-  try {
-    const store = loadStore(storage);
-    const existingFile = store.files[fileId] ?? createDefaultFileConversation();
-    const nextThreads = existingFile.threads.map((thread) => (
-      thread.id === threadId
-        ? { ...thread, pendingMessages: pendingMessages.filter(isQueuedChatMessage) }
-        : thread
-    ));
-    const nextStore: PersistedConversationStore = {
-      version: 4,
-      files: {
-        ...store.files,
-        [fileId]: { ...existingFile, threads: nextThreads },
-      },
-    };
-    saveStore(nextStore, storage);
-  } catch {
-    // Best-effort in quota-limited browsers
-  }
 };
 
 let durableSaveQueue: Promise<boolean> = Promise.resolve(true);
@@ -566,22 +351,13 @@ export const savePendingQueueAsync = (
         ? { ...thread, pendingMessages: pendingMessages.filter(isQueuedChatMessage) }
         : thread
     ));
-    const saved = await storageAdapter.setItem(VERSION_4_CONVERSATION_STORAGE_KEY, {
+    return storageAdapter.setItem(CONVERSATION_STORAGE_KEY, {
       version: 4,
-      files: {
-        ...store.files,
-        [fileId]: { ...existingFile, threads: nextThreads },
-      },
+      files: { ...store.files, [fileId]: { ...existingFile, threads: nextThreads } },
     } satisfies PersistedConversationStore);
-    return Boolean(saved);
   }).catch(() => false);
   return durableSaveQueue;
 };
-
-export const conversationNeedsDurableHydration = (
-  fileId: string,
-  storage: Storage = window.localStorage,
-): boolean => storage.getItem(durableConversationMarkerKey(fileId)) === '1';
 
 export const saveConversationAsync = (
   fileId: string,
@@ -589,7 +365,7 @@ export const saveConversationAsync = (
 ): Promise<boolean> => {
   durableSaveQueue = durableSaveQueue.then(async () => {
     const store = await loadDurableStore();
-    const saved = await storageAdapter.setItem(VERSION_4_CONVERSATION_STORAGE_KEY, {
+    return storageAdapter.setItem(CONVERSATION_STORAGE_KEY, {
       version: 4,
       files: {
         ...store.files,
@@ -605,31 +381,8 @@ export const saveConversationAsync = (
         },
       },
     } satisfies PersistedConversationStore);
-    if (!saved) return false;
-    await storageAdapter.removeItem(VERSION_2_CONVERSATION_STORAGE_KEY);
-    await storageAdapter.removeItem(LEGACY_CONVERSATION_STORAGE_KEY);
-    return true;
-  }).catch(() => {
-    // Conversation persistence remains best-effort when durable browser storage is unavailable.
-    return false;
-  });
+  }).catch(() => false);
   return durableSaveQueue;
-};
-
-export const clearConversation = (
-  fileId: string,
-  storage: Storage = window.localStorage,
-) => {
-  try {
-    const store = loadStore(storage);
-    const nextFiles = { ...store.files };
-    delete nextFiles[fileId];
-    saveStore({ version: 4, files: nextFiles }, storage);
-    storage.removeItem(VERSION_2_CONVERSATION_STORAGE_KEY);
-    storage.removeItem(LEGACY_CONVERSATION_STORAGE_KEY);
-  } catch {
-    // Keep the in-memory conversation usable when storage is unavailable.
-  }
 };
 
 export const makeEmptyConversation = () => createDefaultFileConversation();

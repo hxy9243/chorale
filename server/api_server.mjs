@@ -215,6 +215,32 @@ export const startServer = async (options = {}) => {
       return;
     }
 
+    // JSON workspace content shares the score database, never browser storage.
+    const storageMatch = url.pathname.match(/^\/v1\/storage\/([A-Za-z0-9._-]{1,160})$/);
+    if (storageMatch && ['GET', 'PUT', 'DELETE'].includes(req.method)) {
+      res.setHeader('content-type', 'application/json');
+      try {
+        const key = storageMatch[1];
+        if (req.method === 'GET') {
+          res.writeHead(200).end(JSON.stringify(store.getStorageItem(key)));
+        } else if (req.method === 'PUT') {
+          const body = await requestBody(req);
+          if (!body || !Object.hasOwn(body, 'value')) {
+            throw new PluginError('INVALID_STORAGE_VALUE', 'A JSON value is required.');
+          }
+          await store.setStorageItem(key, body.value, body.baseline);
+          res.writeHead(200).end(JSON.stringify({ saved: true }));
+        } else {
+          await store.removeStorageItem(key);
+          res.writeHead(200).end(JSON.stringify({ deleted: true }));
+        }
+      } catch (error) {
+        res.writeHead(error instanceof PluginError && error.code === 'REVISION_CONFLICT' ? 409 : error instanceof PluginError ? 400 : 500)
+          .end(JSON.stringify({ errorCode: error.code || 'PERSISTENCE_FAILED' }));
+      }
+      return;
+    }
+
     // Workspace state
     if (req.method === 'GET' && url.pathname === '/v1/workspace') {
       try {

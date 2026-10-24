@@ -3,7 +3,7 @@ title: "Chat With Music Sheet and Agent Tooling"
 description: "Specification for the passage-aware Music Tutor chat panel, assistant-ui runtime integration, Streamdown rendering with score references, structured message parts, dual-lane queue with steering, and token accounting"
 category: "agent-chat"
 date: 2026-08-05
-updated: 2026-09-03
+updated: 2026-10-24
 status: "implemented"
 source_files:
   - src/components/AgentChatPanel.tsx
@@ -59,7 +59,7 @@ related_specs:
 # Chat With Music Sheet and Agent Tooling
 
 Date: 2026-08-05
-Updated: 2026-09-03
+Updated: 2026-10-24
 Status: Implemented in desktop app
 
 ## 1. Goal
@@ -235,10 +235,10 @@ The per-file conversation schema is version 4:
 - Messages store ordered structured parts (`ChatMessagePart`: `text`, `reasoning`, `tool`).
 - Completed assistant messages store aggregated `RoundUsage`.
 - Threads store persisted pending messages (`QueuedChatMessage[]`).
-- Migration from v2 and v3:
-  - Parses legacy `<think>...</think>` tags (including unclosed tags from interrupted runs) into structured `text` and `reasoning` parts.
-  - Converts interrupted `streaming` status to `stopped`.
-  - Upgrades without modifying the v3 key (`chorale.pi-agent-conversation.v3`) to maintain rollback safety.
-  - Writes v4 to `chorale.pi-agent-conversation.v4` across IndexedDB and local storage.
-  - Queue-only persistence path preserves queued items added during streaming without prematurely persisting partial assistant states.
-  - Restored queues never auto-run on app restart; restored steer items normalize to FIFO queue items.
+- Conversations persist through the shared SQLite service in browser and Electron.
+- Every file hydrates from that service before chat editing or saves are enabled.
+- Interrupted `streaming` messages restore as `stopped`.
+- Queue-only persistence preserves items added during streaming without persisting partial assistant states.
+- Restored queues never auto-run on restart; restored steer items normalize to FIFO queue items.
+- Service failures surface an error and retain unsaved content in memory. No IndexedDB,
+  local-storage copy, legacy import, or migration is used.

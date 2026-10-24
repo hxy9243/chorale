@@ -1,7 +1,9 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { renderHydrated } from '../../test/renderHydrated';
+import '../../test/mockSharedStorage';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentChatPanel } from '../AgentChatPanel';
-import { CONVERSATION_STORAGE_KEY, DURABLE_CONVERSATION_MARKER_PREFIX } from '../../agent/conversationStore';
+import { CONVERSATION_STORAGE_KEY } from '../../agent/conversationStore';
 import { storageAdapter } from '../../utils/storageAdapter';
 import type { AIProviderState } from '../../agent/useAIProviders';
 
@@ -55,13 +57,13 @@ const ai: AIProviderState = {
 describe('AgentChatPanel assistant-ui features', () => {
   beforeEach(() => {
     localStorage.clear();
-    storageAdapter.clearMemoryStore();
+    storageAdapter.resetSession();
     agentSendMock.mockReset();
     agentSteerMock.mockReset();
   });
 
-  it('renders token usage footer with expandable breakdown on completed assistant message', () => {
-    localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
+  it('renders token usage footer with expandable breakdown on completed assistant message', async () => {
+    await storageAdapter.setItem(CONVERSATION_STORAGE_KEY, {
       version: 4,
       files: {
         'doc-tokens': {
@@ -88,9 +90,9 @@ describe('AgentChatPanel assistant-ui features', () => {
           }],
         },
       },
-    }));
+    });
 
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -115,8 +117,8 @@ describe('AgentChatPanel assistant-ui features', () => {
     expect(screen.getByText('10')).toBeTruthy();
   });
 
-  it('renders structured parts: reasoning, timed tools, and markdown text', () => {
-    localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
+  it('renders structured parts: reasoning, timed tools, and markdown text', async () => {
+    await storageAdapter.setItem(CONVERSATION_STORAGE_KEY, {
       version: 4,
       files: {
         'doc-parts': {
@@ -147,9 +149,9 @@ describe('AgentChatPanel assistant-ui features', () => {
           }],
         },
       },
-    }));
+    });
 
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -184,7 +186,7 @@ describe('AgentChatPanel assistant-ui features', () => {
     }));
     agentSteerMock.mockResolvedValue({ steered: true });
 
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -203,7 +205,7 @@ describe('AgentChatPanel assistant-ui features', () => {
     fireEvent.change(textarea, { target: { value: 'First question' } });
     fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false });
 
-    await waitFor(() => {
+    await waitFor(async () => {
       expect(agentSendMock).toHaveBeenCalledOnce();
     });
 
@@ -225,13 +227,13 @@ describe('AgentChatPanel assistant-ui features', () => {
     fireEvent.change(textarea, { target: { value: 'Steer priority' } });
     fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true, shiftKey: true });
 
-    await waitFor(() => {
+    await waitFor(async () => {
       expect(agentSteerMock).toHaveBeenCalled();
     });
 
     // 5. Complete the active run -> queue should be drained next in FIFO order
     sendResolver();
-    await waitFor(() => {
+    await waitFor(async () => {
       expect(agentSendMock).toHaveBeenCalledTimes(2);
     });
 
@@ -256,7 +258,7 @@ describe('AgentChatPanel assistant-ui features', () => {
     });
     agentSteerMock.mockResolvedValue({ steered: false });
 
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -272,17 +274,17 @@ describe('AgentChatPanel assistant-ui features', () => {
     const textarea = screen.getByLabelText('Ask about the current sheet');
     fireEvent.change(textarea, { target: { value: 'Initial question' } });
     fireEvent.keyDown(textarea, { key: 'Enter' });
-    await waitFor(() => expect(agentSendMock).toHaveBeenCalledOnce());
+    await waitFor(async () => expect(agentSendMock).toHaveBeenCalledOnce());
 
     fireEvent.change(textarea, { target: { value: 'Elaborate on that' } });
     fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true, shiftKey: true });
-    await waitFor(() => {
+    await waitFor(async () => {
       expect(agentSteerMock).toHaveBeenCalledOnce();
       expect(screen.getByText('Elaborate on that')).toBeTruthy();
     });
 
     await act(async () => resolveFirstSend());
-    await waitFor(() => expect(agentSendMock).toHaveBeenCalledTimes(2));
+    await waitFor(async () => expect(agentSendMock).toHaveBeenCalledTimes(2));
     expect(agentSendMock.mock.calls[1][0].question).toBe('Elaborate on that');
     await act(async () => Promise.resolve());
     expect(agentSendMock).toHaveBeenCalledTimes(2);
@@ -293,7 +295,7 @@ describe('AgentChatPanel assistant-ui features', () => {
       signal.addEventListener('abort', () => reject(new DOMException('The response was stopped.', 'AbortError')));
     }));
 
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -312,7 +314,7 @@ describe('AgentChatPanel assistant-ui features', () => {
     fireEvent.change(textarea, { target: { value: 'Initial question' } });
     fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false });
 
-    await waitFor(() => {
+    await waitFor(async () => {
       expect(agentSendMock).toHaveBeenCalledOnce();
     });
 
@@ -328,7 +330,7 @@ describe('AgentChatPanel assistant-ui features', () => {
     fireEvent.keyDown(textarea, { key: 'Escape' });
 
     // Stream stops: indicator changes to stopped
-    await waitFor(() => {
+    await waitFor(async () => {
       expect(screen.getByText('Stopped')).toBeTruthy();
     });
 
@@ -344,7 +346,7 @@ describe('AgentChatPanel assistant-ui features', () => {
       return new Promise<void>(() => undefined);
     });
 
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -361,7 +363,7 @@ describe('AgentChatPanel assistant-ui features', () => {
     fireEvent.change(textarea, { target: { value: 'Analyze harmony' } });
     fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false });
 
-    await waitFor(() => {
+    await waitFor(async () => {
       expect(agentSendMock).toHaveBeenCalledOnce();
     });
 
@@ -449,7 +451,7 @@ describe('AgentChatPanel assistant-ui features', () => {
       return Promise.resolve();
     });
 
-    localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
+    await storageAdapter.setItem(CONVERSATION_STORAGE_KEY, {
       version: 4,
       files: {
         'doc-run-next': {
@@ -494,9 +496,9 @@ describe('AgentChatPanel assistant-ui features', () => {
           }],
         },
       },
-    }));
+    });
 
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -532,7 +534,7 @@ describe('AgentChatPanel assistant-ui features', () => {
     });
 
     // The drain loop in finally should pick "Analyze bass harmony", NOT "Analyze soprano line" again
-    await waitFor(() => {
+    await waitFor(async () => {
       expect(sendPrompts).toEqual(['Analyze soprano line', 'Analyze bass harmony']);
     });
     expect(sendCount).toBe(2);
@@ -542,7 +544,7 @@ describe('AgentChatPanel assistant-ui features', () => {
     const fileId = 'doc-durable-stream';
     const threadId = 't-durable-stream';
 
-    // 1. Set up an initial conversation in durable storage (IndexedDB)
+    // 1. Set up an initial conversation in durable storage (shared SQLite service)
     const initialConversation = {
       activeThreadId: threadId,
       threads: [{
@@ -568,10 +570,8 @@ describe('AgentChatPanel assistant-ui features', () => {
       },
     };
 
-    // Populate IndexedDB and set durable hydration marker in localStorage
+    // Seed the shared service before hydration
     await storageAdapter.setItem(CONVERSATION_STORAGE_KEY, initialStore);
-    localStorage.setItem(`${DURABLE_CONVERSATION_MARKER_PREFIX}${fileId}`, '1');
-    localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify(initialStore));
 
     // 2. Mock streaming send that stays active
     agentSendMock.mockImplementation((_req, callbacks) => new Promise<void>(() => {
@@ -581,7 +581,7 @@ describe('AgentChatPanel assistant-ui features', () => {
     }));
 
     // 3. Render AgentChatPanel
-    const { unmount } = render(
+    const { unmount } = await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -596,7 +596,7 @@ describe('AgentChatPanel assistant-ui features', () => {
 
     // Wait for initial durable hydration to complete (aria-busy becomes false)
     const panel = screen.getByRole('complementary', { name: 'Current sheet assistant' });
-    await waitFor(() => {
+    await waitFor(async () => {
       expect(panel.getAttribute('aria-busy')).toBe('false');
     });
 
@@ -606,7 +606,7 @@ describe('AgentChatPanel assistant-ui features', () => {
     fireEvent.change(textarea, { target: { value: 'Analyze harmony' } });
     fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false });
 
-    await waitFor(() => {
+    await waitFor(async () => {
       expect(agentSendMock).toHaveBeenCalledOnce();
     });
 
@@ -617,7 +617,7 @@ describe('AgentChatPanel assistant-ui features', () => {
     // Item appears in queue UI
     expect(screen.getByText('Queued durable question')).toBeTruthy();
 
-    // Wait for savePendingQueueAsync to finish saving to durable storage (IndexedDB)
+    // Wait for savePendingQueueAsync to finish saving to durable storage (shared SQLite service)
     await waitFor(async () => {
       const stored = await storageAdapter.getItem<any>(CONVERSATION_STORAGE_KEY, null);
       const pendingInDurable = stored?.files?.[fileId]?.threads?.[0]?.pendingMessages;
@@ -628,7 +628,7 @@ describe('AgentChatPanel assistant-ui features', () => {
     // 5. Simulate page reload while stream was active: unmount and remount with durable hydration
     unmount();
 
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -641,14 +641,14 @@ describe('AgentChatPanel assistant-ui features', () => {
       />,
     );
 
-    // Verify that after durable hydration from IndexedDB, the queued item is restored
-    await waitFor(() => {
+    // Verify that after durable hydration from shared SQLite service, the queued item is restored
+    await waitFor(async () => {
       expect(screen.getByText('Queued durable question')).toBeTruthy();
     });
   });
 
   describe('long chat messages and threads', () => {
-    it('renders and wraps an unusually long chat message with multiple paragraphs, code blocks, and lists', () => {
+    it('renders and wraps an unusually long chat message with multiple paragraphs, code blocks, and lists', async () => {
       const longMessageContent = [
         '### Deep Harmonic and Formal Analysis of Measures 1-32',
         'Here is an extensive breakdown of the voice-leading patterns, cadential goals, and chromatic modulations observed in the opening exposition.',
@@ -663,7 +663,7 @@ describe('AgentChatPanel assistant-ui features', () => {
         'Conclusion: The overall architecture follows a standard rounded binary design with tight thematic economy.',
       ].join('\n\n');
 
-      localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
+      await storageAdapter.setItem(CONVERSATION_STORAGE_KEY, {
         version: 4,
         files: {
           'doc-long-msg': {
@@ -710,9 +710,9 @@ describe('AgentChatPanel assistant-ui features', () => {
             }],
           },
         },
-      }));
+      });
 
-      render(
+      await renderHydrated(
         <AgentChatPanel
           open
           onClose={() => undefined}
@@ -738,7 +738,7 @@ describe('AgentChatPanel assistant-ui features', () => {
       expect(assistantMessage?.classList.contains('assistant')).toBe(true);
     });
 
-    it('renders a long thread with 50 conversation turns without crashing', () => {
+    it('renders a long thread with 50 conversation turns without crashing', async () => {
       const messages = [];
       const timestamp = '2026-09-02T12:00:00.000Z';
 
@@ -762,7 +762,7 @@ describe('AgentChatPanel assistant-ui features', () => {
         });
       }
 
-      localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
+      await storageAdapter.setItem(CONVERSATION_STORAGE_KEY, {
         version: 4,
         files: {
           'doc-long-thread': {
@@ -775,9 +775,9 @@ describe('AgentChatPanel assistant-ui features', () => {
             }],
           },
         },
-      }));
+      });
 
-      const { container } = render(
+      const { container } = await renderHydrated(
         <AgentChatPanel
           open
           onClose={() => undefined}

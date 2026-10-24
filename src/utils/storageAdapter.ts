@@ -2,275 +2,97 @@ import type { FileDocument } from '../types/document';
 import { normalizeFileDocument } from '../music/documentSchema';
 import { limitScoreVersions } from './fileSession';
 
-const DB_NAME = 'chorale_db';
-const DB_VERSION = 1;
-const STORE_NAME = 'chorale_store';
-export const DOCUMENTS_STORAGE_KEY = 'chorale.workspace.documents';
+type StorageBaseline = { found: boolean; value?: unknown };
+const itemBaselines = new Map<string, StorageBaseline>();
 
-type IndexedDBRecord = {
-  key: string;
-  value: unknown;
-};
-
-let dbPromise: Promise<IDBDatabase> | null = null;
-const memoryStore = new Map<string, unknown>();
-let sharedServiceAvailable: boolean | null = null;
 let sharedBaseRevisions: Record<string, number> | undefined;
 
 class SharedWorkspaceConflictError extends Error {}
 
-// The packaged workspace is served by the Chorale daemon. Vite remains an
-// intentionally local development fallback; it never becomes production
-// authority and no browser-profile migration is attempted.
-const sharedServiceBase = (): string | null => {
-  if (typeof window === 'undefined') return null;
+const sharedServiceBase = (): string => {
+  if (typeof window === 'undefined') throw new Error('The shared Chorale service is unavailable.');
   if (window.choraleAI && window.location.protocol === 'app:') return 'app://chorale';
   const configured = new URLSearchParams(window.location.search).get('choraleBridge');
   if (configured) return configured;
   if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
-    // JSDOM's conventional 3000 origin is a development/test fallback.
-    // In actual browser environments, fetch from the current server origin.
-    if (window.location.port === '3000') return null;
     return window.location.origin;
   }
-  return null;
+  throw new Error('The shared Chorale service is unavailable.');
 };
 
-const usesSharedWorkspace = (): boolean => sharedServiceBase() !== null;
-
 const sharedWorkspace = async <T>(path: string, options?: RequestInit): Promise<T> => {
-  const base = sharedServiceBase();
-  const url = base ? `${base}${path}` : path;
-  const response = await fetch(url, options);
-  if (response.status === 409) throw new SharedWorkspaceConflictError('The shared score changed in another client. Refresh scores before saving. Your changes have not been saved.');
-  if (!response.ok) throw new Error('Shared Chorale service is unavailable.');
-  const contentType = response.headers.get('content-type') || '';
-  if (!contentType.includes('application/json')) {
-    throw new Error('Shared Chorale service returned invalid content.');
+  const response = await fetch(`${sharedServiceBase()}${path}`, options);
+  if (response.status === 409) throw new SharedWorkspaceConflictError('The shared workspace changed in another client. Refresh scores before saving. Your changes have not been saved.');
+  if (!response.ok) throw new Error('The shared Chorale service is unavailable.');
+  if (!response.headers.get('content-type')?.includes('application/json')) {
+    throw new Error('The shared Chorale service returned invalid content.');
   }
   return response.json() as Promise<T>;
 };
 
-const hasIndexedDB = (): boolean => (
-  typeof window !== 'undefined' && typeof window.indexedDB !== 'undefined'
-);
-
-const getIDB = (): Promise<IDBDatabase> => {
-  if (!hasIndexedDB()) {
-    return Promise.reject(new Error('IndexedDB is unavailable.'));
-  }
-  if (!dbPromise) {
-    const opening = new Promise<IDBDatabase>((resolve, reject) => {
-      const request = window.indexedDB.open(DB_NAME, DB_VERSION);
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME, { keyPath: 'key' });
-        }
-      };
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error || new Error('Failed to open IndexedDB.'));
-    });
-    dbPromise = opening.catch((error) => {
-      dbPromise = null;
-      throw error;
-    });
-  }
-  return dbPromise;
+const storagePath = (key: string): string => {
+  if (!/^[A-Za-z0-9._-]{1,160}$/.test(key)) throw new Error('Invalid storage key.');
+  return `/v1/storage/${key}`;
 };
 
-const normalizeDocuments = (documents: unknown[]): FileDocument[] => (
-  documents.flatMap((value) => {
-    const document = normalizeFileDocument(value);
-    return document ? [{
-      ...document,
-      versions: limitScoreVersions(document.versions),
-    }] : [];
-  })
-);
-
 export const storageAdapter = {
-  clearMemoryStore(): void {
-    memoryStore.clear();
-    sharedServiceAvailable = null;
+  resetSession(): void {
     sharedBaseRevisions = undefined;
-  },
-
-  async getSharedActiveFileId(): Promise<string | null> {
-    return null;
-  },
-
-  async setSharedActiveFileId(_activeFileId: string): Promise<void> {
-    // View state is intentionally browser/tab-local.
-  },
-
-  async getGlobalPreference<T>(_key: string): Promise<T | null> {
-    return null;
-  },
-
-  async setGlobalPreference(_key: string, _value: unknown): Promise<void> {
-    // View state is intentionally browser/tab-local.
+    itemBaselines.clear();
   },
 
   async getDocuments(): Promise<FileDocument[]> {
-    if (usesSharedWorkspace() && sharedServiceAvailable !== false) {
-      try {
-        const workspace = await sharedWorkspace<{ documents: unknown[] }>('/v1/workspace');
-        sharedServiceAvailable = true;
-        const documents = normalizeDocuments(workspace.documents || []);
-        sharedBaseRevisions = Object.fromEntries(documents.map(doc => [doc.id, doc.revision]));
-        return documents;
-      } catch {
-        if (window.choraleAI) throw new Error('The shared Chorale service is unavailable. Your scores have not been replaced.');
-        sharedServiceAvailable = false;
-        console.info('Shared Chorale service unavailable, falling back to local storage.');
-      }
+    try {
+      const workspace = await sharedWorkspace<{ documents: unknown[] }>('/v1/workspace');
+      if (!Array.isArray(workspace.documents)) throw new Error('Invalid workspace documents.');
+      const documents = workspace.documents.flatMap((value) => {
+        const document = normalizeFileDocument(value);
+        return document ? [{ ...document, versions: limitScoreVersions(document.versions) }] : [];
+      });
+      sharedBaseRevisions = Object.fromEntries(documents.map(doc => [doc.id, doc.revision]));
+      return documents;
+    } catch {
+      throw new Error('The shared Chorale service could not load your scores. Your scores have not been replaced.');
     }
-    if (!hasIndexedDB()) {
-      const memoryDocuments = memoryStore.get(DOCUMENTS_STORAGE_KEY);
-      return Array.isArray(memoryDocuments)
-        ? normalizeDocuments(memoryDocuments)
-        : [];
-    }
-
-    const db = await getIDB();
-    const rawDocs = await new Promise<FileDocument[] | null>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readonly');
-      const store = tx.objectStore(STORE_NAME);
-      const request = store.get(DOCUMENTS_STORAGE_KEY);
-      request.onsuccess = () => {
-        if (request.result && 'value' in (request.result as IndexedDBRecord)) {
-          resolve((request.result as IndexedDBRecord).value as FileDocument[]);
-        } else {
-          resolve(null);
-        }
-      };
-      request.onerror = () => reject(request.error || new Error('Failed to load documents.'));
-    });
-
-    return Array.isArray(rawDocs) ? normalizeDocuments(rawDocs) : [];
   },
 
   async saveDocuments(documents: FileDocument[]): Promise<boolean> {
-    if (usesSharedWorkspace() && sharedServiceAvailable !== false) {
-      try {
-        await sharedWorkspace('/v1/workspace/documents', {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ documents, baseRevisions: sharedBaseRevisions }),
-        });
-        sharedServiceAvailable = true;
-        sharedBaseRevisions = Object.fromEntries(documents.map(doc => [doc.id, doc.revision]));
-        return true;
-      } catch (error) {
-        if (error instanceof SharedWorkspaceConflictError) throw error;
-        if (window.choraleAI) throw new Error('The shared Chorale service is unavailable. Changes could not be saved.');
-        sharedServiceAvailable = false;
-        console.info('Shared Chorale service unavailable, saving to local storage.');
-      }
-    }
-    if (!hasIndexedDB()) {
-      // Non-browser test environments have no durable storage. Keep this fallback
-      // isolated from the production IndexedDB path so failures cannot be masked.
-      memoryStore.set(DOCUMENTS_STORAGE_KEY, documents);
+    try {
+      await sharedWorkspace('/v1/workspace/documents', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ documents, baseRevisions: sharedBaseRevisions }),
+      });
+      sharedBaseRevisions = Object.fromEntries(documents.map(doc => [doc.id, doc.revision]));
       return true;
+    } catch (error) {
+      if (error instanceof SharedWorkspaceConflictError) throw error;
+      throw new Error('The shared Chorale service is unavailable. Changes could not be saved.');
     }
-
-    const db = await getIDB();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
-      store.put({ key: DOCUMENTS_STORAGE_KEY, value: documents });
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error || new Error('Failed to save documents.'));
-      tx.onabort = () => reject(tx.error || new Error('Document save was aborted.'));
-    });
-    return true;
   },
 
   async getItem<T>(key: string, fallback: T): Promise<T> {
-    try {
-      const db = await getIDB();
-      return await new Promise<T>((resolve) => {
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.get(key);
-        req.onsuccess = () => {
-          if (req.result && 'value' in (req.result as IndexedDBRecord)) {
-            resolve((req.result as IndexedDBRecord).value as T);
-          } else {
-            resolve(fallback);
-          }
-        };
-        req.onerror = () => resolve(fallback);
-      });
-    } catch {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        try {
-          const raw = window.localStorage.getItem(key);
-          return raw ? (JSON.parse(raw) as T) : fallback;
-        } catch {
-          return fallback;
-        }
-      }
-      return fallback;
+    const result = await sharedWorkspace<{ found: boolean; value?: T }>(storagePath(key));
+    if (!result || typeof result.found !== 'boolean' || (result.found && !Object.hasOwn(result, 'value'))) {
+      throw new Error('The shared Chorale service returned invalid storage content.');
     }
+    itemBaselines.set(key, structuredClone(result));
+    return result.found ? result.value as T : fallback;
   },
 
   async setItem<T>(key: string, value: T): Promise<boolean> {
-    if (key === DOCUMENTS_STORAGE_KEY) {
-      return this.saveDocuments(value as unknown as FileDocument[]);
-    }
-    let savedInIDB = false;
-    try {
-      const db = await getIDB();
-      savedInIDB = await new Promise<boolean>((resolve) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.put({ key, value });
-        req.onsuccess = () => resolve(true);
-        req.onerror = () => resolve(false);
-      });
-    } catch {
-      savedInIDB = false;
-    }
-
-    let savedInLocalStorage = false;
-    if (typeof window !== 'undefined' && window.localStorage && !savedInIDB) {
-      try {
-        window.localStorage.setItem(key, JSON.stringify(value));
-        savedInLocalStorage = true;
-      } catch {
-        // Ignore quota or write errors
-      }
-    }
-    return savedInIDB || savedInLocalStorage;
+    await sharedWorkspace(storagePath(key), {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ value, baseline: itemBaselines.get(key) }),
+    });
+    itemBaselines.set(key, { found: true, value: structuredClone(value) });
+    return true;
   },
 
   async removeItem(key: string): Promise<boolean> {
-    if (key === DOCUMENTS_STORAGE_KEY) {
-      memoryStore.delete(DOCUMENTS_STORAGE_KEY);
-    }
-    try {
-      const db = await getIDB();
-      await new Promise<void>((resolve) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.delete(key);
-        req.onsuccess = () => resolve();
-        req.onerror = () => resolve();
-      });
-    } catch {
-      // Ignore
-    }
-
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        window.localStorage.removeItem(key);
-      } catch {
-        // Ignore
-      }
-    }
+    await sharedWorkspace(storagePath(key), { method: 'DELETE' });
+    itemBaselines.set(key, { found: false });
     return true;
   },
 };

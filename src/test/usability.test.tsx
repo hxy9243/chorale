@@ -1,3 +1,4 @@
+import './mockSharedStorage';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { useState } from 'react';
@@ -41,7 +42,7 @@ describe('release usability gate', () => {
     localStorage.clear();
     sessionStorage.clear();
     window.history.replaceState({}, '', '/');
-    storageAdapter.clearMemoryStore();
+    storageAdapter.resetSession();
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),

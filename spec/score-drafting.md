@@ -3,7 +3,7 @@ title: "Score Drafting MVP"
 description: "Authoritative MVP contract for blank score creation, measure-range editing, and agent score-change proposals"
 category: "core-workspace"
 date: 2026-08-23
-updated: 2026-08-30
+updated: 2026-10-24
 status: "implemented"
 source_files:
   - src/music/scoreDrafting.ts
@@ -146,11 +146,10 @@ is created. The agent may extend a score to the musically appropriate length wit
 selecting destination measures.
 
 Score proposals are persisted separately from annotation proposals and include their source document
-and revision. The complete conversation, including large whole-score replacement payloads, is backed
-by IndexedDB; local storage remains a synchronous mirror and may omit score payloads when its quota is
-exhausted. Durable hydration merges file entries from both stores, preferring IndexedDB when both
-stores contain the same file while recovering local-only files. A proposal card provides **Preview**,
-**Apply**, and **Discard**.
+and revision. The complete conversation, including whole-score replacement payloads, is stored
+in the shared SQLite database for both browser and Electron. Hydration must succeed before editing;
+failed saves retain unsaved proposals in memory and show an error. No browser-storage fallback or
+migration is used. A proposal card provides **Preview**, **Apply**, and **Discard**.
 
 - Preview reconstructs the candidate score and temporarily routes the main score surface and playback
   dock to it without mutating the document.

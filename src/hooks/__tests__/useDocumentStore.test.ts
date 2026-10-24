@@ -1,3 +1,4 @@
+import '../../test/mockSharedStorage';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDocumentStore } from '../useDocumentStore';
@@ -10,7 +11,7 @@ import * as xmlParser from '../../utils/xmlParser';
 describe('useDocumentStore', () => {
   beforeEach(() => {
     localStorage.clear();
-    storageAdapter.clearMemoryStore();
+    storageAdapter.resetSession();
     vi.clearAllMocks();
 
     vi.spyOn(xmlParser, 'extractMusicXml').mockResolvedValue(`<?xml version="1.0" encoding="UTF-8"?>
@@ -39,7 +40,7 @@ describe('useDocumentStore', () => {
     updatedAt: '2026-08-03T00:00:00.000Z',
   };
 
-  it('hydrates documents from IndexedDB storageAdapter and sets hydrationStatus to ready', async () => {
+  it('hydrates documents from the shared service and sets hydrationStatus to ready', async () => {
     vi.spyOn(storageAdapter, 'getDocuments').mockResolvedValue([sampleDoc]);
 
     const { result } = renderHook(() => useDocumentStore());
@@ -50,6 +51,41 @@ describe('useDocumentStore', () => {
 
     expect(result.current.documents).toHaveLength(1);
     expect(result.current.documents[0].name).toBe('IDBScore.abc');
+  });
+
+  it('surfaces a service outage on startup without saving an empty library', async () => {
+    const read = vi.spyOn(storageAdapter, 'getDocuments').mockRejectedValue(new Error('Scores could not be loaded.'));
+    const write = vi.spyOn(storageAdapter, 'saveDocuments');
+    const { result, unmount } = renderHook(() => useDocumentStore());
+    await waitFor(() => expect(result.current.hydrationStatus).toBe('error'));
+    expect(result.current.error).toBe('Scores could not be loaded.');
+    expect(write).not.toHaveBeenCalled();
+    unmount(); read.mockRestore(); write.mockRestore();
+  });
+
+  it('reports an empty-workspace save failure instead of claiming it was saved', async () => {
+    const read = vi.spyOn(storageAdapter, 'getDocuments').mockResolvedValue([]);
+    const write = vi.spyOn(storageAdapter, 'saveDocuments').mockRejectedValue(new Error('Service stopped'));
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { result, unmount } = renderHook(() => useDocumentStore());
+    await waitFor(() => expect(result.current.saveStatus).toBe('error'));
+    expect(write).toHaveBeenCalledWith([]);
+    unmount(); read.mockRestore(); write.mockRestore(); log.mockRestore();
+  });
+
+  it('retains unsaved edits when saving and refreshing both fail', async () => {
+    const read = vi.spyOn(storageAdapter, 'getDocuments').mockResolvedValueOnce([sampleDoc])
+      .mockRejectedValue(new Error('Scores could not be refreshed.'));
+    const write = vi.spyOn(storageAdapter, 'saveDocuments').mockRejectedValue(new Error('Service stopped'));
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { result, unmount } = renderHook(() => useDocumentStore());
+    await waitFor(() => expect(result.current.hydrationStatus).toBe('ready'));
+    act(() => result.current.handleAbcChange('X:1\nK:C\nD4|'));
+    await waitFor(() => expect(result.current.saveStatus).toBe('error'));
+    await act(async () => result.current.handleRefreshDocuments());
+    expect(result.current.abcCode).toBe('X:1\nK:C\nD4|');
+    expect(result.current.error).toBe('Scores could not be refreshed.');
+    unmount(); read.mockRestore(); write.mockRestore(); log.mockRestore();
   });
 
   it('clears the active range only when switching to another file', async () => {
@@ -120,7 +156,7 @@ describe('useDocumentStore', () => {
     expect(result.current.activeDocument?.abcSource).toBe(copy.abcSource);
   });
 
-  it('loads sample track safely when no IndexedDB documents exist and hydration completes', async () => {
+  it('loads sample track safely when the shared library is empty and hydration completes', async () => {
     vi.spyOn(storageAdapter, 'getDocuments').mockResolvedValue([]);
 
     global.fetch = vi.fn().mockResolvedValue({

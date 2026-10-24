@@ -3,7 +3,7 @@ title: "Workspace Layout Spec"
 description: "Specification for the top-level desktop workspace structure, header, file rail, central score workspace, and chat panel"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-10-12
+updated: 2026-10-24
 status: "implemented"
 source_files:
   - src/App.tsx
@@ -56,7 +56,7 @@ related_specs:
 # Workspace Layout Spec
 
 Date: 2026-07-28  
-Updated: 2026-09-03
+Updated: 2026-10-24
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 ## 1. Goal
@@ -114,7 +114,7 @@ Required content:
 
 Implication:
 
-- Chorale has a file/session model persisted to local storage and IndexedDB rather than a single score loaded into component state.
+- Chorale has a file/session model persisted through the shared SQLite service in browser and Electron. Display preferences and active-file selection remain local to each client.
 - sample tracks and imported scores populate the file rail directly.
 
 ## 4. Central workspace

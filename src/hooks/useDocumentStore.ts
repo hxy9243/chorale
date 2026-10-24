@@ -106,7 +106,7 @@ export const useDocumentStore = () => {
   const canUndo = activeHistoryIndex > 0;
   const canRedo = activeHistoryIndex < editingHistory.length - 1;
 
-  // Hydrate documents from IndexedDB on mount
+  // Hydrate documents from the shared SQLite service on mount
   useEffect(() => {
     let cancelled = false;
     async function hydrate() {
@@ -151,18 +151,14 @@ export const useDocumentStore = () => {
         }
         return currentActive;
       });
-    } catch { /* optional bridge unavailable in local development */ }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Scores could not be refreshed.');
+    }
   }, []);
 
   // Auto-save effect: ONLY run after hydration is ready
   useEffect(() => {
     if (hydrationStatus !== 'ready') return;
-
-    if (documents.length === 0) {
-      void storageAdapter.saveDocuments([]);
-      setSaveStatus('saved');
-      return;
-    }
 
     setSaveStatus('saving');
     const timeout = window.setTimeout(() => {

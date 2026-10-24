@@ -14,14 +14,10 @@ import {
   isAIThinkingLevel,
 } from '../agent/aiTypes';
 import {
-  conversationNeedsDurableHydration,
   getConversationTotalTokens,
-  loadConversation,
   loadConversationAsync,
   makeEmptyConversation,
-  saveConversation,
   saveConversationAsync,
-  savePendingQueue,
   savePendingQueueAsync,
 } from '../agent/conversationStore';
 import type {
@@ -574,7 +570,6 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
           activeRun.assistantId,
         );
         conversationRef.current = unavailable;
-        saveConversation(activeRun.fileId, unavailable);
         void saveConversationAsync(activeRun.fileId, unavailable);
       }
       stop();
@@ -587,27 +582,24 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       setDurableHydrationFailed(false);
       return;
     }
-    updateConversation(loadConversation(fileId));
+    updateConversation(makeEmptyConversation());
     setConversationFileId(fileId);
     let cancelled = false;
-    const needsDurableHydration = conversationNeedsDurableHydration(fileId);
-    setDurableHydrationPending(needsDurableHydration);
+    setDurableHydrationPending(true);
     setDurableHydrationFailed(false);
-    if (needsDurableHydration) {
-      void loadConversationAsync(fileId).then((loaded) => {
-        if (!cancelled) {
-          updateConversation(loaded);
-          setDurableHydrationFailed(false);
-        }
-      }).catch(() => {
-        if (!cancelled) {
-          setDurableHydrationFailed(true);
-          setError('Saved score proposals could not be restored. Reload to retry without overwriting them.');
-        }
-      }).finally(() => {
-        if (!cancelled) setDurableHydrationPending(false);
-      });
-    }
+    void loadConversationAsync(fileId).then((loaded) => {
+      if (!cancelled) {
+        updateConversation(loaded);
+        setDurableHydrationFailed(false);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setDurableHydrationFailed(true);
+        setError('Saved conversations could not be loaded. Reconnect to Chorale and reload to retry without overwriting them.');
+      }
+    }).finally(() => {
+      if (!cancelled) setDurableHydrationPending(false);
+    });
     composerRef.current?.setDraft('');
     setError(null);
     setEditingProposal(null);
@@ -625,8 +617,12 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       || durableHydrationPending
       || durableHydrationFailed
     ) return;
-    saveConversation(fileId, conversation);
-    void saveConversationAsync(fileId, conversation);
+
+    let cancelled = false;
+    void saveConversationAsync(fileId, conversation).then((saved) => {
+      if (!saved && !cancelled) setError('Conversation changes could not be saved. Keep this window open and reconnect to Chorale.');
+    });
+    return () => { cancelled = true; };
   }, [
     conversation,
     conversationFileId,
@@ -645,7 +641,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   }, [thinkingLevel]);
 
   useEffect(() => {
-    if (!fileId || revision <= 0) return;
+    if (!fileId || revision <= 0 || durableHydrationPending) return;
     updateConversation((current) => ({
       ...current,
       threads: current.threads.map((thread) => ({
@@ -661,7 +657,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         )),
       })),
     }));
-  }, [fileId, revision, updateConversation]);
+  }, [fileId, revision, durableHydrationPending, updateConversation]);
 
   const activeThread = useMemo(() => (
     conversation.threads.find((thread) => thread.id === conversation.activeThreadId) || conversation.threads[0]
@@ -684,7 +680,6 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         activeRun.threadId,
         activeRun.assistantId,
       );
-      saveConversation(activeRun.fileId, unavailable);
       void saveConversationAsync(activeRun.fileId, unavailable);
     }
     abortControllerRef.current?.abort();
@@ -928,6 +923,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       }
     },
     getMusicContext: captureContext,
+    onPersistenceError: () => setError('Queued messages could not be saved. Keep this window open and reconnect to Chorale.'),
   }), [fileId, activeThread?.id, pendingMessages, captureContext, updatePendingQueue]);
 
   const executePrompt = useCallback(async (
@@ -935,7 +931,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     customContext?: MusicContextSnapshot,
   ) => {
     if (
-      !question || !abcCode.trim() || isStreaming || durableHydrationPending
+      !question || !abcCode.trim() || isStreaming || durableHydrationPending || durableHydrationFailed
       || !activeThread || !providerReady
     ) return;
 
@@ -1180,8 +1176,9 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
             const remainingQueue = currentQueue.filter((_, idx) => idx !== pickIdx);
             updatePendingQueue(threadId, remainingQueue);
             if (fileId) {
-              savePendingQueue(fileId, threadId, remainingQueue);
-              void savePendingQueueAsync(fileId, threadId, remainingQueue);
+              void savePendingQueueAsync(fileId, threadId, remainingQueue).then((saved) => {
+                if (!saved) setError('Queued messages could not be saved. Keep this window open and reconnect to Chorale.');
+              });
             }
             void executePrompt(nextItem.prompt, nextItem.context);
           }
@@ -1192,6 +1189,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     abcCode,
     isStreaming,
     durableHydrationPending,
+    durableHydrationFailed,
     activeThread,
     providerReady,
     captureContext,
@@ -1238,8 +1236,9 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       if (fileId && activeThread?.id) {
         const nextQueue = [newItem, ...existingQueue];
         updatePendingQueue(activeThread.id, nextQueue);
-        savePendingQueue(fileId, activeThread.id, nextQueue);
-        void savePendingQueueAsync(fileId, activeThread.id, nextQueue);
+        void savePendingQueueAsync(fileId, activeThread.id, nextQueue).then((saved) => {
+          if (!saved) setError('Queued messages could not be saved. Keep this window open and reconnect to Chorale.');
+        });
       }
     } else {
       void executePrompt(trimmed, steerContext);
@@ -1455,7 +1454,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
             ref={composerRef}
             abcCode={abcCode}
             isStreaming={isStreaming}
-            providerReady={providerReady}
+            providerReady={providerReady && !durableHydrationPending && !durableHydrationFailed}
             ai={ai}
             selectedConnection={selectedConnection}
             selectedModel={selectedModel}

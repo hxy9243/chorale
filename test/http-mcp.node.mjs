@@ -51,3 +51,59 @@ test('Streamable HTTP, SSE and REST share the same library and revision guards',
     await rm(home, { recursive: true, force: true });
   }
 });
+
+test('web and desktop JSON content persists in SQLite across service restarts', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'chorale-sqlite-content-'));
+  let store;
+  let running;
+  const stop = async () => {
+    if (running) {
+      running.httpServer.closeAllConnections();
+      await new Promise(resolve => running.httpServer.close(resolve));
+      await running.mcpServer.close();
+      running = null;
+    }
+    store?.close();
+    store = null;
+  };
+  try {
+    store = new LocalDocumentStore({ baseDir: home, seedDefault: false });
+    const score = await store.create({ title: 'Shared score', abcSource: 'X:1\nK:C\nC4|' });
+    running = await startServer({ port: 0, store });
+    let base = `http://127.0.0.1:${running.port}`;
+    const path = '/v1/storage/chorale.pi-agent-conversation.v4';
+    const conversation = { version: 4, files: { [score.id]: { threads: [{ messages: ['Shared conversation'], pendingMessages: ['Follow up'] }] } } };
+    const write = (key, value) => fetch(`${base}/v1/storage/${key}`, {
+      method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ value }),
+    });
+    assert.deepEqual(await (await fetch(`${base}${path}`)).json(), { found: false });
+    assert.equal((await write('chorale.pi-agent-conversation.v4', conversation)).status, 200);
+    assert.deepEqual(await (await fetch(`${base}${path}`)).json(), { found: true, value: conversation });
+    assert.equal((await store.require(score.id)).revision, score.revision, 'Saving chat must not rewrite score revisions');
+    await write('schema_version', 'untrusted content');
+    assert.equal(store.getMeta('schema_version'), '1', 'JSON storage cannot alter the schema version');
+    assert.equal((await write('nullable', null)).status, 200);
+    assert.deepEqual(await (await fetch(`${base}/v1/storage/nullable`)).json(), { found: true, value: null });
+    const invalid = await fetch(`${base}${path}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: '{}' });
+    assert.equal(invalid.status, 400);
+    assert.equal((await fetch(`${base}${path}`, { headers: { origin: 'https://untrusted.invalid' } })).status, 403);
+    const staleWrite = await fetch(`${base}${path}`, {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ value: { files: {} }, baseline: { found: false } }),
+    });
+    assert.equal(staleWrite.status, 409, 'A stale browser or desktop save must not overwrite shared conversations');
+    assert.deepEqual(await (await fetch(`${base}${path}`)).json(), { found: true, value: conversation });
+    await stop();
+
+    store = new LocalDocumentStore({ baseDir: home, seedDefault: false });
+    running = await startServer({ port: 0, store });
+    base = `http://127.0.0.1:${running.port}`;
+    assert.deepEqual(await (await fetch(`${base}${path}`)).json(), { found: true, value: conversation });
+    assert.equal((await (await fetch(`${base}/v1/workspace`)).json()).documents[0].id, score.id);
+    assert.equal((await fetch(`${base}${path}`, { method: 'DELETE' })).status, 200);
+    assert.deepEqual(await (await fetch(`${base}${path}`)).json(), { found: false });
+  } finally {
+    await stop();
+    await rm(home, { recursive: true, force: true });
+  }
+});

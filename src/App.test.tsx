@@ -1,3 +1,4 @@
+import './test/mockSharedStorage';
 import { act, render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import abcjs from 'abcjs';
@@ -43,7 +44,7 @@ describe('App Integration', () => {
     vi.clearAllMocks();
     localStorage.clear();
     window.history.replaceState({}, '', '/');
-    storageAdapter.clearMemoryStore();
+    storageAdapter.resetSession();
 
     vi.spyOn(xmlParser, 'extractMusicXml').mockResolvedValue(`<?xml version="1.0" encoding="UTF-8"?>
 <score-partwise version="3.1">

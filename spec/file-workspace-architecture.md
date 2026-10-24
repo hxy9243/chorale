@@ -3,7 +3,7 @@ title: "File Workspace Architecture"
 description: "Architecture specification covering runtime layers, document store, shared music libraries, data contracts, and invariants"
 category: "architecture"
 date: 2026-08-05
-updated: 2026-09-19
+updated: 2026-10-24
 status: "implemented"
 source_files:
   - src/types/document.ts
@@ -18,6 +18,8 @@ source_files:
   - src/utils/abcMetadata.ts
   - src/utils/fileHistory.ts
   - src/utils/storageAdapter.ts
+  - server/store.mjs
+  - server/api_server.mjs
   - src/utils/fileSession.ts
   - src/components/ScoreMetadataHeader.tsx
   - src/components/EditingHistoryModal.tsx
@@ -36,6 +38,7 @@ test_files:
   - src/components/__tests__/EditingHistoryModal.test.tsx
   - src/components/__tests__/FileSelector.test.tsx
   - src/utils/__tests__/storageAdapter.test.ts
+  - test/http-mcp.node.mjs
   - src/utils/__tests__/fileSession.test.ts
   - src/agent/__tests__/conversationStore.test.ts
   - src/agent/__tests__/ipcValidation.test.ts
@@ -51,7 +54,7 @@ related_specs:
 # File Workspace Architecture
 
 Date: 2026-08-05
-Updated: 2026-09-03
+Updated: 2026-10-24
 Source: Existing workspace architecture plus `spec/agent-analysis-and-annotations.md`
 
 ## 1. Goal
@@ -70,7 +73,7 @@ Define ownership, persistence, and process boundaries for the passage-aware Musi
 
 - Active file identity and canonical `FileDocument` values.
 - Shared `ScoreAnchor` range using `startMeasure` and `endMeasure`.
-- Annotation CRUD mutations and existing debounced IndexedDB autosave.
+- Annotation CRUD mutations and debounced autosave through the shared SQLite service.
 - Score editing history timeline (`EditHistoryEntry[]`, max 100 entries) with categories (`origin`, `metadata`, `body`, `annotation`), undo/redo stack, and non-destructive revert.
 - Newly created or imported scores are prepended to the file list by default (index 0) for immediate visibility at the top of the rail.
 - ABC changes alone increment document revision and create `ScoreVersion` records.
@@ -109,12 +112,25 @@ These modules are independent of React and Electron UI code.
 
 ### Persistence
 
-- `FileDocument` values, including accepted annotations, remain in IndexedDB.
-- Active-file and workspace preferences remain in their existing stores.
-- File-scoped conversation history uses schema version 4. IndexedDB is the full-fidelity store;
-  local storage is a compact synchronous mirror and fallback. A valid v4 store is authoritative.
-  Legacy v2/v3 stores are consulted only when v4 is absent or invalid, and the v3 key is preserved
-  for rollback.
+- Browser and Electron use the same HTTP workspace service, backed exclusively by
+  `LocalDocumentStore` and `~/.chorale/chorale.db` (or the configured database path).
+- Documents, accepted annotations, conversations, score proposals and pending chat
+  queues have no IndexedDB, local-storage or in-memory persistence fallback.
+- The renderer uses `/v1/workspace` for documents and `/v1/storage/:key` for JSON
+  conversation data. The latter stores namespaced entries in SQLite's existing
+  `meta` table without rewriting scores or changing their revisions.
+- JSON writes include their last-read baseline; stale concurrent saves are rejected
+  rather than overwriting another browser or Electron window.
+- Every conversation hydrates from the service before editing or saving is enabled.
+  Failed hydration must not overwrite existing backend data with an empty thread.
+- Service failures surface an error, retain unsaved content in React state, and
+  never report a successful save. Subsequent requests retry the service normally.
+- Active-file selection and display preferences remain browser/tab-local. Provider
+  credentials retain the encrypted Electron main-process storage boundary.
+- No browser-profile import, legacy conversation recovery, or database migration is
+  required. Existing browser databases are left untouched and unused.
+- Browser development (`npm run dev`) requires the shared daemon (`chorale --serve`)
+  through the Vite `/v1` proxy. Electron starts or reuses that daemon automatically.
 
 ## 3. Core data contracts
 
@@ -186,16 +202,14 @@ The same canonical `Annotation` type crosses document, context, IPC validation, 
 
 ## 5. Normalization, migration, and default score installation
 
-- `storageAdapter.getDocuments()` invokes pure `normalizeFileDocument` for IndexedDB and memory paths.
+- `storageAdapter.getDocuments()` invokes pure `normalizeFileDocument` for service responses.
 - `useDocumentStore` owns UI state and mutations, not schema migration.
 - Fresh workspace installations without existing documents initialize with **J.S. Bach BWV 371** (`bwv-371-abc`, `public/samples/bwv_371.abc`) as the default preset sample, pre-populated with 22 structured harmonic annotations (`src/data/defaultScore.ts`).
 - Standalone CLI/MCP daemon startups (`LocalDocumentStore`) automatically seed the same default score and annotations (`server/default-score.mjs`) when the database is empty (`seedDefault: true`).
 - Legacy annotation kinds normalize to the canonical four-kind model.
-- Conversation v2 and v3 migrate to v4 with ordered structured parts, normalized stopped status for
-  interrupted streams, token usage, and a persisted pending queue. Legacy v3 data remains untouched.
-- Durable hydration prefers valid version-4 IndexedDB data and falls back to legacy data only when v4
-  is absent or invalid.
-- No IndexedDB object-store migration is needed because annotations remain inline.
+- Conversation v4 data is normalized when loaded from SQLite, including stopped
+  status for interrupted streams and restored pending queues. No legacy browser
+  stores are read or imported.
 
 ## 6. Failure boundaries
 

@@ -1,9 +1,10 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { renderHydrated } from '../../test/renderHydrated';
+import '../../test/mockSharedStorage';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentChatPanel } from '../AgentChatPanel';
 import {
   CONVERSATION_STORAGE_KEY,
-  DURABLE_CONVERSATION_MARKER_PREFIX,
 } from '../../agent/conversationStore';
 import type { AIProviderState } from '../../agent/useAIProviders';
 import type { AIModelOption, SheetAgentRequest } from '../../agent/aiTypes';
@@ -86,13 +87,13 @@ const proposal = {
   },
 };
 
-const seedProposalThread = (
+const seedProposalThread = async (
   fileId: string,
   proposals: AnnotationProposal[],
   status: 'complete' | 'streaming' = 'complete',
 ) => {
-  localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
-    version: 3,
+  await storageAdapter.setItem(CONVERSATION_STORAGE_KEY, {
+    version: 4,
     files: {
       [fileId]: {
         activeThreadId: 'thread-review',
@@ -111,12 +112,12 @@ const seedProposalThread = (
         }],
       },
     },
-  }));
+  });
 };
 
-const seedScoreProposalThread = (fileId: string, scoreProposal: ScoreChangeProposal) => {
-  localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
-    version: 3,
+const seedScoreProposalThread = async (fileId: string, scoreProposal: ScoreChangeProposal) => {
+  await storageAdapter.setItem(CONVERSATION_STORAGE_KEY, {
+    version: 4,
     files: {
       [fileId]: {
         activeThreadId: 'thread-score-review',
@@ -135,12 +136,13 @@ const seedScoreProposalThread = (fileId: string, scoreProposal: ScoreChangePropo
         }],
       },
     },
-  }));
+  });
 };
 
 describe('AgentChatPanel', () => {
   beforeEach(() => {
     localStorage.clear();
+    storageAdapter.resetSession();
     agentSendMock.mockReset();
     agentSendMock.mockImplementation(completeMockResponse);
   });
@@ -157,10 +159,10 @@ describe('AgentChatPanel', () => {
       replacementAbc: 'C E G c | c G E C |',
       validation: { status: 'valid', errors: [] },
     };
-    seedScoreProposalThread('doc-score-proposals', scoreProposal);
+    await seedScoreProposalThread('doc-score-proposals', scoreProposal);
     const onPreview = vi.fn(() => 'ready' as const);
     const onApply = vi.fn(() => 'accepted' as const);
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -180,7 +182,7 @@ describe('AgentChatPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /Apply/ }));
     expect(onApply).toHaveBeenCalledWith(scoreProposal);
     expect(screen.getByText('Applied')).toBeDefined();
-    await waitFor(() => expect(localStorage.getItem(CONVERSATION_STORAGE_KEY)).toContain('"state":"accepted"'));
+    await waitFor(async () => expect(JSON.stringify(await storageAdapter.getItem(CONVERSATION_STORAGE_KEY, null))).toContain('"state":"accepted"'));
   });
 
   it('defers conversation persistence while a score proposal is streaming', async () => {
@@ -199,7 +201,7 @@ describe('AgentChatPanel', () => {
         finishRun = resolve;
       });
     });
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -216,7 +218,7 @@ describe('AgentChatPanel', () => {
       target: { value: 'Rewrite the score' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-    await waitFor(() => expect(emitScoreProposal).toBeDefined());
+    await waitFor(async () => expect(emitScoreProposal).toBeDefined());
 
     const streamedProposal: ScoreChangeProposal = {
       id: 'score-proposal-streaming',
@@ -236,22 +238,22 @@ describe('AgentChatPanel', () => {
       emitDelta?.(' Second delta.');
       await Promise.resolve();
     });
-    expect(localStorage.getItem(CONVERSATION_STORAGE_KEY)).not.toContain(streamedProposal.id);
+    expect(JSON.stringify(await storageAdapter.getItem(CONVERSATION_STORAGE_KEY, null))).not.toContain(streamedProposal.id);
 
     await act(async () => {
       finishRun?.();
       await Promise.resolve();
     });
-    await waitFor(() => expect(localStorage.getItem(CONVERSATION_STORAGE_KEY)).toContain(streamedProposal.id));
+    await waitFor(async () => expect(JSON.stringify(await storageAdapter.getItem(CONVERSATION_STORAGE_KEY, null))).toContain(streamedProposal.id));
   });
 
-  it('marks a persisted score proposal outdated when the document revision changes', () => {
-    seedScoreProposalThread('doc-score-outdated', {
+  it('marks a persisted score proposal outdated when the document revision changes', async () => {
+    await seedScoreProposalThread('doc-score-outdated', {
       id: 'score-proposal-old', runId: 'run-old', documentId: 'doc-score-outdated', sourceRevision: 2,
       state: 'proposed', span: { startMeasure: 1, endMeasure: 1 }, summary: 'Old music',
       replacementAbc: 'C4 |', validation: { status: 'valid', errors: [] },
     });
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -290,12 +292,12 @@ describe('AgentChatPanel', () => {
       ai,
       onOpenSettings: () => undefined,
     };
-    const { rerender } = render(<AgentChatPanel {...props} revision={1} />);
+    const { rerender } = await renderHydrated(<AgentChatPanel {...props} revision={1} />);
     fireEvent.change(screen.getByLabelText('Ask about the current sheet'), {
       target: { value: 'Rewrite this score' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-    await waitFor(() => expect(emitScoreProposal).toBeDefined());
+    await waitFor(async () => expect(emitScoreProposal).toBeDefined());
 
     rerender(<AgentChatPanel {...props} revision={2} />);
     await act(async () => {
@@ -319,15 +321,15 @@ describe('AgentChatPanel', () => {
     expect(screen.queryByRole('button', { name: /Preview/ })).toBeNull();
   });
 
-  it('restores and labels persisted whole-score edit proposals', () => {
-    seedScoreProposalThread('doc-whole-score', {
+  it('restores and labels persisted whole-score edit proposals', async () => {
+    await seedScoreProposalThread('doc-whole-score', {
       id: 'score-proposal-whole', runId: 'run-whole', documentId: 'doc-whole-score', sourceRevision: 3,
       state: 'proposed', kind: 'replace-score', span: { startMeasure: 1, endMeasure: 2 },
       summary: 'Change the key, tempo, and orchestration.',
       replacementAbc: 'X:1\nM:4/4\nQ:1/4=90\nV:one\nV:two\nK:G\n[V:one] G4 | A4 |]\n[V:two] D4 | E4 |]',
       validation: { status: 'valid', errors: [] },
     });
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -354,7 +356,7 @@ describe('AgentChatPanel', () => {
       createdAt: '2026-08-05T00:00:00.000Z',
       updatedAt: '2026-08-05T00:00:00.000Z',
     }];
-    const { unmount } = render(
+    const { unmount } = await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -384,15 +386,15 @@ describe('AgentChatPanel', () => {
     expect(request.context.annotations[0].span).not.toBe(annotations[0].span);
     expect(screen.getByText('Local edit.abc · ABC rev 12')).toBeDefined();
 
-    await waitFor(() => {
-      const saved = localStorage.getItem(CONVERSATION_STORAGE_KEY);
+    await waitFor(async () => {
+      const saved = JSON.stringify(await storageAdapter.getItem(CONVERSATION_STORAGE_KEY, null));
       expect(saved).toContain('Edited in memory');
       expect(saved).toContain('What changed?');
       expect(saved).toContain('doc-local-edit');
     });
 
     unmount();
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -411,7 +413,7 @@ describe('AgentChatPanel', () => {
   });
 
   it('configures and persists the selected thinking level for chat requests', async () => {
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -476,7 +478,7 @@ describe('AgentChatPanel', () => {
       refreshModels,
       setSelection,
     };
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -496,15 +498,15 @@ describe('AgentChatPanel', () => {
       target: { value: 'openrouter-test' },
     });
 
-    await waitFor(() => expect(refreshModels).toHaveBeenCalledWith('openrouter-test'));
+    await waitFor(async () => expect(refreshModels).toHaveBeenCalledWith('openrouter-test'));
     expect(setSelection).toHaveBeenCalledWith({
       connectionId: 'openrouter-test',
       modelId: 'glm-fresh',
     });
   });
 
-  it('disables start new thread button when conversation is empty and does not create empty threads', () => {
-    render(
+  it('disables start new thread button when conversation is empty and does not create empty threads', async () => {
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -527,8 +529,8 @@ describe('AgentChatPanel', () => {
     expect(options.length).toBe(1);
   });
 
-  it('does not render analyze, edit, compose buttons or tools disclosure', () => {
-    render(
+  it('does not render analyze, edit, compose buttons or tools disclosure', async () => {
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -557,9 +559,9 @@ describe('AgentChatPanel', () => {
         body: 'The phrase closes here.',
       },
     };
-    seedProposalThread('doc-proposals', [proposal, secondProposal]);
+    await seedProposalThread('doc-proposals', [proposal, secondProposal]);
     const onApplyAnnotations = vi.fn();
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -582,7 +584,7 @@ describe('AgentChatPanel', () => {
       target: { value: 'Edited before acceptance.' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }));
-    await waitFor(() => expect(document.activeElement).toBe(
+    await waitFor(async () => expect(document.activeElement).toBe(
       within(screen.getByLabelText('Opening annotation proposal')).getByRole('button', { name: 'Edit' }),
     ));
 
@@ -610,7 +612,7 @@ describe('AgentChatPanel', () => {
     ) => new Promise<void>(() => {
       callbacks.onProposalCreated(proposal);
     }));
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -635,8 +637,8 @@ describe('AgentChatPanel', () => {
   });
 
   it('marks revision-mismatched proposals outdated and blocks review actions', async () => {
-    seedProposalThread('doc-proposals', [proposal]);
-    render(
+    await seedProposalThread('doc-proposals', [proposal]);
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -657,7 +659,7 @@ describe('AgentChatPanel', () => {
   });
 
   it('waits for document hydration before evaluating proposal staleness', async () => {
-    seedProposalThread('doc-proposals', [proposal]);
+    await seedProposalThread('doc-proposals', [proposal]);
     const props = {
       open: true,
       onClose: () => undefined,
@@ -668,7 +670,7 @@ describe('AgentChatPanel', () => {
       onOpenSettings: () => undefined,
       onApplyAnnotations: vi.fn(),
     };
-    const { rerender } = render(<AgentChatPanel {...props} revision={0} />);
+    const { rerender } = await renderHydrated(<AgentChatPanel {...props} revision={0} />);
 
     expect(screen.getByText('Proposed')).toBeDefined();
     expect(screen.getByRole('button', { name: 'Edit' })).toBeDefined();
@@ -677,59 +679,44 @@ describe('AgentChatPanel', () => {
     expect(screen.queryByText('Outdated')).toBeNull();
   });
 
-  it('does not overwrite compact recovery data when durable hydration fails', async () => {
-    const recoveryFileId = 'doc-hydration-failure';
-    localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
-      version: 3,
-      files: {
-        [recoveryFileId]: {
-          activeThreadId: 'thread-recovery',
-          threads: [{
-            id: 'thread-recovery',
-            title: 'Recovered conversation',
-            updatedAt: '2026-08-05T00:00:00.000Z',
-            messages: [{
-              id: 'assistant-recovery',
-              role: 'assistant',
-              content: 'Compact recovery copy.',
-              createdAt: '2026-08-05T00:00:00.000Z',
-              status: 'complete',
-              scoreProposals: [],
-            }],
-          }],
-        },
-      },
-    }));
-    const markerKey = `${DURABLE_CONVERSATION_MARKER_PREFIX}${recoveryFileId}`;
-    localStorage.setItem(markerKey, '1');
-    const getItem = vi.spyOn(storageAdapter, 'getItem').mockRejectedValueOnce(new Error('IndexedDB unavailable'));
+  it('does not save an empty conversation when service hydration fails', async () => {
+    const getItem = vi.spyOn(storageAdapter, 'getItem').mockRejectedValueOnce(new Error('Service unavailable'));
     const setItem = vi.spyOn(storageAdapter, 'setItem');
-
-    render(
-      <AgentChatPanel
-        open
-        onClose={() => undefined}
-        fileId={recoveryFileId}
-        abcCode={'X:1\nT:Recovery\nM:4/4\nK:C\nCDEF|'}
-        activeFileName="Recovery.abc"
-        revision={1}
-        ai={ai}
-        onOpenSettings={() => undefined}
-      />,
+    await renderHydrated(
+      <AgentChatPanel open onClose={() => undefined} fileId="doc-hydration-failure"
+        abcCode={'X:1\nK:C\nCDEF|'} activeFileName="Recovery.abc" revision={1}
+        ai={ai} onOpenSettings={() => undefined} />,
     );
-
-    expect(await screen.findByText(/Saved score proposals could not be restored/)).toBeDefined();
-    expect(localStorage.getItem(markerKey)).toBe('1');
+    expect(await screen.findByText(/Saved conversations could not be loaded/)).toBeDefined();
     expect(setItem).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Ask about the current sheet'), { target: { value: 'Do not send' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(agentSendMock).not.toHaveBeenCalled();
     getItem.mockRestore();
     setItem.mockRestore();
   });
 
-  it('applies none and identifies invalid cards when any proposed annotation collides', () => {
+  it('keeps messages visible and reports failed conversation saves', async () => {
+    const write = vi.spyOn(storageAdapter, 'setItem').mockRejectedValue(new Error('Service stopped'));
+    await renderHydrated(
+      <AgentChatPanel open onClose={() => undefined} fileId="doc-save-failure"
+        abcCode={'X:1\nK:C\nCDEF|'} activeFileName="Unsaved.abc" revision={1}
+        ai={ai} onOpenSettings={() => undefined} />,
+    );
+    fireEvent.change(screen.getByLabelText('Ask about the current sheet'), { target: { value: 'Keep my question' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await screen.findByText('Grounded mock response');
+    expect(await screen.findByText(/Conversation changes could not be saved/)).toBeDefined();
+    expect(screen.getAllByText('Keep my question').length).toBeGreaterThan(0);
+    expect(localStorage.getItem(CONVERSATION_STORAGE_KEY)).toBeNull();
+    write.mockRestore();
+  });
+
+  it('applies none and identifies invalid cards when any proposed annotation collides', async () => {
     const collidingAnnotation = proposal.annotation;
-    seedProposalThread('doc-proposals', [proposal]);
+    await seedProposalThread('doc-proposals', [proposal]);
     const onApplyAnnotations = vi.fn();
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -751,7 +738,7 @@ describe('AgentChatPanel', () => {
   });
 
   it('shows the active range in the composer and captured user context', async () => {
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -791,9 +778,9 @@ describe('AgentChatPanel', () => {
     expect(screen.getByText('mm. 3–5').closest('.agent-anchor-pill')).not.toBeNull();
   });
 
-  it('deselects the measure context when the composer clear button is clicked', () => {
+  it('deselects the measure context when the composer clear button is clicked', async () => {
     const onClearAnchor = vi.fn();
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -822,7 +809,7 @@ describe('AgentChatPanel', () => {
       });
       callbacks.onDelta('Compare **both phrases** in [mm. 2–1](#measure-2-1).');
     });
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -849,8 +836,8 @@ describe('AgentChatPanel', () => {
 
   it('navigates to score measures when clicking measure links inside proposal cards', async () => {
     const onNavigateMeasure = vi.fn();
-    seedProposalThread('doc-proposals', [proposal]);
-    render(
+    await seedProposalThread('doc-proposals', [proposal]);
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -880,7 +867,7 @@ describe('AgentChatPanel', () => {
       callbacks.onProposalCreated(proposal);
       throw new Error('Provider failed after proposing');
     });
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -899,8 +886,8 @@ describe('AgentChatPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await screen.findByRole('alert');
 
-    await waitFor(() => {
-      const store = JSON.parse(localStorage.getItem(CONVERSATION_STORAGE_KEY) ?? '{}');
+    await waitFor(async () => {
+      const store = await storageAdapter.getItem<any>(CONVERSATION_STORAGE_KEY, {});
       const messages = store.files['doc-proposals'].threads[0].messages;
       const assistant = messages.find((message: { role: string }) => message.role === 'assistant');
       expect(assistant.proposals).toEqual([{ ...proposal, state: 'unavailable' }]);
@@ -943,7 +930,7 @@ describe('AgentChatPanel', () => {
       });
       callbacks.onDelta('Answer');
     });
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -978,8 +965,8 @@ describe('AgentChatPanel', () => {
       source: 'assistant',
     };
     const onApplyAnnotations = vi.fn();
-    localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
-      version: 3,
+    await storageAdapter.setItem(CONVERSATION_STORAGE_KEY, {
+      version: 4,
       files: {
         'doc-history': {
           activeThreadId: 'thread-first',
@@ -1006,9 +993,9 @@ describe('AgentChatPanel', () => {
           ],
         },
       },
-    }));
+    });
 
-    render(
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -1040,8 +1027,8 @@ describe('AgentChatPanel', () => {
     expect(remainingOptions[0].textContent).toBe('New thread');
     expect(threadSelect.textContent).not.toContain('Second thread');
 
-    await waitFor(() => {
-      const saved = localStorage.getItem(CONVERSATION_STORAGE_KEY) || '';
+    await waitFor(async () => {
+      const saved = JSON.stringify(await storageAdapter.getItem(CONVERSATION_STORAGE_KEY, null)) || '';
       expect(saved).not.toContain('thread-first');
       expect(saved).not.toContain('thread-second');
       expect(saved).not.toContain('proposal-test');
@@ -1050,8 +1037,8 @@ describe('AgentChatPanel', () => {
     expect(onApplyAnnotations).not.toHaveBeenCalled();
   });
 
-  it('shows desktop-required state and gates the composer without a preload bridge', () => {
-    render(
+  it('shows desktop-required state and gates the composer without a preload bridge', async () => {
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -1069,8 +1056,8 @@ describe('AgentChatPanel', () => {
     expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('keeps the chat input height until content overflows, then grows within 35 percent of the panel', () => {
-    render(
+  it('keeps the chat input height until content overflows, then grows within 35 percent of the panel', async () => {
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -1107,8 +1094,8 @@ describe('AgentChatPanel', () => {
     expect(resizeHandle.querySelectorAll('.agent-composer-resize-icon path')).toHaveLength(3);
   });
 
-  it('closes the model selection popup when focus moves outside it', () => {
-    render(
+  it('closes the model selection popup when focus moves outside it', async () => {
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -1134,9 +1121,9 @@ describe('AgentChatPanel', () => {
     expect(screen.queryByRole('dialog', { name: 'AI chat configuration' })).toBeNull();
   });
 
-  it('uses a rounded custom thread menu and selects a thread from one chevron trigger', () => {
-    localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({
-      version: 3,
+  it('uses a rounded custom thread menu and selects a thread from one chevron trigger', async () => {
+    await storageAdapter.setItem(CONVERSATION_STORAGE_KEY, {
+      version: 4,
       files: {
         'doc-thread-menu': {
           activeThreadId: 'thread-first',
@@ -1156,8 +1143,8 @@ describe('AgentChatPanel', () => {
           ],
         },
       },
-    }));
-    render(
+    });
+    await renderHydrated(
       <AgentChatPanel
         open
         onClose={() => undefined}
@@ -1200,13 +1187,13 @@ describe('AgentChatPanel', () => {
       ai,
       onOpenSettings: () => undefined,
     };
-    const { rerender } = render(<AgentChatPanel {...props} open />);
+    const { rerender } = await renderHydrated(<AgentChatPanel {...props} open />);
 
     fireEvent.change(screen.getByLabelText('Ask about the current sheet'), {
       target: { value: 'Keep streaming' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-    await waitFor(() => expect(agentSendMock).toHaveBeenCalledTimes(1));
+    await waitFor(async () => expect(agentSendMock).toHaveBeenCalledTimes(1));
     const signal = agentSendMock.mock.calls[0][2] as AbortSignal;
 
     await act(async () => {
@@ -1248,12 +1235,12 @@ describe('AgentChatPanel', () => {
       ai,
       onOpenSettings: () => undefined,
     };
-    const { rerender } = render(<AgentChatPanel {...props} fileId="doc-before" />);
+    const { rerender } = await renderHydrated(<AgentChatPanel {...props} fileId="doc-before" />);
     fireEvent.change(screen.getByLabelText('Ask about the current sheet'), {
       target: { value: 'Keep streaming' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-    await waitFor(() => expect(agentSendMock).toHaveBeenCalledOnce());
+    await waitFor(async () => expect(agentSendMock).toHaveBeenCalledOnce());
     const signal = agentSendMock.mock.calls[0][2] as AbortSignal;
 
     await act(async () => {
@@ -1265,7 +1252,7 @@ describe('AgentChatPanel', () => {
     expect(screen.queryByText('Late answer')).toBeNull();
     expect(screen.queryByText('Late tool')).toBeNull();
     expect(screen.queryByText('Harmony analysis')).toBeNull();
-    const previousStore = JSON.parse(localStorage.getItem(CONVERSATION_STORAGE_KEY) ?? '{}');
+    const previousStore = await storageAdapter.getItem<any>(CONVERSATION_STORAGE_KEY, {});
     const previousMessages = previousStore.files['doc-before'].threads[0].messages;
     const previousAssistant = previousMessages.find((message: { role: string }) => (
       message.role === 'assistant'

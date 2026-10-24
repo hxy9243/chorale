@@ -1,6 +1,6 @@
 import type { AppendMessage, QueueItemState } from '@assistant-ui/react';
 import type { MusicContextSnapshot, QueuedChatMessage } from '../../agent/types';
-import { savePendingQueue, savePendingQueueAsync } from '../../agent/conversationStore';
+import { savePendingQueueAsync } from '../../agent/conversationStore';
 
 export type QueuePlacement = {
   readonly lane?: 'queue' | 'steer';
@@ -43,6 +43,7 @@ export interface ChoraleQueueOptions {
   pendingMessages: QueuedChatMessage[];
   onQueueChange: (nextQueue: QueuedChatMessage[]) => void;
   getMusicContext: () => MusicContextSnapshot;
+  onPersistenceError?: () => void;
 }
 
 export const createChoraleQueueAdapter = ({
@@ -51,6 +52,7 @@ export const createChoraleQueueAdapter = ({
   pendingMessages,
   onQueueChange,
   getMusicContext,
+  onPersistenceError,
 }: ChoraleQueueOptions): ExternalThreadQueueAdapter & {
   rawItems: QueuedChatMessage[];
   runNext: (itemId?: string) => QueuedChatMessage | null;
@@ -59,8 +61,9 @@ export const createChoraleQueueAdapter = ({
   const persistAndNotify = (next: QueuedChatMessage[]) => {
     onQueueChange(next);
     if (fileId && threadId) {
-      savePendingQueue(fileId, threadId, next);
-      void savePendingQueueAsync(fileId, threadId, next);
+      void savePendingQueueAsync(fileId, threadId, next).then((saved) => {
+        if (!saved) onPersistenceError?.();
+      });
     }
   };
 

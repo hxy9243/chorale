@@ -208,6 +208,32 @@ export class LocalDocumentStore {
     `).run(key, String(value));
   }
 
+  getStorageItem(key) {
+    const raw = this.getMeta(`storage:${key}`);
+    return raw === null ? { found: false } : { found: true, value: JSON.parse(raw) };
+  }
+
+  async setStorageItem(key, value, baseline) {
+    return this.serializeMutation(() => {
+      this.db.exec('BEGIN IMMEDIATE;');
+      try {
+        const current = this.getStorageItem(key);
+        if (baseline !== undefined && JSON.stringify(current) !== JSON.stringify(baseline)) {
+          throw new PluginError('REVISION_CONFLICT', 'The shared content changed in another client. Reload before saving.');
+        }
+        this.setMeta(`storage:${key}`, JSON.stringify(value));
+        this.db.exec('COMMIT;');
+      } catch (error) {
+        this.db.exec('ROLLBACK;');
+        throw error;
+      }
+    });
+  }
+
+  async removeStorageItem(key) {
+    return this.serializeMutation(() => this.db.prepare('DELETE FROM meta WHERE key = ?').run(`storage:${key}`));
+  }
+
   initSchema() {
     const version = this.inspectSchemaVersion();
     if (version === null) {

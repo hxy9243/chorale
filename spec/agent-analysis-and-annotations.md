@@ -3,7 +3,7 @@ title: "Passage-Aware Music Tutor, Agent Tools, and Annotations"
 description: "Authoritative product specification for passage analysis, analysis profiles, score tools, proposal review, and canonical annotation overlay rendering"
 category: "core-product"
 date: 2026-08-05
-updated: 2026-09-03
+updated: 2026-10-24
 status: "implemented"
 source_files:
   - src/components/SheetMusicView.tsx
@@ -50,7 +50,7 @@ related_specs:
 # Passage-Aware Music Tutor, Agent Tools, and Annotations
 
 Date: 2026-08-05  
-Updated: 2026-09-03
+Updated: 2026-10-24
 Status: Implemented specification (Milestones 1 & 2 delivered)
 
 ## 1. Product goal
@@ -118,7 +118,7 @@ Verified 2026-09-03:
 | Chat grounding | Full ABC and one optional selection are captured | `src/components/AgentChatPanel.tsx`, `src/agent/types.ts` |
 | Markdown | Assistant text and reasoning render through sanitized Streamdown surfaces with raw HTML disabled | `src/components/chat/ChoraleStreamdownMessage.tsx`, `src/components/chat/ChoraleReasoningView.tsx` |
 | Annotations | Canonical annotations support proposal review, persistence, editing, and React-owned overlays | `src/types/document.ts`, `src/hooks/useDocumentStore.ts`, `src/components/AnnotationOverlay.tsx` |
-| Persistence | Documents and full conversations use IndexedDB; conversations also keep a compact local-storage mirror | `src/utils/storageAdapter.ts`, `src/agent/conversationStore.ts` |
+| Persistence | Documents and full conversations use the shared SQLite service in browser and Electron | `src/utils/storageAdapter.ts`, `src/agent/conversationStore.ts` |
 
 Existing provider configuration, cancellation, playback, repeat handling, ABC editing, and workspace persistence must continue to work.
 
@@ -389,15 +389,14 @@ span and opens its detail or editing UI.
 
 ## 13. Persistence and transport
 
-- Accepted annotations remain inline in `FileDocument` and use IndexedDB autosave.
+- Accepted annotations remain inline in `FileDocument` and autosave through the shared SQLite service.
 - Annotation changes do not increment the ABC revision or create `ScoreVersion` records.
 - Conversation storage uses schema version 4 for ordered text, reasoning, and tool parts; token usage;
   persisted pending messages; proposals; and profile routes.
-- Version-2 and version-3 conversations migrate to v4. Legacy thinking markup becomes structured
-  reasoning, interrupted streams become stopped messages, and the v3 key remains untouched for rollback.
-- IndexedDB stores full conversations; local storage is a compact synchronous mirror and fallback.
-- Hydration merges both stores by file ID and prefers IndexedDB when the same file exists in both.
-- No IndexedDB object-store migration is required.
+- Conversations and pending queues use the same SQLite service as scores. Interrupted streams
+  restore as stopped messages, and queued messages never automatically run after restart.
+- Hydration failures block saves; save failures retain unsaved data in memory and show an error.
+- No IndexedDB, local-storage mirror, fallback, or legacy browser-data migration is used.
 - `MusicContextSnapshot.annotations` is a required copied `Annotation[]`.
 
 Pi tool events are normalized for IPC:
@@ -452,7 +451,7 @@ Main process summaries are compact and renderer-safe. Full tool arguments and sc
 | One proposal fails validation | Apply no annotations and identify invalid cards | Atomic store test |
 | Chord onset has no exact SVG event | Use adjacent onset geometry, then measure-bound fallback | Overlay fixture test |
 | Overlay target disappears after rerender | Rebuild placement from the new render; keep durable annotation data | Resize/rerender integration test |
-| IndexedDB save fails | Keep in-memory data and expose save error | Store/component failure test |
+| Shared SQLite service save fails | Keep in-memory data and expose save error | Store/component failure test |
 | Assistant emits unsafe or external link | Render highlighted but non-navigating content | Markdown security test |
 
 ## 15. Acceptance criteria
