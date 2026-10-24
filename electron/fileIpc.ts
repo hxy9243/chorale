@@ -217,4 +217,3 @@ export const registerFileIPC = (getWindow: () => BrowserWindow | null) => {
     }
   };
 };
-

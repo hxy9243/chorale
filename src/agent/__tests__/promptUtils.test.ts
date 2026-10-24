@@ -224,4 +224,3 @@ describe('promptUtils', () => {
     expect(JSON.stringify(assistantContent)).not.toContain('Read measure 4');
   });
 });
-

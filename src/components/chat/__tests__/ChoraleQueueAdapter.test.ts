@@ -148,4 +148,3 @@ describe('ChoraleQueueAdapter', () => {
     expect(pending.map((m) => m.id)).toEqual(['q-1', 'q-3']);
   });
 });
-
