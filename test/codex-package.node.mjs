@@ -37,7 +37,7 @@ test('fresh Codex package uses the browser service and current library', async (
     assert.match(harmonicReference, /Mandatory Annotation Accuracy Audit/);
     assert.match(harmonicReference, /Em\/G.*vi6/);
     assert.match(harmonicReference, /Using music21 Evidence Without Deferring Judgment/);
-    assert.match(await readFile(join(output, 'server/python/requirements-music21.txt'), 'utf8'), /music21==9\.9\.1/);
+    assert.match(await readFile(join(output, 'server/python/requirements-music21.txt'), 'utf8'), /music21==9\.9\.2/);
     assert.match(await readFile(join(output, 'server/python/music21_harmony.py'), 'utf8'), /Fallible deterministic evidence/);
     const bundle = await readFile(join(output, 'server/cli.mjs'), 'utf8');
     assert.equal(bundle.includes('codex-plugin-store.json'), false);
@@ -89,7 +89,7 @@ test('fresh Codex package uses the browser service and current library', async (
       assert.equal(evidence.revision, persisted.revision);
       assert.deepEqual(evidence.range, { startMeasure: 1, endMeasure: 2 });
       assert.equal(evidence.engine.name, 'music21');
-      if (process.env.CHORALE_REQUIRE_MUSIC21 === '1') assert.equal(evidence.engine.version, '9.9.1');
+      if (process.env.CHORALE_REQUIRE_MUSIC21 === '1') assert.equal(evidence.engine.version, '9.9.2');
       assert.equal(evidence.estimatedPassageKey, 'A major');
       assert.equal(evidence.keySource, 'written');
       assert.deepEqual(evidence.slices.map(({ position, durationQuarterLength, soundingPitches, literalBass }) => ({

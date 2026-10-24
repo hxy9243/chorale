@@ -39,7 +39,7 @@ const runtimeForIntegration = async (t) => {
   }
 };
 
-const stubRuntime = { command: '/managed/python', prefixArgs: [], source: 'managed', version: '9.9.1', pythonVersion: '3.12.3' };
+const stubRuntime = { command: '/managed/python', prefixArgs: [], source: 'managed', version: '9.9.2', pythonVersion: '3.12.3' };
 const structuredInput = () => ({
   schemaVersion: 1,
   passageKey: 'C major',
@@ -54,7 +54,7 @@ const structuredInput = () => ({
 });
 const structuredReply = () => ({
   schemaVersion: 1,
-  engine: { name: 'music21', version: '9.9.1' },
+  engine: { name: 'music21', version: '9.9.2' },
   estimatedPassageKey: 'C major',
   keySource: 'written',
   warning: 'Fallible deterministic evidence',
@@ -66,7 +66,7 @@ const structuredReply = () => ({
 
 test('music21 requirements pin the evaluated release', async () => {
   const requirements = await readFile(new URL('../server/python/requirements-music21.txt', import.meta.url), 'utf8');
-  assert.equal(MUSIC21_REQUIREMENT, 'music21==9.9.1');
+  assert.equal(MUSIC21_REQUIREMENT, 'music21==9.9.2');
   assert.equal(requirements.trim(), MUSIC21_REQUIREMENT);
 });
 
@@ -80,13 +80,13 @@ test('music21 resolver falls through unavailable interpreters and reports runtim
     runProcess: async (command, args) => {
       calls.push({ command, args });
       if (command.includes('missing')) throw new Error('not found');
-      return { code: 0, stdout: '{"music21":"9.9.1","python":"3.12.3"}\n', stderr: '' };
+      return { code: 0, stdout: '{"music21":"9.9.2","python":"3.12.3"}\n', stderr: '' };
     },
   });
 
   assert.equal(calls.length, 2);
   assert.equal(resolved.command, '/working/python');
-  assert.equal(resolved.version, '9.9.1');
+  assert.equal(resolved.version, '9.9.2');
   assert.equal(resolved.pythonVersion, '3.12.3');
 });
 
@@ -104,7 +104,7 @@ test('music21 installer creates an isolated venv and installs the pinned require
           return { code: 0, stdout: '[3,12]\n', stderr: '' };
         }
         if (args.some((arg) => String(arg).includes('platform.python_version'))) {
-          return { code: 0, stdout: '{"music21":"9.9.1","python":"3.12.3"}\n', stderr: '' };
+          return { code: 0, stdout: '{"music21":"9.9.2","python":"3.12.3"}\n', stderr: '' };
         }
         return { code: 0, stdout: '', stderr: '' };
       },
@@ -119,7 +119,7 @@ test('music21 installer creates an isolated venv and installs the pinned require
     assert.deepEqual(calls[2].args, [
       '-m', 'pip', 'install', '--disable-pip-version-check', '--requirement', '/package/requirements-music21.txt',
     ]);
-    assert.equal(installed.version, '9.9.1');
+    assert.equal(installed.version, '9.9.2');
   } finally {
     await rm(choraleHome, { recursive: true, force: true });
   }
@@ -144,7 +144,7 @@ test('music21 analysis runner sends JSON over stdin and decorates engine metadat
       command: '/managed/python',
       prefixArgs: [],
       source: 'managed',
-      version: '9.9.1',
+      version: '9.9.2',
       pythonVersion: '3.12.3',
     },
     scriptPath: '/package/music21_harmony.py',
@@ -155,7 +155,7 @@ test('music21 analysis runner sends JSON over stdin and decorates engine metadat
         stdout: JSON.stringify({
           schemaVersion: 1,
           keySource: 'written',
-          engine: { name: 'music21', version: '9.9.1' },
+          engine: { name: 'music21', version: '9.9.2' },
           estimatedPassageKey: 'C major',
           warning: 'fallible',
           slices: [{
@@ -173,7 +173,7 @@ test('music21 analysis runner sends JSON over stdin and decorates engine metadat
   assert.deepEqual(JSON.parse(invocation.options.input), payload);
   assert.deepEqual(analysis.engine, {
     name: 'music21',
-    version: '9.9.1',
+    version: '9.9.2',
     pythonVersion: '3.12.3',
     source: 'managed',
   });

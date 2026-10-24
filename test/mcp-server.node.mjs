@@ -367,7 +367,7 @@ test('sheet tools: analyze_harmony returns bounded read-only music21 evidence', 
       analyzeHarmony: async (payload) => {
         received = payload;
         return {
-          engine: { name: 'music21', version: '9.9.1', pythonVersion: '3.12.3', source: 'managed' },
+          engine: { name: 'music21', version: '9.9.2', pythonVersion: '3.12.3', source: 'managed' },
           estimatedPassageKey: 'G major',
           warning: 'Fallible deterministic evidence',
           slices: [{

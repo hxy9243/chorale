@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { resolveChoraleHome } from './runtime.mjs';
 import { extractHarmonicSlices } from './music/score-semantics.mjs';
 
-export const MUSIC21_REQUIREMENT = 'music21==9.9.1';
+export const MUSIC21_REQUIREMENT = 'music21==9.9.2';
 export const MUSIC21_SETUP_COMMAND = 'chorale setup music21';
 export const MUSIC21_SCHEMA_VERSION = 1;
 export const MUSIC21_PROBE_TIMEOUT_MS = 5_000;
