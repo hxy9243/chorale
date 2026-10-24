@@ -205,7 +205,7 @@ describe('ScoreVideoExportModal', () => {
     let downloadedFileName = '';
     const clickMock = vi.fn();
     const originalCreateElement = document.createElement.bind(document);
-    vi.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
+    vi.spyOn(document, 'createElement').mockImplementation(((tagName: string) => {
       if (tagName === 'a') {
         const link = originalCreateElement('a');
         link.click = clickMock;
@@ -221,7 +221,7 @@ describe('ScoreVideoExportModal', () => {
         return link;
       }
       return originalCreateElement(tagName);
-    });
+    }) as typeof document.createElement);
 
     render(
       <ScoreVideoExportModal

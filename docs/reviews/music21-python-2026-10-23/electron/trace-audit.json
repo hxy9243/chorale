@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "trace": "2026-10-23T09-13-16-239Z-402c949e-8dc4-4eb3-9f23-ce65943363dd.jsonl",
+  "records": 42,
+  "toolNames": [
+    "select_analysis_profile",
+    "read_measure_range",
+    "analyze_music21"
+  ],
+  "credentialRedacted": true,
+  "lastEvent": "run-end",
+  "provider": "scripted local HTTP; no live model"
+}

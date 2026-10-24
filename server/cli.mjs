@@ -23,6 +23,7 @@ import { LocalDocumentStore } from './store.mjs';
 import { openBrowser } from './mcp/tools/workspace.mjs';
 import { ViewSnapshotStore } from './views.mjs';
 import { CHORALE_VERSION } from './version.mjs';
+import { launchDesktop } from './desktop.mjs';
 
 export const resolvePackageRoot = (entrypoint) => {
   if (entrypoint) {
@@ -84,7 +85,7 @@ export const pullLatestRelease = async (options = {}) => {
     }
 
     logger.log('Building workspace assets...');
-    const buildResult = await runCommand('npm', ['run', 'build'], { cwd: packageRoot });
+    const buildResult = await runCommand('npm', ['run', 'prepare'], { cwd: packageRoot });
     if (buildResult.stderr && !buildResult.stdout) {
       logger.log(buildResult.stderr.trim());
     }
@@ -112,7 +113,7 @@ export const pullLatestRelease = async (options = {}) => {
 };
 
 export const ensureDaemon = async (options = {}) => {
-  const port = options.port || CHORALE_PORT;
+  const port = options.port || Number(process.env.CHORALE_PORT) || CHORALE_PORT;
   const probe = options.probe || probeHealth;
   const waitForHealthy = options.waitForHealthy || waitForHealthyDaemon;
   const spawnImpl = options.spawnImpl || spawn;
@@ -135,7 +136,7 @@ export const ensureDaemon = async (options = {}) => {
 };
 
 export const runDaemon = async (options = {}) => {
-  const port = options.port || CHORALE_PORT;
+  const port = options.port || Number(process.env.CHORALE_PORT) || CHORALE_PORT;
   const probe = options.probe || probeHealth;
   const waitForHealthy = options.waitForHealthy || waitForHealthyDaemon;
   const start = options.startServer || startServer;
@@ -227,7 +228,7 @@ export const resolveListeningPid = async (port = CHORALE_PORT) => {
 };
 
 export const stopDaemon = async (options = {}) => {
-  const port = options.port || CHORALE_PORT;
+  const port = options.port || Number(process.env.CHORALE_PORT) || CHORALE_PORT;
   const probe = options.probe || probeHealth;
   const read = options.readRuntime || readRuntime;
   const kill = options.kill || process.kill.bind(process);
@@ -276,11 +277,13 @@ Usage:
   chorale [command] [options]
 
 Commands:
-  start            Start the Chorale background daemon and open the workspace in browser (default)
+  start            Start the Chorale background daemon and launch the desktop app (default)
+  serve            Run the HTTP and MCP service in the foreground, without the desktop app
   status           Show status and runtime metadata of the running Chorale daemon
   stop             Gracefully stop the running Chorale daemon
   upgrade          Pull the latest release and restart the verified daemon, preserving score data
   setup music21    Install the pinned music21 analyzer into ~/.chorale/music21-venv
+  setup mcp        Connect an AI app, after showing the change and asking for confirmation
   mcp              Start the MCP stdio server adapter for AI coding agents
   help             Display this help message
   version          Display version information
@@ -289,20 +292,22 @@ Options:
   -h, --help       Show help information
   -v, --version    Show version number
       --stdio      Start MCP server over stdio (alias for 'mcp')
+      --browser    Open the browser workspace instead of the desktop app
       --serve      Run daemon in foreground (internal)
       --skip-pull  Skip pulling the latest release during upgrade
+      --           Pass remaining arguments to Electron (advanced)
 `;
 
 export const runCli = async (options = {}) => {
   const args = options.args || process.argv.slice(2);
-  const command = args[0] || 'start';
-  const port = options.port || CHORALE_PORT;
+  const command = !args[0] || args[0].startsWith('-') ? 'start' : args[0];
+  const port = options.port || Number(process.env.CHORALE_PORT) || CHORALE_PORT;
   const logger = options.logger || console;
   const entrypoint = options.entrypoint || process.argv[1];
   const ensure = options.ensureDaemon || ensureDaemon;
   const probe = options.probe || probeHealth;
 
-  if (args.includes('--serve')) {
+  if (command === 'serve' || args.includes('--serve')) {
     return runDaemon({ ...options, port });
   }
 
@@ -327,6 +332,11 @@ export const runCli = async (options = {}) => {
       logger.error(`Failed to install music21: ${error.message}`);
       return { statusCode: 1, error: error.message };
     }
+  }
+
+  if (command === 'setup' && args[1] === 'mcp') {
+    const { setupClientsInteractively } = await import('./client-setup.mjs');
+    return setupClientsInteractively({ ...options, client: args[2], entrypoint, logger });
   }
 
   if (command === 'mcp' || args.includes('--stdio')) {
@@ -381,8 +391,15 @@ export const runCli = async (options = {}) => {
     logger.log(started
       ? `Chorale service started on http://127.0.0.1:${health.port || port}.`
       : `Chorale service is already running on http://127.0.0.1:${health.port || port} (no-op).`);
-    await (options.openBrowser || openBrowser)(`http://127.0.0.1:${health.port || port}`);
-    return { health, started };
+    if (args.includes('--browser')) {
+      await (options.openBrowser || openBrowser)(`http://127.0.0.1:${health.port || port}`);
+      return { health, started };
+    }
+    const desktop = await (options.launchDesktop || launchDesktop)({
+      ...options, packageRoot: options.packageRoot || resolvePackageRoot(entrypoint), logger,
+      desktopArguments: args.includes('--') ? args.slice(args.indexOf('--') + 1) : [],
+    });
+    return { health, started, ...desktop };
   }
 
   logger.error(`Unknown command: ${command}\n\n${HELP_TEXT}`);

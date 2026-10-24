@@ -56,7 +56,7 @@ export const proxyDaemonTools = (handlers, port = 1685, fetchImpl = fetch) => {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(input),
-          signal: AbortSignal.timeout(toolName === 'analyze_harmony' ? MUSIC21_TRANSPORT_TIMEOUT_MS : 10_000),
+          signal: AbortSignal.timeout(['analyze_harmony', 'analyze_music21'].includes(toolName) ? MUSIC21_TRANSPORT_TIMEOUT_MS : 10_000),
         });
         return await response.json();
       } catch (error) {

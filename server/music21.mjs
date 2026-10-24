@@ -36,6 +36,7 @@ export const managedMusic21Paths = (choraleHome = resolveChoraleHome()) => {
 };
 
 export const runProcess = (command, args = [], options = {}) => new Promise((resolve, reject) => {
+  if (options.signal?.aborted) { reject(new Music21Error('MUSIC21_CANCELLED', 'music21 analysis was cancelled.')); return; }
   const child = (options.spawnImpl || spawn)(command, args, {
     cwd: options.cwd,
     env: options.env || process.env,
@@ -51,6 +52,7 @@ export const runProcess = (command, args = [], options = {}) => new Promise((res
     if (settled) return;
     settled = true;
     clearTimeout(timer);
+    options.signal?.removeEventListener('abort', abort);
     callback(value);
   };
 
@@ -65,6 +67,12 @@ export const runProcess = (command, args = [], options = {}) => new Promise((res
     }
     target.push(bytes);
   };
+
+  const abort = () => {
+    finish(reject, new Music21Error('MUSIC21_CANCELLED', 'music21 analysis was cancelled.'));
+    child.kill?.('SIGKILL');
+  };
+  options.signal?.addEventListener('abort', abort, { once: true });
 
   child.stdout?.on('data', (chunk) => append(stdout, chunk));
   child.stderr?.on('data', (chunk) => append(stderr, chunk));

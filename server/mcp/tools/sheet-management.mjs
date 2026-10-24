@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { analyzeHarmonyWithMusic21 } from '../../music21.mjs';
+import { analyzeMusic21Python } from '../../music21-python.mjs';
 import { PluginError } from '../../store.mjs';
 import { extractHarmonicSlices } from '../../music/score-semantics.mjs';
 import {
@@ -26,6 +27,25 @@ const MAX_HARMONY_MEASURES = 16;
 export const createSheetManagementTools = (store, views, options = {}) => {
   const analyzeHarmony = options.analyzeHarmony || analyzeHarmonyWithMusic21;
   const handlers = {
+    analyze_music21: async ({ documentId, startMeasure, endMeasure, code, expectedRevision, viewId }) => {
+      try {
+        let view;
+        if (viewId) view = views.require(viewId);
+        else if (!documentId || startMeasure === undefined) { try { view = views.resolve(); } catch { /* Explicit range or first score. */ } }
+        documentId ||= view?.documentId || (await store.getWorkspace()).documents[0]?.id;
+        if (!documentId) throw new PluginError('DOCUMENT_NOT_FOUND', 'Choose a score to analyze.');
+        const doc = await store.require(documentId);
+        if (expectedRevision !== undefined && doc.revision !== expectedRevision) throw new PluginError('REVISION_CONFLICT', 'The score changed. Read the passage again before analysis.');
+        // Selection from a different score must never choose this score's range.
+        const selection = view?.documentId === documentId ? view.selection : undefined;
+        startMeasure ??= selection?.startMeasure ?? 1;
+        endMeasure ??= selection?.endMeasure ?? startMeasure;
+        const analysis = await (options.analyzeMusic21 || analyzeMusic21Python)({
+          documentId: doc.id, revision: doc.revision, abcSource: doc.abcSource, startMeasure, endMeasure, code,
+        });
+        return result(analysis, `Computed sandboxed music21 evidence for written measures ${startMeasure}–${endMeasure}.`);
+      } catch (error) { return failure(error); }
+    },
     read_measure: async ({ documentId, startMeasure, endMeasure, voiceId, viewId }) => {
       try {
         let doc;
@@ -399,6 +419,19 @@ export const createSheetManagementTools = (store, views, options = {}) => {
         startMeasure: z.number().int().min(0).optional().describe('Starting written measure (0 for pickup, 1-indexed otherwise)'),
         endMeasure: z.number().int().min(0).optional().describe('Ending written measure, inclusive; maximum range is 16 measures'),
         viewId: z.string().optional().describe('Optional connected view whose active selection should be analyzed'),
+      },
+    },
+
+    analyze_music21: {
+      title: 'Run sandboxed music21 Python analysis',
+      description: 'Run a short read-only Python snippet on a bounded score passage in an OS sandbox. Read the passage first. Use music21, score, events and measures; assign JSON to result. No host home/network access; missing sandbox fails closed. Results are fallible evidence, never score edits.',
+      inputSchema: {
+        documentId: z.string().optional(),
+        startMeasure: z.number().int().min(0).optional(),
+        endMeasure: z.number().int().min(0).optional(),
+        code: z.string().min(1).max(16000).describe('Python code using music21/score/events/measures; assign a JSON-serializable value to result.'),
+        expectedRevision: z.number().int().positive().optional(),
+        viewId: z.string().optional(),
       },
     },
 
