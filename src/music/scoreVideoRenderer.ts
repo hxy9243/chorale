@@ -5,9 +5,12 @@
  */
 
 import type { ScoreVideoFrameState, ScoreSystemBBox } from './scoreVideoTimeline';
+import type { WaterfallNote } from './waterfallPlayback';
+import { WaterfallCanvasRenderer, waterfallVideoBounds } from './waterfallCanvasRenderer';
 
 export type ScoreVideoTheme = 'dark' | 'warm';
 export type ScoreVideoAspectRatio = '16:9' | '9:16';
+export type ScoreVideoVisualization = 'sheet' | 'waterfall';
 
 export interface ScoreVideoMetadata {
   title: string;
@@ -19,6 +22,8 @@ export interface ScoreVideoMetadata {
 }
 
 export interface ScoreVideoRenderOptions {
+  visualization?: ScoreVideoVisualization;
+  waterfallNotes?: readonly WaterfallNote[];
   width: number;
   height: number;
   theme: ScoreVideoTheme;
@@ -90,10 +95,12 @@ const formatTime = (seconds: number): string => {
 export class ScoreVideoRenderer {
   readonly options: ScoreVideoRenderOptions;
   readonly palette: Palette;
+  private readonly waterfall: WaterfallCanvasRenderer | null;
 
   constructor(options: ScoreVideoRenderOptions) {
     this.options = options;
     this.palette = PALETTES[options.theme] || PALETTES.dark;
+    this.waterfall = options.visualization === 'waterfall' ? new WaterfallCanvasRenderer(options.waterfallNotes ?? []) : null;
   }
 
   renderFrame(
@@ -112,7 +119,11 @@ export class ScoreVideoRenderer {
         this.drawIntroCard(ctx, frameState);
         break;
       case 'score':
-        this.drawScoreView(ctx, frameState, systems);
+        if (this.waterfall && frameState.scoreState) {
+          this.waterfall.render(ctx, frameState.scoreState.scoreTimeSec, waterfallVideoBounds(width, height), this.options.theme);
+        } else {
+          this.drawScoreView(ctx, frameState, systems);
+        }
         break;
       case 'outro':
         this.drawOutroCard(ctx, frameState);

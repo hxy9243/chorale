@@ -3,10 +3,16 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FileMusic, Plus, X } from 'lucide-react';
 import { Header } from './components/Header';
 import { FileRail } from './components/FileRail';
+import { ScoreScanModal } from './components/ScoreScanModal';
+import { RightRail } from './components/RightRail';
+import { AgentChatPanel } from './components/AgentChatPanel';
+import { useAIProviders } from './agent/useAIProviders';
+import { FILE_RAIL_BAR_WIDTH } from './utils/workspaceSizing';
 import { ScoreCardHeader } from './components/ScoreCardHeader';
 import { ScoreMetadataHeader } from './components/ScoreMetadataHeader';
 import { SheetMusicView } from './components/SheetMusicView';
-import { AudioPlayer } from './components/AudioPlayer';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { AudioPlayer, type MeasurePreviewRequest } from './components/AudioPlayer';
 import { WaterfallPane } from './components/WaterfallPane';
 import type { WaterfallPlayback } from './music/waterfallPlayback';
 import { useResizablePanel } from './hooks/useResizablePanel';
@@ -30,6 +36,7 @@ import { useDocumentStore } from './hooks/useDocumentStore';
 import { useScoreExport, type ScoreExportFormat } from './hooks/useScoreExport';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { usePaneTabDrag } from './hooks/usePaneTabDrag';
+import { useSplitStackLayout } from './hooks/useSplitStackLayout';
 import {
   useWorkspacePanes,
   PANE_ORIENTATION_KEY,
@@ -60,8 +67,10 @@ export {
 };
 
 const DEFAULT_SHEET_ZOOM = 100;
+export const WATERFALL_VISIBLE_KEY = 'chorale.workspace.waterfallVisible';
 
 export const App: React.FC = () => {
+  const [scanModalOpen, setScanModalOpen] = useState(false);
   const {
     documents,
     activeFileId,
@@ -101,11 +110,13 @@ export const App: React.FC = () => {
   } = useDocumentStore();
 
   const interfaceZoom = useInterfaceZoom();
+  const aiProviders = useAIProviders();
 
   // Workspace tabbed panes & menu
   const {
     sheetVisible,
     paneOrientation,
+    setPaneOrientation,
     paneOrder,
     paneSequence,
     sheetPaneOnRight,
@@ -121,11 +132,15 @@ export const App: React.FC = () => {
   } = useWorkspacePanes();
 
   const shellRef = useRef<HTMLDivElement>(null);
-  const [waterfallVisible, setWaterfallVisible] = useState(false);
+  const [waterfallVisible, setWaterfallVisible] = useState(() => window.localStorage.getItem(WATERFALL_VISIBLE_KEY) === 'true');
+  useEffect(() => { window.localStorage.setItem(WATERFALL_VISIBLE_KEY, String(waterfallVisible)); }, [waterfallVisible]);
 
   const {
     zoom,
     setZoom,
+    chatOpen,
+    setChatOpen,
+    beginChatResize,
     editorVisible,
     setEditorVisible,
     editorHeight,
@@ -141,7 +156,7 @@ export const App: React.FC = () => {
     beginEditorVerticalResize,
     beginEditorVerticalResizeFromBottom,
     beginRailResize,
-  } = useWorkspaceLayout(interfaceZoom, { shellRef, vertical: paneOrientation === 'vertical', sheetVisible: sheetVisible || waterfallVisible });
+  } = useWorkspaceLayout(interfaceZoom, { shellRef, vertical: paneOrientation === 'vertical', sheetVisible: sheetVisible || waterfallVisible, chatAvailable: aiProviders.desktopAvailable });
 
   const [waterfallPlayback, setWaterfallPlayback] = useState<WaterfallPlayback | null>(null);
   const [waterfallWidth, setWaterfallWidth] = useState(440);
@@ -149,6 +164,7 @@ export const App: React.FC = () => {
   const clampWaterfallWidth = useCallback((width: number) => Math.max(240, Math.min(width, (waterfallLayoutRef.current?.clientWidth || 900) * 0.65)), []);
   const [waterfallHeight, setWaterfallHeight] = useState(320);
   const visiblePanes = paneSequence.filter((id) => id === 'sheet' ? sheetVisible : id === 'editor' ? editorVisible : waterfallVisible);
+  const splitStack = useSplitStackLayout(shellRef, paneOrientation, paneSequence, visiblePanes);
   // Resize from the edge facing Sheet, so each gap has exactly one divider.
   const resizeFromEnd = (id: typeof paneSequence[number]) => sheetVisible
     ? visiblePanes.indexOf(id) < visiblePanes.indexOf('sheet') : visiblePanes[0] === id;
@@ -202,6 +218,7 @@ export const App: React.FC = () => {
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [newScoreModalOpen, setNewScoreModalOpen] = useState(false);
   const [videoExportModalOpen, setVideoExportModalOpen] = useState(false);
+  const [editorFocusMeasure, setEditorFocusMeasure] = useState<number | null>(null);
   const [scoreNavigationAnchor, setScoreNavigationAnchor] = useState<ScoreAnchor | null>(null);
   const [playbackSourceRanges, setPlaybackSourceRanges] = useState<PlaybackSourceRanges | null>(null);
 
@@ -229,6 +246,9 @@ export const App: React.FC = () => {
   const {
     scorePreview,
     displayAbc,
+    handlePreviewScoreProposal,
+    handleApplyScoreProposal,
+    handleDiscardScoreProposal,
     handleExitScorePreview,
   } = useScorePreview({
     activeFileId,
@@ -239,6 +259,16 @@ export const App: React.FC = () => {
     handleWholeScoreReplacement,
     handleMeasureMutation,
   });
+
+  const [draftSheetPreview, setDraftSheetPreview] = useState<{ documentId?: string; revision: number; source: string } | null>(null);
+  const [transportPlaying, setTransportPlaying] = useState(false);
+  const handleDraftSheetPreview = useCallback((source: string | null) => {
+    setDraftSheetPreview((current) => source === null ? null
+      : current?.source === source && current.documentId === activeDocument?.id && current.revision === abcRevision ? current
+      : { source, documentId: activeDocument?.id, revision: abcRevision });
+  }, [activeDocument?.id, abcRevision]);
+  const draftSheetSource = !transportPlaying && !scorePreview && draftSheetPreview?.documentId === activeDocument?.id
+    && draftSheetPreview?.revision === abcRevision ? draftSheetPreview.source : null;
 
   // ABC syntax compilation & validation lifecycle
   const {
@@ -260,6 +290,18 @@ export const App: React.FC = () => {
   const renderedSourceRef = useRef('');
   const displayPlaybackSourceKey = JSON.stringify([activeDocument?.id, displayAbc]);
   const [renderedPlaybackSourceKey, setRenderedPlaybackSourceKey] = useState<string | null>(null);
+  const [measurePreviewRequest, setMeasurePreviewRequest] = useState<MeasurePreviewRequest | null>(null);
+  const handlePreviewMeasure = (measure: number, source: string) => {
+    setMeasurePreviewRequest({ measure, sourceKey: JSON.stringify([activeDocument?.id, source]), stop: playbackPositionRef.current.isPlaying });
+  };
+  const handlePlayFromMeasure = useCallback((measure: number) => {
+    setMeasurePreviewRequest({ measure, sourceKey: displayPlaybackSourceKey, continuous: true, stop: playbackPositionRef.current.isPlaying });
+  }, [displayPlaybackSourceKey]);
+  const [previousPreviewSourceKey, setPreviousPreviewSourceKey] = useState(displayPlaybackSourceKey);
+  if (previousPreviewSourceKey !== displayPlaybackSourceKey) {
+    setPreviousPreviewSourceKey(displayPlaybackSourceKey);
+    if (measurePreviewRequest?.sourceKey !== displayPlaybackSourceKey) setMeasurePreviewRequest(null);
+  }
   const handlePlaybackTuneRendered = useCallback((rendered: abcjs.TuneObject[] | null) => {
     if (rendered?.length) renderedSourceRef.current = displayPlaybackSourceKey;
     setRenderedPlaybackSourceKey(rendered?.length ? displayPlaybackSourceKey : null);
@@ -279,6 +321,7 @@ export const App: React.FC = () => {
   const { draggingPane, activeSnapTarget, handleTabPointerDown } = usePaneTabDrag({
     shellRef,
     bothPanesVisible: visiblePanes.length > 1,
+    allowSplitStack: visiblePanes.length === 3,
     rearrangePane,
   });
 
@@ -290,12 +333,24 @@ export const App: React.FC = () => {
     onOpenSheet={() => openSheetPane(editorVisible)}
     onOpenEditor={() => openEditorPane(setEditorVisible)}
     onOpenWaterfall={() => { setWaterfallVisible(true); closePaneMenu(); }}
+    paneOrientation={paneOrientation}
+    onClose={closePaneMenu}
+    onLayoutChange={(layout) => {
+      setPaneOrientation(layout);
+      if (layout === 'split-left' || layout === 'split-right') {
+        setSheetVisible(true);
+        setEditorVisible(true);
+        setWaterfallVisible(true);
+      }
+      closePaneMenu();
+    }}
   />;
 
   // Adjust state during render when activeFileId changes
   const [prevActiveFileId, setPrevActiveFileId] = useState(activeFileId);
   if (activeFileId !== prevActiveFileId) {
     setPrevActiveFileId(activeFileId);
+    setEditorFocusMeasure(null);
     setScoreNavigationAnchor(null);
     setPlaybackSourceRanges(null);
   }
@@ -343,6 +398,7 @@ export const App: React.FC = () => {
 
   const handlePlaybackPositionChange = useCallback((position: PlaybackPosition) => {
     playbackPositionRef.current = position;
+    setTransportPlaying(position.isPlaying);
   }, []);
 
   const { exportState: exportStatus, exportDocument, dismissStatus: dismissExportStatus } = useScoreExport();
@@ -370,6 +426,7 @@ export const App: React.FC = () => {
 
   usePluginMcpBridge({
     enabled: true,
+    hasUnsavedChanges: saveStatus !== 'saved',
     documentId: activeDocument?.id,
     title: scoreTitle,
     revision: abcRevision,
@@ -386,12 +443,17 @@ export const App: React.FC = () => {
     onRefreshDocuments: handleRefreshDocuments,
   });
 
+  const chatVisible = aiProviders.desktopAvailable && chatOpen;
+  const chatColumnWidth = FILE_RAIL_BAR_WIDTH + (chatVisible ? fittedPanelLayout.chatPanelWidth : 0);
+
   return (
     <div className="chorale-app-shell">
       <div
-        className={`workspace-body ${railCollapsed ? 'rail-collapsed' : ''} ${fittedPanelLayout.overlaySidePanels ? 'side-panels-overlay' : ''}`}
+        className={`workspace-body ${aiProviders.desktopAvailable ? 'desktop-workspace' : ''} ${chatVisible ? 'chat-open' : ''} ${railCollapsed ? 'rail-collapsed' : ''} ${fittedPanelLayout.overlaySidePanels ? 'side-panels-overlay' : ''}`}
         style={{
-          gridTemplateColumns: `${fittedPanelLayout.fileRailWidth}px minmax(0, 1fr)`,
+          gridTemplateColumns: `${fittedPanelLayout.fileRailWidth}px minmax(0, 1fr)${aiProviders.desktopAvailable ? ` ${chatColumnWidth}px` : ''}`,
+          '--desktop-workspace-columns': `${fittedPanelLayout.fileRailWidth}px minmax(0, 1fr) ${chatColumnWidth}px`,
+          '--chat-rail-width': `${chatColumnWidth}px`,
           '--file-rail-width': `${fittedPanelLayout.fileRailWidth}px`,
         } as React.CSSProperties}
       >
@@ -400,6 +462,7 @@ export const App: React.FC = () => {
           activeFileId={activeFileId}
           onSelectDocument={handleSelectFile}
           onFileLoaded={handleProcessMusicXml}
+          onScanScore={window.choraleScan ? () => setScanModalOpen(true) : undefined}
           onNewScore={() => setNewScoreModalOpen(true)}
           onDeleteDocument={handleDeleteDocument}
           onDuplicateDocument={handleDuplicateDocument}
@@ -447,11 +510,12 @@ export const App: React.FC = () => {
           <div
             ref={shellRef}
             className={`score-editor-shell ${waterfallVisible ? 'waterfall-open' : ''} layout-${paneOrientation} order-${paneOrder} ${!sheetVisible ? 'sheet-hidden' : ''} ${!editorVisible ? 'editor-hidden' : ''}`}
+            style={splitStack.shellStyle}
           >
             {sheetVisible && (
               <section
                 className={`workspace-pane score-pane ${sheetPaneOnRight ? 'sheet-pane-on-right' : ''}`}
-                style={{ ...paneStyle('sheet'), ...(paneOrientation === 'vertical' ? { width: '100%', flex: '1 1 0', height: visiblePanes.length > 1 ? 'auto' : '100%' } : { flex: 1 }) }}
+                style={splitStack.active ? splitStack.paneStyle('sheet') : { ...paneStyle('sheet'), ...(paneOrientation === 'vertical' ? { width: '100%', flex: '1 1 0', height: visiblePanes.length > 1 ? 'auto' : '100%' } : { flex: 1 }) }}
               >
                 <div className="pane-tab-strip">
                   <div
@@ -528,6 +592,18 @@ export const App: React.FC = () => {
                       )}
 
                       <div className="score-view-wrapper">
+                        <ErrorBoundary
+                          resetKey={displayPlaybackSourceKey}
+                          onError={() => handlePlaybackTuneRendered(null)}
+                          fallback={(_error, retry) => (
+                            <div className="workspace-status-row invalid" role="alert">
+                              <span>This score could not be displayed.</span>
+                              <span>Your source remains available. Edit it or open another score to continue.</span>
+                              <button type="button" onClick={() => openEditorPane(setEditorVisible)}>Open ABC source</button>
+                              <button type="button" onClick={retry}>Retry score</button>
+                            </div>
+                          )}
+                        >
                         <SheetMusicView
                           header={(
                             <ScoreMetadataHeader
@@ -545,12 +621,14 @@ export const App: React.FC = () => {
                               disabled={Boolean(scorePreview)}
                             />
                           )}
-                          abcCode={canRenderScore ? displayAbc : ''}
+                          abcCode={canRenderScore ? (draftSheetSource ?? displayAbc) : ''}
                           annotations={activeDocument?.annotations || []}
                           activeAnchor={activeAnchor}
                           navigationAnchor={scoreNavigationAnchor}
+                          editorFocusMeasure={editorVisible ? editorFocusMeasure : null}
+                          onPlayFromMeasure={handlePlayFromMeasure}
                           onSelectAnchor={handleSelectAnchor}
-                          onTuneRendered={handlePlaybackTuneRendered}
+                          onTuneRendered={draftSheetSource ? undefined : handlePlaybackTuneRendered}
                           documentId={activeDocument.id}
                           revision={abcRevision}
                           getPlaybackPosition={getPlaybackPosition}
@@ -562,6 +640,7 @@ export const App: React.FC = () => {
                           onUpdateAnnotation={handleUpdateAnnotation}
                           onDeleteAnnotation={handleDeleteAnnotation}
                         />
+                        </ErrorBoundary>
                       </div>
                     </div>
                   </div>
@@ -570,7 +649,7 @@ export const App: React.FC = () => {
               </section>
             )}
 
-            {editorVisible && visiblePanes.length > 1 && (
+            {editorVisible && visiblePanes.length > 1 && !splitStack.active && (
               <button
                 type="button"
                 className={`editor-divider ${paneOrientation === 'vertical' ? 'divider-horizontal' : 'divider-vertical'} ${sheetPaneOnRight ? 'sheet-pane-on-right' : ''}`}
@@ -583,7 +662,7 @@ export const App: React.FC = () => {
             {editorVisible && (
               <section
                 className="workspace-pane editor-pane"
-                style={{ ...paneStyle('editor'), ...(
+                style={splitStack.active ? splitStack.paneStyle('editor') : { ...paneStyle('editor'), ...(
                   paneOrientation === 'vertical'
                     ? {
                         width: '100%',
@@ -633,7 +712,7 @@ export const App: React.FC = () => {
                 <div
                   className="workspace-pane-card editor-workspace-card"
                   style={
-                    paneOrientation === 'vertical'
+                    splitStack.active || paneOrientation === 'vertical'
                       ? { width: '100%', height: '100%' }
                       : { width: visiblePanes.length > 1 ? `${horizontalEditorWidth}px` : '100%' }
                   }
@@ -648,6 +727,9 @@ export const App: React.FC = () => {
                     onNavigateMeasure={handleNavigateMeasure}
                     onMeasureMutation={handleMeasureMutation}
                     playbackSourceRanges={playbackSourceRanges}
+                    onPreviewMeasure={handlePreviewMeasure}
+                    onDraftPreview={handleDraftSheetPreview}
+                    onFocusMeasure={setEditorFocusMeasure}
                     validationState={buildStatus}
                     validationMessage={workspaceMessage}
                     visible={editorVisible}
@@ -681,7 +763,7 @@ export const App: React.FC = () => {
               </div>
             )}
             {waterfallVisible && <>
-              {sheetVisible && <button
+              {sheetVisible && !splitStack.active && <button
                 type="button"
                 className={`waterfall-divider ${paneOrientation === 'vertical' ? 'divider-horizontal' : ''}`}
                 style={dividerStyle('waterfall')}
@@ -703,7 +785,7 @@ export const App: React.FC = () => {
                 onClose={() => setWaterfallVisible(false)}
                 onTabPointerDown={handleTabPointerDown('waterfall')}
                 dragging={draggingPane === 'waterfall'}
-                style={{ ...paneStyle('waterfall'), ...(paneOrientation === 'vertical'
+                style={splitStack.active ? splitStack.paneStyle('waterfall') : { ...paneStyle('waterfall'), ...(paneOrientation === 'vertical'
                   ? { width: '100%', height: visiblePanes.length > 1 ? `${waterfallHeight}px` : '100%', flex: sheetVisible ? '0 0 auto' : '1 1 0' }
                   : { flex: sheetVisible ? '0 1 var(--waterfall-width)' : '1 1 0' }) }}
                 actions={!sheetVisible && !editorVisible ? <div className="pane-tab-actions">
@@ -712,6 +794,18 @@ export const App: React.FC = () => {
                 </div> : null}
               />
             </>}
+            {splitStack.active && splitStack.hasColumns && <button
+              type="button" role="separator" aria-label="Resize split columns" aria-orientation="vertical"
+              aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(splitStack.columns * 100)}
+              className="stack-divider stack-column-divider" style={{ gridColumn: 2, gridRow: '1 / -1' }}
+              onPointerDown={splitStack.beginColumnResize} onKeyDown={splitStack.onColumnKeyDown}
+            ><span /></button>}
+            {splitStack.active && splitStack.hasRows && <button
+              type="button" role="separator" aria-label="Resize stacked panes" aria-orientation="horizontal"
+              aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(splitStack.rows * 100)}
+              className="stack-divider stack-row-divider" style={{ gridColumn: splitStack.stackColumn, gridRow: 2 }}
+              onPointerDown={splitStack.beginRowResize} onKeyDown={splitStack.onRowKeyDown}
+            ><span /></button>}
             {draggingPane && <PaneSnapOverlay activeSnapTarget={activeSnapTarget} />}
           </div>
           </div>
@@ -720,10 +814,13 @@ export const App: React.FC = () => {
             <div className="playback-dock-container">
               <AudioPlayer
                 onWaterfallPlaybackChange={setWaterfallPlayback}
+                documentId={activeDocument.id}
+                abcCode={displayAbc}
                 tunes={canRenderScore ? tunes : null}
                 sourceKey={renderedPlaybackSourceKey}
                 totalMeasures={totalMeasures}
                 activeAnchor={activeAnchor}
+                measurePreviewRequest={measurePreviewRequest}
                 onPlaybackPositionChange={handlePlaybackPositionChange}
                 onPlaybackSourceRangesChange={setPlaybackSourceRanges}
               />
@@ -733,8 +830,54 @@ export const App: React.FC = () => {
           </main>
         </div>
 
+        {aiProviders.desktopAvailable && (
+        <div id="current-sheet-agent" className="right-panel">
+          <div id="chat-panel" className="chat-panel-stack">
+            {chatOpen && (
+              <button
+                type="button"
+                className="chat-rail-resize-handle"
+                onPointerDown={beginChatResize}
+                title="Drag to resize chat sidebar width"
+                aria-label="Resize chat sidebar"
+              />
+            )}
+            <AgentChatPanel
+              open={chatOpen}
+              onClose={() => {
+                setChatOpen(false);
+                handleExitScorePreview();
+              }}
+              fileId={activeFileId}
+              abcCode={abcCode}
+              activeFileName={scoreTitle}
+              revision={abcRevision}
+              annotations={activeDocument?.annotations || []}
+              activeAnchor={activeAnchor}
+              onClearAnchor={() => handleSelectAnchor(null)}
+              totalMeasures={totalMeasures}
+              scoreMeter={scoreMeter}
+              ai={aiProviders}
+              onOpenSettings={openSettings}
+              onNavigateMeasure={handleNavigateMeasure}
+              onApplyAnnotations={handleAddAnnotations}
+              onPreviewScoreProposal={handlePreviewScoreProposal}
+              onApplyScoreProposal={handleApplyScoreProposal}
+              onDiscardScoreProposal={handleDiscardScoreProposal}
+            />
+          </div>
+          <RightRail
+            chatOpen={chatOpen}
+            onToggleChat={() => setChatOpen((open) => !open)}
+          />
+        </div>
+        )}
       </div>
+      {scanModalOpen && <ScoreScanModal onClose={() => setScanModalOpen(false)} onImport={(abc, name) => {
+        handleCreateDocument(abc, parseAbcHeaderMetadata(abc).title || name.replace(/\.abc$/i, ''));
+      }} />}
       <WorkspaceModals
+        aiProviders={aiProviders}
         settingsOpen={settingsOpen}
         onCloseSettings={closeSettings}
         interfaceZoom={interfaceZoom.zoom}

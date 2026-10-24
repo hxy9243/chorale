@@ -48,4 +48,76 @@ describe('WaterfallView', () => {
     expect(container.querySelector('[data-note="old"]')).toBeNull();
     expect(screen.getByText('Waiting for score audio…')).toBeDefined();
   });
+  it('matches the contact width to white and black notes and confines sparks to the merge point', () => {
+    let position = { currentSeconds: 0.5, isPlaying: true };
+    const playback: WaterfallPlayback = {
+      notes: [
+        { id: 'white', midiPitch: 60, voice: 0, onsetSeconds: 1, durationSeconds: 2 },
+        { id: 'black', midiPitch: 61, voice: 1, onsetSeconds: 1, durationSeconds: 2 },
+      ],
+      getPosition: () => position,
+    };
+    const { container } = render(<WaterfallView playback={playback} />);
+    expect(container.querySelector('[data-contact]')).toBeNull();
+    expect(container.querySelector('.waterfall-tail-particle')).toBeNull();
+
+    position = { currentSeconds: 1.2, isPlaying: true };
+    act(() => nextFrame(0));
+    const railY = Number(container.querySelector('.waterfall-keyboard-rail')?.getAttribute('y1'));
+    for (const id of ['white', 'black']) {
+      const note = container.querySelector(`[data-note="${id}"]`)!;
+      const contact = container.querySelector(`[data-contact="${id}"]`)!;
+      const glow = contact.querySelector('.waterfall-contact-glow')!;
+      const seam = contact.querySelector('.waterfall-contact-seam')!;
+      for (const element of [glow, seam]) {
+        expect(element.getAttribute('x')).toBe(note.getAttribute('x'));
+        expect(element.getAttribute('width')).toBe(note.getAttribute('width'));
+      }
+      // Rounded leading caps extend beneath the keyboard clip during merging.
+      expect(Number(note.getAttribute('y')) + Number(note.getAttribute('height'))).toBeGreaterThan(railY);
+      expect(note.compareDocumentPosition(contact) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      const sparks = contact.querySelectorAll('.waterfall-splash-particle');
+      expect(sparks.length).toBeGreaterThan(7);
+      expect(sparks.length).toBeLessThanOrEqual(24);
+      for (const spark of sparks) {
+        expect(Number(spark.getAttribute('x1'))).toBeGreaterThanOrEqual(Number(note.getAttribute('x')));
+        expect(Number(spark.getAttribute('x1'))).toBeLessThanOrEqual(Number(note.getAttribute('x')) + Number(note.getAttribute('width')));
+        expect(Number(spark.getAttribute('y2'))).toBeGreaterThan(railY - 15);
+        expect(Number(spark.getAttribute('y1'))).toBeLessThan(railY);
+        expect(Number(spark.getAttribute('stroke-width'))).toBeLessThanOrEqual(1.05);
+      }
+    }
+    const originalSparks = container.querySelector('.waterfall-contacts')?.innerHTML;
+    position = { currentSeconds: 2.5, isPlaying: true };
+    act(() => nextFrame(1));
+    expect(container.querySelector('.waterfall-contacts')?.innerHTML).not.toBe(originalSparks);
+    position = { currentSeconds: 1.2, isPlaying: true };
+    act(() => nextFrame(2));
+    expect(container.querySelector('.waterfall-contacts')?.innerHTML).toBe(originalSparks);
+    position = { currentSeconds: 1.2, isPlaying: false };
+    act(() => nextFrame(3));
+    expect(container.querySelector('[data-contact]')).toBeNull();
+    position = { currentSeconds: 3, isPlaying: true };
+    act(() => nextFrame(4));
+    expect(container.querySelector('[data-contact]')).toBeNull();
+    expect(container.querySelector('[data-note]')).toBeNull();
+  });
+  it('anchors fading tails to the complete note interval through clipping, merging and seeks', () => {
+    let position = { currentSeconds: 0, isPlaying: true };
+    const playback: WaterfallPlayback = {
+      notes: [{ id: 'long', midiPitch: 60, voice: 0, onsetSeconds: 1, durationSeconds: 8 }],
+      getPosition: () => position,
+    };
+    const { container } = render(<WaterfallView playback={playback} />);
+    const gradient = () => container.querySelector('linearGradient[gradientUnits="userSpaceOnUse"]')!;
+    const originalLength = Number(gradient().getAttribute('y2')) - Number(gradient().getAttribute('y1'));
+    expect(Number(gradient().getAttribute('y1'))).toBeLessThan(0);
+    expect(gradient().querySelector('stop')?.getAttribute('stop-opacity')).toBe('0');
+    for (const currentSeconds of [1, 4, 8.8, 0]) {
+      position = { currentSeconds, isPlaying: true };
+      act(() => nextFrame(currentSeconds));
+      expect(Number(gradient().getAttribute('y2')) - Number(gradient().getAttribute('y1'))).toBeCloseTo(originalLength);
+      expect(container.querySelector('[data-note="long"]')?.getAttribute('y')).toBe(gradient().getAttribute('y1'));
+    }
+  });
 });

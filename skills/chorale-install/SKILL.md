@@ -5,9 +5,25 @@ description: Install, launch, upgrade, and connect the Chorale CLI, optional mus
 
 # Chorale Installation and MCP Setup
 
-Chorale uses a single local background daemon running at `http://127.0.0.1:1685`. It owns the browser workspace, persistent score store (`~/.chorale/`), and MCP tools.
+Chorale uses a single local background daemon running at `http://127.0.0.1:1685` (Streamable HTTP MCP at `/mcp`, legacy SSE at `/sse`). It owns the browser workspace, persistent score store (`~/.chorale/`), and MCP tools.
 
-## 1. Install from Source or a Release Archive
+## 1. Install the desktop app
+
+```bash
+npm install -g github:hxy9243/chorale
+chorale
+```
+
+On npm 12 use `npm install -g github:hxy9243/chorale --allow-git=root`.
+A global install exposes `chorale` in PATH; a local install uses `npx chorale`.
+Installation builds both browser and Electron bundles but never registers client
+connections. The first desktop launch offers optional setup; each connection is
+previewed and requires confirmation. Repeat it with `chorale setup mcp [client]`
+or **Chorale → Connect AI apps…**. Client IDs: `claude-desktop`, `claude-code`,
+`antigravity`, `codex`, `chatgpt`. ChatGPT needs an authenticated HTTPS MCP endpoint
+and account-side confirmation; no public tunnel is enabled automatically.
+
+### Source checkout or release archive
 
 Use Node.js 22.22.2+ on the 22.x line, 24.15+ on the 24.x line, or 26+. For a source checkout:
 
@@ -25,7 +41,7 @@ npm run build
 npm link
 ```
 
-For v0.0.1, download the built `chorale-0.0.1.tgz` asset from the GitHub release and run `npm install --global /path/to/chorale-0.0.1.tgz`. The archive includes the browser workspace. There is no published `@chorale/cli` package. Direct global GitHub-URL installation is not supported in this release; use the source build or archive.
+Install a freshly built archive with `npm install --global /path/to/chorale-0.0.1.tgz`. New builds include browser and Electron workspaces. The original published v0.0.1 release archive remains browser-only. There is no published `@chorale/cli` package. Git-source installs prepare the browser and Electron artifacts before packaging.
 
 For bounded harmonic evidence, install Python 3.10+ and run:
 
@@ -38,7 +54,7 @@ This creates `~/.chorale/music21-venv` and installs the evaluated `music21==9.9.
 ## 2. Launch and Inspect
 
 ```bash
-# Start the service and open default browser workspace (idempotent)
+# Start/reuse the service and launch/focus the desktop app
 chorale
 
 # Check status without starting a service
@@ -54,7 +70,7 @@ chorale upgrade
 chorale setup music21
 ```
 
-- `chorale` is idempotent: it starts the daemon in the background only when its health endpoint is unavailable, then opens the browser workspace. Never start a second server or choose a fallback port.
+- `chorale` is idempotent: it starts the daemon in the background only when its health endpoint is unavailable, then launches/focuses the desktop app. Use `chorale --browser` to open the browser, or `chorale serve` for the foreground HTTP service. Never start a second server or choose a fallback port.
 - `chorale status` does not launch a daemon. It reports the healthy process and its runtime metadata.
 - `chorale stop` terminates only the daemon whose PID and port match `~/.chorale/runtime.json`.
 - `chorale upgrade` pulls git changes and rebuilds a source checkout, then restarts the daemon. Private archive installs require installing the new archive first, then `chorale upgrade --skip-pull`. SQLite score data remains in `~/.chorale/`; legacy JSON libraries are not migrated.
@@ -85,7 +101,7 @@ mkdir -p ~/.gemini/config/skills
 cp -r skills/chorale-score ~/.gemini/config/skills/
 cp -r skills/chorale-install ~/.gemini/config/skills/
 ```
-And add to `.agents/mcp_config.json` or `~/.gemini/antigravity/mcp_config.json`:
+And add to `.agents/mcp_config.json` or `~/.gemini/config/mcp_config.json`:
 ```json
 {
   "mcpServers": {

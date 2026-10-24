@@ -15,12 +15,16 @@ type IndexedDBRecord = {
 let dbPromise: Promise<IDBDatabase> | null = null;
 const memoryStore = new Map<string, unknown>();
 let sharedServiceAvailable: boolean | null = null;
+let sharedBaseRevisions: Record<string, number> | undefined;
+
+class SharedWorkspaceConflictError extends Error {}
 
 // The packaged workspace is served by the Chorale daemon. Vite remains an
 // intentionally local development fallback; it never becomes production
 // authority and no browser-profile migration is attempted.
 const sharedServiceBase = (): string | null => {
   if (typeof window === 'undefined') return null;
+  if (window.choraleAI && window.location.protocol === 'app:') return 'app://chorale';
   const configured = new URLSearchParams(window.location.search).get('choraleBridge');
   if (configured) return configured;
   if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
@@ -38,6 +42,7 @@ const sharedWorkspace = async <T>(path: string, options?: RequestInit): Promise<
   const base = sharedServiceBase();
   const url = base ? `${base}${path}` : path;
   const response = await fetch(url, options);
+  if (response.status === 409) throw new SharedWorkspaceConflictError('The shared score changed in another client. Refresh scores before saving. Your changes have not been saved.');
   if (!response.ok) throw new Error('Shared Chorale service is unavailable.');
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
@@ -88,6 +93,7 @@ export const storageAdapter = {
   clearMemoryStore(): void {
     memoryStore.clear();
     sharedServiceAvailable = null;
+    sharedBaseRevisions = undefined;
   },
 
   async getSharedActiveFileId(): Promise<string | null> {
@@ -111,8 +117,11 @@ export const storageAdapter = {
       try {
         const workspace = await sharedWorkspace<{ documents: unknown[] }>('/v1/workspace');
         sharedServiceAvailable = true;
-        return normalizeDocuments(workspace.documents || []);
+        const documents = normalizeDocuments(workspace.documents || []);
+        sharedBaseRevisions = Object.fromEntries(documents.map(doc => [doc.id, doc.revision]));
+        return documents;
       } catch {
+        if (window.choraleAI) throw new Error('The shared Chorale service is unavailable. Your scores have not been replaced.');
         sharedServiceAvailable = false;
         console.info('Shared Chorale service unavailable, falling back to local storage.');
       }
@@ -148,11 +157,14 @@ export const storageAdapter = {
         await sharedWorkspace('/v1/workspace/documents', {
           method: 'PUT',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ documents }),
+          body: JSON.stringify({ documents, baseRevisions: sharedBaseRevisions }),
         });
         sharedServiceAvailable = true;
+        sharedBaseRevisions = Object.fromEntries(documents.map(doc => [doc.id, doc.revision]));
         return true;
-      } catch {
+      } catch (error) {
+        if (error instanceof SharedWorkspaceConflictError) throw error;
+        if (window.choraleAI) throw new Error('The shared Chorale service is unavailable. Changes could not be saved.');
         sharedServiceAvailable = false;
         console.info('Shared Chorale service unavailable, saving to local storage.');
       }

@@ -520,6 +520,8 @@ interface SheetMusicViewProps {
   annotations?: readonly Annotation[];
   activeAnchor?: ScoreAnchor | null;
   navigationAnchor?: ScoreAnchor | null;
+  editorFocusMeasure?: number | null;
+  onPlayFromMeasure?: (measure: number) => void;
   onSelectAnchor?: (anchor: ScoreAnchor | null) => void;
   onTuneRendered?: (tune: abcjs.TuneObject[] | null) => void;
   documentId?: string;
@@ -541,6 +543,8 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   annotations = [],
   activeAnchor = null,
   navigationAnchor = null,
+  editorFocusMeasure = null,
+  onPlayFromMeasure,
   onSelectAnchor,
   onTuneRendered,
   documentId,
@@ -992,6 +996,19 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     }
   }, [navigationAnchor, onSelectAnchor, resolvePlaybackAnchor]);
 
+  // Editing focus is independent of the selected range. Follow its moving
+  // endpoint visually without seeking audio or taking the ABC typing cursor.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    container.querySelectorAll('.abcjs-measure-hit-area.is-editor-focused').forEach((area) => area.classList.remove('is-editor-focused'));
+    if (editorFocusMeasure === null) return;
+    const target = container.querySelector<SVGElement>(`.abcjs-measure-hit-area[data-measure="${editorFocusMeasure}"]`);
+    if (!target) return;
+    target.classList.add('is-editor-focused');
+    target.scrollIntoView?.({ behavior: anchorScrollBehavior(), block: 'center', inline: 'nearest' });
+  }, [editorFocusMeasure, renderGeneration]);
+
   const isPlayingRef = useRef<boolean>(false);
   const isUserPausedRef = useRef<boolean>(false);
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1280,8 +1297,9 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       </div>
 
       {renderError && (
-        <div className="error-banner">
-          <span>Sheet music render issue: {renderError}</span>
+        <div className="error-banner" role="alert">
+          <span>This score could not be displayed. Your source remains available; edit it or open another score.</span>
+          <details><summary>Rendering details</summary>{renderError}</details>
         </div>
       )}
 
@@ -1309,8 +1327,24 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                 <div className="sheet-layout-balance" aria-hidden="true" />
                 <div className="sheet-notation-column">
                   {header}
-                  <div ref={containerRef} id="paper" className="abcjs-paper-container" />
-                  <AnnotationOverlay
+                  <div ref={containerRef} id="paper" className="abcjs-paper-container"
+                    tabIndex={0}
+                    aria-label="Sheet music"
+                    title="Enter: play from selection / stop"
+                    onClickCapture={(event) => {
+                      const hitArea = (event.target as Element).closest<SVGElement>('.abcjs-measure-hit-area');
+                      (hitArea ?? event.currentTarget).focus({ preventScroll: true });
+                    }}
+                    onKeyDownCapture={(event) => {
+                      if (!onPlayFromMeasure || event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (event.repeat) return;
+                      const hitArea = (event.target as Element).closest<SVGElement>('.abcjs-measure-hit-area');
+                      onPlayFromMeasure(activeAnchor?.startMeasure ?? (hitArea ? Number(hitArea.dataset.measure) : firstMeasureNumber));
+                    }}
+                  />
+                  {!renderError && <AnnotationOverlay
                     paperRef={containerRef}
                     abcCode={abcCode}
                     annotations={annotations}
@@ -1325,7 +1359,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                       onSelectAnchor?.(resolvePlaybackAnchor(annotation.span));
                       setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
                     }}
-                  />
+                  />}
                 </div>
                 <div className="annotation-rail-viewport">
                   <AnnotationRail

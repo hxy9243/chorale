@@ -16,6 +16,10 @@ export const PaneSnapOverlay: React.FC<PaneSnapOverlayProps> = ({ activeSnapTarg
               {activeSnapTarget === 'bottom' && 'Snap to bottom'}
               {activeSnapTarget === 'left' && 'Snap to left'}
               {activeSnapTarget === 'right' && 'Snap to right'}
+              {activeSnapTarget === 'top-left' && 'Stack top left'}
+              {activeSnapTarget === 'bottom-left' && 'Stack bottom left'}
+              {activeSnapTarget === 'top-right' && 'Stack top right'}
+              {activeSnapTarget === 'bottom-right' && 'Stack bottom right'}
             </span>
           </div>
         </div>

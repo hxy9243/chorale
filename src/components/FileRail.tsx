@@ -32,6 +32,7 @@ import {
   PanelLeftClose,
   Plus,
   Search,
+  ScanLine,
   Settings,
   Trash2,
   Wrench,
@@ -83,6 +84,7 @@ interface FileRailProps {
   onSelectDocument: (fileId: string) => void;
   onFileLoaded: (fileData: ArrayBuffer | string, fileName: string) => void;
   onNewScore?: () => void;
+  onScanScore?: () => void;
   onDeleteDocument?: (fileId: string) => void;
   onDuplicateDocument?: (fileId: string) => void;
   onExportDocument?: (fileId: string, format: ScoreExportFormat) => void;
@@ -383,7 +385,7 @@ const FileItemContextMenu: React.FC<FileItemContextMenuProps> = ({
               }}
             >
               <Film size={15} aria-hidden="true" />
-              <span>Sheet Video</span>
+              <span>Video</span>
             </button>
           </div>
 
@@ -410,6 +412,7 @@ export const FileRail: React.FC<FileRailProps> = ({
   onSelectDocument,
   onFileLoaded,
   onNewScore,
+  onScanScore,
   onDeleteDocument,
   onDuplicateDocument,
   onExportDocument,
@@ -708,6 +711,9 @@ export const FileRail: React.FC<FileRailProps> = ({
               <FileMusic size={15} aria-hidden="true" />
               <span>Import score</span>
             </button>
+            {onScanScore && <button type="button" className="import-btn file-action-row" onClick={onScanScore} disabled={loading} title="Recognize printed sheet music locally">
+              <ScanLine size={15} aria-hidden="true" /><span>Scan PDF / PNG</span>
+            </button>}
           </div>
           <div className="file-search-container">
             <Search size={14} className="file-search-icon" aria-hidden="true" />

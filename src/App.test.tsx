@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { act, render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import abcjs from 'abcjs';
 import App, {
@@ -12,6 +12,7 @@ import App, {
 import * as xmlParser from './utils/xmlParser';
 import { defaultFileRailWidth } from './utils/workspaceSizing';
 import { storageAdapter } from './utils/storageAdapter';
+import * as sheetMusicView from './components/SheetMusicView';
 
 vi.mock('abcjs', () => ({
   default: {
@@ -62,6 +63,35 @@ describe('App Integration', () => {
         text: () => Promise.resolve(`<?xml version="1.0" encoding="UTF-8"?><score-partwise version="3.1"><part-list><score-part id="P1"><part-name>Test</part-name></score-part></part-list><part id="P1"><measure number="1"><attributes><divisions>1</divisions></attributes><note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration></note></measure></part></score-partwise>`),
       } as Response);
     });
+  });
+
+  it('keeps source editing and workspace controls available after an unexpected score error', async () => {
+    const OriginalSheet = sheetMusicView.SheetMusicView;
+    const source = 'X:1\nT:Crashing score\nM:4/4\nL:1/4\nK:C\nC4|';
+    const sheet = vi.spyOn(sheetMusicView, 'SheetMusicView').mockImplementation((props) => {
+      if (props.abcCode.includes('Crashing score')) throw new Error('Unexpected score failure');
+      return <OriginalSheet {...props} />;
+    });
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      render(<App />);
+      await screen.findByTestId('sheet-svg');
+      await screen.findByText('Synth Ready');
+      fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+      fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+      fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code/), { target: { value: source } });
+      await screen.findByText('This score could not be displayed.');
+      await screen.findByText('No Score Loaded');
+      expect((screen.getByPlaceholderText(/Parsed ABC code/) as HTMLTextAreaElement).value).toBe(source);
+      expect(screen.getAllByRole('button', { name: 'New Score' }).length).toBeGreaterThan(0);
+      expect(screen.queryByTestId('sheet-svg')).toBeNull();
+      fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code/), { target: { value: source.replace('Crashing score', 'Repaired score') } });
+      await screen.findByTestId('sheet-svg');
+      await screen.findByText('Synth Ready');
+      expect(screen.queryByText('This score could not be displayed.')).toBeNull();
+    } finally {
+      sheet.mockRestore(); log.mockRestore();
+    }
   });
 
   it('renders the Figma workspace and opens the ABC editor on demand', async () => {
@@ -139,6 +169,54 @@ describe('App Integration', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /Waterfall.*Show/ }));
     expect(screen.getByRole('region', { name: 'Waterfall pane' })).toBeDefined();
   });
+
+
+  it('opens split stacks, resizes both axes, restores closed slots, and retains playback across layouts', async () => {
+    const { unmount } = render(<App />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined(), { timeout: 4000 });
+    fireEvent.click(screen.getByTitle('Play Piano Synthesizer'));
+    const transport = document.querySelector('.audio-player-card');
+    const sheetPane = document.querySelector<HTMLElement>('.score-pane')!;
+    const controllerCount = vi.mocked(abcjs.synth.SynthController).mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Open pane' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Split stack left' }));
+    const editorPane = document.querySelector<HTMLElement>('.editor-pane')!;
+    const waterfallPane = screen.getByRole('region', { name: 'Waterfall pane' });
+    expect(sheetPane.style.gridColumn).toBe('1');
+    expect(editorPane.style.gridRow).toBe('3');
+    expect(waterfallPane.style.gridColumn).toBe('3');
+    expect(document.querySelector('.score-pane')).toBe(sheetPane);
+    expect(document.querySelector('.audio-player-card')).toBe(transport);
+    expect(screen.getByTitle('Pause Audio')).toBeDefined();
+    expect(abcjs.synth.SynthController).toHaveBeenCalledTimes(controllerCount);
+    const shell = document.querySelector<HTMLElement>('.score-editor-shell')!;
+    Object.defineProperty(shell, 'clientWidth', { value: 1100 });
+    Object.defineProperty(shell, 'clientHeight', { value: 800 });
+    const columnHandle = screen.getByRole('separator', { name: 'Resize split columns' });
+    fireEvent.keyDown(columnHandle, { key: 'ArrowRight' });
+    expect(columnHandle.getAttribute('aria-valuenow')).toBe('58');
+    const rowHandle = screen.getByRole('separator', { name: 'Resize stacked panes' });
+    fireEvent.keyDown(rowHandle, { key: 'ArrowDown' });
+    expect(rowHandle.getAttribute('aria-valuenow')).toBe('53');
+    fireEvent.click(screen.getByRole('button', { name: 'Open pane' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Split stack right' }));
+    expect(sheetPane.style.gridColumn).toBe('3');
+    expect(waterfallPane.style.gridColumn).toBe('1');
+    expect(document.querySelector('.editor-pane')).toBe(editorPane);
+    fireEvent.click(screen.getByRole('button', { name: 'Close ABC source pane' }));
+    expect(sheetPane.style.gridRow).toBe('1 / -1');
+    expect(screen.queryByRole('separator', { name: 'Resize stacked panes' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Open pane' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /ABC source.*Show/ }));
+    expect(document.querySelector<HTMLElement>('.editor-pane')?.style.gridRow).toBe('3');
+    expect(screen.getByRole('separator', { name: 'Resize stacked panes' }).getAttribute('aria-valuenow')).toBe('53');
+    unmount();
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined(), { timeout: 4000 });
+    expect(document.querySelector('.score-editor-shell')?.classList.contains('layout-split-right')).toBe(true);
+    expect(screen.getByRole('region', { name: 'Waterfall pane' }).style.gridColumn).toBe('1');
+    expect(screen.getByRole('separator', { name: 'Resize split columns' }).getAttribute('aria-valuenow')).toBe('58');
+  }, 30000);
 
   it.each([false, true])('drags Waterfall in all four directions with ABC visible: %s', async (abcVisible) => {
     render(<App />);
@@ -262,6 +340,170 @@ describe('App Integration', () => {
     expect(screen.getByText('0:04')).toBeDefined();
     fireEvent.click(screen.getByTitle('Play Piano Synthesizer'));
     expect(controller.seek).toHaveBeenLastCalledWith(4, 'seconds');
+  });
+
+  it('connects ABC keyboard preview to the committed shared transport and stops on Enter', async () => {
+    const { default: realAbcjs } = await vi.importActual<{ default: typeof abcjs }>('abcjs');
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close Sheet pane' }));
+    const originalParse = vi.mocked(abcjs.parseOnly).getMockImplementation()!;
+    const originalRender = vi.mocked(abcjs.renderAbc).getMockImplementation()!;
+    const controller = { load: vi.fn(), setTune: vi.fn().mockResolvedValue(true), play: vi.fn(), pause: vi.fn(), seek: vi.fn() };
+    const originalSynth = vi.mocked(abcjs.synth.SynthController).getMockImplementation()!;
+    vi.mocked(abcjs.parseOnly).mockImplementation(realAbcjs.parseOnly);
+    vi.mocked(abcjs.renderAbc).mockImplementation(realAbcjs.renderAbc);
+    vi.mocked(abcjs.synth.SynthController).mockImplementation(function () { return controller as any; });
+    try {
+      fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code/), { target: { value: 'X:1\nM:4/4\nL:1/4\nQ:1/4=120\nK:C\nC4 | D4 |' } });
+      await waitFor(() => expect(screen.getByText('/ 0:04')).toBeDefined());
+      fireEvent.click(screen.getByRole('tab', { name: 'Measure Source' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Edit voice-1, measure 2' }));
+      fireEvent.change(screen.getByRole('textbox', { name: 'Edit voice-1, measure 2' }), { target: { value: 'E4 |' } });
+      fireEvent.keyDown(screen.getByRole('textbox', { name: 'Edit voice-1, measure 2' }), { key: 'Enter' });
+      await waitFor(() => expect(controller.play).toHaveBeenCalledTimes(1));
+      expect(controller.seek).toHaveBeenLastCalledWith(2, 'seconds');
+      expect(vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[1]).toContain('E4 |');
+      const measure = screen.getByRole('button', { name: 'Edit voice-1, measure 2' });
+      fireEvent.keyDown(measure, { key: 'Enter' });
+      await waitFor(() => expect(screen.getByTitle('Play Piano Synthesizer')).toBeDefined());
+      expect(controller.play).toHaveBeenCalledTimes(1);
+      expect(controller.pause).toHaveBeenCalled();
+    } finally {
+      vi.mocked(abcjs.parseOnly).mockImplementation(originalParse);
+      vi.mocked(abcjs.renderAbc).mockImplementation(originalRender);
+      vi.mocked(abcjs.synth.SynthController).mockImplementation(originalSynth);
+    }
+  });
+
+  it('plays from the selected sheet range on Enter and stops on Enter again', async () => {
+    const { default: realAbcjs } = await vi.importActual<{ default: typeof abcjs }>('abcjs');
+    const originalRender = vi.mocked(abcjs.renderAbc).getMockImplementation()!;
+    const originalSynth = vi.mocked(abcjs.synth.SynthController).getMockImplementation()!;
+    const controller = { load: vi.fn(), setTune: vi.fn().mockResolvedValue(true), play: vi.fn(), pause: vi.fn(), seek: vi.fn() };
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+    vi.mocked(abcjs.synth.SynthController).mockImplementation(function () { return controller as any; });
+    vi.mocked(abcjs.renderAbc).mockImplementation((element, source, options) => {
+      const tunes = realAbcjs.renderAbc(element, source, options);
+      if (element && typeof element !== 'string') {
+        element.querySelectorAll<SVGGraphicsElement>('[class*="abcjs-mm"]').forEach((node) => {
+          const index = Number(node.getAttribute('class')?.match(/abcjs-mm(\d+)/)?.[1] ?? 0);
+          Object.defineProperty(node, 'getBBox', { configurable: true, value: () => ({ x: 10 + index * 120 + (node.classList.contains('abcjs-bar') ? 100 : 0), y: 20, width: 20, height: 40 }) });
+        });
+      }
+      return tunes;
+    });
+    try {
+      fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code/), { target: { value: 'X:1\nM:4/4\nL:1/4\nQ:1/4=120\nK:C\nC4 | D4 | E4 |' } });
+      await waitFor(() => expect(screen.getByText('/ 0:06')).toBeDefined());
+      const second = screen.getByRole('button', { name: 'Select measure 2' });
+      fireEvent.click(second);
+      fireEvent.click(screen.getByRole('button', { name: 'Select measure 3' }), { shiftKey: true });
+      fireEvent.keyDown(document.activeElement!, { key: 'Enter' });
+      await waitFor(() => expect(controller.play).toHaveBeenCalledTimes(1));
+      expect(controller.seek).toHaveBeenLastCalledWith(2, 'seconds');
+      expect(document.querySelectorAll('.abcjs-measure-hit-area[aria-pressed="true"]')).toHaveLength(2);
+      fireEvent.keyDown(document.activeElement!, { key: 'Enter' });
+      await waitFor(() => expect(screen.getByTitle('Play Piano Synthesizer')).toBeDefined());
+      expect(controller.pause).toHaveBeenCalled();
+      expect(controller.play).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.mocked(abcjs.renderAbc).mockImplementation(originalRender);
+      vi.mocked(abcjs.synth.SynthController).mockImplementation(originalSynth);
+    }
+  });
+
+  it('renders idle ABC drafts without saving them or replacing the audio transport', async () => {
+    const { default: realAbcjs } = await vi.importActual<{ default: typeof abcjs }>('abcjs');
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+    const originalParse = vi.mocked(abcjs.parseOnly).getMockImplementation()!;
+    const originalRender = vi.mocked(abcjs.renderAbc).getMockImplementation()!;
+    vi.mocked(abcjs.parseOnly).mockImplementation(realAbcjs.parseOnly);
+    vi.mocked(abcjs.renderAbc).mockImplementation(realAbcjs.renderAbc);
+    try {
+      const source = 'X:1\nM:4/4\nL:1/4\nQ:1/4=120\nK:C\nC D E F | G4 |';
+      fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code/), { target: { value: source } });
+      await waitFor(() => expect(screen.getByText('/ 0:04')).toBeDefined());
+      fireEvent.click(screen.getByRole('tab', { name: 'Measure Source' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Edit voice-1, measure 1' }));
+      const input = screen.getByRole('textbox', { name: 'Edit voice-1, measure 1' });
+      const synthCount = vi.mocked(abcjs.synth.SynthController).mock.calls.length;
+      vi.mocked(abcjs.renderAbc).mockClear();
+      fireEvent.change(input, { target: { value: 'E D E F |' } });
+      expect(abcjs.renderAbc).not.toHaveBeenCalled();
+      await waitFor(() => expect(abcjs.renderAbc).toHaveBeenCalledWith(expect.any(HTMLElement), expect.stringContaining('E D E F |'), expect.any(Object)));
+      expect(document.activeElement).toBe(input);
+      expect(abcjs.synth.SynthController).toHaveBeenCalledTimes(synthCount);
+      fireEvent.keyDown(input, { key: 'Escape' });
+      await waitFor(() => expect(vi.mocked(abcjs.renderAbc).mock.calls.at(-1)?.[1]).toBe(source));
+      fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+      expect((screen.getByPlaceholderText(/Parsed ABC code/) as HTMLTextAreaElement).value).toBe(source);
+    } finally {
+      vi.mocked(abcjs.parseOnly).mockImplementation(originalParse);
+      vi.mocked(abcjs.renderAbc).mockImplementation(originalRender);
+    }
+  });
+
+  it('keeps editing position synchronized across sheet and ABC while extending a measure range', async () => {
+    const { default: realAbcjs } = await vi.importActual<{ default: typeof abcjs }>('abcjs');
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+    const originalParse = vi.mocked(abcjs.parseOnly).getMockImplementation()!;
+    const originalRender = vi.mocked(abcjs.renderAbc).getMockImplementation()!;
+    vi.mocked(abcjs.parseOnly).mockImplementation(realAbcjs.parseOnly);
+    vi.mocked(abcjs.renderAbc).mockImplementation((element, source, options) => {
+      const tunes = realAbcjs.renderAbc(element, source, options);
+      if (element && typeof element !== 'string') {
+        element.querySelectorAll<SVGGraphicsElement>('[class*="abcjs-mm"]').forEach((node) => {
+          const index = Number(node.getAttribute('class')?.match(/abcjs-mm(\d+)/)?.[1] ?? 0);
+          Object.defineProperty(node, 'getBBox', { configurable: true, value: () => ({ x: 10 + index * 120 + (node.classList.contains('abcjs-bar') ? 100 : 0), y: 20, width: 20, height: 40 }) });
+        });
+      }
+      return tunes;
+    });
+    try {
+      fireEvent.change(screen.getByPlaceholderText(/Parsed ABC code/), { target: { value: 'X:1\nM:4/4\nL:1/4\nQ:1/4=120\nK:C\nC4 | D4 | E4 |' } });
+      await waitFor(() => expect(screen.getByText('/ 0:06')).toBeDefined());
+      fireEvent.click(screen.getByRole('tab', { name: 'Measure Source' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Edit voice-1, measure 1' }));
+      for (const [key, measure] of [['ArrowRight', 2], ['ArrowRight', 3], ['ArrowLeft', 2]] as const) {
+        fireEvent.keyDown(screen.getByRole('textbox', { name: /^Edit/ }), { key, shiftKey: true, ctrlKey: true });
+        await waitFor(() => {
+          expect(document.activeElement).toBe(screen.getByRole('textbox', { name: `Edit voice-1, measure ${measure}` }));
+          expect(document.querySelector('.abcjs-measure-hit-area.is-editor-focused')?.getAttribute('data-measure')).toBe(String(measure));
+          expect(document.querySelector('.abc-timeline-measure.is-edit-focused')?.getAttribute('data-timeline-measure')).toBe(String(measure));
+        });
+        expect(document.querySelectorAll('.abc-timeline-measure.is-selected')).toHaveLength(measure);
+      }
+      // Tab/Shift+Tab focuses display cells natively, without a selection callback.
+      act(() => screen.getByRole('button', { name: 'Edit voice-1, measure 1' }).focus());
+      await waitFor(() => expect(document.querySelector('.abcjs-measure-hit-area.is-editor-focused')?.getAttribute('data-measure')).toBe('1'));
+      expect(document.querySelectorAll('.abc-timeline-measure.is-selected')).toHaveLength(2);
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Edit voice-1, measure 1' }), { key: ' ' });
+      fireEvent.change(screen.getByRole('textbox', { name: /^Edit/ }), { target: { value: 'F4 |' } });
+      fireEvent.keyDown(screen.getByRole('textbox', { name: /^Edit/ }), { key: 'ArrowRight', shiftKey: true });
+      await waitFor(() => {
+        expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Edit voice-1, measure 2' }));
+        expect(document.querySelector('.abcjs-measure-hit-area.is-editor-focused')?.getAttribute('data-measure')).toBe('2');
+        expect(document.querySelector('.abc-timeline-measure.is-edit-focused')?.getAttribute('data-timeline-measure')).toBe('2');
+      });
+      expect(document.querySelectorAll('.abc-timeline-measure.is-selected')).toHaveLength(1);
+      fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+      await waitFor(() => expect(document.querySelector('.abcjs-measure-hit-area.is-editor-focused')).toBeNull());
+    } finally {
+      vi.mocked(abcjs.parseOnly).mockImplementation(originalParse);
+      vi.mocked(abcjs.renderAbc).mockImplementation(originalRender);
+    }
   });
 
   it('omits the standalone agent sidebar in plugin view', async () => {

@@ -46,6 +46,28 @@ describe('SheetMusicView Component', () => {
     expect(abcjs.renderAbc).toHaveBeenCalled();
   });
 
+  it('clears partial notation and playback on a renderer exception and recovers after an edit', () => {
+    const onTuneRendered = vi.fn();
+    const onMeasureSystemsChange = vi.fn();
+    const { container, rerender } = render(<SheetMusicView abcCode={sampleAbc} onTuneRendered={onTuneRendered} onMeasureSystemsChange={onMeasureSystemsChange} />);
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
+      (element as HTMLElement).innerHTML = '<svg data-partial-score="true" />';
+      throw new Error('Unsupported notation');
+    });
+    try {
+      rerender(<SheetMusicView abcCode={sampleAbc + 'D4|'} onTuneRendered={onTuneRendered} onMeasureSystemsChange={onMeasureSystemsChange} />);
+      expect(screen.getByRole('alert').textContent).toContain('source remains available');
+      expect(container.querySelector('#paper svg')).toBeNull();
+      expect(onTuneRendered).toHaveBeenLastCalledWith(null);
+      expect(onMeasureSystemsChange).toHaveBeenLastCalledWith(null);
+      rerender(<SheetMusicView abcCode={sampleAbc} onTuneRendered={onTuneRendered} onMeasureSystemsChange={onMeasureSystemsChange} />);
+      expect(screen.queryByRole('alert')).toBeNull();
+      expect(screen.getByTestId('mock-svg-paper')).toBeDefined();
+      expect(onTuneRendered.mock.calls.at(-1)?.[0]).not.toBeNull();
+    } finally { log.mockRestore(); }
+  });
+
   it('renders from ABC without inline directives that shift visual and audio timing', () => {
     const abcWithTempoChange = sampleAbc.replace(
       'C D',
@@ -1143,6 +1165,7 @@ describe('SheetMusicView Component', () => {
 
   it('selects a measure from its full hit target on the first click', () => {
     const onSelectAnchor = vi.fn();
+    const onPlayFromMeasure = vi.fn();
     vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
       if (element && typeof element !== 'string') {
         element.innerHTML = `
@@ -1168,10 +1191,14 @@ describe('SheetMusicView Component', () => {
     });
 
     const { container } = render(
-      <SheetMusicView abcCode={sampleAbc} onSelectAnchor={onSelectAnchor} />,
+      <SheetMusicView abcCode={sampleAbc} onSelectAnchor={onSelectAnchor} onPlayFromMeasure={onPlayFromMeasure} />,
     );
 
     fireEvent.click(container.querySelector('[data-measure="2"]')!);
+    expect(document.activeElement).toBe(container.querySelector('[data-measure="2"]'));
+    fireEvent.keyDown(document.activeElement!, { key: 'Enter' });
+    fireEvent.keyDown(document.activeElement!, { key: 'Enter', repeat: true });
+    expect(onPlayFromMeasure).toHaveBeenCalledExactlyOnceWith(2);
     expect(onSelectAnchor).toHaveBeenCalledOnce();
     expect(onSelectAnchor).toHaveBeenCalledWith({
       startMeasure: 2,
@@ -1618,6 +1645,37 @@ describe('SheetMusicView Component', () => {
     });
     expect(document.activeElement).toBe(firstMeasure);
     expect(getPlaybackPosition().isPlaying).toBe(false);
+  });
+
+  it('follows editor focus independently of range selection and leaves the typing cursor in ABC', () => {
+    vi.mocked(abcjs.renderAbc).mockImplementation((element) => {
+      if (element && typeof element !== 'string') {
+        element.innerHTML = '<svg><g class="abcjs-note abcjs-mm0"></g><g class="abcjs-bar abcjs-mm0"></g><g class="abcjs-note abcjs-mm1"></g><g class="abcjs-bar abcjs-mm1"></g></svg>';
+        element.querySelectorAll<SVGGraphicsElement>('[class*="abcjs-mm"]').forEach((node, index) => {
+          Object.defineProperty(node, 'getBBox', { value: () => ({ x: 10 + index * 40, y: 20, width: 30, height: 24 }) });
+        });
+      }
+      return [{ getBpm: () => 120 }] as any;
+    });
+    const onSelectAnchor = vi.fn();
+    const anchor = { startMeasure: 1, endMeasure: 2 };
+    const view = render(<><input aria-label="ABC typing cursor" /><SheetMusicView abcCode={sampleAbc} activeAnchor={anchor} onSelectAnchor={onSelectAnchor} /></>);
+    const input = screen.getByRole('textbox', { name: 'ABC typing cursor' });
+    input.focus();
+    const target = view.container.querySelector<SVGElement>('.abcjs-measure-hit-area[data-measure="2"]')!;
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(target, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+    view.rerender(<><input aria-label="ABC typing cursor" /><SheetMusicView abcCode={sampleAbc} activeAnchor={anchor} editorFocusMeasure={2} onSelectAnchor={onSelectAnchor} /></>);
+    expect(target.classList.contains('is-editor-focused')).toBe(true);
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    expect(document.activeElement).toBe(input);
+    expect(onSelectAnchor).not.toHaveBeenCalled();
+    expect(view.container.querySelectorAll('[aria-pressed="true"].abcjs-measure-hit-area')).toHaveLength(2);
+    // A score rebuild must restore the cue on the new SVG.
+    view.rerender(<><input aria-label="ABC typing cursor" /><SheetMusicView abcCode={sampleAbc} revision={1} activeAnchor={anchor} editorFocusMeasure={2} onSelectAnchor={onSelectAnchor} /></>);
+    expect(view.container.querySelector('.abcjs-measure-hit-area.is-editor-focused')?.getAttribute('data-measure')).toBe('2');
+    view.rerender(<><input aria-label="ABC typing cursor" /><SheetMusicView abcCode={sampleAbc} revision={1} activeAnchor={anchor} editorFocusMeasure={null} onSelectAnchor={onSelectAnchor} /></>);
+    expect(view.container.querySelector('.is-editor-focused')).toBeNull();
   });
 
   it('renders optional header inside the zoom wrapper notation column so title and score zoom together', () => {

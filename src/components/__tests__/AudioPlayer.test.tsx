@@ -39,6 +39,7 @@ describe('AudioPlayer Component', () => {
   } as any;
 
   beforeEach(() => {
+    localStorage.clear();
     vi.clearAllMocks();
     (abcjs as any).synth.activeAudioContext.mockReturnValue(null);
   });
@@ -408,6 +409,203 @@ describe('AudioPlayer Component', () => {
     return { controller, context, buffer };
   }
 
+  async function previewTune(body = 'C4 | D4 |', meter = '4/4') {
+    const { default: realAbcjs } = await vi.importActual<{ default: typeof abcjs }>('abcjs');
+    const [tune] = realAbcjs.renderAbc(document.createElement('div'), `X:1\nM:${meter}\nL:1/4\nQ:1/4=120\nK:C\n${body}`);
+    tune.setTiming(120);
+    return tune;
+  }
+
+  it('keeps the hidden abcjs tempo input available for real transport rebuilds', async () => {
+    const { default: realAbcjs } = await vi.importActual<{ default: typeof abcjs }>('abcjs');
+    const realControl = new realAbcjs.synth.SynthController();
+    const control = { ...mockSynthControl, load: vi.fn((parent, cursor, options) => realControl.load(parent, cursor, options)) };
+    vi.mocked((abcjs as any).synth.SynthController).mockImplementationOnce(function () { return control; });
+    render(<AudioPlayer tunes={[mockTune]} />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    expect(() => (realControl as any).control.setWarp(120, 150)).not.toThrow();
+    expect((document.querySelector('.hidden-synth .abcjs-midi-tempo') as HTMLInputElement).value).toBe('150');
+  });
+
+  it('applies voice settings to shared playback, preserves clock and speed, and isolates documents', async () => {
+    const { default: realAbcjs } = await vi.importActual<{ default: typeof abcjs }>('abcjs');
+    const source = 'X:1\nM:4/4\nL:1/4\nQ:1/4=120\nV:S name="Melody"\nV:B name="Bass" clef=bass\nK:C\n[V:S] C4 | D4 | E4 | F4 |\n[V:B] C,4 | D,4 | E,4 | F,4 |';
+    const [tune] = realAbcjs.renderAbc(document.createElement('div'), source);
+    tune.setTiming(120);
+    const original = JSON.stringify(tune.setUpAudio({}));
+    const { controller, context } = installClockController();
+    const view = render(<AudioPlayer documentId="a" abcCode={source} tunes={[tune]} sourceKey="a" />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    fireEvent.click(screen.getByTitle('Play Piano Synthesizer'));
+    context.currentTime += 2;
+    fireEvent.change(screen.getByRole('combobox', { name: 'Playback speed' }), { target: { value: '1.5' } });
+    await waitFor(() => expect(screen.getByTitle('Pause Audio')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'Voices' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Instrument for Melody' }));
+    fireEvent.change(screen.getByRole('combobox', { name: /Search instruments/ }), { target: { value: 'violin' } });
+    fireEvent.keyDown(screen.getByRole('combobox', { name: /Search instruments/ }), { key: 'Enter' });
+    await waitFor(() => expect(screen.getByTitle('Pause Audio')).toBeDefined());
+    expect(controller.setWarp).toHaveBeenLastCalledWith(150);
+    expect(controller.seek.mock.lastCall[0]).toBeCloseTo(2 / 1.5, 8);
+    expect(controller.seek.mock.lastCall[1]).toBe('seconds');
+    fireEvent.click(screen.getByRole('button', { name: 'Solo Melody' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Solo Melody' }).hasAttribute('disabled')).toBe(false));
+    const mixed = controller.setTune.mock.lastCall[0].setUpAudio({});
+    expect(mixed.tracks[0].filter((event: any) => event.cmd === 'note').every((event: any) => event.instrument === 40 && event.volume > 0)).toBe(true);
+    expect(mixed.tracks[1].filter((event: any) => event.cmd === 'note').every((event: any) => event.volume === 0)).toBe(true);
+    expect(JSON.stringify(tune.setUpAudio({}))).toBe(original);
+    view.rerender(<AudioPlayer documentId="b" abcCode={source} tunes={[tune]} sourceKey="b" />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    expect(screen.getByRole('button', { name: 'Instrument for Melody' }).textContent).toContain('Grand Piano');
+    expect(screen.getByRole('button', { name: 'Solo Melody' }).getAttribute('aria-pressed')).toBe('false');
+    view.rerender(<AudioPlayer documentId="a" abcCode={source} tunes={[tune]} sourceKey="a" />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    expect(screen.getByRole('button', { name: 'Instrument for Melody' }).textContent).toContain('Violin');
+    expect(screen.getByRole('button', { name: 'Solo Melody' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('previews exactly one measure on the audio clock and returns to its beginning', async () => {
+    const tune = await previewTune();
+    const { controller, context, buffer } = installClockController();
+    const source = { stop: vi.fn() };
+    Object.assign(buffer, { directSource: [source] });
+    let frame: FrameRequestCallback = () => {};
+    const frameSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => { frame = callback; return 1; });
+    try {
+      const view = render(<AudioPlayer tunes={[tune]} sourceKey="preview" />);
+      await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+      view.rerender(<AudioPlayer tunes={[tune]} sourceKey="preview" measurePreviewRequest={{ measure: 2, sourceKey: 'preview' }} />);
+      await waitFor(() => expect(source.stop).toHaveBeenLastCalledWith(102));
+      expect(controller.seek).toHaveBeenLastCalledWith(2, 'seconds');
+      expect(controller.play).toHaveBeenCalledTimes(1);
+      context.currentTime += 1.99;
+      act(() => frame(0));
+      expect(screen.getByTitle('Pause Audio')).toBeDefined();
+      context.currentTime += 0.02;
+      act(() => frame(0));
+      expect(screen.getByTitle('Play Piano Synthesizer')).toBeDefined();
+      expect(controller.pause).toHaveBeenCalled();
+      expect(controller.seek).toHaveBeenLastCalledWith(2, 'seconds');
+      view.unmount();
+    } finally { frameSpy.mockRestore(); }
+  });
+
+  it('plays continuously past the selected measure and stops on a second sheet request', async () => {
+    const tune = await previewTune('C4 | D4 | E4 |');
+    const { controller, context, buffer } = installClockController();
+    const source = { stop: vi.fn() };
+    Object.assign(buffer, { directSource: [source] });
+    let frame: FrameRequestCallback = () => {};
+    const frameSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => { frame = callback; return 1; });
+    try {
+      const request = { measure: 2, sourceKey: 'sheet', continuous: true };
+      const view = render(<AudioPlayer tunes={[tune]} sourceKey="sheet" measurePreviewRequest={request} />);
+      await waitFor(() => expect(controller.play).toHaveBeenCalledTimes(1));
+      expect(controller.seek).toHaveBeenLastCalledWith(2, 'seconds');
+      expect(source.stop).not.toHaveBeenCalled();
+      context.currentTime += 2.1;
+      act(() => frame(0));
+      expect(screen.getByTitle('Pause Audio')).toBeDefined();
+      expect(controller.pause).not.toHaveBeenCalled();
+      view.rerender(<AudioPlayer tunes={[tune]} sourceKey="sheet" measurePreviewRequest={{ ...request }} />);
+      expect(screen.getByTitle('Play Piano Synthesizer')).toBeDefined();
+      expect(controller.pause).toHaveBeenCalled();
+      expect(controller.play).toHaveBeenCalledTimes(1);
+      expect(controller.seek).toHaveBeenLastCalledWith(0, 'seconds');
+      view.unmount();
+    } finally { frameSpy.mockRestore(); }
+  });
+
+  it('stops an active preview on the next Enter request without restarting it', async () => {
+    const tune = await previewTune();
+    const { controller } = installClockController();
+    const request = { measure: 1, sourceKey: 'preview' };
+    const view = render(<AudioPlayer tunes={[tune]} sourceKey="preview" measurePreviewRequest={request} />);
+    await waitFor(() => expect(screen.getByTitle('Pause Audio')).toBeDefined());
+    view.rerender(<AudioPlayer tunes={[tune]} sourceKey="preview" measurePreviewRequest={request} />);
+    expect(controller.play).toHaveBeenCalledTimes(1);
+    view.rerender(<AudioPlayer tunes={[tune]} sourceKey="preview" measurePreviewRequest={{ ...request }} />);
+    expect(screen.getByTitle('Play Piano Synthesizer')).toBeDefined();
+    expect(controller.pause).toHaveBeenCalled();
+    expect(controller.seek).toHaveBeenLastCalledWith(0, 'seconds');
+    expect(controller.play).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for the committed source transport before consuming a measure preview', async () => {
+    const tune = await previewTune();
+    const { controller } = installClockController();
+    const request = { measure: 2, sourceKey: 'new-source' };
+    const view = render(<AudioPlayer tunes={[tune]} sourceKey="old-source" measurePreviewRequest={request} />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    expect(controller.play).not.toHaveBeenCalled();
+    // A source change creates a new controller; capture that instance explicitly.
+    (abcjs as any).synth.SynthController.mockImplementationOnce(function () { return controller; });
+    view.rerender(<AudioPlayer tunes={[tune]} sourceKey="new-source" measurePreviewRequest={request} />);
+    await waitFor(() => expect(controller.play).toHaveBeenCalledTimes(1));
+    expect(controller.seek).toHaveBeenLastCalledWith(2, 'seconds');
+  });
+
+  it('uses pickup, variable meter, and repeat occurrence timing for preview boundaries', async () => {
+    const tune = await previewTune('G | C4 | [M:3/4] D3 | E3 |');
+    const { controller, context, buffer } = installClockController();
+    const source = { stop: vi.fn() };
+    Object.assign(buffer, { directSource: [source] });
+    const view = render(<AudioPlayer tunes={[tune]} sourceKey="pickup" measurePreviewRequest={{ measure: 2, sourceKey: 'pickup' }} />);
+    await waitFor(() => expect(source.stop).toHaveBeenCalled());
+    expect(controller.seek).toHaveBeenLastCalledWith(2.5, 'seconds');
+    expect(source.stop).toHaveBeenLastCalledWith(context.currentTime + 1.5);
+    view.unmount();
+
+    const repeatTune = await previewTune('|: C4 | D4 :| E4 |');
+    const clock = installClockController();
+    Object.assign(clock.buffer, { directSource: [source] });
+    const repeated = render(<AudioPlayer tunes={[repeatTune]} sourceKey="repeat" activeAnchor={{ startMeasure: 2, endMeasure: 2, playbackSeconds: 6.25 }} />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    repeated.rerender(<AudioPlayer tunes={[repeatTune]} sourceKey="repeat" measurePreviewRequest={{ measure: 1, sourceKey: 'repeat' }} />);
+    await waitFor(() => expect(clock.controller.play).toHaveBeenCalled());
+    expect(clock.controller.seek).toHaveBeenLastCalledWith(4, 'seconds');
+    expect(source.stop).toHaveBeenLastCalledWith(clock.context.currentTime + 2);
+  });
+
+  it('retains original measure timing when abcjs rewrites timing at a different playback speed', async () => {
+    const tune = await previewTune();
+    const { controller, context, buffer } = installClockController();
+    const source = { stop: vi.fn() };
+    Object.assign(buffer, { directSource: [source] });
+    const view = render(<AudioPlayer tunes={[tune]} sourceKey="preview" />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    fireEvent.change(screen.getByLabelText('Playback speed'), { target: { value: '2' } });
+    await waitFor(() => expect(controller.setWarp).toHaveBeenCalledWith(200));
+    // TimingCallbacks.replaceTarget recalculates this same TuneObject at warp tempo.
+    tune.setTiming(240);
+    view.rerender(<AudioPlayer tunes={[tune]} sourceKey="preview" measurePreviewRequest={{ measure: 2, sourceKey: 'preview' }} />);
+    await waitFor(() => expect(controller.play).toHaveBeenCalled());
+    expect(controller.seek).toHaveBeenLastCalledWith(1, 'seconds');
+    expect(source.stop).toHaveBeenLastCalledWith(context.currentTime + 1);
+  });
+
+  it('keeps a stop request stopped after the edited source replaces the transport', async () => {
+    const tune = await previewTune();
+    const { controller } = installClockController();
+    render(<AudioPlayer tunes={[tune]} sourceKey="edited" measurePreviewRequest={{ measure: 1, sourceKey: 'edited', stop: true }} />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    expect(controller.pause).toHaveBeenCalled();
+    expect(controller.play).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])('cancels a pending keyboard start when Enter stops a suspended audio context (continuous=%s)', async (continuous) => {
+    const tune = await previewTune();
+    const { controller, context } = installClockController();
+    let resume!: () => void;
+    Object.assign(context, { state: 'suspended', resume: vi.fn(() => new Promise<void>((resolve) => { resume = resolve; })) });
+    const view = render(<AudioPlayer tunes={[tune]} sourceKey="preview" measurePreviewRequest={{ measure: 1, sourceKey: 'preview', continuous }} />);
+    await waitFor(() => expect(screen.getByTitle('Pause Audio')).toBeDefined());
+    view.rerender(<AudioPlayer tunes={[tune]} sourceKey="preview" measurePreviewRequest={{ measure: 1, sourceKey: 'preview', continuous }} />);
+    await act(async () => resume());
+    expect(controller.play).not.toHaveBeenCalled();
+    expect(screen.getByTitle('Play Piano Synthesizer')).toBeDefined();
+  });
+
   it('publishes the existing preloader stream and replaces it with the actual audio note map', async () => {
     const { controller } = installClockController();
     (abcjs as any).synth.CreateSynth.mockImplementationOnce(function () {
@@ -529,6 +727,7 @@ describe('AudioPlayer Component', () => {
     });
     render(<AudioPlayer tunes={[mockTune]} activeAnchor={{ startMeasure: 1, endMeasure: 1, playbackSeconds: 1.137 }} />);
     await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    await waitFor(() => expect(controller.seek).toHaveBeenLastCalledWith(1.137, 'seconds'));
     act(() => controller.load.mock.lastCall[1].onReady());
     expect(controller.percent).toBeCloseTo(1.137 / 8, 10);
     fireEvent.click(screen.getByTitle('Play Piano Synthesizer'));

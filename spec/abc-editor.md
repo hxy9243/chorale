@@ -3,11 +3,13 @@ title: "ABC Editor Spec"
 description: "Specification for the ABC code editor pane, split view, draggable divider, and score/playback synchronization"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-09-06
+updated: 2026-10-23
 status: "implemented"
 source_files:
   - src/components/AbcEditor.tsx
+  - src/chorale-theme.css
   - src/music/abcPresentation.ts
+  - src/music/abcCompletions.ts
   - src/components/SheetMusicView.tsx
   - src/components/AudioPlayer.tsx
   - src/components/ScoreMetadataHeader.tsx
@@ -19,6 +21,7 @@ source_files:
 test_files:
   - src/components/__tests__/AbcEditor.test.tsx
   - src/music/__tests__/abcPresentation.test.ts
+  - src/music/__tests__/abcCompletions.test.ts
   - src/components/__tests__/SheetMusicView.test.tsx
   - src/components/__tests__/AudioPlayer.test.tsx
   - src/components/__tests__/ScoreMetadataHeader.test.tsx
@@ -139,6 +142,61 @@ When entering editing mode in Measure View:
 - The sizer dynamically scales with the draft value (maintaining at least the original measure text width plus caret buffer), ensuring long measures remain fully visible without horizontal clipping or scroll jumps, and expanding smoothly if additional notes are entered.
 
 ## 5. Selection, navigation, and playback
+
+### 5.0 Measure Source keyboard shortcuts
+
+Shortcuts apply to focused measure cells and their editing inputs. Up/Down moves
+to the adjacent available voice in the same written measure, preserving the caret
+column when editing. Shift+Left/Right moves to the previous/next available measure
+in the same voice. Ctrl+Shift+Left/Right (also Cmd+Shift on macOS) extends or shrinks
+the shared measure selection from its original measure while moving focus.
+Navigation stops at the available voice/measure boundaries. Ordinary Left/Right
+and other text-selection shortcuts retain their normal input behavior.
+
+Navigation commits a valid draft before moving and opens the destination for
+editing; invalid drafts keep their text, focus, and validation error. Enter commits
+a valid draft and previews all voices of that written measure once, automatically
+stopping at its playback boundary. Enter during playback stops it. Preview waits
+for the committed source's shared transport to be ready and respects repeat
+occurrences, pickups, meter, and tempo. Repeated keydown and IME composition do
+not trigger playback. Space opens a focused display cell for editing; Escape
+cancels a draft. Header and Raw Source editing keep their normal key behavior.
+Measure cells expose the shortcuts through their tooltip, with one shortcut per
+line. Measure-number headers remain clickable selection controls but are excluded
+from Tab/Shift+Tab traversal; keyboard focus visits the actionable voice cells.
+
+While editing, measure jumps and Tab/Shift+Tab move a shared editing-position cue
+in both the ABC timeline and the sheet. Both panes scroll the destination measure
+into view, while the typing cursor stays in the destination ABC voice cell.
+Ctrl/Cmd+Shift range extension follows the moving end rather than the range's
+first measure, without collapsing the selection. Leaving the ABC pane, switching
+documents or source view, or hiding the editor clears the editing-position cue.
+
+### Completion and delayed visual preview
+
+Measure inputs offer local, deterministic ABC completions for decoration syntax
+(`!fe` → `!fermata!`), names (`fermata`, `piano`, `sharp`, `triplet`), and inline
+key/voice/meter directives. Ordinary note letters do not open a popup. Matching
+items appear immediately in a small accessible listbox; Ctrl+Space opens it
+explicitly. Up/Down changes its active suggestion, Tab accepts, Escape dismisses,
+and pointer selection retains the input focus. Enter dismisses the popup and
+continues to commit/preview the measure. Closed syntax, chord-name strings,
+comments, selected text, and IME composition do not trigger automatic completion.
+Dismissing a popup restores the existing voice-navigation shortcuts.
+
+The popup is aligned with the active measure card's left edge, immediately above
+its top border. Its actual rendered height determines its upper edge, so changing
+the number of suggestions never leaves a gap above the measure. When the viewport
+has insufficient room above, it opens below the measure instead. The list stays
+within the viewport and scrolls when needed.
+
+After 400 ms without typing, a valid measure draft updates only the visible sheet.
+The input and caret remain unchanged, and canonical ABC, revisions, autosave,
+exports, agent state, and audio remain untouched until the normal commit action.
+The last valid preview stays visible while syntax is incomplete. Escape, leaving
+Measure Source, hiding the editor, document/revision changes, or ending a draft
+clears it. While playback is active, visual draft preview is deferred so the
+playing score and audio keep their existing timing targets.
 
 ### 5.1 Measure Source tool belt and duration safety
 

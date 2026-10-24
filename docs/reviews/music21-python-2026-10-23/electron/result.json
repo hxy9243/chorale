@@ -1,0 +1,44 @@
+{
+  "passed": true,
+  "path": "Electron renderer -> IPC -> AIController -> Pi Agent -> scripted local HTTP provider -> bundled analyze_music21 tool -> Bubblewrap/seccomp Python -> tool result -> chat",
+  "providerSimulated": true,
+  "evidence": {
+    "documentId": "score-919e74e7e9634b8f",
+    "revision": 1,
+    "range": {
+      "startMeasure": 1,
+      "endMeasure": 1
+    },
+    "engine": {
+      "name": "music21",
+      "version": "10.5.0",
+      "pythonVersion": "3.12.3"
+    },
+    "sandbox": {
+      "backend": "bubblewrap",
+      "network": "isolated",
+      "hostHome": "unmounted",
+      "runtime": "read-only",
+      "syscalls": "seccomp",
+      "childProcesses": "blocked",
+      "scratchMiB": 64,
+      "cpuSeconds": 5,
+      "memoryMiB": 768
+    },
+    "durationMs": 1331,
+    "inputSummary": {
+      "pitchedEvents": 3,
+      "measures": 1,
+      "voices": [
+        "voice-1"
+      ]
+    },
+    "result": {
+      "root": "C",
+      "quality": "major",
+      "inversion": 0
+    },
+    "stdout": "",
+    "warning": "Read-only computed evidence; verify interpretation against the written score. Rest gaps are silence, and tied notes are merged pitched events."
+  }
+}

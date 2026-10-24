@@ -3,9 +3,11 @@ title: "Score Surface Spec"
 description: "Specification for score rendering, continuous range selection, chord overlays, range annotation rail, line measure numbers, and auto-centering playback"
 category: "core-workspace"
 date: 2026-08-05
-updated: 2026-09-19
+updated: 2026-10-24
 status: "implemented"
 source_files:
+  - src/App.tsx
+  - src/components/ErrorBoundary.tsx
   - src/components/SheetMusicView.tsx
   - src/components/ScoreMetadataHeader.tsx
   - src/components/ScoreCardHeader.tsx
@@ -25,6 +27,8 @@ source_files:
   - tokens.css
   - src/chorale-theme.css
 test_files:
+  - src/App.test.tsx
+  - src/components/__tests__/ErrorBoundary.test.tsx
   - src/components/__tests__/SheetMusicView.test.tsx
   - src/components/__tests__/ScoreMetadataHeader.test.tsx
   - src/utils/__tests__/abcAudio.test.ts
@@ -67,6 +71,8 @@ This document specifies rendering, layout, interaction, and accessibility behavi
 
 - Single click selects one written measure.
 - Pickup measure selection: Measure 0 (anacrusis) is a first-class selectable written measure index (`0`). Selecting measure 0 generates `.abcjs-measure-highlight[data-measure="0"]` and renders `.abcjs-measure-hit-area[data-measure="0"]`. Hit-area geometry computes bounds from the staff start/clef/key signature boundary to the opening barline.
+- With notation focused, Enter starts continuous playback at the selected range's first measure (or the focused measure if no selection exists), through the remainder of the score. Enter again stops the shared transport. Held-key repeats do not toggle playback repeatedly. Clicking notation puts keyboard focus in the sheet; the shortcut does not capture Enter from ABC or annotation inputs.
+- Space and Shift+Space select or extend a range from a focused measure; Shift+Enter also retains range selection.
 - Shift-click and the keyboard equivalent extend one inclusive continuous range, supporting ranges that begin at measure 0 (e.g. `[0, 4]`).
 - Reverse selection normalizes to `startMeasure <= endMeasure`.
 - Mid-measure repeats (split measures): when a repeat barline occurs mid-measure such that the bar before the repeat and the pickup bar after the repeat sum to the nominal meter duration, both fragments share the same measure number. The subsequent complete bar advances to the next measure number.
@@ -193,3 +199,19 @@ The `ScoreMetadataHeader` component provides visual display and inline editing f
   - Non-standard odd note durations (such as `A10` in `L:1/16` representing a 5/16 note) are rewritten as tied glyphs (`A8-A2`) for clean visual engraving without altering the underlying audio timeline.
   - Audio synthesis remains bound to the canonical unexpanded tune to ensure automatic chord accompaniment is not distorted by visual layout barlines.
 
+## 10. Score failure containment
+
+- A notation/layout exception must clear partial SVG, tune, playback and derived
+  overlays and show an accessible error inside the score pane. The document's
+  original ABC remains available for editing, saving and export as source.
+- Unexpected React errors in the score surface are contained by a local error
+  boundary. Files, the ABC editor and workspace controls remain available.
+  Changing document or source resets that boundary automatically; a retry is
+  also available. Failure must never play a previously rendered score.
+- Scan review and the workspace use the same prepared engraving path. Invisible
+  tuplet rests keep their silent duration and original stored source; temporary
+  anchor glyphs are hidden in every preview.
+- Engraving rejects multimeasure-rest expansion beyond 10,000 bars before
+  allocating glyph source. Report a score-specific limit instead of exhausting
+  renderer memory. This boundary contains thrown errors; it does not promise
+  recovery from arbitrary dependency hangs or operating-system termination.

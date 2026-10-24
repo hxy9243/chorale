@@ -80,7 +80,7 @@ Opening the Chorale workspace (`http://127.0.0.1:1685/`) is sufficient to connec
 
 ## MCP Tool Contract
 
-The MCP server exposes 18 registered tool names; `edit_measure` is the backward-compatible alias of `edit_measures`:
+The MCP server exposes 19 registered tool names; `edit_measure` is the backward-compatible alias of `edit_measures`:
 
 | Tool | Contract |
 | --- | --- |
@@ -93,6 +93,7 @@ The MCP server exposes 18 registered tool names; `edit_measure` is the backward-
 | `import_file` | Import a score from disk or string content (`.xml`, `.musicxml`, `.mxl`, `.abc`). |
 | `export_file` | Export a score document to ABC, JSON, or an output disk path. |
 | `read_measure` | Read written ABC notation for specific measure(s) or active canvas selection. |
+| `analyze_music21` | Run a bounded Python music21 analysis on a private score copy in an OS sandbox; return revision-bound read-only evidence. |
 | `analyze_harmony` | Return fallible, read-only music21 key and chord evidence for up to 16 written measures or active canvas selection. |
 | `insert_measure` | Insert new measure(s) before/after a target measure with revision guard. |
 | `edit_measures` | Replace written measures across a span with replacement ABC notation (supports variable length; aliased as `edit_measure`). |
@@ -113,7 +114,7 @@ The MCP server exposes 18 registered tool names; `edit_measure` is the backward-
 
 ## CLI installation artifact
 
-Source dependency installs and npm pack run `prepare` to build the workspace. Direct global Git-source installation remains unverified; the documented quick start uses a source checkout and local dependency installation. The package explicitly includes `dist/`, the CLI, server modules, Python helper and requirements, and skills, even though generated assets are gitignored. Supported Node versions are 22.22.2+ on the 22.x line, 24.15+ on the 24.x line, or 26+, covering the build/test tool requirements. Optional music21 evidence requires Python 3.10+ and an explicit `chorale setup music21` install. The import converter still declares a Node 20-only engine; see RELEASE.md for that unresolved support mismatch. `npm run test:install` packs and installs the actual artifact into an isolated prefix, checks served browser assets, and verifies durable score data after server restart. This check is blocking in CI and is distinct from browser interaction coverage.
+Source dependency installs, Git-source installs and npm pack run `prepare` to build browser and Electron artifacts. A global GitHub install exposes `chorale`, whose default command launches the desktop alongside the shared HTTP service. npm 12 requires a per-command Git opt-in (`--allow-git=root`). The package explicitly includes `dist/`, `dist-electron/`, the CLI, server modules, Python helper and requirements, and skills, even though generated assets are gitignored. Supported Node versions are 22.22.2+ on the 22.x line, 24.15+ on the 24.x line, or 26+, covering the build/test tool requirements. Optional music21 evidence requires Python 3.10+ and an explicit `chorale setup music21` install. The import converter still declares a Node 20-only engine; see RELEASE.md for that unresolved support mismatch. `npm run test:install` packs and installs the actual artifact into an isolated prefix, checks served browser assets, and verifies durable score data after server restart. This check is blocking in CI and is distinct from browser interaction coverage.
 
 The pinned Git-based `abc-utils` dependency is bundled into npm archives so installing the finished artifact does not need to fetch or rebuild that Git dependency.
 

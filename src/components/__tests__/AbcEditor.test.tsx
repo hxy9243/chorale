@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { AbcEditor } from '../AbcEditor';
@@ -15,6 +16,314 @@ K:C
 [V:upper] C D E F | G A B c |
 [V:lower] C,4 | G,4 |
 `;
+
+  function EditableWorkspace({ onChange = vi.fn(), onSelect = vi.fn(), onPreview = vi.fn() }) {
+    const [source, setSource] = useState(formattedAbc);
+    const [revision, setRevision] = useState(1);
+    const [anchor, setAnchor] = useState<{ startMeasure: number; endMeasure: number } | null>(null);
+    return <AbcEditor abcCode={source} revision={revision} documentId="keyboard-score"
+      onAbcChange={(next, options) => { onChange(next, options); setSource(next); setRevision((value) => value + 1); }}
+      activeAnchor={anchor} onNavigateMeasure={vi.fn()}
+      onSelectAnchor={(next) => { setAnchor(next); onSelect(next); }} onPreviewMeasure={onPreview} />;
+  }
+
+  it('follows the editing destination rather than the start of an extended selection', async () => {
+    const onFocusMeasure = vi.fn();
+    const centerSpy = vi.spyOn(autoScroll, 'calculateCenterScrollLeft');
+    const onSelectAnchor = vi.fn();
+    const view = render(<AbcEditor abcCode={formattedAbc} onAbcChange={vi.fn()}
+      activeAnchor={{ startMeasure: 1, endMeasure: 2 }} onSelectAnchor={onSelectAnchor} onFocusMeasure={onFocusMeasure} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    await waitFor(() => expect(onFocusMeasure).toHaveBeenLastCalledWith(1));
+    centerSpy.mockClear();
+    fireEvent.keyDown(screen.getByRole('textbox', { name: /^Edit/ }), { key: 'ArrowRight', shiftKey: true, ctrlKey: true });
+    const target = screen.getByRole('textbox', { name: 'Edit upper, measure 2' });
+    await waitFor(() => {
+      expect(onFocusMeasure).toHaveBeenLastCalledWith(2);
+      expect(document.activeElement).toBe(target);
+      expect(centerSpy).toHaveBeenLastCalledWith(expect.any(HTMLElement), view.container.querySelector('[data-timeline-measure="2"]'));
+    });
+    expect(onSelectAnchor).toHaveBeenLastCalledWith(expect.objectContaining({ startMeasure: 1, endMeasure: 2 }));
+    expect(view.container.querySelector('[data-timeline-measure="2"]')?.classList.contains('is-edit-focused')).toBe(true);
+    fireEvent.blur(target, { relatedTarget: document.body });
+    expect(onFocusMeasure).toHaveBeenLastCalledWith(null);
+    centerSpy.mockRestore();
+  });
+
+  it('moves up/down through voices in the same measure and preserves the caret column', async () => {
+    render(<EditableWorkspace />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 2' }));
+    const upper = screen.getByRole('textbox', { name: 'Edit upper, measure 2' }) as HTMLInputElement;
+    upper.setSelectionRange(3, 3);
+    fireEvent.keyDown(upper, { key: 'ArrowDown' });
+    const lower = screen.getByRole('textbox', { name: 'Edit lower, measure 2' }) as HTMLInputElement;
+    await waitFor(() => {
+      expect(document.activeElement).toBe(lower);
+      expect(lower.selectionStart).toBe(3);
+    });
+    fireEvent.keyDown(lower, { key: 'ArrowDown' });
+    expect(screen.getByRole('textbox', { name: 'Edit lower, measure 2' })).toBe(lower);
+    fireEvent.keyDown(lower, { key: 'ArrowUp' });
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Edit upper, measure 2' })));
+  });
+
+  it('jumps measures with Shift and extends/shrinks shared selection with Ctrl/Cmd+Shift', async () => {
+    const onSelect = vi.fn();
+    const { container } = render(<EditableWorkspace onSelect={onSelect} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit lower, measure 1' }));
+    fireEvent.keyDown(screen.getByRole('textbox', { name: /^Edit/ }), { key: 'ArrowRight', shiftKey: true, ctrlKey: true });
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Edit lower, measure 2' })));
+    expect(onSelect).toHaveBeenLastCalledWith(expect.objectContaining({ startMeasure: 1, endMeasure: 2 }));
+    expect(container.querySelectorAll('.abc-timeline-measure.is-selected')).toHaveLength(2);
+    fireEvent.keyDown(screen.getByRole('textbox', { name: /^Edit/ }), { key: 'ArrowLeft', shiftKey: true, metaKey: true });
+    expect(onSelect).toHaveBeenLastCalledWith(expect.objectContaining({ startMeasure: 1, endMeasure: 1 }));
+    fireEvent.keyDown(screen.getByRole('textbox', { name: /^Edit/ }), { key: 'ArrowRight', shiftKey: true });
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Edit lower, measure 2' })));
+    const calls = onSelect.mock.calls.length;
+    fireEvent.keyDown(screen.getByRole('textbox', { name: /^Edit/ }), { key: 'ArrowRight', shiftKey: true });
+    expect(onSelect).toHaveBeenCalledTimes(calls);
+    // A plain jump resets the range origin to the new measure.
+    fireEvent.keyDown(screen.getByRole('textbox', { name: /^Edit/ }), { key: 'ArrowLeft', shiftKey: true, ctrlKey: true });
+    expect(onSelect).toHaveBeenLastCalledWith(expect.objectContaining({ startMeasure: 1, endMeasure: 2 }));
+  });
+
+  it('starts a keyboard-only range from the focused display measure', () => {
+    const onSelect = vi.fn();
+    render(<EditableWorkspace onSelect={onSelect} />);
+    const first = screen.getByRole('button', { name: 'Edit upper, measure 1' });
+    first.focus();
+    fireEvent.keyDown(first, { key: 'ArrowRight', shiftKey: true, ctrlKey: true });
+    expect(onSelect).toHaveBeenLastCalledWith(expect.objectContaining({ startMeasure: 1, endMeasure: 2 }));
+    expect(screen.getByRole('textbox', { name: 'Edit upper, measure 2' })).toBeDefined();
+  });
+
+  it('commits navigation edits before opening the destination at its new revision', async () => {
+    const onChange = vi.fn();
+    render(<EditableWorkspace onChange={onChange} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    fireEvent.change(screen.getByRole('textbox', { name: /^Edit/ }), { target: { value: 'E2 D E |' } });
+    fireEvent.keyDown(screen.getByRole('textbox', { name: /^Edit/ }), { key: 'ArrowRight', shiftKey: true });
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Edit upper, measure 2' })));
+    expect(onChange).toHaveBeenLastCalledWith(expect.stringContaining('E2 D E |'), { preserveSelection: true });
+    fireEvent.change(screen.getByRole('textbox', { name: /^Edit/ }), { target: { value: 'A4 |' } });
+    fireEvent.keyDown(screen.getByRole('textbox', { name: /^Edit/ }), { key: 'Enter' });
+    expect(onChange).toHaveBeenLastCalledWith(expect.stringContaining('E2 D E | A4 |'), undefined);
+  });
+
+  it('keeps invalid drafts focused and blocks navigation and preview', () => {
+    const onChange = vi.fn();
+    const onPreview = vi.fn();
+    render(<EditableWorkspace onChange={onChange} onPreview={onPreview} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    const input = screen.getByRole('textbox', { name: /^Edit/ }) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'C8 |' } });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'ArrowRight', shiftKey: true });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(document.activeElement).toBe(input);
+    expect(input.value).toBe('C8 |');
+    expect(screen.getByRole('alert')).toBeDefined();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onPreview).not.toHaveBeenCalled();
+  });
+
+  it('previews committed source on Enter, supports display cells, and ignores repeat/composition', async () => {
+    const onPreview = vi.fn();
+    render(<EditableWorkspace onPreview={onPreview} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    const input = screen.getByRole('textbox', { name: /^Edit/ });
+    fireEvent.keyDown(input, { key: 'Enter', repeat: true });
+    fireEvent.compositionStart(input);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(screen.getByRole('textbox', { name: /^Edit/ })).toBe(input);
+    expect(onPreview).not.toHaveBeenCalled();
+    fireEvent.compositionEnd(input);
+    fireEvent.change(input, { target: { value: 'E2 D E |' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onPreview).toHaveBeenLastCalledWith(1, expect.stringContaining('E2 D E |'));
+    const cell = screen.getByRole('button', { name: 'Edit upper, measure 1' });
+    await waitFor(() => expect(document.activeElement).toBe(cell));
+    fireEvent.keyDown(cell, { key: 'Enter' });
+    expect(onPreview).toHaveBeenCalledTimes(2);
+    fireEvent.keyDown(cell, { key: ' ' });
+    expect(screen.getByRole('textbox', { name: 'Edit upper, measure 1' })).toBeDefined();
+  });
+
+  it('preserves ordinary text-selection keys and Raw Source newlines', () => {
+    const onPreview = vi.fn();
+    render(<EditableWorkspace onPreview={onPreview} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    const input = screen.getByRole('textbox', { name: /^Edit/ });
+    for (const modifiers of [{}, { ctrlKey: true }]) {
+      expect(fireEvent.keyDown(input, { key: 'ArrowRight', ...modifiers })).toBe(true);
+    }
+    expect(fireEvent.keyDown(input, { key: 'ArrowDown', shiftKey: true })).toBe(true);
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+    expect(fireEvent.keyDown(screen.getByPlaceholderText(/Parsed ABC code/), { key: 'Enter' })).toBe(true);
+    expect(onPreview).not.toHaveBeenCalled();
+  });
+
+  it('anchors suggestions immediately above the measure regardless of suggestion count', () => {
+    const { container } = render(<AbcEditor abcCode={formattedAbc} onAbcChange={vi.fn()} />);
+    const measure = container.querySelector<HTMLElement>('[data-timeline-measure="1"]')!;
+    vi.spyOn(measure, 'getBoundingClientRect').mockReturnValue({ left: 240, top: 440, bottom: 550, width: 300, height: 110 } as DOMRect);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit lower, measure 1' }));
+    const input = screen.getByRole('textbox', { name: 'Edit lower, measure 1' }) as HTMLInputElement;
+    vi.spyOn(input, 'getBoundingClientRect').mockReturnValue({ left: 260, top: 500, bottom: 526, width: 260, height: 26 } as DOMRect);
+    for (const word of ['!fe', '!']) {
+      fireEvent.change(input, { target: { value: `${word} G,4 |`, selectionStart: word.length, selectionEnd: word.length } });
+      const popup = screen.getByRole('listbox').parentElement!;
+      expect(popup.style.left).toBe('240px');
+      expect(popup.style.top).toBe('434px');
+      expect(popup.style.transform).toBe('translateY(-100%)');
+    }
+  });
+
+  it('places suggestions below a measure when it is too near the viewport top', () => {
+    const { container } = render(<AbcEditor abcCode={formattedAbc} onAbcChange={vi.fn()} />);
+    const measure = container.querySelector<HTMLElement>('[data-timeline-measure="1"]')!;
+    vi.spyOn(measure, 'getBoundingClientRect').mockReturnValue({ left: 240, top: 20, bottom: 130, width: 300, height: 110 } as DOMRect);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    const input = screen.getByRole('textbox', { name: 'Edit upper, measure 1' });
+    fireEvent.change(input, { target: { value: '!fe C D E F |', selectionStart: 3, selectionEnd: 3 } });
+    const popup = screen.getByRole('listbox').parentElement!;
+    expect(popup.style.left).toBe('240px');
+    expect(popup.style.top).toBe('136px');
+    expect(popup.style.transform).toBe('');
+    expect(Number.parseFloat(popup.style.maxHeight)).toBeLessThanOrEqual(window.innerHeight - 144);
+  });
+
+  it('shows each navigation shortcut on its own tooltip line', () => {
+    render(<AbcEditor abcCode={formattedAbc} onAbcChange={vi.fn()} />);
+    const title = screen.getByRole('button', { name: 'Edit upper, measure 1' }).getAttribute('title')!;
+    expect(title.split('\n')).toEqual([
+      'Ctrl/Cmd+Space: suggestions', '↑/↓: voice', 'Shift+←/→: measure',
+      'Ctrl/Cmd+Shift+←/→: select measures', 'Enter: preview/stop', 'Space: edit',
+    ]);
+  });
+
+  it('skips measure headers in keyboard traversal while retaining pointer selection', () => {
+    const onSelectAnchor = vi.fn();
+    const { container } = render(<AbcEditor abcCode={formattedAbc} onAbcChange={vi.fn()} onSelectAnchor={onSelectAnchor} />);
+    const header = screen.getByRole('button', { name: 'Select measure 1' });
+    expect(header.tabIndex).toBe(-1);
+    const stops = Array.from(container.querySelectorAll<HTMLElement>('.abc-measure-timeline button, .abc-measure-timeline [tabindex]'))
+      .filter((element) => element.tabIndex >= 0);
+    expect(stops.map((element) => element.getAttribute('aria-label'))).toEqual([
+      'Edit upper, measure 1', 'Edit lower, measure 1', 'Edit upper, measure 2', 'Edit lower, measure 2',
+    ]);
+    fireEvent.click(header);
+    expect(onSelectAnchor).toHaveBeenLastCalledWith(expect.objectContaining({ startMeasure: 1, endMeasure: 1 }));
+  });
+
+  it('accepts a syntax completion with Tab without committing or moving focus', async () => {
+    const onAbcChange = vi.fn();
+    render(<AbcEditor abcCode={formattedAbc} onAbcChange={onAbcChange} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    const input = screen.getByRole('textbox', { name: 'Edit upper, measure 1' }) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '!fe C D E F |', selectionStart: 3, selectionEnd: 3 } });
+    expect(screen.getByRole('listbox', { name: 'ABC completions' })).toBeDefined();
+    expect(screen.getByRole('option', { name: /fermata/ }).getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(input, { key: 'Tab' });
+    expect(input.value).toBe('!fermata! C D E F |');
+    expect(screen.queryByRole('listbox')).toBeNull();
+    await waitFor(() => expect(input.selectionStart).toBe(9));
+    expect(document.activeElement).toBe(input);
+    expect(onAbcChange).not.toHaveBeenCalled();
+  });
+
+  it('supports named completions, popup arrow navigation, dismissal, and voice navigation', () => {
+    render(<AbcEditor abcCode={formattedAbc} onAbcChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    const input = screen.getByRole('textbox', { name: 'Edit upper, measure 1' }) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'pian C D E F |', selectionStart: 4, selectionEnd: 4 } });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(screen.getByRole('option', { name: /pianissimo/ }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('textbox', { name: 'Edit upper, measure 1' })).toBe(input);
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(input.value).toBe('pian C D E F |');
+    // Restore valid ABC; arrow navigation resumes when suggestions are dismissed.
+    fireEvent.change(input, { target: { value: ' C D E F |' } });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect(screen.getByRole('textbox', { name: 'Edit lower, measure 1' })).toBeDefined();
+  });
+
+  it('opens suggestions explicitly and accepts a pointer choice without blurring the draft', () => {
+    const onAbcChange = vi.fn();
+    render(<AbcEditor abcCode={formattedAbc} onAbcChange={onAbcChange} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    const input = screen.getByRole('textbox', { name: 'Edit upper, measure 1' }) as HTMLInputElement;
+    input.setSelectionRange(1, 1);
+    fireEvent.keyDown(input, { key: ' ', code: 'Space', ctrlKey: true });
+    const option = screen.getByRole('option', { name: /fermata/ });
+    expect(fireEvent.mouseDown(option)).toBe(false);
+    fireEvent.click(option);
+    expect(input.value).toBe(' !fermata!C D E F |');
+    expect(onAbcChange).not.toHaveBeenCalled();
+  });
+
+  it('keeps Enter as commit and playback instead of accepting a completion', () => {
+    const onAbcChange = vi.fn();
+    const onPreviewMeasure = vi.fn();
+    render(<AbcEditor abcCode={formattedAbc} onAbcChange={onAbcChange} onPreviewMeasure={onPreviewMeasure} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    const input = screen.getByRole('textbox', { name: 'Edit upper, measure 1' });
+    fireEvent.change(input, { target: { value: '!fe C D E F |', selectionStart: 3, selectionEnd: 3 } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(onAbcChange).not.toHaveBeenCalled();
+    expect(onPreviewMeasure).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toBeDefined();
+  });
+
+  it('previews after an idle delay, retains the last valid rendering, and clears on cancel', async () => {
+    vi.useFakeTimers();
+    try {
+      const onAbcChange = vi.fn();
+      const onDraftPreview = vi.fn();
+      render(<AbcEditor abcCode={formattedAbc} onAbcChange={onAbcChange} onDraftPreview={onDraftPreview} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+      const input = screen.getByRole('textbox', { name: 'Edit upper, measure 1' });
+      fireEvent.change(input, { target: { value: 'E D E F |' } });
+      onDraftPreview.mockClear();
+      await act(async () => { vi.advanceTimersByTime(399); });
+      expect(onDraftPreview).not.toHaveBeenCalled();
+      await act(async () => { vi.advanceTimersByTime(1); });
+      expect(onDraftPreview).toHaveBeenLastCalledWith(expect.stringContaining('E D E F |'));
+      onDraftPreview.mockClear();
+      fireEvent.change(input, { target: { value: 'C8 |' } });
+      await act(async () => { vi.advanceTimersByTime(400); });
+      expect(onDraftPreview).not.toHaveBeenCalled();
+      expect(onAbcChange).not.toHaveBeenCalled();
+      fireEvent.keyDown(input, { key: 'Escape' });
+      expect(onDraftPreview).toHaveBeenLastCalledWith(null);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('cancels pending visual updates on document changes and during IME composition', async () => {
+    vi.useFakeTimers();
+    try {
+      const onDraftPreview = vi.fn();
+      const view = render(<AbcEditor abcCode={formattedAbc} documentId="one" onAbcChange={vi.fn()} onDraftPreview={onDraftPreview} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+      const input = screen.getByRole('textbox', { name: 'Edit upper, measure 1' });
+      fireEvent.compositionStart(input);
+      fireEvent.change(input, { target: { value: 'E D E F |' } });
+      onDraftPreview.mockClear();
+      await act(async () => { vi.advanceTimersByTime(500); });
+      expect(onDraftPreview).not.toHaveBeenCalled();
+      fireEvent.compositionEnd(input);
+      await act(async () => { vi.advanceTimersByTime(400); });
+      expect(onDraftPreview).toHaveBeenLastCalledWith(expect.stringContaining('E D E F |'));
+      fireEvent.change(input, { target: { value: 'G D E F |' } });
+      view.rerender(<AbcEditor abcCode={formattedAbc} documentId="two" onAbcChange={vi.fn()} onDraftPreview={onDraftPreview} />);
+      onDraftPreview.mockClear();
+      await act(async () => { vi.advanceTimersByTime(500); });
+      expect(onDraftPreview).not.toHaveBeenCalled();
+    } finally { vi.useRealTimers(); }
+  });
 
   it('renders and changes the raw ABC source', () => {
     const onAbcChange = vi.fn();

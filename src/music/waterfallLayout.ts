@@ -60,5 +60,6 @@ export function noteGeometry(note: WaterfallNote, time: number, keyboardY: numbe
   const pixelsPerSecond = keyboardY / lookAhead;
   const bottom = keyboardY - (note.onsetSeconds - time) * pixelsPerSecond;
   const top = bottom - note.durationSeconds * pixelsPerSecond;
-  return { y: Math.max(0, top), height: Math.max(0, Math.min(keyboardY, bottom) - Math.max(0, top)), bottom };
+  // Keep the unclipped top for gradients; viewport clipping must not stretch the tail.
+  return { top, y: Math.max(0, top), height: Math.max(0, Math.min(keyboardY, bottom) - Math.max(0, top)), bottom };
 }

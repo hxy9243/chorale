@@ -2,12 +2,16 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import abcjs from 'abcjs';
 import { Play, Pause, Square, Volume2, VolumeX, Music2 } from 'lucide-react';
 
+import { VoicesPanel } from './VoicesPanel';
+import { describeMixerVoices, mixVoiceSequence, readVoiceMix, writeVoiceMix, type VoiceMixSettings } from '../music/voiceMixer';
 import type { ScoreAnchor } from '../types/document';
 import { formatAnchorLabel } from '../utils/anchor';
 import type { PlaybackPosition } from '../utils/repeatPlayback';
 import type { PlaybackSourceRanges } from '../music/abcPresentation';
 import { initAbcjsSynth } from '../utils/abcAudio';
 import { isFirstMeasurePickup } from '../music/scoreSnapshot';
+import { computeScoreMeasureMapping } from '../../shared/score-timing.mjs';
+import { collectPreparedMeasureOccurrences, selectMeasureWithRepeats } from '../utils/repeatPlayback';
 import { readWaterfallPosition, rebindSynthTimingTarget, secondsPerWholeNote, seekSynthExactly, synchronizeSynthTimingTempo, waterfallNotesFromNoteMap, waterfallNotesFromSequence } from '../music/waterfallPlayback';
 import type { SynthSequenceNote, WaterfallPlayback } from '../music/waterfallPlayback';
 
@@ -59,11 +63,21 @@ const updatePlaybackCursor = (event: abcjs.NoteTimingEvent) => {
   }
 };
 
+export interface MeasurePreviewRequest {
+  sourceKey: string;
+  measure: number;
+  stop?: boolean;
+  continuous?: boolean;
+}
+
 interface AudioPlayerProps {
   tunes: abcjs.TuneObject[] | null;
   sourceKey?: string | null;
+  documentId?: string;
+  abcCode?: string;
   totalMeasures?: number;
   activeAnchor?: ScoreAnchor | null;
+  measurePreviewRequest?: MeasurePreviewRequest | null;
   onPlaybackPositionChange?: (position: PlaybackPosition) => void;
   onPlaybackSourceRangesChange?: (ranges: PlaybackSourceRanges | null) => void;
   onWaterfallPlaybackChange?: (playback: WaterfallPlayback | null) => void;
@@ -72,8 +86,11 @@ interface AudioPlayerProps {
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   tunes,
   sourceKey,
+  documentId,
+  abcCode = '',
   totalMeasures,
   activeAnchor,
+  measurePreviewRequest,
   onPlaybackPositionChange,
   onPlaybackSourceRangesChange,
   onWaterfallPlaybackChange,
@@ -88,8 +105,41 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setTransport({ identity: sourceIdentity, tune: renderedTune });
   }
   const currentTune = transport.tune;
+  // abcjs rewrites noteTimings when the transport changes speed. Keep preview
+  // boundaries in the original score-time coordinates used by seekTo.
+  const previewTiming = React.useMemo(() => {
+    if (!currentTune) return null;
+    try {
+      return {
+        occurrences: collectPreparedMeasureOccurrences(currentTune, computeScoreMeasureMapping(currentTune)),
+        duration: currentTune.getTotalTime(),
+      };
+    } catch { return null; }
+  }, [currentTune]);
   const renderedTuneRef = useRef(renderedTune);
   useLayoutEffect(() => { renderedTuneRef.current = renderedTune; }, [renderedTune]);
+  const mixerVoices = React.useMemo(() => {
+    try { return currentTune ? describeMixerVoices(currentTune, abcCode) : []; } catch { return []; }
+  }, [currentTune, abcCode]);
+  const [voicesOpen, setVoicesOpen] = useState(false);
+  const [previewStopSignal, setPreviewStopSignal] = useState(0);
+  const voicesButtonRef = useRef<HTMLButtonElement>(null);
+  const [mixerState, setMixerState] = useState(() => ({ documentId, settings: readVoiceMix(documentId) }));
+  const mixerSettings = mixerState.documentId === documentId ? mixerState.settings : readVoiceMix(documentId);
+  if (mixerState.documentId !== documentId) setMixerState({ documentId, settings: mixerSettings });
+  const mixerRef = useRef({ voices: mixerVoices, settings: mixerSettings });
+  useLayoutEffect(() => { mixerRef.current = { voices: mixerVoices, settings: mixerSettings }; }, [mixerVoices, mixerSettings]);
+  const mixedTunes = useRef(new WeakMap<abcjs.TuneObject, abcjs.TuneObject>());
+  const mixedTune = React.useCallback((tune: abcjs.TuneObject): abcjs.TuneObject => {
+    if (typeof tune.setUpAudio !== 'function') return tune;
+    let mixed = mixedTunes.current.get(tune);
+    if (!mixed) {
+      mixed = Object.create(tune) as abcjs.TuneObject;
+      mixed.setUpAudio = (options) => mixVoiceSequence(tune.setUpAudio(options), mixerRef.current.voices, mixerRef.current.settings);
+      mixedTunes.current.set(tune, mixed);
+    }
+    return mixed;
+  }, []);
   const [loadedTransport, setLoadedTransport] = useState<typeof transport | null>(null);
   const isReady = Boolean(currentTune && loadedTransport === transport);
 
@@ -105,11 +155,20 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const isPlayingRef = useRef(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [isChangingSpeed, setIsChangingSpeed] = useState(false);
+  const pendingMixerFocusRef = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (isChangingSpeed) return;
+    const control = pendingMixerFocusRef.current;
+    pendingMixerFocusRef.current = null;
+    if (document.activeElement === document.body && control?.isConnected) control.focus({ preventScroll: true });
+  }, [isChangingSpeed, mixerSettings]);
   const [isStarting, setIsStarting] = useState(false);
   const playbackSpeedRef = useRef(1);
   const pendingSeekRef = useRef<number | null>(0);
   const latestSeekSecondsRef = useRef(0);
   const operationRef = useRef(0);
+  const measurePreviewRef = useRef<{ start: number; end: number } | null>(null);
+  const handledPreviewRef = useRef<MeasurePreviewRequest | null>(null);
   const [synthGeneration, setSynthGeneration] = useState(0);
   const recoveryRef = useRef<{ transport: typeof transport; seconds: number; duration: number } | null>(null);
   const waterfallRef = useRef<WaterfallPlayback | null>(null);
@@ -209,6 +268,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   // Primary synth initialization on tune change
   useEffect(() => {
     removePlaybackCursor();
+    measurePreviewRef.current = null;
     operationRef.current += 1;
     const recovery = recoveryRef.current?.transport === transport ? recoveryRef.current : null;
     recoveryRef.current = null;
@@ -306,6 +366,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
               },
               onFinished: () => {
                 if (cancelled) return;
+                measurePreviewRef.current = null;
                 pendingSeekRef.current = 0;
                 latestSeekSecondsRef.current = 0;
                 setCurrentMeasure(null);
@@ -322,14 +383,15 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
               displayRestart: true,
               displayPlay: true,
               displayProgress: true,
-              displayWarp: false,
+              // abcjs setWarp updates this input even when our own speed control is used.
+              displayWarp: true,
             }
           );
         }
 
         const createSynth = new synthApi.CreateSynth();
         await initAbcjsSynth(createSynth, {
-          visualObj: currentTune,
+          visualObj: mixedTune(currentTune),
           soundFontVolumeMultiplier: soundFontBaseVolume,
           pan: [0],
         });
@@ -342,7 +404,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           )));
         };
 
-        const visualTune = renderedTuneRef.current ?? currentTune;
+        const visualTune = mixedTune(renderedTuneRef.current ?? currentTune);
         try {
           await synthControl.setTune(visualTune, false, {
             chordsOff: false,
@@ -399,15 +461,15 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         window.dispatchEvent(new CustomEvent('chorale-playback-state', { detail: { isPlaying: false } }));
       }
     };
-  }, [currentTune, transport, synthGeneration, soundFontBaseVolume, getAudioContext, getExactPosition, updatePlaybackPosition]);
+  }, [currentTune, transport, synthGeneration, soundFontBaseVolume, getAudioContext, getExactPosition, updatePlaybackPosition, mixedTune]);
 
   useEffect(() => {
     const controller = synthControllerRef.current;
-    if (!controller || !renderedTune || controller.visualObj === renderedTune) return;
+    if (!controller || !renderedTune || controller.visualObj === mixedTune(renderedTune)) return;
     removePlaybackCursor();
-    rebindSynthTimingTarget(controller, renderedTune, getAudioContext());
+    rebindSynthTimingTarget(controller, mixedTune(renderedTune), getAudioContext());
     if (!isPlayingRef.current) callbacksRef.current.onPlaybackSourceRangesChange?.(null);
-  }, [renderedTune, currentTune, getAudioContext]);
+  }, [renderedTune, currentTune, getAudioContext, mixedTune]);
 
   const seekTo = React.useCallback((position: number, units?: 'seconds') => {
     const controller = synthControllerRef.current;
@@ -448,7 +510,20 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     appliedAnchorRef.current = { anchor: activeAnchor, transport };
   }, [activeAnchor, applyAnchorSeek, isReady, transport]);
 
-  const handlePlayToggle = async () => {
+  const schedulePreviewAudioStop = React.useCallback(() => {
+    const preview = measurePreviewRef.current;
+    const context = getAudioContext();
+    if (!preview || !context) return;
+    const remaining = Math.max(0, preview.end - getExactPosition().currentSeconds) / playbackSpeedRef.current;
+    // Schedule on the audio clock as well as clearing the UI at the boundary.
+    // Sound must stop even when animation frames are throttled in a hidden tab.
+    for (const source of synthControllerRef.current?.midiBuffer?.directSource ?? []) {
+      source.stop(context.currentTime + remaining);
+    }
+  }, [getAudioContext, getExactPosition]);
+
+  const handlePlayToggle = React.useCallback(async (preview?: { start: number; end: number }) => {
+    measurePreviewRef.current = preview ?? null;
     const controller = synthControllerRef.current;
     if (!controller) return;
     const operation = ++operationRef.current;
@@ -491,6 +566,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         seekTo(seconds, 'seconds');
         pendingSeekRef.current = null;
       }
+      schedulePreviewAudioStop();
     } catch (error) {
       if (synthControllerRef.current !== controller || operationRef.current !== operation) return;
       controller.pause?.();
@@ -503,12 +579,14 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     } finally {
       if (synthControllerRef.current === controller) setIsStarting(false);
     }
-  };
+  }, [getExactPosition, getAudioContext, seekTo, updatePlaybackPosition, schedulePreviewAudioStop]);
 
-  const handleStop = () => {
+  const handleStop = React.useCallback(() => {
+    setPreviewStopSignal((value) => value + 1);
     const controller = synthControllerRef.current;
     if (!controller) return;
     operationRef.current += 1;
+    measurePreviewRef.current = null;
     controller.pause();
     controller.restart?.();
     controller.isStarted = false;
@@ -516,9 +594,60 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setCurrentMeasure(null);
     updatePlaybackPosition({ progress: 0, playing: false });
     removePlaybackCursor();
-  };
+  }, [seekTo, updatePlaybackPosition]);
 
-  const handleSpeedChange = async (speed: number) => {
+  // A source edit rebuilds the transport asynchronously. Consume each request
+  // once, only when the synth belongs to the exact committed document/source.
+  useEffect(() => {
+    if (!measurePreviewRequest || handledPreviewRef.current === measurePreviewRequest) return;
+    if (measurePreviewRequest.sourceKey !== sourceKey || !isReady || isChangingSpeed) return;
+    handledPreviewRef.current = measurePreviewRequest;
+    if (measurePreviewRequest.stop || isPlayingRef.current) {
+      handleStop();
+      return;
+    }
+    if (!currentTune) return;
+    try {
+      const occurrences = previewTiming?.occurrences ?? [];
+      const occurrence = selectMeasureWithRepeats(measurePreviewRequest.measure, occurrences, getExactPosition().currentSeconds);
+      if (!occurrence) throw new Error('Measure timing is unavailable.');
+      const index = occurrences.indexOf(occurrence);
+      const end = occurrences[index + 1]?.startTimeSec ?? previewTiming?.duration ?? 0;
+      if (!(end > occurrence.startTimeSec)) throw new Error('Measure timing is unavailable.');
+      if (synthControllerRef.current?.isLooping) synthControllerRef.current.toggleLoop();
+      seekTo(occurrence.startTimeSec, 'seconds');
+      void handlePlayToggle(measurePreviewRequest.continuous ? undefined : { start: occurrence.startTimeSec, end });
+    } catch {
+      setAudioError('Could not preview this measure: playback timing is unavailable.');
+    }
+  }, [measurePreviewRequest, sourceKey, isReady, isChangingSpeed, currentTune, previewTiming, getExactPosition, seekTo, handlePlayToggle, handleStop]);
+
+  // Follow the audio clock so pauses, tempo changes, and tab throttling cannot
+  // turn a single-measure preview into continuous score playback.
+  useEffect(() => {
+    if (!isPlaying) return;
+    let frame: number;
+    const checkBoundary = () => {
+      const preview = measurePreviewRef.current;
+      if (preview && getExactPosition().currentSeconds >= preview.end) {
+        const controller = synthControllerRef.current;
+        operationRef.current += 1;
+        controller?.pause();
+        if (controller) controller.isStarted = false;
+        measurePreviewRef.current = null;
+        seekTo(preview.start, 'seconds');
+        updatePlaybackPosition({ playing: false });
+        setCurrentMeasure(null);
+        removePlaybackCursor();
+        return;
+      }
+      frame = window.requestAnimationFrame(checkBoundary);
+    };
+    frame = window.requestAnimationFrame(checkBoundary);
+    return () => window.cancelAnimationFrame(frame);
+  }, [isPlaying, getExactPosition, seekTo, updatePlaybackPosition]);
+
+  const handleSpeedChange = async (speed: number, reason: 'speed' | 'voices' = 'speed') => {
     const controller = synthControllerRef.current;
     if (!controller?.setWarp || !Number.isFinite(speed) || speed <= 0) return;
     const operation = ++operationRef.current;
@@ -560,6 +689,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         }
         pendingSeekRef.current = null;
         updatePlaybackPosition({ playing: true });
+        schedulePreviewAudioStop();
       }
     } catch (error) {
       if (synthControllerRef.current !== controller || !currentTune) return;
@@ -572,7 +702,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       setCurrentMeasure(null);
       setIsStarting(false);
       updatePlaybackPosition({ playing: false });
-      setAudioError('Could not change playback speed. Playback is paused at 1×; try again.');
+      setAudioError(reason === 'voices' ? 'Could not update voice sounds. Playback is paused at 1×; try again.' : 'Could not change playback speed. Playback is paused at 1×; try again.');
       waterfallRef.current = null;
       callbacksRef.current.onWaterfallPlaybackChange?.(null);
       setSynthGeneration((generation) => generation + 1);
@@ -582,10 +712,19 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }
   };
 
+  const handleMixChange = async (settings: VoiceMixSettings) => {
+    pendingMixerFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    mixerRef.current = { voices: mixerVoices, settings };
+    setMixerState({ documentId, settings });
+    writeVoiceMix(documentId, settings);
+    await handleSpeedChange(playbackSpeedRef.current, 'voices');
+  };
+
   const handleSeekTrackClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     if (!synthControllerRef.current || !isReady) return;
     const rect = event.currentTarget.getBoundingClientRect();
     if (rect.width <= 0) return;
+    measurePreviewRef.current = null;
     seekTo(Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)));
   };
 
@@ -630,11 +769,16 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
       <div ref={audioContainerRef} className="abcjs-synth-container hidden-synth" />
 
+      {voicesOpen && <VoicesPanel key={documentId} voices={mixerVoices} settings={mixerSettings}
+        disabled={!isReady || isChangingSpeed || isStarting} volume={effectiveVolume} stopSignal={previewStopSignal} mainPlaying={isPlaying}
+        onChange={handleMixChange}
+        onBeforePreview={() => { if (isPlayingRef.current) void handlePlayToggle(); }}
+        onClose={() => { setVoicesOpen(false); voicesButtonRef.current?.focus(); }} />}
       <div className="player-controls-bar">
         <div className="main-play-buttons">
           <button
             className={`btn btn-primary btn-circle ${!isReady ? 'opacity-50 cursor-not-allowed' : ''}`}
-            onClick={handlePlayToggle}
+            onClick={() => { void handlePlayToggle(); }}
             disabled={!isReady || isChangingSpeed || (!isPlaying && isStarting)}
             title={isPlaying ? 'Pause Audio' : 'Play Piano Synthesizer'}
           >
@@ -689,6 +833,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           </div>
         </div>
 
+        <button type="button" ref={voicesButtonRef} className="voices-toggle" aria-expanded={voicesOpen}
+          onClick={() => setVoicesOpen(!voicesOpen)}>Voices</button>
         <label className="playback-speed-control">
           <span className="sr-only">Playback speed</span>
           <select

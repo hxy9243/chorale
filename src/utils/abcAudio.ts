@@ -131,11 +131,16 @@ export function prepareAbcForAudio(abc: string): string {
  */
 export function prepareAbcForEngraving(abc: string): string {
   const prepared = prepareAbcForPlayback(abc);
+  let expandedBars = 0;
   const withExpandedRests = prepared.replace(
     /\b([ZX])(\d+)\b/g,
     (_, restChar, countStr) => {
       const count = Number(countStr);
-      if (!Number.isSafeInteger(count) || count <= 1) return `${restChar}${countStr}`;
+      expandedBars += count;
+      if (!Number.isSafeInteger(count) || expandedBars > 10_000) {
+        throw new Error('This score expands to too many measures to display (limit: 10,000 rest bars). The original source is unchanged.');
+      }
+      if (count <= 1) return `${restChar}${countStr}`;
       return Array(count).fill(restChar).join('|');
     },
   );
@@ -269,12 +274,18 @@ export function renderPlaybackScore(
   source: string,
   options?: abcjs.AbcVisualParams,
 ): abcjs.TuneObject[] {
-  const prepared = prepareAbcForEngraving(source);
-  const tunes = options ? abcjs.renderAbc(target, prepared, options) : abcjs.renderAbc(target, prepared);
-  hideSyntheticTupletRests(source, tunes);
-  configureAudioPlayback(source, tunes);
-  tunes.forEach((tune) => tune.setTiming?.(tune.getBpm?.()));
-  return tunes;
+  try {
+    const prepared = prepareAbcForEngraving(source);
+    const tunes = options ? abcjs.renderAbc(target, prepared, options) : abcjs.renderAbc(target, prepared);
+    hideSyntheticTupletRests(source, tunes);
+    configureAudioPlayback(source, tunes);
+    tunes.forEach((tune) => tune.setTiming?.(tune.getBpm?.()));
+    return tunes;
+  } catch (error) {
+    // abcjs can leave partial SVG behind when engraving or timing fails.
+    target.replaceChildren();
+    throw error;
+  }
 }
 
 type EngravedSelectable = {
@@ -325,6 +336,7 @@ export function hideSyntheticTupletRests(
 }
 
 export interface InitAbcjsSynthOptions {
+  sequenceCallback?: (tracks: import('../music/waterfallPlayback').SynthSequenceNote[][]) => void;
   visualObj: abcjs.TuneObject;
   audioContext?: AudioContext | null;
   soundFontVolumeMultiplier?: number;
@@ -349,6 +361,7 @@ export async function initAbcjsSynth(
   if (options.pan) {
     baseOptions.pan = options.pan;
   }
+  if (options.sequenceCallback) baseOptions.sequenceCallback = options.sequenceCallback;
 
   const primaryInitOptions: Record<string, unknown> = {
     visualObj: options.visualObj,
@@ -378,4 +391,3 @@ export async function initAbcjsSynth(
     await createSynth.init(fallbackInitOptions);
   }
 }
-

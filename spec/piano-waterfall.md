@@ -3,12 +3,14 @@ title: "Piano Waterfall"
 description: "Optional piano waterfall pane synchronized with the shared audio transport"
 category: "core-workspace"
 date: 2026-10-09
-updated: 2026-10-09
+updated: 2026-10-12
 status: "implemented"
 source_files:
   - src/components/WaterfallView.tsx
   - src/components/WaterfallPane.tsx
   - src/music/waterfallLayout.ts
+  - src/music/waterfallVisuals.ts
+  - src/music/waterfallCanvasRenderer.ts
   - src/music/waterfallPlayback.ts
   - src/utils/abcAudio.ts
   - src/utils/repeatPlayback.ts
@@ -22,6 +24,7 @@ source_files:
   - src/styles/waterfall.css
 test_files:
   - src/music/__tests__/waterfallLayout.test.ts
+  - src/music/__tests__/waterfallCanvasRenderer.test.ts
   - src/music/__tests__/waterfallPlayback.test.ts
   - src/utils/__tests__/abcAudio.test.ts
   - src/utils/__tests__/repeatPlayback.test.ts
@@ -32,6 +35,7 @@ test_files:
   - src/hooks/__tests__/useResizablePanel.test.ts
   - src/components/__tests__/AudioPlayer.test.tsx
 related_specs:
+  - spec/score-video-export.md
   - spec/playback-dock.md
   - spec/workspace-layout.md
 ---
@@ -42,9 +46,11 @@ Sheet, ABC code, and Waterfall toggles sit on the right side of the header besid
 
 Notes use the same resolved synthesis timeline as audio, including repeated passages, chords, overlapping voices, ties, rests and the tempo handling already supported by the synthesizer. No second synthesizer or pixel-collision audio scheduler is created. Each animation frame samples the synth's playback clock; seek, pause, resume, restart and playback-speed changes cannot accumulate animation drift. The paused image remains still and key highlights clear when audio is not playing. A replaced or invalid score clears stale visual data.
 
-The lower/leading edge of each descending note reaches the exact top edge of the keyboard at its onset. There is no separate strike line and no gap above the keyboard. Sounding notes shrink into that boundary until their resolved note end; keys remain highlighted for that duration. White and black note lanes use the same pitch geometry as the keyboard, with correct two/three black-key groups. The range expands to include the score's notes, with at least two full octaves and readable horizontally scrollable keys when needed. Muted voice colors are consistent between notes, active keys and a labeled legend. Falling notes have pill-shaped rounded caps and a gradient that fades the trailing (upper) end into the background, making adjacent notes on the same key easier to distinguish. Keyboard colors and note timing remain unchanged.
+The lower/leading edge of each descending note reaches the exact top edge of the keyboard at its onset. There is no separate strike line and no gap above the keyboard. Sounding notes pass behind the keyboard boundary with a straight bottom edge rather than maintaining a rounded cap when merging; keys remain highlighted for that duration. The waterfall uses the app's warm paper surface and soft, muted voice colors. Each note fades smoothly from a transparent trailing edge to a colored leading edge. The gradient stays anchored to the full note interval, including offscreen portions, so clipping and merging do not stretch the fade. There are no detached tail particles.
 
-Animation runs only in the visible pane, uses bounded visible-note lookup, and cleans up its animation frame and resize subscriptions. The renderer never modifies score content or abcjs SVG children. Component, timing, pitch geometry and transport tests supplement browser playback QA. Video export is outside this feature.
+At contact, a shallow glow and bright seam span exactly the falling note's width, including the narrower black-key notes. Small, dense sparks rise only a short distance above that footprint, with a brief onset burst and quieter sustained emission. Contact effects render in front of the notes and keyboard rail, clipped above the keys; they never form a broad halo or travel up the note's tail. Spark positions are derived from note onset and the shared playback clock, so pause and arbitrary seeks remain deterministic. Pausing clears contact effects along with active key highlights. White and black note lanes use the same pitch geometry as the keyboard, with correct two/three black-key groups. The range expands to include the score's notes, with at least two full octaves and readable horizontally scrollable keys when needed. Muted voice colors are consistent between notes, active keys and a labeled legend. Keyboard colors and note timing remain unchanged.
+
+Animation runs only in the visible pane, uses bounded visible-note lookup, and cleans up its animation frame and resize subscriptions. The renderer never modifies score content or abcjs SVG children. Component, timing, pitch geometry and transport tests supplement browser playback QA. The shared Video export dialog also supports piano waterfall videos in landscape and portrait; see `spec/score-video-export.md`. Pane and video renderers share note geometry, tail opacity stops and contact spark calculations.
 
 When the Sheet pane is closed, source changes are engraved into a detached element using the same audio preparation pipeline, keeping playback current without a visible score. Hiding panes alone does not rebuild or stop the transport. A shared speed selector offers 0.5–2× playback; visualization uses score-time seconds and the actual audio clock scaled by the selected speed.
 

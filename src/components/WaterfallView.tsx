@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { contactSparks, WATERFALL_TAIL_STOPS } from '../music/waterfallVisuals';
 import type { WaterfallPlayback } from '../music/waterfallPlayback';
 import { indexNoteWindow, noteGeometry, pianoKeys, pitchLabel, visibleNotes, WATERFALL_COLORS } from '../music/waterfallLayout';
 
@@ -41,6 +42,16 @@ export function WaterfallView({ playback }: { playback: WaterfallPlayback | null
   }, [playback]);
 
   const visible = visibleNotes(index, position.currentSeconds);
+  const renderedNotes = visible.flatMap((note, i) => {
+    const key = keyMap.get(note.midiPitch);
+    if (!key) return [];
+    const geometry = noteGeometry(note, position.currentSeconds, keyboardY);
+    if (geometry.height <= 0) return [];
+    return [{
+      note, geometry, x: key.x * keyWidth + 1,
+      width: Math.max(1, key.width * keyWidth - 2), gradientId: `${clipId}-note-${i}`,
+    }];
+  });
   const active = new Map<number, number>();
   if (position.isPlaying) {
     for (const note of visible) {
@@ -59,33 +70,35 @@ export function WaterfallView({ playback }: { playback: WaterfallPlayback | null
         <defs>
           <clipPath id={clipId}><rect width={width} height={keyboardY} /></clipPath>
           {WATERFALL_COLORS.map((voiceColor, voice) => (
-            <linearGradient key={voice} id={`${clipId}-note-${voice}`} x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor={voiceColor} stopOpacity={0.12} />
-              <stop offset="25%" stopColor={voiceColor} stopOpacity={0.55} />
-              <stop offset="50%" stopColor={voiceColor} stopOpacity={0.85} />
-              <stop offset="100%" stopColor={voiceColor} stopOpacity={0.85} />
+            <linearGradient key={voice} id={`${clipId}-contact-${voice}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={voiceColor} stopOpacity={0} />
+              <stop offset="55%" stopColor={voiceColor} stopOpacity={0.28} />
+              <stop offset="85%" stopColor={voiceColor} stopOpacity={0.72} />
+              <stop offset="100%" stopColor="#fffdfa" stopOpacity={0.98} />
+            </linearGradient>
+          ))}
+          {renderedNotes.map(({ note, geometry, gradientId }) => (
+            <linearGradient key={note.id} id={gradientId} gradientUnits="userSpaceOnUse" x1="0" x2="0" y1={geometry.top} y2={geometry.bottom}>
+              {WATERFALL_TAIL_STOPS.map(([offset, opacity]) => <stop key={offset} offset={`${offset * 100}%`} stopColor={color(note.voice)} stopOpacity={opacity} />)}
             </linearGradient>
           ))}
         </defs>
         <g clipPath={`url(#${clipId})`}>
           {keys.filter((key) => !key.black).map((key) => <line key={key.midiPitch} x1={key.x * keyWidth} x2={key.x * keyWidth} y1={0} y2={keyboardY} className="waterfall-lane" />)}
-          {visible.map((note) => {
-            const key = keyMap.get(note.midiPitch);
-            if (!key) return null;
-            const geometry = noteGeometry(note, position.currentSeconds, keyboardY);
-            const noteWidth = Math.max(1, key.width * keyWidth - 2);
-            return <rect
-              key={note.id}
-              data-note={note.id}
-              x={key.x * keyWidth + 1}
-              y={geometry.y}
-              width={noteWidth}
-              height={geometry.height}
-              rx={noteWidth / 2}
-              fill={`url(#${clipId}-note-${note.voice % WATERFALL_COLORS.length})`}
-            />;
+          {renderedNotes.map(({ note, geometry, x, width: noteWidth, gradientId }) => {
+            const isMerging = geometry.bottom >= keyboardY;
+            const radius = Math.max(1, Math.min(noteWidth / 2, 4));
+            return <g key={note.id} className="waterfall-note-item">
+              <rect data-note={note.id} x={x} y={geometry.top} width={noteWidth}
+                height={geometry.bottom - geometry.top + (isMerging ? noteWidth : 0)}
+                rx={radius} fill={`url(#${gradientId})`} className="waterfall-note-body" />
+              {!isMerging && noteWidth >= 4 && geometry.height >= 4 && (
+                <line x1={x + radius} x2={x + noteWidth - radius} y1={geometry.bottom - 1.2} y2={geometry.bottom - 1.2} stroke="#fffdfa" strokeWidth={1} strokeLinecap="round" opacity={0.45} />
+              )}
+            </g>;
           })}
         </g>
+        <line x1={0} y1={keyboardY} x2={width} y2={keyboardY} className="waterfall-keyboard-rail" />
         {[...keys.filter((key) => !key.black), ...keys.filter((key) => key.black)].map((key) => {
           const voice = active.get(key.midiPitch);
           return <g key={key.midiPitch} data-pitch={key.midiPitch} data-active={voice !== undefined}>
@@ -93,6 +106,27 @@ export function WaterfallView({ playback }: { playback: WaterfallPlayback | null
             {keyboardHeight >= 30 && key.midiPitch % 12 === 0 && <text x={(key.x + 0.5) * keyWidth} y={height - 10} textAnchor="middle" className="waterfall-key-label">{pitchLabel(key.midiPitch)}</text>}
           </g>;
         })}
+        {/* Draw contact light over the notes and rail, confined above the keyboard. */}
+        <g clipPath={`url(#${clipId})`} className="waterfall-contacts" pointerEvents="none">
+          {position.isPlaying && renderedNotes.map(({ note, x, width: noteWidth }) => {
+            const age = position.currentSeconds - note.onsetSeconds;
+            if (age < 0 || age >= note.durationSeconds) return null;
+            const attack = Math.exp(-age * 14);
+            const glowHeight = 6 + attack * 3;
+            return <g key={note.id} data-contact={note.id} className="waterfall-merge-glow">
+              <rect x={x} y={keyboardY - glowHeight} width={noteWidth} height={glowHeight}
+                fill={`url(#${clipId}-contact-${note.voice % WATERFALL_COLORS.length})`} className="waterfall-contact-glow" />
+              {contactSparks(age, noteWidth, note.midiPitch * 97 + note.voice * 41 + note.onsetSeconds * 13).map((spark) => (
+                <line key={spark.id} x1={x + spark.x} x2={x + spark.x}
+                  y1={keyboardY + spark.y} y2={keyboardY + spark.y - spark.length}
+                  stroke={spark.white ? '#fffdfa' : color(note.voice)}
+                  strokeWidth={spark.width} strokeLinecap="round" opacity={spark.opacity} className="waterfall-splash-particle" />
+              ))}
+              <rect x={x} y={keyboardY - 1.4} width={noteWidth} height={1.4}
+                fill="#fffdfa" opacity={0.8 + attack * 0.2} className="waterfall-contact-seam" />
+            </g>;
+          })}
+        </g>
       </svg>
       {!notes?.length && <p className="waterfall-empty" role="status">{playback ? 'No sounding notes in this score.' : 'Waiting for score audio…'}</p>}
     </div>

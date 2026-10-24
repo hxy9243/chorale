@@ -1,0 +1,33 @@
+{
+  "audited": true,
+  "storage": "local only; no cloud telemetry",
+  "checks": [
+    {
+      "trace": "traces/2026-10-23T08-56-52-501Z-01-inversions.jsonl",
+      "records": 73,
+      "matchedToolIds": true,
+      "orderedSequences": true,
+      "fullCodeCaptured": true,
+      "providerSimulated": true,
+      "passed": true
+    },
+    {
+      "trace": "traces/2026-10-23T08-56-55-950Z-02-parallel-fifths.jsonl",
+      "records": 82,
+      "matchedToolIds": true,
+      "orderedSequences": true,
+      "fullCodeCaptured": true,
+      "providerSimulated": true,
+      "passed": true
+    },
+    {
+      "trace": "traces/2026-10-23T08-56-59-689Z-03-pickup-accidental-tie.jsonl",
+      "records": 77,
+      "matchedToolIds": true,
+      "orderedSequences": true,
+      "fullCodeCaptured": true,
+      "providerSimulated": true,
+      "passed": true
+    }
+  ]
+}

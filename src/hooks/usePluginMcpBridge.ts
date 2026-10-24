@@ -10,6 +10,7 @@ type PluginViewConfig = Readonly<{
 
 type PluginMcpBridgeInput = Readonly<{
   enabled: boolean;
+  hasUnsavedChanges?: boolean;
   documentId?: string;
   title: string;
   revision: number;
@@ -42,7 +43,7 @@ export const getPluginViewConfig = (): PluginViewConfig => {
   return {
     viewId: parameters.get('viewId') || viewIdentity(),
     // When served via HTTP/HTTPS, use the current server origin instead of hardwiring port 1685.
-    bridgeUrl: parameters.get('choraleBridge') || (isHttp ? window.location.origin : defaultBridgeUrl),
+    bridgeUrl: parameters.get('choraleBridge') || (window.choraleAI && window.location.protocol === 'app:' ? 'app://chorale' : isHttp ? window.location.origin : defaultBridgeUrl),
   };
 };
 
@@ -79,6 +80,7 @@ export const extractSelectedAbc = (abcSource: string, selection: ScoreAnchor): s
 
 export const usePluginMcpBridge = ({
   enabled,
+  hasUnsavedChanges = false,
   documentId,
   title,
   revision,
@@ -95,6 +97,8 @@ export const usePluginMcpBridge = ({
   onRefreshDocuments,
 }: PluginMcpBridgeInput) => {
   const config = useMemo(() => getPluginViewConfig(), []);
+  const unsavedChangesRef = useRef(hasUnsavedChanges);
+  unsavedChangesRef.current = hasUnsavedChanges;
   const annotationsRef = useRef(annotations);
   annotationsRef.current = annotations;
 
@@ -178,7 +182,8 @@ export const usePluginMcpBridge = ({
     let cancelled = false;
 
     const syncFromStore = async () => {
-      if (!isBridgeAvailableRef.current) return;
+      if (!isBridgeAvailableRef.current || unsavedChangesRef.current) return;
+      const requestedAnnotations = annotationsRef.current;
       try {
         const response = await fetch(`${config.bridgeUrl}/v1/scores/${encodeURIComponent(documentId)}`);
         if (!response.ok || cancelled) {
@@ -186,6 +191,8 @@ export const usePluginMcpBridge = ({
           return;
         }
         const score = await response.json() as { annotations?: Annotation[]; revision?: number };
+        // Never replace a local edit with an older read while autosave is pending.
+        if (cancelled || unsavedChangesRef.current || requestedAnnotations !== annotationsRef.current) return;
         if (Array.isArray(score.annotations) && onSetAnnotationsRef.current) {
           const currentAnns = annotationsRef.current || [];
           const currentIds = new Set(currentAnns.map((a) => a.id));
