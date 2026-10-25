@@ -1,0 +1,127 @@
+.mcp-integration-client {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-block: var(--space-lg) var(--space-md);
+  max-width: 24rem;
+}
+
+.mcp-integration-client select {
+  min-height: 2.75rem;
+  padding: var(--space-sm) var(--space-md);
+  font: inherit;
+  border-radius: 6px;
+  border: 1px solid var(--color-rule-2, #c8c1b4);
+  background: var(--color-paper-raised, #fffdfa);
+  color: var(--color-ink, #24211c);
+}
+
+.mcp-connection-preview {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: var(--rule-thin) solid var(--color-rule);
+}
+
+.mcp-connection-preview pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  color: var(--color-ink-2);
+  line-height: 1.6;
+  margin-block: var(--space-sm) var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-paper-2, #ede8df);
+  border: 1px solid var(--color-rule, #dcd6ca);
+  border-radius: 6px;
+}
+
+.mcp-integration-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md, 0.75rem);
+  margin-top: var(--space-md, 0.75rem);
+}
+
+/* Override .ai-settings-single-panel button reset so MCP actions look and feel like real tactile buttons */
+.ai-settings-single-panel.mcp-integration-settings button.mcp-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: 8px;
+  font-family: var(--font-sans, inherit);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
+}
+
+.ai-settings-single-panel.mcp-integration-settings button.mcp-review-btn,
+.ai-settings-single-panel.mcp-integration-settings button.mcp-guide-btn {
+  background: var(--color-paper-raised, #fffdfa);
+  color: var(--color-ink, #24211c);
+  border: 1.5px solid var(--color-rule-2, #c8c1b4);
+  box-shadow: 0 1px 2px rgba(36, 33, 28, 0.08);
+}
+
+.ai-settings-single-panel.mcp-integration-settings button.mcp-review-btn:hover:not(:disabled),
+.ai-settings-single-panel.mcp-integration-settings button.mcp-guide-btn:hover:not(:disabled) {
+  background: var(--color-paper-2, #ede8df);
+  border-color: var(--color-ink-2, #575249);
+}
+
+.ai-settings-single-panel.mcp-integration-settings button.mcp-connect-btn {
+  min-height: 3rem;
+  min-width: 12.5rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.96875rem;
+  font-weight: 600;
+  background: var(--color-accent, #b85233);
+  color: #fffdfa;
+  border: 1.5px solid var(--color-accent, #b85233);
+  box-shadow: 0 2px 6px rgba(184, 82, 51, 0.25);
+}
+
+.ai-settings-single-panel.mcp-integration-settings button.mcp-connect-btn:hover:not(:disabled) {
+  background: #a14427;
+  border-color: #a14427;
+  box-shadow: 0 4px 10px rgba(184, 82, 51, 0.32);
+}
+
+.ai-settings-single-panel.mcp-integration-settings button.mcp-cancel-btn {
+  min-height: 3rem;
+  min-width: 8.5rem;
+  padding: 0.75rem 1.35rem;
+  font-size: 0.96875rem;
+  font-weight: 600;
+  background: var(--color-paper-raised, #fffdfa);
+  color: var(--color-ink, #24211c);
+  border: 1.5px solid var(--color-rule-2, #c8c1b4);
+  box-shadow: 0 1px 3px rgba(36, 33, 28, 0.08);
+}
+
+.ai-settings-single-panel.mcp-integration-settings button.mcp-cancel-btn:hover:not(:disabled) {
+  background: var(--color-paper-2, #ede8df);
+  border-color: var(--color-ink-2, #575249);
+}
+
+.ai-settings-single-panel.mcp-integration-settings button.mcp-action-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.ai-settings-single-panel.mcp-integration-settings button.mcp-action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mcp-integration-settings [role="alert"] {
+  color: var(--color-warning);
+}

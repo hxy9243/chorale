@@ -102,7 +102,7 @@ Required content:
   import accepts `.xml`, `.musicxml`, `.mxl`, and `.abc`, while New Score opens the fixed two-staff
   piano-score builder. The panel also contains the active and available file list with format badge
   (MXL, ABC, MusicXML) and state indicator (`original`, `edited`)
-- **Tools**: an `ABC display` toggle and an `Editing history` button to open the score history timeline modal; future score tools join this panel rather than the score header
+- **Tools**: an `Editing history` button to open the score history timeline modal; future score tools join this panel rather than the score header
 - **Settings**: its action icon anchors to the bottom of the selection bar and opens application settings directly
 - icon-only panel selections expose hover titles and accessible names
 - dedicated top-anchored toggle expansion icon (`PanelLeftClose` / `PanelLeft`) that collapses the rail and re-expands it to the last focused panel; last focused panel persists as `chorale.workspace.fileRailActivePanel`

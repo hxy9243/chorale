@@ -109,8 +109,7 @@ describe('App Integration', () => {
       expect(screen.getByTestId('sheet-svg')).toBeDefined();
     }, { timeout: 4000 });
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
-    fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
     fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
     fireEvent.click(screen.getByRole('button', { name: 'Close ABC source pane' }));
     expect(screen.queryByPlaceholderText(/Parsed ABC code will appear here/)).toBeNull();
@@ -304,8 +303,7 @@ describe('App Integration', () => {
     render(<App />);
     await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());
     fireEvent.click(screen.getByRole('button', { name: 'Waterfall' }));
-    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
-    fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
     fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
     fireEvent.click(screen.getByRole('button', { name: 'Close Sheet pane' }));
     const source = 'X:1\nT:Hidden score edit\nK:C\nCDEF|';
@@ -766,8 +764,7 @@ describe('App Integration', () => {
       .toContain('360px');
     expect(document.querySelector('.zoom-level-text')?.textContent).toBe('140%');
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
-    fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
     expect(document.querySelector<HTMLElement>('.editor-workspace-card')?.style.width)
       .toBe('456px');
     expect(localStorage.getItem(EDITOR_WIDTH_KEY)).toBe('520');
@@ -843,8 +840,7 @@ describe('App Integration', () => {
     const saveSpy = vi.spyOn(storageAdapter, 'saveDocuments');
     saveSpy.mockClear();
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
-    fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
     fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
     const editor = screen.getByPlaceholderText(/Parsed ABC code will appear here/);
 
@@ -890,8 +886,7 @@ describe('App Integration', () => {
     );
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
-    fireEvent.click(screen.getByRole('button', { name: 'ABC display' }));
+    fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
     fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
     const editor = screen.getByPlaceholderText(/Parsed ABC code will appear here/);
     fireEvent.change(editor, { target: { value: 'X:1\nT:Persisted Score\nK:C\nCDEF G' } });

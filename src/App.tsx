@@ -475,8 +475,6 @@ export const App: React.FC = () => {
           activePanel={railActivePanel}
           onActivePanelChange={setRailActivePanel}
           onBeginResize={beginRailResize}
-          editorVisible={editorVisible}
-          onToggleEditor={() => setEditorVisible((visible) => !visible)}
           onOpenSettings={openSettings}
           onOpenHistory={openHistoryModal}
           historyCount={editingHistory.length}

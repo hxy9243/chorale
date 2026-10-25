@@ -35,6 +35,16 @@ const makeAIState = (overrides: Partial<AIProviderState> = {}): AIProviderState 
 });
 
 describe('AISettingsModal', () => {
+  it('opens Integration directly and honors another menu request while settings is already open', () => {
+    const props = { open: true, initialTab: 'integration' as const, onClose: () => {}, ai: makeAIState(), ...zoomProps };
+    const { rerender } = render(<AISettingsModal {...props} settingsRequestId={1} />);
+    expect(screen.getByRole('tabpanel', { name: 'Integration' })).toBeDefined();
+    fireEvent.click(screen.getByRole('tab', { name: 'API providers' }));
+    expect(screen.getByRole('tabpanel', { name: 'API providers' })).toBeDefined();
+    rerender(<AISettingsModal {...props} settingsRequestId={2} />);
+    expect(screen.getByRole('tabpanel', { name: 'Integration' })).toBeDefined();
+  });
+
   it('shows desktop-required state without exposing provider forms in a browser', () => {
     render(
       <AISettingsModal
@@ -201,6 +211,8 @@ describe('AISettingsModal', () => {
 
     expect(tablist.getAttribute('aria-orientation')).toBe('vertical');
     fireEvent.keyDown(providers, { key: 'ArrowDown' });
+    expect(screen.getByRole('tab', { name: 'Integration' }).getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'Integration' }), { key: 'ArrowDown' });
     expect(screen.getByRole('tab', { name: 'Appearance' }).getAttribute('aria-selected')).toBe('true');
   });
 });

@@ -54,7 +54,7 @@ Required behavior:
 - draggable divider between score and editor (height bounded between 180px and available workspace height minus 200px Sheet minimum, default 240px in vertical mode; width bounded between 320px and 720px, default 420px in horizontal mode)
 - persistent editor visibility, height, and width state stored in local storage (`chorale.workspace.editorVisible`, `chorale.workspace.editorHeight`, `chorale.workspace.editorWidth`)
 - editor dimensions that can be adjusted without collapsing the score
-- opening from the global header `ABC code` toggle, the `+` pane launcher, or the left-rail **Tools** panel through the `ABC display` toggle
+- opening from the global header `ABC code` toggle or the `+` pane launcher
 
 ## 3. Editor chrome
 
