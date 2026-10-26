@@ -124,6 +124,48 @@ describe('vertical workspace sizing', () => {
 
 
 describe('shared chat rail', () => {
+  it('refits a wide saved preference as panes rearrange without overwriting it', () => {
+    vi.stubGlobal('innerWidth', 1920);
+    localStorage.setItem(FILE_RAIL_WIDTH_KEY, '1200');
+    localStorage.setItem(FILE_RAIL_ACTIVE_PANEL_KEY, 'chat');
+    const { result, rerender } = renderHook(({ vertical, waterfallVisible, splitStack }) => useWorkspaceLayout({ zoom: 100 }, {
+      shellRef: { current: shell }, vertical, waterfallVisible, splitStack, sheetVisible: true, chatAvailable: true,
+    }), { initialProps: { vertical: true, waterfallVisible: false, splitStack: false } });
+    expect(result.current.fittedPanelLayout.fileRailWidth).toBe(1200);
+    rerender({ vertical: false, waterfallVisible: false, splitStack: false });
+    expect(result.current.fittedPanelLayout.fileRailWidth).toBe(1024);
+    expect(result.current.fittedPanelLayout.editorPanelWidth).toBe(320);
+    rerender({ vertical: false, waterfallVisible: true, splitStack: false });
+    expect(result.current.fittedPanelLayout.fileRailWidth).toBe(872);
+    rerender({ vertical: false, waterfallVisible: true, splitStack: true });
+    expect(result.current.fittedPanelLayout.fileRailWidth).toBe(1200);
+    vi.stubGlobal('innerWidth', 1024);
+    act(() => { fireEvent(window, new Event('resize')); });
+    expect(result.current.fittedPanelLayout.fileRailWidth).toBe(456);
+    expect(localStorage.getItem(FILE_RAIL_WIDTH_KEY)).toBe('1200');
+    vi.stubGlobal('innerWidth', 1920);
+    act(() => { fireEvent(window, new Event('resize')); });
+    expect(result.current.fittedPanelLayout.fileRailWidth).toBe(1200);
+  });
+
+  it.each([100, 150])('starts repeated drags from the displayed width at %s%% interface scale', (zoom) => {
+    vi.stubGlobal('innerWidth', 1280 * zoom / 100);
+    localStorage.setItem(FILE_RAIL_WIDTH_KEY, '1200');
+    localStorage.setItem(EDITOR_VISIBLE_KEY, 'false');
+    const { result } = renderHook(() => useWorkspaceLayout({ zoom }, {
+      shellRef: { current: shell }, vertical: true, sheetVisible: true, chatAvailable: true,
+    }));
+    expect(result.current.fittedPanelLayout.fileRailWidth).toBe(712);
+    const target = document.createElement('button');
+    for (const expected of [692, 672]) {
+      act(() => result.current.beginRailResize({ currentTarget: target, clientX: 500, pointerId: 1 } as ReactPointerEvent<HTMLButtonElement>));
+      act(() => { fireEvent.pointerMove(window, { clientX: 500 - 20 * zoom / 100, pointerId: 1 }); });
+      act(() => { fireEvent.pointerUp(window, { pointerId: 1 }); });
+      expect(result.current.fittedPanelLayout.fileRailWidth).toBe(expected);
+      expect(localStorage.getItem(FILE_RAIL_WIDTH_KEY)).toBe(String(expected));
+    }
+  });
+
   it('uses the same score width for Files and Chat at the same rail width', () => {
     vi.stubGlobal('innerWidth', 1920);
     localStorage.setItem(EDITOR_VISIBLE_KEY, 'false');

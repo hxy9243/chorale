@@ -34,6 +34,8 @@ type WorkspacePaneLayout = {
   vertical: boolean;
   chatAvailable?: boolean;
   sheetVisible: boolean;
+  waterfallVisible?: boolean;
+  splitStack?: boolean;
 };
 const DEFAULT_SHEET_ZOOM = 100;
 const MIN_SHEET_ZOOM = 50;
@@ -148,7 +150,8 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }, panes?: Work
     direction: 'right',
   });
 
-  const { shellRef, vertical = false, sheetVisible = true } = panes ?? {};
+  const { shellRef, vertical = false, sheetVisible: scoreVisible = true } = panes ?? {};
+  const sheetVisible = scoreVisible || Boolean(panes?.waterfallVisible);
 
   // Read the live content box so an in-progress resize never uses stale bounds.
   // clientHeight is in layout pixels, including when interface zoom is applied.
@@ -193,25 +196,28 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }, panes?: Work
   });
 
   const chatSelected = Boolean(panes?.chatAvailable && railActivePanel === 'chat');
-  const clampRailWidth = useCallback((width: number) => (
-    clampFileRailWidth(chatSelected ? Math.max(MIN_CHAT_RAIL_WIDTH, width) : width)
-  ), [chatSelected]);
-
-  const { beginResize: beginRailResize } = useResizablePanel({
-    initialWidth: clampRailWidth(railWidth),
-    clampWidth: clampRailWidth,
-    onWidthChange: setRailWidth,
-    direction: 'right',
-  });
-
-  const fittedPanelLayout = useMemo(() => fitWorkspacePanelLayout({
-    viewportWidth: layoutWidth,
-    fileRailWidth: railWidth,
+  const horizontal = !vertical && !panes?.splitStack;
+  const inlineEditorVisible = horizontal && editorVisible && scoreVisible;
+  const additionalWorkspaceWidth = horizontal && panes?.waterfallVisible && (scoreVisible || editorVisible)
+    ? 140 + 12 : 0;
+  const fitLayout = useCallback((preferredRailWidth: number, viewportWidth: number) => fitWorkspacePanelLayout({
+    viewportWidth,
+    fileRailWidth: preferredRailWidth,
     fileRailMinimumWidth: chatSelected ? MIN_CHAT_RAIL_WIDTH : undefined,
     editorPanelWidth: editorWidth,
     fileRailVisible: !railCollapsed,
-    editorPanelVisible: editorVisible,
-  }), [chatSelected, editorVisible, editorWidth, layoutWidth, railCollapsed, railWidth]);
+    editorPanelVisible: inlineEditorVisible,
+    additionalWorkspaceWidth,
+  }), [chatSelected, editorWidth, inlineEditorVisible, additionalWorkspaceWidth, railCollapsed]);
+  const fittedPanelLayout = useMemo(() => fitLayout(railWidth, layoutWidth), [fitLayout, railWidth, layoutWidth]);
+
+  const { beginResize: beginRailResize } = useResizablePanel({
+    // Pointer positions are screen pixels; stored and fitted widths are layout pixels.
+    getInitialSize: () => fittedPanelLayout.fileRailWidth * interfaceZoom.zoom / 100,
+    clampWidth: (width) => fitLayout(width * 100 / interfaceZoom.zoom, layoutViewportWidth()).fileRailWidth,
+    onWidthChange: setRailWidth,
+    direction: 'right',
+  });
 
   return {
     zoom,

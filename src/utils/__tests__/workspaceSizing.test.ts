@@ -18,6 +18,7 @@ describe('file rail sizing', () => {
     expect(defaultFileRailWidth(720)).toBe(240);
     expect(defaultFileRailWidth(3_000)).toBe(560);
     expect(clampFileRailWidth(100)).toBe(240);
+    expect(clampFileRailWidth(1400)).toBe(1400);
   });
 });
 
@@ -56,7 +57,7 @@ describe('workspace panel fitting', () => {
     expect(layout.editorPanelWidth).toBe(320);
   });
 
-  it('shrinks inline panels proportionally while preserving the score minimum', () => {
+  it('gives the shared rail its requested width before fitting the editor', () => {
     const layout = fitWorkspacePanelLayout({
       viewportWidth: 1_480,
       fileRailWidth: 560,
@@ -66,8 +67,27 @@ describe('workspace panel fitting', () => {
     });
 
     expect(layout.fileRailWidth).toBeGreaterThanOrEqual(240);
+    expect(layout.fileRailWidth).toBe(560);
     expect(layout.editorPanelWidth).toBeGreaterThanOrEqual(320);
     expect(layout.scoreWorkspaceWidth).toBeGreaterThanOrEqual(MIN_SCORE_WORKSPACE_WIDTH);
+  });
+
+  it.each([
+    { editorPanelVisible: false, additionalWorkspaceWidth: 0, maximum: 1352 },
+    { editorPanelVisible: true, additionalWorkspaceWidth: 0, maximum: 1024 },
+    { editorPanelVisible: true, additionalWorkspaceWidth: 152, maximum: 872 },
+  ])('grows beyond 560px until the other visible panes reach their minimums ($maximum)', ({ maximum, ...panes }) => {
+    const layout = fitWorkspacePanelLayout({
+      viewportWidth: 1920,
+      fileRailWidth: 1800,
+      fileRailMinimumWidth: MIN_CHAT_RAIL_WIDTH,
+      editorPanelWidth: 900,
+      fileRailVisible: true,
+      ...panes,
+    });
+    expect(layout.fileRailWidth).toBe(maximum);
+    expect(layout.scoreWorkspaceWidth).toBe(MIN_SCORE_WORKSPACE_WIDTH);
+    if (panes.editorPanelVisible) expect(layout.editorPanelWidth).toBe(320);
   });
 
   it('keeps preferred widths when the viewport has enough room', () => {

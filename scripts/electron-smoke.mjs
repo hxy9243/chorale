@@ -130,6 +130,45 @@ try {
   await page.getByRole('tab', { name: 'Files', exact: true }).click();
   assert.equal((await page.locator('.file-rail').boundingBox()).width, railAfter.width, 'Files shares the resized width');
   await page.getByRole('tab', { name: 'Chat', exact: true }).click();
+  const growRailToLimit = async () => {
+    const handle = await page.getByRole('button', { name: 'Resize sidebar', exact: true }).boundingBox();
+    const x = handle.x + handle.width / 2;
+    const y = handle.y + handle.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + 2000, y, { steps: 8 });
+    await page.mouse.up();
+    return (await page.locator('.file-rail').boundingBox()).width;
+  };
+  const wideRail = await growRailToLimit();
+  assert.ok(wideRail > 560, 'Chat grows past the retired fixed 560px cap');
+  assert.ok((await page.locator('.central-column').boundingBox()).width >= 560, 'The center retains its minimum reading width');
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 15000 });
+  await chatInput.waitFor();
+  assert.equal((await page.locator('.file-rail').boundingBox()).width, wideRail, 'A wide chat preference survives reload');
+  await page.getByRole('button', { name: 'ABC code', exact: true }).click();
+  assert.equal((await page.locator('.file-rail').boundingBox()).width, wideRail, 'Stacked ABC does not reserve extra horizontal space');
+  const chooseLayout = async (name) => {
+    await page.getByRole('button', { name: 'Open pane', exact: true }).click();
+    await page.getByRole('menuitemradio', { name, exact: true }).click();
+  };
+  await chooseLayout('Columns');
+  const columnRail = (await page.locator('.file-rail').boundingBox()).width;
+  assert.ok(columnRail < wideRail, 'Side-by-side ABC reserves its minimum width');
+  await page.getByRole('button', { name: 'Waterfall', exact: true }).click();
+  assert.ok((await page.locator('.file-rail').boundingBox()).width < columnRail, 'Side-by-side Waterfall reserves its minimum width');
+  for (const selector of ['.score-pane', '.editor-pane', '.waterfall-pane']) {
+    const pane = await page.locator(selector).boundingBox();
+    const center = await page.locator('.central-column').boundingBox();
+    assert.ok(pane.width >= 140 && pane.x >= center.x && pane.x + pane.width <= center.x + center.width + 2, `${selector} stays within the center above its minimum width`);
+  }
+  await chooseLayout('Split stack left');
+  assert.equal((await page.locator('.file-rail').boundingBox()).width, wideRail, 'Split stacks reserve shared column width');
+  await chooseLayout('Rows');
+  assert.equal((await page.locator('.file-rail').boundingBox()).width, wideRail, 'Returning to rows restores the wider chat preference');
+  await page.getByRole('button', { name: 'Close ABC source pane', exact: true }).click();
+  await page.getByRole('button', { name: 'Close Waterfall pane', exact: true }).click();
+  console.log('Chat width passed: grows beyond 560px, fits pane minimums, follows layout, and survives reload');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('tab', { name: 'API providers' }).waitFor();
   await page.getByRole('button', { name: 'Close settings', exact: true }).click();

@@ -151,7 +151,14 @@ export const App: React.FC = () => {
     beginEditorVerticalResize,
     beginEditorVerticalResizeFromBottom,
     beginRailResize,
-  } = useWorkspaceLayout(interfaceZoom, { shellRef, vertical: paneOrientation === 'vertical', sheetVisible: sheetVisible || waterfallVisible, chatAvailable: aiProviders.desktopAvailable });
+  } = useWorkspaceLayout(interfaceZoom, {
+    shellRef,
+    vertical: paneOrientation === 'vertical',
+    splitStack: paneOrientation === 'split-left' || paneOrientation === 'split-right',
+    sheetVisible,
+    waterfallVisible,
+    chatAvailable: aiProviders.desktopAvailable,
+  });
 
   const [waterfallPlayback, setWaterfallPlayback] = useState<WaterfallPlayback | null>(null);
   const [waterfallWidth, setWaterfallWidth] = useState(440);
