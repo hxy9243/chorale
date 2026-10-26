@@ -46,6 +46,91 @@ describe('SheetMusicView Component', () => {
     expect(abcjs.renderAbc).toHaveBeenCalled();
   });
 
+  function contextTarget(measure: number) {
+    const target = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    target.classList.add('abcjs-measure-hit-area');
+    target.dataset.measure = String(measure);
+    screen.getByTestId('mock-svg-paper').append(target);
+    return target;
+  }
+
+  it('preserves the entire selection on right-click inside it and forwards both chat destinations', () => {
+    const anchor = { startMeasure: 2, endMeasure: 4, voiceId: 'S', abcOffset: 40, playbackSeconds: 2 };
+    const onSelectAnchor = vi.fn();
+    const onPlaySelection = vi.fn();
+    const onEditSelection = vi.fn();
+    const onAskSelection = vi.fn();
+    render(<SheetMusicView abcCode={sampleAbc} activeAnchor={anchor} onSelectAnchor={onSelectAnchor}
+      onPlaySelection={onPlaySelection} onEditSelection={onEditSelection} onAskSelection={onAskSelection} />);
+    const target = contextTarget(3);
+    for (const [name, callback, args] of [
+      ['Play selection', onPlaySelection, [anchor, false]],
+      ['Loop selection', onPlaySelection, [anchor, true]],
+      ['Edit in ABC', onEditSelection, [anchor]],
+      ['Ask about selection…', onAskSelection, [anchor, false]],
+      ['Ask about selection in new chat…', onAskSelection, [anchor, true]],
+    ] as const) {
+      fireEvent.mouseDown(target, { button: 2 });
+      fireEvent.mouseUp(target, { button: 2 });
+      fireEvent.contextMenu(target, { clientX: 300, clientY: 200 });
+      expect(screen.getByRole('menu').textContent).toContain('m. 2–4');
+      fireEvent.click(screen.getByRole('menuitem', { name }));
+      expect(callback).toHaveBeenLastCalledWith(...args);
+      expect(screen.queryByRole('menu')).toBeNull();
+    }
+    expect(onSelectAnchor).not.toHaveBeenCalled();
+  });
+
+  it('targets an outside measure, supports keyboard dismissal, and ignores blank sheet space', () => {
+    const onSelectAnchor = vi.fn();
+    const view = render(<SheetMusicView abcCode={sampleAbc} documentId="one"
+      activeAnchor={{ startMeasure: 2, endMeasure: 4 }} onSelectAnchor={onSelectAnchor} onEditSelection={vi.fn()} />);
+    const target = contextTarget(6);
+    fireEvent.contextMenu(target, { clientX: 300, clientY: 200 });
+    expect(onSelectAnchor).toHaveBeenLastCalledWith(expect.objectContaining({ startMeasure: 6, endMeasure: 6 }));
+    expect((screen.getByRole('menuitem', { name: 'Ask about selection…' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(document.activeElement).toBe(screen.getByLabelText('Sheet music'));
+    fireEvent.contextMenu(screen.getByLabelText('Sheet music'), { clientX: 9999, clientY: 9999 });
+    expect(screen.queryByRole('menu')).toBeNull();
+    fireEvent.keyDown(screen.getByLabelText('Sheet music'), { key: 'F10', shiftKey: true });
+    expect(screen.getByRole('menu').textContent).toContain('m. 2–4');
+    view.rerender(<SheetMusicView abcCode={sampleAbc} documentId="two" />);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it.each(['chord', 'annotation'])('creates a %s through the existing editor for the captured range', async (kind) => {
+    const onCreateAnnotation = vi.fn();
+    render(<SheetMusicView abcCode={sampleAbc} activeAnchor={{ startMeasure: 2, endMeasure: 4 }}
+      onCreateAnnotation={onCreateAnnotation} />);
+    fireEvent.contextMenu(contextTarget(3));
+    fireEvent.click(screen.getByRole('menuitem', { name: kind === 'chord' ? 'Add chord symbol…' : 'Add annotation…' }));
+    expect((screen.getByLabelText('Kind') as HTMLSelectElement).value).toBe(kind === 'chord' ? 'chord' : 'explanation');
+    if (kind === 'chord') fireEvent.change(screen.getByLabelText('Chord symbol'), { target: { value: 'Dm7' } });
+    else fireEvent.change(screen.getByLabelText('Explanation'), { target: { value: 'Try a softer entrance.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }));
+    await waitFor(() => expect(onCreateAnnotation).toHaveBeenCalledWith(expect.objectContaining({
+      kind: kind === 'chord' ? 'chord' : 'explanation', span: { startMeasure: 2, endMeasure: 4 }, source: 'user',
+      ...(kind === 'chord' ? { chordSymbol: 'Dm7', position: { measure: 2, offset: { numerator: 0, denominator: 1 } } } : {}),
+    })));
+  });
+
+  it('ignores queued programmatic scrolling but dismisses when the user scrolls the sheet', () => {
+    const { container } = render(<div data-testid="score-scroll"><SheetMusicView abcCode={sampleAbc}
+      activeAnchor={{ startMeasure: 1, endMeasure: 2 }} onEditSelection={vi.fn()} /></div>);
+    fireEvent.contextMenu(contextTarget(1));
+    const otherPane = document.createElement('div');
+    document.body.append(otherPane);
+    fireEvent.scroll(otherPane);
+    expect(screen.getByRole('menu')).toBeDefined();
+    fireEvent.scroll(container.querySelector('.sheet-viewport')!);
+    expect(screen.getByRole('menu')).toBeDefined();
+    fireEvent.wheel(contextTarget(1));
+    expect(screen.queryByRole('menu')).toBeNull();
+    otherPane.remove();
+  });
+
   it('clears partial notation and playback on a renderer exception and recovers after an edit', () => {
     const onTuneRendered = vi.fn();
     const onMeasureSystemsChange = vi.fn();

@@ -529,6 +529,40 @@ describe('AgentChatPanel', () => {
     expect(options.length).toBe(1);
   });
 
+  it('attaches a passage to the current chat, preserves the draft, and captures it after selection changes', async () => {
+    const props = { open: true, onClose: vi.fn(), fileId: 'ask-current', revision: 1,
+      abcCode: 'X:1\nM:4/4\nL:1/4\nK:C\nC4 | D4 | E4 |', activeFileName: 'Test', ai, onOpenSettings: vi.fn() };
+    const view = await renderHydrated(<AgentChatPanel {...props} />);
+    const input = screen.getByLabelText('Ask about the current sheet') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: 'Why this phrase?' } });
+    const request = { fileId: props.fileId, revision: 1, anchor: { startMeasure: 1, endMeasure: 2 }, newChat: false };
+    view.rerender(<AgentChatPanel {...props} askSelectionRequest={request} />);
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    expect(input.value).toBe('Why this phrase?');
+    expect(agentSendMock).not.toHaveBeenCalled();
+    view.rerender(<AgentChatPanel {...props} askSelectionRequest={request} activeAnchor={{ startMeasure: 3, endMeasure: 3 }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(agentSendMock).toHaveBeenCalledOnce());
+    expect(agentSendMock.mock.calls[0][0].context.selection).toEqual(request.anchor);
+  });
+
+  it('opens one separate chat for a new-chat request without sending a message or replaying the request', async () => {
+    await seedProposalThread('ask-new', [proposal]);
+    const props = { open: true, onClose: vi.fn(), fileId: 'ask-new', revision: 1,
+      abcCode: 'X:1\nM:4/4\nL:1/4\nK:C\nC4 | D4 |', activeFileName: 'Test', ai, onOpenSettings: vi.fn() };
+    const request = { fileId: props.fileId, revision: 1, anchor: { startMeasure: 2, endMeasure: 2 }, newChat: true };
+    const view = await renderHydrated(<AgentChatPanel {...props} askSelectionRequest={request} />);
+    await waitFor(() => expect(screen.queryByText('I found these annotations.')).toBeNull());
+    expect(document.activeElement).toBe(screen.getByLabelText('Ask about the current sheet'));
+    expect(agentSendMock).not.toHaveBeenCalled();
+    view.rerender(<AgentChatPanel {...props} askSelectionRequest={request} />);
+    fireEvent.click(screen.getByLabelText('Conversation history'));
+    const options = within(screen.getByRole('listbox', { name: 'Conversation threads' })).getAllByRole('option');
+    expect(options).toHaveLength(2);
+    fireEvent.click(options.find((option) => option.textContent === 'Review proposals')!);
+    expect(screen.getByText('I found these annotations.')).toBeDefined();
+  });
+
   it('does not render analyze, edit, compose buttons or tools disclosure', async () => {
     await renderHydrated(
       <AgentChatPanel

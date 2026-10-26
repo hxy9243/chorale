@@ -4,7 +4,7 @@ import { FileMusic, Plus, X } from 'lucide-react';
 import { Header } from './components/Header';
 import { FileRail } from './components/FileRail';
 import { ScoreScanModal } from './components/ScoreScanModal';
-import { AgentChatPanel } from './components/AgentChatPanel';
+import { AgentChatPanel, type AskSelectionRequest } from './components/AgentChatPanel';
 import { useAIProviders } from './agent/useAIProviders';
 import { ScoreCardHeader } from './components/ScoreCardHeader';
 import { ScoreMetadataHeader } from './components/ScoreMetadataHeader';
@@ -299,6 +299,25 @@ export const App: React.FC = () => {
   const handlePlayFromMeasure = useCallback((measure: number) => {
     setMeasurePreviewRequest({ measure, sourceKey: displayPlaybackSourceKey, continuous: true, stop: playbackPositionRef.current.isPlaying });
   }, [displayPlaybackSourceKey]);
+  const handlePlaySelection = useCallback((anchor: ScoreAnchor, loop: boolean) => {
+    setMeasurePreviewRequest({ measure: anchor.startMeasure, endMeasure: anchor.endMeasure,
+      sourceKey: displayPlaybackSourceKey, loop, restart: true });
+  }, [displayPlaybackSourceKey]);
+  const [editorSelectionRequest, setEditorSelectionRequest] = useState<{
+    documentId: string; revision: number; anchor: ScoreAnchor;
+  } | null>(null);
+  const [askSelectionRequest, setAskSelectionRequest] = useState<AskSelectionRequest | null>(null);
+  const handleEditSelection = (anchor: ScoreAnchor) => {
+    if (!activeDocument) return;
+    openEditorPane(setEditorVisible);
+    setEditorSelectionRequest({ documentId: activeDocument.id, revision: abcRevision, anchor });
+  };
+  const handleAskSelection = (anchor: ScoreAnchor, newChat: boolean) => {
+    if (!activeDocument) return;
+    setRailCollapsed(false);
+    setRailActivePanel('chat');
+    setAskSelectionRequest({ fileId: activeDocument.id, revision: abcRevision, anchor, newChat });
+  };
   const [previousPreviewSourceKey, setPreviousPreviewSourceKey] = useState(displayPlaybackSourceKey);
   if (previousPreviewSourceKey !== displayPlaybackSourceKey) {
     setPreviousPreviewSourceKey(displayPlaybackSourceKey);
@@ -489,6 +508,7 @@ export const App: React.FC = () => {
               revision={abcRevision}
               annotations={activeDocument?.annotations || []}
               activeAnchor={activeAnchor}
+              askSelectionRequest={askSelectionRequest}
               onClearAnchor={() => handleSelectAnchor(null)}
               totalMeasures={totalMeasures}
               scoreMeter={scoreMeter}
@@ -648,6 +668,9 @@ export const App: React.FC = () => {
                           navigationAnchor={scoreNavigationAnchor}
                           editorFocusMeasure={editorVisible ? editorFocusMeasure : null}
                           onPlayFromMeasure={handlePlayFromMeasure}
+                          onPlaySelection={handlePlaySelection}
+                          onEditSelection={handleEditSelection}
+                          onAskSelection={aiProviders.desktopAvailable ? handleAskSelection : undefined}
                           onSelectAnchor={handleSelectAnchor}
                           onTuneRendered={draftSheetSource ? undefined : handlePlaybackTuneRendered}
                           documentId={activeDocument.id}
@@ -744,6 +767,7 @@ export const App: React.FC = () => {
                     documentId={activeDocument?.id}
                     revision={abcRevision}
                     activeAnchor={activeAnchor}
+                    focusSelectionRequest={editorSelectionRequest}
                     onSelectAnchor={handleSelectAnchor}
                     onNavigateMeasure={handleNavigateMeasure}
                     onMeasureMutation={handleMeasureMutation}

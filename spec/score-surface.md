@@ -3,12 +3,16 @@ title: "Score Surface Spec"
 description: "Specification for score rendering, continuous range selection, chord overlays, range annotation rail, line measure numbers, and auto-centering playback"
 category: "core-workspace"
 date: 2026-08-05
-updated: 2026-10-24
+updated: 2026-10-25
 status: "implemented"
 source_files:
   - src/App.tsx
   - src/components/ErrorBoundary.tsx
   - src/components/SheetMusicView.tsx
+  - src/components/ScoreContextMenu.tsx
+  - src/components/AbcEditor.tsx
+  - src/components/AudioPlayer.tsx
+  - src/components/AgentChatPanel.tsx
   - src/components/ScoreMetadataHeader.tsx
   - src/components/ScoreCardHeader.tsx
   - src/components/AnnotationOverlay.tsx
@@ -27,9 +31,13 @@ source_files:
   - tokens.css
   - src/chorale-theme.css
 test_files:
+  - scripts/score-context-menu-smoke.mjs
   - src/App.test.tsx
   - src/components/__tests__/ErrorBoundary.test.tsx
   - src/components/__tests__/SheetMusicView.test.tsx
+  - src/components/__tests__/AbcEditor.test.tsx
+  - src/components/__tests__/AudioPlayer.test.tsx
+  - src/components/__tests__/AgentChatPanel.test.tsx
   - src/components/__tests__/ScoreMetadataHeader.test.tsx
   - src/utils/__tests__/abcAudio.test.ts
   - src/music/__tests__/scoreSnapshot.multimeasure.test.ts
@@ -46,6 +54,37 @@ related_specs:
 ---
 
 # Score Surface Spec
+
+## Selection context menu
+
+Right-clicking notation opens a compact menu headed by its measure range. A click
+inside the existing range preserves the complete anchor. A click outside it selects
+the clicked measure. Empty sheet space does not silently target a previous selection.
+The keyboard context-menu key and Shift+F10 open the same menu for the focused
+measure (or current selection). Escape returns focus to the sheet; outside interaction,
+score scrolling, resize, document changes, and source changes dismiss the menu.
+
+Actions: Play selection, Loop selection, Add chord symbol…, Add annotation…,
+Edit in ABC, Ask about selection…, and Ask about selection in new chat….
+
+- Playback uses the shared transport and all currently audible voices. It starts
+  immediately, even when another passage is playing. It follows the current repeat
+  pass, stopping at the first exit from the written selection; Loop restarts those
+  same boundaries until paused/stopped or another transport action replaces it.
+- Chord and annotation actions use the existing editor and document history. Chord
+  creation starts with the chord kind selected, at beat 1 of the selected start
+  measure, with editable measure/beat controls. No chord is inferred automatically.
+- Edit in ABC opens Measure Source, highlights the selected range, and focuses its
+  first source cell (the selected voice when available). Existing drafts are retained.
+- Ask opens the chat rail and focuses the composer with an explicit passage anchor.
+  It preserves the current draft and does not submit a prompt. New chat creates a
+  separate conversation. During the current document session, the attached passage
+  stays with that conversation until cleared/replaced, even if sheet selection changes.
+  Chat actions are unavailable
+  when the desktop chat capability is unavailable.
+- Menu actions capture their target when the menu opens. The popup is outside the
+  scaled notation DOM, stays inside the viewport at interface zoom, and supports
+  arrow keys, Home/End, Enter, Escape, and Tab dismissal.
 
 ## 1. Scope and purpose
 

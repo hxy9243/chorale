@@ -68,7 +68,12 @@ export interface MeasurePreviewRequest {
   measure: number;
   stop?: boolean;
   continuous?: boolean;
+  endMeasure?: number;
+  loop?: boolean;
+  restart?: boolean;
 }
+
+type SelectionPlayback = { start: number; end: number; loop?: boolean; label?: string };
 
 interface AudioPlayerProps {
   tunes: abcjs.TuneObject[] | null;
@@ -167,7 +172,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const pendingSeekRef = useRef<number | null>(0);
   const latestSeekSecondsRef = useRef(0);
   const operationRef = useRef(0);
-  const measurePreviewRef = useRef<{ start: number; end: number } | null>(null);
+  const measurePreviewRef = useRef<SelectionPlayback | null>(null);
+  const previewBoundaryRef = useRef<(preview: SelectionPlayback) => void>(() => {});
+  const [loopLabel, setLoopLabel] = useState<string | null>(null);
   const handledPreviewRef = useRef<MeasurePreviewRequest | null>(null);
   const [synthGeneration, setSynthGeneration] = useState(0);
   const recoveryRef = useRef<{ transport: typeof transport; seconds: number; duration: number } | null>(null);
@@ -269,6 +276,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   useEffect(() => {
     removePlaybackCursor();
     measurePreviewRef.current = null;
+    setLoopLabel(null);
     operationRef.current += 1;
     const recovery = recoveryRef.current?.transport === transport ? recoveryRef.current : null;
     recoveryRef.current = null;
@@ -366,6 +374,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
               },
               onFinished: () => {
                 if (cancelled) return;
+                const preview = measurePreviewRef.current;
+                if (preview && isPlayingRef.current) {
+                  previewBoundaryRef.current(preview);
+                  return;
+                }
                 measurePreviewRef.current = null;
                 pendingSeekRef.current = 0;
                 latestSeekSecondsRef.current = 0;
@@ -506,6 +519,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     // A replacement controller restores the latest transport position. Do not
     // overwrite that recovery (or Stop) with an unchanged earlier selection.
     if (appliedAnchorRef.current?.anchor === activeAnchor && appliedAnchorRef.current.transport === transport) return;
+    measurePreviewRef.current = null;
+    setLoopLabel(null);
     applyAnchorSeek(activeAnchor);
     appliedAnchorRef.current = { anchor: activeAnchor, transport };
   }, [activeAnchor, applyAnchorSeek, isReady, transport]);
@@ -515,15 +530,24 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     const context = getAudioContext();
     if (!preview || !context) return;
     const remaining = Math.max(0, preview.end - getExactPosition().currentSeconds) / playbackSpeedRef.current;
+    const operation = operationRef.current;
     // Schedule on the audio clock as well as clearing the UI at the boundary.
     // Sound must stop even when animation frames are throttled in a hidden tab.
-    for (const source of synthControllerRef.current?.midiBuffer?.directSource ?? []) {
+    const sources = synthControllerRef.current?.midiBuffer?.directSource ?? [];
+    // The audio-clock stop also drives looping when animation frames are throttled.
+    sources[0]?.addEventListener?.('ended', () => {
+      if (operationRef.current === operation && measurePreviewRef.current === preview && isPlayingRef.current) {
+        previewBoundaryRef.current(preview);
+      }
+    }, { once: true });
+    for (const source of sources) {
       source.stop(context.currentTime + remaining);
     }
   }, [getAudioContext, getExactPosition]);
 
-  const handlePlayToggle = React.useCallback(async (preview?: { start: number; end: number }) => {
+  const handlePlayToggle = React.useCallback(async (preview: SelectionPlayback | undefined = measurePreviewRef.current ?? undefined) => {
     measurePreviewRef.current = preview ?? null;
+    setLoopLabel(preview?.loop ? preview.label ?? 'selection' : null);
     const controller = synthControllerRef.current;
     if (!controller) return;
     const operation = ++operationRef.current;
@@ -587,6 +611,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (!controller) return;
     operationRef.current += 1;
     measurePreviewRef.current = null;
+    setLoopLabel(null);
     controller.pause();
     controller.restart?.();
     controller.isStarted = false;
@@ -602,7 +627,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (!measurePreviewRequest || handledPreviewRef.current === measurePreviewRequest) return;
     if (measurePreviewRequest.sourceKey !== sourceKey || !isReady || isChangingSpeed) return;
     handledPreviewRef.current = measurePreviewRequest;
-    if (measurePreviewRequest.stop || isPlayingRef.current) {
+    if (measurePreviewRequest.stop || (isPlayingRef.current && !measurePreviewRequest.restart)) {
       handleStop();
       return;
     }
@@ -612,15 +637,39 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       const occurrence = selectMeasureWithRepeats(measurePreviewRequest.measure, occurrences, getExactPosition().currentSeconds);
       if (!occurrence) throw new Error('Measure timing is unavailable.');
       const index = occurrences.indexOf(occurrence);
-      const end = occurrences[index + 1]?.startTimeSec ?? previewTiming?.duration ?? 0;
+      const endMeasure = measurePreviewRequest.endMeasure ?? measurePreviewRequest.measure;
+      const nextOutside = measurePreviewRequest.endMeasure === undefined ? occurrences[index + 1]
+        : occurrences.slice(index + 1).find((next) => next.measure < measurePreviewRequest.measure || next.measure > endMeasure);
+      const end = nextOutside?.startTimeSec ?? previewTiming?.duration ?? 0;
       if (!(end > occurrence.startTimeSec)) throw new Error('Measure timing is unavailable.');
+      if (isPlayingRef.current) handleStop();
       if (synthControllerRef.current?.isLooping) synthControllerRef.current.toggleLoop();
       seekTo(occurrence.startTimeSec, 'seconds');
-      void handlePlayToggle(measurePreviewRequest.continuous ? undefined : { start: occurrence.startTimeSec, end });
+      measurePreviewRef.current = null;
+      void handlePlayToggle(measurePreviewRequest.continuous ? undefined : {
+        start: occurrence.startTimeSec, end, loop: measurePreviewRequest.loop,
+        label: formatAnchorLabel({ startMeasure: measurePreviewRequest.measure, endMeasure }) ?? undefined,
+      });
     } catch {
-      setAudioError('Could not preview this measure: playback timing is unavailable.');
+      setAudioError('Could not play this selection: playback timing is unavailable.');
     }
   }, [measurePreviewRequest, sourceKey, isReady, isChangingSpeed, currentTune, previewTiming, getExactPosition, seekTo, handlePlayToggle, handleStop]);
+
+  const finishPreview = React.useCallback((preview: SelectionPlayback) => {
+    if (measurePreviewRef.current !== preview || !isPlayingRef.current) return;
+    operationRef.current += 1;
+    measurePreviewRef.current = null;
+    const controller = synthControllerRef.current;
+    controller?.pause();
+    if (controller) controller.isStarted = false;
+    seekTo(preview.start, 'seconds');
+    updatePlaybackPosition({ playing: false });
+    setCurrentMeasure(null);
+    removePlaybackCursor();
+    if (preview.loop) void handlePlayToggle(preview);
+    else setLoopLabel(null);
+  }, [seekTo, updatePlaybackPosition, handlePlayToggle]);
+  useLayoutEffect(() => { previewBoundaryRef.current = finishPreview; }, [finishPreview]);
 
   // Follow the audio clock so pauses, tempo changes, and tab throttling cannot
   // turn a single-measure preview into continuous score playback.
@@ -630,22 +679,14 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     const checkBoundary = () => {
       const preview = measurePreviewRef.current;
       if (preview && getExactPosition().currentSeconds >= preview.end) {
-        const controller = synthControllerRef.current;
-        operationRef.current += 1;
-        controller?.pause();
-        if (controller) controller.isStarted = false;
-        measurePreviewRef.current = null;
-        seekTo(preview.start, 'seconds');
-        updatePlaybackPosition({ playing: false });
-        setCurrentMeasure(null);
-        removePlaybackCursor();
-        return;
+        finishPreview(preview);
+        if (!preview.loop) return;
       }
       frame = window.requestAnimationFrame(checkBoundary);
     };
     frame = window.requestAnimationFrame(checkBoundary);
     return () => window.cancelAnimationFrame(frame);
-  }, [isPlaying, getExactPosition, seekTo, updatePlaybackPosition]);
+  }, [isPlaying, getExactPosition, finishPreview]);
 
   const handleSpeedChange = async (speed: number, reason: 'speed' | 'voices' = 'speed') => {
     const controller = synthControllerRef.current;
@@ -725,6 +766,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     const rect = event.currentTarget.getBoundingClientRect();
     if (rect.width <= 0) return;
     measurePreviewRef.current = null;
+    setLoopLabel(null);
     seekTo(Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)));
   };
 
@@ -823,7 +865,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           </span>
 
           <div className="playback-selection-slot" aria-label="Playback selection">
-            {activeAnchor ? (
+            {loopLabel ? <div className="playback-loop-pill"><span>Looping {loopLabel}</span></div> : activeAnchor ? (
               <div className="playback-loop-pill">
                 <span>Selected {formatAnchorLabel(activeAnchor)}</span>
               </div>

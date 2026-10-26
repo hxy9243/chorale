@@ -8586,6 +8586,19 @@ body,
   border-bottom: var(--rule-thin) solid var(--color-rule);
 }
 
+.score-context-menu {
+  width: 20rem;
+  max-width: calc(100vw / var(--ui-zoom, 1) - 16px);
+  max-height: calc(100vh / var(--ui-zoom, 1) - 16px);
+  overflow-y: auto;
+}
+
+.score-context-menu .file-context-menu-item:nth-of-type(3),
+.score-context-menu .file-context-menu-item:nth-of-type(6) {
+  border-top: 1px solid var(--color-rule-2);
+  margin-top: var(--space-3xs);
+}
+
 .file-context-menu-title {
   display: block;
   overflow: hidden;

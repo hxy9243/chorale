@@ -23,6 +23,7 @@ import {
   type SmoothScrollController,
 } from '../utils/autoScroll';
 import { AnnotationEditor } from './AnnotationEditor';
+import { ScoreContextMenu, type ScoreContextAction } from './ScoreContextMenu';
 import { AnnotationOverlay, type AnnotationRailGeometry } from './AnnotationOverlay';
 import { chordStaffSpacing } from '../music/annotationLayout';
 import {
@@ -522,6 +523,9 @@ interface SheetMusicViewProps {
   navigationAnchor?: ScoreAnchor | null;
   editorFocusMeasure?: number | null;
   onPlayFromMeasure?: (measure: number) => void;
+  onPlaySelection?: (anchor: ScoreAnchor, loop: boolean) => void;
+  onEditSelection?: (anchor: ScoreAnchor) => void;
+  onAskSelection?: (anchor: ScoreAnchor, newChat: boolean) => void;
   onSelectAnchor?: (anchor: ScoreAnchor | null) => void;
   onTuneRendered?: (tune: abcjs.TuneObject[] | null) => void;
   documentId?: string;
@@ -545,6 +549,9 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   navigationAnchor = null,
   editorFocusMeasure = null,
   onPlayFromMeasure,
+  onPlaySelection,
+  onEditSelection,
+  onAskSelection,
   onSelectAnchor,
   onTuneRendered,
   documentId,
@@ -578,8 +585,14 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   const [renderError, setRenderError] = useState<string | null>(null);
   const [renderGeneration, setRenderGeneration] = useState(0);
   const [annotationEditor, setAnnotationEditor] = useState<
-    { mode: 'manual' } | { mode: 'accepted'; annotationId: AnnotationId } | null
+    { mode: 'manual'; kind?: 'chord' | 'explanation'; anchor?: ScoreAnchor } | { mode: 'accepted'; annotationId: AnnotationId } | null
   >(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; anchor: ScoreAnchor } | null>(null);
+  const closeContextMenu = React.useCallback((restoreFocus = false) => {
+    setContextMenu(null);
+    if (restoreFocus) containerRef.current?.focus({ preventScroll: true });
+  }, []);
+  useEffect(() => { setContextMenu(null); }, [abcCode, documentId, revision, currentZoom, interfaceZoom]);
   const [annotationRailGeometry, setAnnotationRailGeometry] = useState<AnnotationRailGeometry>({
     anchorYByAnnotationId: {},
     scoreHeight: 0,
@@ -626,7 +639,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
 
   useEffect(() => {
     setAnnotationEditor(null);
-  }, [abcCode]);
+  }, [abcCode, documentId]);
 
   useEffect(() => {
     if (
@@ -1150,6 +1163,28 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   }, [getPlaybackPosition, performAutoCenter]);
 
   const anchorLabel = formatAnchorLabel(activeAnchor);
+  const openContextMenu = (measure: number, x: number, y: number) => {
+    const inside = activeAnchor && measure >= activeAnchor.startMeasure && measure <= activeAnchor.endMeasure;
+    const anchor = inside ? activeAnchor : resolvePlaybackAnchor({ startMeasure: measure, endMeasure: measure });
+    if (!inside) onSelectAnchor?.(anchor);
+    setContextMenu({ x, y, anchor });
+  };
+  const contextActions = new Set<ScoreContextAction>();
+  if (onPlaySelection) { contextActions.add('play'); contextActions.add('loop'); }
+  if (onCreateAnnotation) { contextActions.add('chord'); contextActions.add('annotation'); }
+  if (onEditSelection) contextActions.add('abc');
+  if (onAskSelection) { contextActions.add('ask'); contextActions.add('ask-new'); }
+  const handleContextAction = (action: ScoreContextAction) => {
+    if (!contextMenu) return;
+    const { anchor } = contextMenu;
+    closeContextMenu();
+    if (action === 'play' || action === 'loop') {
+      onPlaySelection?.(anchor, action === 'loop');
+      containerRef.current?.focus({ preventScroll: true });
+    } else if (action === 'abc') onEditSelection?.(anchor);
+    else if (action === 'ask' || action === 'ask-new') onAskSelection?.(anchor, action === 'ask-new');
+    else setAnnotationEditor({ mode: 'manual', kind: action === 'chord' ? 'chord' : 'explanation', anchor });
+  };
   const editedAnnotation = annotationEditor?.mode === 'accepted'
     ? annotations.find(({ id }) => id === annotationEditor.annotationId)
     : undefined;
@@ -1190,10 +1225,13 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     queueMicrotask(() => initiator.focus({ preventScroll: true }));
   }, [onSelectAnchor, resolvePlaybackAnchor]);
 
-  const annotationEditorNode = annotationEditor?.mode === 'manual' && activeAnchor ? (
+  const manualAnchor = annotationEditor?.mode === 'manual' ? annotationEditor.anchor ?? activeAnchor : null;
+  const annotationEditorNode = annotationEditor?.mode === 'manual' && manualAnchor ? (
     <AnnotationEditor
+      key={`${annotationEditor.kind}-${manualAnchor.startMeasure}-${manualAnchor.endMeasure}`}
       mode="manual"
-      defaultSpan={activeAnchor}
+      defaultKind={annotationEditor.kind}
+      defaultSpan={manualAnchor}
       meter={meter}
       onSave={(annotation) => {
         if (!onCreateAnnotation) throw new Error('Annotation creation is unavailable.');
@@ -1226,6 +1264,8 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
 
   return (
     <div ref={cardRef} className="sheet-music-card glass-panel">
+      {contextMenu && <ScoreContextMenu {...contextMenu} interfaceZoom={interfaceZoom}
+        surfaceRef={containerRef} available={contextActions} onAction={handleContextAction} onClose={closeContextMenu} />}
       {/* ... header & controls ... */}
       <div className="sheet-header">
         <div className="sheet-title-group">
@@ -1331,11 +1371,31 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                     tabIndex={0}
                     aria-label="Sheet music"
                     title="Enter: play from selection / stop"
+                    onMouseDownCapture={(event) => { if (event.button === 2) event.stopPropagation(); }}
+                    onMouseUpCapture={(event) => { if (event.button === 2) event.stopPropagation(); }}
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      const hit = (event.target as Element).closest<SVGElement>('.abcjs-measure-hit-area');
+                      const measure = hit ? Number(hit.dataset.measure)
+                        : resolveMeasureFromClientXY(event.currentTarget, event.clientX, event.clientY);
+                      if (measure !== null && Number.isFinite(measure)) openContextMenu(measure, event.clientX, event.clientY);
+                      else closeContextMenu();
+                    }}
                     onClickCapture={(event) => {
                       const hitArea = (event.target as Element).closest<SVGElement>('.abcjs-measure-hit-area');
                       (hitArea ?? event.currentTarget).focus({ preventScroll: true });
                     }}
                     onKeyDownCapture={(event) => {
+                      if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const hit = (event.target as Element).closest<SVGElement>('.abcjs-measure-hit-area');
+                        const measure = hit ? Number(hit.dataset.measure) : activeAnchor?.startMeasure;
+                        if (measure === undefined) return;
+                        const bounds = (hit ?? event.currentTarget).getBoundingClientRect();
+                        openContextMenu(measure, bounds.left + 16, bounds.top + 24);
+                        return;
+                      }
                       if (!onPlayFromMeasure || event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
                       event.preventDefault();
                       event.stopPropagation();
