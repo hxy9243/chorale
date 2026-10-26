@@ -1,4 +1,5 @@
 import abcjs from 'abcjs';
+import { restoreSourcePrograms } from '../music/abcPrograms';
 
 /**
  * Produces structurally safe ABC while preserving source offsets.
@@ -247,6 +248,7 @@ export function configureAudioPlayback(
   let audioTunes = audioTuneCache.get(originalAbc);
   if (!audioTunes) {
     audioTunes = abcjs.parseOnly(prepareAbcForAudio(originalAbc));
+    restoreSourcePrograms(audioTunes, originalAbc);
     resolveSelfContainedTuplets(audioTunes);
 
     if (audioTuneCache.size >= MAX_AUDIO_CACHE_SIZE) {

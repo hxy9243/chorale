@@ -1,6 +1,7 @@
 export type ClientId = 'claude-desktop' | 'claude-code' | 'antigravity' | 'codex' | 'chatgpt';
 export const CLIENTS: Record<ClientId, string>;
 export const CHATGPT_SETUP_URL: string;
+export function hasConfiguredClient(): Promise<boolean>;
 export interface ClientPlan {
   client: ClientId;
   label: string;

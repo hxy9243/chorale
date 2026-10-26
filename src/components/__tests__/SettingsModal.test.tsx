@@ -93,13 +93,16 @@ describe('SettingsModal', () => {
     expect(appearanceTab.getAttribute('aria-selected')).toBe('true');
     expect(aboutTab.getAttribute('aria-selected')).toBe('false');
 
-    // Arrow down moves to About tab
+    // Arrow down moves to Integration, then About.
     fireEvent.keyDown(appearanceTab, { key: 'ArrowDown' });
+    const integrationTab = screen.getByRole('tab', { name: 'Integration' });
+    expect(integrationTab.getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(integrationTab, { key: 'ArrowDown' });
     expect(aboutTab.getAttribute('aria-selected')).toBe('true');
     expect(screen.getByRole('tabpanel', { name: 'About' })).toBeDefined();
 
-    // Arrow up moves back to Appearance tab
-    fireEvent.keyDown(aboutTab, { key: 'ArrowUp' });
+    // Home moves back to Appearance tab
+    fireEvent.keyDown(aboutTab, { key: 'Home' });
     expect(appearanceTab.getAttribute('aria-selected')).toBe('true');
     expect(screen.getByRole('tabpanel', { name: 'Appearance' })).toBeDefined();
   });

@@ -2,19 +2,23 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink, FolderOpen, KeyRound, RefreshCw, Trash2, X } from 'lucide-react';
 import type { AIConnectionPublic, AIProviderKind, SaveAIConnectionInput } from '../agent/aiTypes';
 import type { AIProviderState } from '../agent/useAIProviders';
+import { McpIntegrationSettings } from './McpIntegrationSettings';
 
 type AISettingsModalProps = {
   open: boolean;
+  initialTab?: 'integration';
+  settingsRequestId?: number;
   onClose(): void;
   ai: AIProviderState;
   interfaceZoom: number;
   onInterfaceZoomChange(value: number): void;
 };
 
-type SettingsTab = 'providers' | 'appearance' | 'diagnostics' | 'about';
+type SettingsTab = 'providers' | 'integration' | 'appearance' | 'diagnostics' | 'about';
 
 const SETTINGS_TABS: Array<{ id: SettingsTab; label: string }> = [
   { id: 'providers', label: 'API providers' },
+  { id: 'integration', label: 'Integration' },
   { id: 'appearance', label: 'Appearance' },
   { id: 'diagnostics', label: 'Agent traces' },
   { id: 'about', label: 'About' },
@@ -54,6 +58,8 @@ const parseHeaders = (value: string) => {
 
 export const AISettingsModal: React.FC<AISettingsModalProps> = ({
   open,
+  initialTab,
+  settingsRequestId,
   onClose,
   ai,
   interfaceZoom,
@@ -72,6 +78,10 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<SettingsTab>('providers');
+
+  useEffect(() => {
+    if (open && initialTab) setActiveTab(initialTab);
+  }, [open, initialTab, settingsRequestId]);
 
   const codexConnection = ai.connections.find((connection) => connection.kind === 'openai-codex');
   const isCodex = kind === 'openai-codex';
@@ -228,6 +238,7 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({
           </nav>
 
           <div className="ai-settings-content">
+        {activeTab === 'integration' && <McpIntegrationSettings />}
         {activeTab === 'providers' && (
           <div
             id="settings-panel-providers"

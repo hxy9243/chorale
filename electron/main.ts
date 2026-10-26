@@ -19,7 +19,8 @@ import { registerScanIPC } from './scanIpc';
 import { JSONLAgentTraceStore } from './ai/agentTrace';
 import { resolveChoraleDataPaths } from './dataPaths';
 import { ensureDesktopDaemon } from './daemon';
-import { offerClientSetup, showClientSetup } from './clientSetup';
+import { registerClientSetupIPC } from './clientSetup';
+import { MCP_IPC } from './ipcChannels';
 
 protocol.registerSchemesAsPrivileged([{
   scheme: 'app',
@@ -42,6 +43,7 @@ let controller: AIController | null = null;
 let removeIPCHandlers: (() => void) | null = null;
 let removeFileIPCHandlers: (() => void) | null = null;
 let removeScanIPCHandlers: (() => void) | null = null;
+let removeClientSetupHandlers: (() => void) | null = null;
 let storageFlushed = false;
 let daemonUrl = 'http://127.0.0.1:1685';
 // Explicit isolation is useful for local smoke tests; normal launches keep the existing profile.
@@ -113,7 +115,7 @@ const createWindow = async () => {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     ...(process.platform === 'darwin' ? [{ role: 'appMenu' as const }] : []),
     { label: 'Chorale', submenu: [
-      { label: 'Connect AI apps…', click: () => { if (mainWindow) void showClientSetup(mainWindow, projectDirectory); } },
+      { label: 'MCP integration settings…', click: () => mainWindow?.webContents.send(MCP_IPC.openSettings) },
       { type: 'separator' as const }, { role: 'quit' as const },
     ] },
     { role: 'editMenu' }, { role: 'viewMenu' },
@@ -136,14 +138,12 @@ const createWindow = async () => {
   mainWindow.webContents.on('did-start-navigation', (_event, _url, _inPlace, isMainFrame) => {
     if (isMainFrame && mainWindow?.webContents.getURL()) {
       controller?.abortAll();
-      removeScanIPCHandlers?.();
-      removeScanIPCHandlers = registerScanIPC(() => mainWindow, projectDirectory);
+      // Scan jobs belong to this native window's lifetime and survive renderer reloads.
     }
   });
   mainWindow.webContents.on('render-process-gone', () => {
     controller?.abortAll();
-    removeScanIPCHandlers?.();
-    removeScanIPCHandlers = null;
+    // Keep recognition and its guarded IPC available for renderer recovery.
   });
   mainWindow.webContents.on('destroyed', () => controller?.abortAll());
   mainWindow.once('ready-to-show', () => mainWindow?.show());
@@ -203,11 +203,11 @@ if (!hasSingleInstanceLock) {
     );
     removeIPCHandlers = registerAIIPC(controller, () => mainWindow);
     removeFileIPCHandlers = registerFileIPC(() => mainWindow);
+    removeClientSetupHandlers = registerClientSetupIPC(() => mainWindow, projectDirectory);
     await createWindow();
     // The CLI only stays connected until the initial desktop window loads.
     // A send callback also handles a launching terminal disappearing early.
     if (process.connected) process.send?.({ type: 'chorale:desktop-ready' }, () => {});
-    if (mainWindow) void offerClientSetup(mainWindow, projectDirectory).catch(error => console.error('Client setup could not open:', error.message));
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) void createWindow();
@@ -227,6 +227,7 @@ app.on('before-quit', (event) => {
     storageFlushed = true;
     removeIPCHandlers?.();
     removeFileIPCHandlers?.();
+    removeClientSetupHandlers?.();
     removeScanIPCHandlers?.();
     app.quit();
   });

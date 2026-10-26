@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type abcjs from 'abcjs';
+import { StaffInstruments, type StaffSoundTarget } from './StaffInstruments';
 import { ZoomIn, ZoomOut, RotateCcw, SlidersHorizontal, Tag, X } from 'lucide-react';
 import type {
   Annotation,
@@ -516,6 +517,9 @@ const updateMeasureHitAreaSelection = (
 
 interface SheetMusicViewProps {
   header?: React.ReactNode;
+  onOpenStaffSound?: (target: StaffSoundTarget) => void;
+  soundEditingDisabled?: boolean;
+  activeStaffSoundKey?: string;
   abcCode: string;
   annotations?: readonly Annotation[];
   activeAnchor?: ScoreAnchor | null;
@@ -539,6 +543,9 @@ interface SheetMusicViewProps {
 
 export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   header,
+  onOpenStaffSound,
+  soundEditingDisabled = false,
+  activeStaffSoundKey,
   abcCode,
   annotations = [],
   activeAnchor = null,
@@ -1327,15 +1334,18 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                 <div className="sheet-layout-balance" aria-hidden="true" />
                 <div className="sheet-notation-column">
                   {header}
+                  <div className="staff-sound-paper">
                   <div ref={containerRef} id="paper" className="abcjs-paper-container"
                     tabIndex={0}
                     aria-label="Sheet music"
                     title="Enter: play from selection / stop"
                     onClickCapture={(event) => {
+                      if ((event.target as Element).closest('.staff-sound-label')) return;
                       const hitArea = (event.target as Element).closest<SVGElement>('.abcjs-measure-hit-area');
                       (hitArea ?? event.currentTarget).focus({ preventScroll: true });
                     }}
                     onKeyDownCapture={(event) => {
+                      if ((event.target as Element).closest('.staff-sound-label')) return;
                       if (!onPlayFromMeasure || event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
                       event.preventDefault();
                       event.stopPropagation();
@@ -1344,6 +1354,9 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                       onPlayFromMeasure(activeAnchor?.startMeasure ?? (hitArea ? Number(hitArea.dataset.measure) : firstMeasureNumber));
                     }}
                   />
+                  {onOpenStaffSound && !renderError && <StaffInstruments paperRef={containerRef}
+                    tune={renderedTuneRef.current} abc={abcCode} generation={renderGeneration}
+                    disabled={soundEditingDisabled} onOpen={onOpenStaffSound} activeEntryKey={activeStaffSoundKey} />}
                   {!renderError && <AnnotationOverlay
                     paperRef={containerRef}
                     abcCode={abcCode}
@@ -1360,6 +1373,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                       setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
                     }}
                   />}
+                  </div>
                 </div>
                 <div className="annotation-rail-viewport">
                   <AnnotationRail

@@ -84,6 +84,29 @@ export async function planClientSetup(options = {}) {
     summary: `${permission}\n\n${action} in:\n${destination}\n\nNew connection:\n${JSON.stringify(connection, null, 2)}` };
 }
 
+/** Read existing registrations without changing any client configuration. */
+export async function hasConfiguredClient(options = {}) {
+  const environment = options.environment || process.env;
+  const platform = options.platform || process.platform;
+  for (const client of ['claude-desktop', 'antigravity']) {
+    try {
+      const plan = await planClientSetup({ ...options, client });
+      if (object(JSON.parse(plan.previous || '{}').mcpServers?.chorale)) return true;
+    } catch { /* A malformed client config must not prevent opening Chorale. */ }
+  }
+  for (const name of ['codex', 'claude']) {
+    const command = await executable(name, environment, platform);
+    if (!command) continue;
+    try {
+      await (options.execCommand || promisify(execFile))(command, ['mcp', 'get', 'chorale'], {
+        env: environment, timeout: 3000, windowsHide: true,
+      });
+      return true;
+    } catch { /* Missing registration or unavailable CLI. */ }
+  }
+  return false;
+}
+
 /** Confirmation is required at this boundary, including calls from native UI. */
 export async function applyClientSetup(plan, options = {}) {
   if (plan.kind === 'manual') return { status: 'manual', message: plan.summary };

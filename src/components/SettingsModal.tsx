@@ -1,17 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
+import { McpIntegrationSettings } from './McpIntegrationSettings';
 
 export interface SettingsModalProps {
   open: boolean;
+  initialTab?: 'integration';
+  settingsRequestId?: number;
   onClose(): void;
   interfaceZoom: number;
   onInterfaceZoomChange(value: number): void;
 }
 
-type SettingsTab = 'appearance' | 'about';
+type SettingsTab = 'appearance' | 'integration' | 'about';
 
 const SETTINGS_TABS: Array<{ id: SettingsTab; label: string }> = [
   { id: 'appearance', label: 'Appearance' },
+  { id: 'integration', label: 'Integration' },
   { id: 'about', label: 'About' },
 ];
 
@@ -23,6 +27,8 @@ const isDesktopRuntime = (): boolean => {
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   open,
+  initialTab,
+  settingsRequestId,
   onClose,
   interfaceZoom,
   onInterfaceZoomChange,
@@ -31,6 +37,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const closeRef = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
+
+  useEffect(() => {
+    if (open && initialTab) setActiveTab(initialTab);
+  }, [open, initialTab, settingsRequestId]);
 
   useEffect(() => {
     if (!open) return;
@@ -132,6 +142,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </nav>
 
           <div className="ai-settings-content">
+            {activeTab === 'integration' && <McpIntegrationSettings />}
             {activeTab === 'appearance' && (
               <section
                 className="ai-settings-single-panel"

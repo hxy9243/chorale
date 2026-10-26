@@ -35,8 +35,9 @@
     "start:electron": "node scripts/dev-electron.mjs --production",
     "run:electron": "npm run dev:electron",
     "smoke:electron": "node scripts/electron-smoke.mjs",
-    "setup:scanner": "node scripts/setup-score-scanner.mjs",
+    "setup:scanner": "node server/setup-score-scanner.mjs",
     "smoke:scan": "node scripts/scan-import-smoke.mjs",
+    "smoke:scan-background": "node scripts/background-scan-smoke.mjs",
     "smoke:scan-pages": "node scripts/scan-pages-smoke.mjs"
   },
   "dependencies": {

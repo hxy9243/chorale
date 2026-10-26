@@ -72,7 +72,7 @@ describe('FileRail Component', () => {
 
     fireEvent.click(toolsTab);
     expect(screen.getByRole('tabpanel', { name: 'Tools' })).toBeDefined();
-    expect(screen.getByRole('button', { name: 'ABC display' })).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'ABC display' })).toBeNull();
 
     fireEvent.click(settingsButton);
     expect(onOpenSettings).toHaveBeenCalledOnce();
@@ -81,36 +81,18 @@ describe('FileRail Component', () => {
     expect(screen.queryByText('PROJECTS')).toBeNull();
   });
 
-  it('owns the ABC display toggle and settings entry point', () => {
-    const onToggleEditor = vi.fn();
+  it('omits the redundant ABC display toggle from the left rail and owns the settings entry point', () => {
     const onOpenSettings = vi.fn();
-    const { rerender } = render(
+    render(
       <FileRail
         {...defaultProps}
-        onToggleEditor={onToggleEditor}
         onOpenSettings={onOpenSettings}
       />,
     );
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
-    const abcDisplay = screen.getByRole('button', { name: 'ABC display' });
-    expect(abcDisplay.getAttribute('aria-pressed')).toBe('false');
-    fireEvent.click(abcDisplay);
-    expect(onToggleEditor).toHaveBeenCalledOnce();
-
+    expect(screen.queryByRole('button', { name: 'ABC display' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(onOpenSettings).toHaveBeenCalledOnce();
-
-    rerender(
-      <FileRail
-        {...defaultProps}
-        editorVisible
-        onToggleEditor={onToggleEditor}
-        onOpenSettings={onOpenSettings}
-      />,
-    );
-    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
-    expect(screen.getByRole('button', { name: 'ABC display' }).getAttribute('aria-pressed')).toBe('true');
   });
 
   it('renders active document names', () => {

@@ -19,7 +19,6 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import {
   AlertCircle,
-  Braces,
   ChevronRight,
   Copy,
   Download,
@@ -100,8 +99,6 @@ interface FileRailProps {
   activePanel?: RailPanel;
   onActivePanelChange?: (panel: RailPanel) => void;
   onBeginResize?: (e: React.PointerEvent<HTMLButtonElement>) => void;
-  editorVisible?: boolean;
-  onToggleEditor?: () => void;
   onOpenSettings?: () => void;
   onOpenHistory?: () => void;
   historyCount?: number;
@@ -424,8 +421,6 @@ export const FileRail: React.FC<FileRailProps> = ({
   activePanel: activePanelProp,
   onActivePanelChange,
   onBeginResize,
-  editorVisible = false,
-  onToggleEditor,
   onOpenSettings,
   onOpenHistory,
   historyCount = 0,
@@ -658,16 +653,6 @@ export const FileRail: React.FC<FileRailProps> = ({
             <Wrench size={18} aria-hidden="true" />
           </button>
         </div>
-        <button
-          type="button"
-          className={`file-rail-tab ${editorVisible ? 'active' : ''}`}
-          onClick={onToggleEditor}
-          aria-label="ABC display"
-          aria-pressed={editorVisible}
-          title={editorVisible ? 'Close the ABC source panel' : 'Open the ABC source panel'}
-        >
-          <Braces size={18} aria-hidden="true" />
-        </button>
         <button
           type="button"
           className="file-rail-tab settings"

@@ -1,6 +1,6 @@
 import './test/mockSharedStorage';
 import { act, render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import abcjs from 'abcjs';
 import App, {
   EDITOR_WIDTH_KEY,
@@ -64,6 +64,27 @@ describe('App Integration', () => {
         text: () => Promise.resolve(`<?xml version="1.0" encoding="UTF-8"?><score-partwise version="3.1"><part-list><score-part id="P1"><part-name>Test</part-name></score-part></part-list><part id="P1"><measure number="1"><attributes><divisions>1</divisions></attributes><note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration></note></measure></part></score-partwise>`),
       } as Response);
     });
+  });
+
+  afterEach(() => { delete window.choraleMcp; });
+
+  it.each(['open-settings', 'declined'] as const)('routes the MCP offer result %s to settings or an inline reminder', async (result) => {
+    const offerSetup = vi.fn().mockResolvedValue(result);
+    let openIntegration = () => {};
+    window.choraleMcp = {
+      offerSetup, preview: vi.fn(), connect: vi.fn(), openGuide: vi.fn(),
+      onOpenSettings: (listener) => { openIntegration = listener; return () => {}; },
+    };
+    render(<App />);
+    await waitFor(() => expect(offerSetup).toHaveBeenCalledOnce());
+    if (result === 'open-settings') {
+      expect(await screen.findByRole('tabpanel', { name: 'Integration' })).toBeDefined();
+    } else {
+      expect(await screen.findByText('You can set up MCP integration later in Settings → Integration.')).toBeDefined();
+      expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
+    }
+    act(() => openIntegration());
+    expect(screen.getByRole('tabpanel', { name: 'Integration' })).toBeDefined();
   });
 
   it('keeps source editing and workspace controls available after an unexpected score error', async () => {

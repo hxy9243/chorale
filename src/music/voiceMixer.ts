@@ -1,6 +1,6 @@
 import type abcjs from 'abcjs';
 import { createVoiceResolver } from '../../shared/abc-source.mjs';
-import { prepareAbcWithMap } from '../utils/abcAudio';
+import { sourceOffsetMapper } from './abcPrograms';
 
 export interface MixerVoice { id: string; label: string; index: number; program: number }
 export interface VoiceMix { program?: number; muted?: boolean; solo?: boolean }
@@ -9,7 +9,7 @@ export type VoiceMixSettings = Readonly<Record<string, VoiceMix>>;
 export function describeMixerVoices(tune: abcjs.TuneObject, abc: string): MixerVoice[] {
   if (typeof tune.setUpAudio !== 'function') return [];
   const sequence = tune.setUpAudio({});
-  const resolveVoice = createVoiceResolver(abc, prepareAbcWithMap(abc).toOriginalOffset);
+  const resolveVoice = createVoiceResolver(abc, sourceOffsetMapper(abc));
   const ids: string[] = [];
   for (const line of tune.lines ?? []) {
     let slot = 0;
@@ -23,9 +23,11 @@ export function describeMixerVoices(tune: abcjs.TuneObject, abc: string): MixerV
   }
   const voices = sequence.tracks.map((track, index) => {
     const title = track.find((event) => event.cmd === 'text' && event.type === 'name');
+    const firstNote = track.find((event) => event.cmd === 'note' && event.startChar !== undefined && event.startChar >= 0);
+    const sourceId = firstNote?.cmd === 'note' ? resolveVoice([firstNote], index) : undefined;
     const program = track.find((event) => event.cmd === 'program');
     return {
-      id: ids[index] ?? `accompaniment-${index - ids.length + 1}`,
+      id: sourceId ?? ids[index] ?? `accompaniment-${index - ids.length + 1}`,
       label: title?.cmd === 'text' && title.text.trim() && !/^\d+$/.test(title.text.trim()) ? title.text.trim()
         : index < ids.length ? `Voice ${index + 1}` : `Accompaniment ${index - ids.length + 1}`,
       index, program: program?.cmd === 'program' ? program.instrument : 0,

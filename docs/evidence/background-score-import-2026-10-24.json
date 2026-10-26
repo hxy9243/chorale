@@ -1,0 +1,184 @@
+{
+  "date": "2026-10-24",
+  "scope": "Background PDF/PNG import UX; Copisteria remains default, Audiveris optional",
+  "controlledDesktop": {
+    "artifacts": "/home/kevin/Workspace/chorale/.local/background-scan-review/2026-10-24T21-31-40-582Z",
+    "results": {
+      "type": "controlled-engine desktop UX",
+      "checks": [
+        "all seven pages selected",
+        "red time notice",
+        "immediate popup close",
+        "animated list entry",
+        "selected background stage",
+        "reduced motion",
+        "serialized queue",
+        "queued cancellation",
+        "renderer reload reattachment",
+        "completion without focus theft",
+        "stable document ID",
+        "save before job acknowledgement",
+        "preserved originals",
+        "failure recovery"
+      ],
+      "noSandbox": true,
+      "errors": []
+    }
+  },
+  "realEngine": {
+    "artifacts": "/home/kevin/Workspace/chorale/.local/scan-trial/2026-10-24T21-27-28-459Z",
+    "results": {
+      "engines": [
+        "copisteria"
+      ],
+      "noSandbox": true,
+      "results": [
+        {
+          "engine": "copisteria",
+          "source": "melody.pdf",
+          "sha256": "98160dafcbc66779e9f82b5919c9b386c804a63bfff153e51a74acc59914edb4",
+          "jobId": "183039dc-097c-4949-ab2e-3e749a6e4bd9",
+          "elapsedMs": 69476,
+          "omr": {
+            "expectedNotes": 16,
+            "actualNotes": 16,
+            "matchedEvents": 16,
+            "missingOrChanged": 0,
+            "extraOrChanged": 0,
+            "referenceVoices": 1,
+            "actualVoices": 1
+          },
+          "conversion": {
+            "expectedNotes": 16,
+            "actualNotes": 16,
+            "matchedEvents": 16,
+            "missingOrChanged": 0,
+            "extraOrChanged": 0,
+            "referenceVoices": 1,
+            "actualVoices": 1
+          },
+          "warnings": []
+        },
+        {
+          "engine": "copisteria",
+          "source": "melody.png",
+          "sha256": "310de1c4ada2208459dc53f19e2c605d03610f4eb77484769cd7108d3987a777",
+          "jobId": "7cdde684-d496-49fd-a2f6-cc57abb2b79f",
+          "elapsedMs": 67202,
+          "omr": {
+            "expectedNotes": 16,
+            "actualNotes": 16,
+            "matchedEvents": 16,
+            "missingOrChanged": 0,
+            "extraOrChanged": 0,
+            "referenceVoices": 1,
+            "actualVoices": 1
+          },
+          "conversion": {
+            "expectedNotes": 16,
+            "actualNotes": 16,
+            "matchedEvents": 16,
+            "missingOrChanged": 0,
+            "extraOrChanged": 0,
+            "referenceVoices": 1,
+            "actualVoices": 1
+          },
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "pageInspection": {
+    "artifacts": "/home/kevin/Workspace/chorale/.local/page-inspection/2026-10-24T21-27-28-691Z",
+    "results": {
+      "sandboxDisabled": true,
+      "results": [
+        {
+          "source": "/home/kevin/Workspace/chorale/.local/page-inspection/2026-10-24T21-27-28-691Z/mixed-pages.pdf",
+          "cards": [
+            {
+              "page": 1,
+              "kind": "No staves detected",
+              "selected": true,
+              "thumbnail": true
+            },
+            {
+              "page": 2,
+              "kind": "No staves detected",
+              "selected": true,
+              "thumbnail": true
+            },
+            {
+              "page": 3,
+              "kind": "No staves detected",
+              "selected": true,
+              "thumbnail": true
+            },
+            {
+              "page": 4,
+              "kind": "Staves detected",
+              "selected": true,
+              "thumbnail": true
+            },
+            {
+              "page": 5,
+              "kind": "No staves detected",
+              "selected": true,
+              "thumbnail": true
+            }
+          ],
+          "warnings": []
+        },
+        {
+          "source": "/home/kevin/Workspace/chorale/.local/page-inspection/2026-10-24T21-27-28-691Z/broken-image.pdf",
+          "cards": [
+            {
+              "page": 1,
+              "kind": "Check page",
+              "selected": true,
+              "thumbnail": false
+            }
+          ],
+          "warnings": []
+        }
+      ],
+      "nativeScanTested": false
+    }
+  },
+  "verification": {
+    "focusedTests": 36,
+    "nodeTests": 252,
+    "pythonTests": 8,
+    "typecheck": "passed",
+    "browserBuild": "passed",
+    "electronBuild": "passed",
+    "lint": "passed with existing warnings",
+    "fullUiRerun": "passed",
+    "fullUiRerunTests": 999,
+    "fullUiRerunFiles": 113,
+    "additionalStoreRegressionTests": 2
+  },
+  "sourceSha256": {
+    "electron/main.ts": "f61ad9359ba39cf4e364f3620ffe509081aed456381e04a99b270322c3d57882",
+    "electron/scoreScan.ts": "50adcf9d5df58887035b05fd9b1d36129d6cd9e9e7070176ee8d32cfb8cb8eaf",
+    "electron/scanJobs.ts": "a330ac9efc067748bae2e9c34732c54640d105be96e7dba91b3724f60ea6a709",
+    "electron/scanIpc.ts": "dc676069b35fe3fa34cb2019ffa323b530dab7a1a9ed45c45e73d42be640b2f6",
+    "electron/preload.ts": "f44ad00f93e46cb90752ef8ca4a38cb61548e9fd1a0ccd1776423723a3fc30df",
+    "src/App.tsx": "71cff5b4a216701529201d05ef110349311ab13dcf46585ce0198d3ce64037de",
+    "src/components/FileRail.tsx": "2f23ca994077b5c5f9ec8b28f7b3079ca7db25b855195b1518285feafe047af1",
+    "src/components/ScoreScanModal.tsx": "b346c5727557dfdc2e75fed6cd1a49f391da045011514b7187d73f12ae1843d2",
+    "src/components/BackgroundImportStage.tsx": "52ff471c59b0d822cd5585e28aafaf20148359d9ee65ff3934a8e499b7f6f94a",
+    "src/hooks/useBackgroundScoreImports.ts": "742417db5b75bd404bf4fc87eb407b0621e72ef252917c33ccd1b286dedcc465",
+    "src/hooks/useDocumentStore.ts": "7d646defc3466aa06a00108c4b9a094aa749df1179fc286dbd45a2c191fd73e2",
+    "src/utils/prepareScanImport.ts": "b3ab3abf65c48e83a8a6f519ca082f4e5745a0965a46dc95148b8668fdb9bef1",
+    "src/types/scoreScan.ts": "23cb9271c7c3a879736bd11bf31e1287e08c92e5c017d88412fde9261af652d9",
+    "src/styles/score-scan.css": "095f36b837c5c952fbb0371eb80fafe06505de72b57b7d9a844d7807b176efd4",
+    "server/python/score_scan.py": "8e1373f1017b51fe8f8549b8c6ca14608e0e94ffc081a59d81bbbcc96d740169"
+  },
+  "limits": [
+    "Up to 60 pages and 20 MiB per file",
+    "Closing the native window or quitting interrupts pending jobs; renderer reload does not",
+    "Desktop automation launcher disabled Chromium sandbox; normal launch unchanged",
+    "Controlled fixture checks lifecycle, not recognition quality; clean melody metrics do not establish real-scan accuracy"
+  ]
+}

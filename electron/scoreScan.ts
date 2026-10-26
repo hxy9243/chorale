@@ -6,7 +6,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import type { Readable } from 'node:stream';
 import JSZip from 'jszip';
-import type { ScoreScanRequest, ScoreScanResult } from '../src/types/scoreScan';
+import type { ScoreScanEngine, ScoreScanRequest, ScoreScanResult } from '../src/types/scoreScan';
 
 const MAX_BYTES = 20 * 1024 * 1024;
 const MAX_OUTPUT_BYTES = 4 * 1024 * 1024;
@@ -15,8 +15,8 @@ const MAX_PREVIEW_BYTES = 16 * 1024 * 1024;
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 
 export const parseScanPages = (input: string): number[] => {
-  if (!input.trim() || input.length > 80 || !/^[\d,\s-]+$/.test(input)) {
-    throw new Error('Choose up to five pages, for example 1 or 1-3.');
+  if (!input.trim() || input.length > 500 || !/^[\d,\s-]+$/.test(input)) {
+    throw new Error('Choose up to 60 pages, for example 1 or 1-12.');
   }
   const pages = new Set<number>();
   for (const section of input.split(',')) {
@@ -24,11 +24,11 @@ export const parseScanPages = (input: string): number[] => {
     if (!match) throw new Error('Invalid page selection. Use numbers such as 1, 3-5.');
     const first = Number(match[1]);
     const last = Number(match[2] || match[1]);
-    if (first < 1 || last > 10000 || last < first || last - first > 4) {
-      throw new Error('Choose up to five pages between 1 and 10000.');
+    if (first < 1 || last > 10000 || last < first || last - first >= 60) {
+      throw new Error('Choose up to 60 pages between 1 and 10000.');
     }
     for (let page = first; page <= last; page++) pages.add(page);
-    if (pages.size > 5) throw new Error('This trial supports up to five pages per scan.');
+    if (pages.size > 60) throw new Error('Choose up to 60 pages per import.');
   }
   return [...pages].sort((a, b) => a - b);
 };
@@ -58,8 +58,12 @@ export const validateScanRequest = (value: unknown) => {
     throw new Error('This trial accepts PDF and PNG files only.');
   }
   if (typeof input.pages !== 'string') throw new Error('Invalid page selection.');
+  if (input.engine !== undefined && input.engine !== 'copisteria' && input.engine !== 'audiveris') {
+    throw new Error('Choose Copisteria or Audiveris.');
+  }
+  const engine: ScoreScanEngine = input.engine ?? 'copisteria';
   const pages = extension === '.png' ? [1] : parseScanPages(input.pages);
-  return { name: input.name, bytes, extension, pages };
+  return { name: input.name, bytes, extension, pages, engine };
 };
 
 const readEntry = (entry: JSZip.JSZipObject, maximumBytes: number): Promise<Buffer> => new Promise((resolve, reject) => {
@@ -93,13 +97,15 @@ export class ScoreScanner {
   private active: AbortController | null = null;
   private readonly projectDirectory: string;
   private readonly executable?: string;
-  private readonly timeoutMs: number;
+  private readonly timeoutMs?: number;
+  private readonly copisteriaHome?: string;
 
-  constructor(options: { projectDirectory: string; root?: string; executable?: string; timeoutMs?: number }) {
-    this.projectDirectory = options.projectDirectory;
-    this.root = options.root || path.join(process.env.CHORALE_HOME || path.join(homedir(), '.chorale'), 'imports');
+  constructor(options: { projectDirectory: string; root?: string; executable?: string; copisteriaHome?: string; timeoutMs?: number }) {
+    this.projectDirectory = path.resolve(options.projectDirectory);
+    this.root = path.resolve(options.root || path.join(process.env.CHORALE_HOME || path.join(homedir(), '.chorale'), 'imports'));
     this.executable = options.executable;
-    this.timeoutMs = options.timeoutMs ?? 180_000;
+    this.timeoutMs = options.timeoutMs;
+    this.copisteriaHome = options.copisteriaHome;
   }
 
   private async findExecutable() {
@@ -118,13 +124,38 @@ export class ScoreScanner {
     return null;
   }
 
+  private async findCopisteria() {
+    const configured = this.copisteriaHome || process.env.CHORALE_COPISTERIA_HOME;
+    const candidates = configured ? [configured] : [
+      path.join(this.projectDirectory, '.local/copisteria'),
+      path.join(homedir(), '.chorale/scanners/copisteria'),
+    ];
+    for (const candidate of candidates) {
+      const home = path.resolve(candidate);
+      const python = path.join(home, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
+      try {
+        await access(python, constants.X_OK);
+        await access(path.join(home, 'models/evidence-2m.pt'));
+        await access(path.join(home, 'models/small/v7_obj-recall-30m_best.pt'));
+        const installation = JSON.parse(await readFile(path.join(home, 'install.json'), 'utf8'));
+        if (!installation.revision || !installation.models) continue;
+        return { home, python, installation };
+      } catch { /* Try the next separately installed runtime. */ }
+    }
+    return null;
+  }
+
   async status() {
-    const available = Boolean(await this.findExecutable());
-    return {
-      available,
-      message: available ? 'Local scanner ready. Your score stays on this computer.'
-        : 'Local scanner unavailable. Install Audiveris, then reopen Chorale.',
-    };
+    const [copisteria, audiveris] = await Promise.all([this.findCopisteria(), this.findExecutable()]);
+    const engines = [
+      { id: 'copisteria' as const, available: Boolean(copisteria), message: copisteria
+        ? 'Copisteria ready. Your score stays on this computer.'
+        : 'Copisteria unavailable. Run npm run setup:scanner in the Chorale installation, then reopen Chorale. You can also choose Audiveris.' },
+      { id: 'audiveris' as const, available: Boolean(audiveris), message: audiveris
+        ? 'Audiveris ready. Your score stays on this computer.'
+        : 'Audiveris unavailable. Install Audiveris, then reopen Chorale.' },
+    ];
+    return { available: engines[0].available, message: engines[0].message, engines };
   }
 
   cancel() { this.active?.abort(); }
@@ -136,28 +167,32 @@ export class ScoreScanner {
     return path.join(this.root, jobId);
   }
 
-  async scan(request: unknown): Promise<ScoreScanResult> {
+  async scan(request: unknown, jobId: string = randomUUID()): Promise<ScoreScanResult> {
     if (this.active) throw new Error('A scan is already running. Cancel it before starting another.');
     const input = validateScanRequest(request);
     const controller = new AbortController();
     this.active = controller;
     const started = Date.now();
-    const jobId = randomUUID();
     const folder = this.sourceFolder(jobId);
     let output = '';
     let processFailure = '';
     let folderCreated = false;
-    const manifest = { jobId, sourceName: input.name, sourceSha256: createHash('sha256').update(input.bytes).digest('hex'), pages: input.pages, engine: 'Audiveris', createdAt: new Date().toISOString() };
+    let installation: unknown;
+    const manifest = { jobId, sourceName: input.name, sourceSha256: createHash('sha256').update(input.bytes).digest('hex'), pages: input.pages, engine: input.engine, createdAt: new Date().toISOString() };
     try {
-      const executable = await this.findExecutable();
-      if (!executable) throw new Error((await this.status()).message);
+      const copisteria = input.engine === 'copisteria' ? await this.findCopisteria() : null;
+      const executable = input.engine === 'copisteria' ? copisteria?.python : await this.findExecutable();
+      if (!executable) throw new Error((await this.status()).engines.find((engine) => engine.id === input.engine)!.message);
+      installation = copisteria?.installation;
+      const timeoutMs = this.timeoutMs ?? Math.max(copisteria ? 600_000 : 180_000, input.pages.length * 180_000);
       controller.signal.throwIfAborted();
       await mkdir(folder, { recursive: true });
       folderCreated = true;
       const sourcePath = path.join(folder, `source${input.extension}`);
       await writeFile(sourcePath, input.bytes);
-      await writeFile(path.join(folder, 'manifest.json'), JSON.stringify({ ...manifest, executable, status: 'scanning' }, null, 2));
-      const args = ['-batch', '-transcribe', '-export', '-save', '-sheets', ...input.pages.map(String), '-output', folder, '--', sourcePath];
+      await writeFile(path.join(folder, 'manifest.json'), JSON.stringify({ ...manifest, executable, installation, status: 'scanning' }, null, 2));
+      const args = copisteria ? [path.join(this.projectDirectory, 'server/python/score_scan.py'),
+        '--home', copisteria.home, '--folder', folder, '--source', sourcePath, '--pages', JSON.stringify(input.pages)] : ['-batch', '-transcribe', '-export', '-save', '-sheets', ...input.pages.map(String), '-output', folder, '--', sourcePath];
       const localOcrData = path.join(this.projectDirectory, '.local/audiveris/tessdata');
       const hasLocalOcrData = await access(path.join(localOcrData, 'eng.traineddata')).then(() => true, () => false);
       await new Promise<void>((resolve, reject) => {
@@ -168,7 +203,8 @@ export class ScoreScanner {
           // _JAVA_OPTIONS is applied after the official launcher's -Xmx8G.
           env: {
             ...process.env,
-            _JAVA_OPTIONS: '-Xmx1536m -Djava.awt.headless=true',
+            ...(copisteria ? { OMP_NUM_THREADS: '4', MKL_NUM_THREADS: '4', OPENBLAS_NUM_THREADS: '4', PYTHONUNBUFFERED: '1', PYTHONDONTWRITEBYTECODE: '1', CUDA_VISIBLE_DEVICES: '' }
+              : { _JAVA_OPTIONS: '-Xmx1536m -Djava.awt.headless=true' }),
             ...(hasLocalOcrData && !process.env.TESSDATA_PREFIX ? { TESSDATA_PREFIX: localOcrData } : {}),
           },
           stdio: ['ignore', 'pipe', 'pipe'],
@@ -180,10 +216,14 @@ export class ScoreScanner {
           if (!child.pid) return;
           try {
             if (process.platform !== 'win32') process.kill(-child.pid, 'SIGKILL');
-            else child.kill('SIGKILL');
+            else {
+              // Kill PDF-rendering/recognition descendants on Windows too.
+              const killer = spawn('taskkill', ['/pid', String(child.pid), '/t', '/f'], { windowsHide: true, stdio: 'ignore' });
+              killer.once('error', () => child.kill('SIGKILL'));
+            }
           } catch { child.kill('SIGKILL'); }
         };
-        const timer = setTimeout(() => { timedOut = true; kill(); }, this.timeoutMs);
+        const timer = setTimeout(() => { timedOut = true; kill(); }, timeoutMs);
         const append = (chunk: Buffer) => {
           outputBytes += chunk.length;
           if (outputBytes > MAX_OUTPUT_BYTES) { exceeded = true; kill(); }
@@ -198,15 +238,17 @@ export class ScoreScanner {
         child.once('close', (code) => {
           cleanup();
           if (controller.signal.aborted) reject(new Error('Scan cancelled.'));
-          else if (timedOut) reject(new Error('Scanning took longer than three minutes. Try one page or a clearer image.'));
+          else if (timedOut) reject(new Error(`Scanning exceeded the ${Math.round(timeoutMs / 60_000)} minute limit. Try fewer pages or a clearer image.`));
           else if (exceeded) reject(new Error('The scanner produced too many diagnostics. Try one page.'));
-          else if (code !== 0) reject(new Error('The scanner could not read this score. Try a clear printed page; logs are preserved in the source folder.'));
+          else if (code !== 0) reject(new Error(copisteria
+            ? output.split('\n').filter((line) => line.startsWith('ERROR ')).at(-1)?.slice(6, 600) || 'Copisteria could not read this score. Check the installation and preserved recognition log.'
+            : 'The scanner could not read this score. Try a clear printed page; logs are preserved in the source folder.'));
           else resolve();
         });
       });
       controller.signal.throwIfAborted();
       const files = await collectFiles(folder);
-      const exports = files.filter((file) => /\.(mxl|musicxml)$/i.test(file));
+      const exports = files.filter((file) => copisteria ? file === path.join(folder, 'recognized.musicxml') : /\.(mxl|musicxml)$/i.test(file));
       if (exports.length !== 1) throw new Error(exports.length ? 'Several separate scores were found. Select pages from one piece.' : 'No editable music was recognized. Try a clearer page or check the selected pages.');
       if ((await stat(exports[0])).size > MAX_XML_BYTES) throw new Error('Recognition output is too large. Choose fewer pages.');
       const exported = await readFile(exports[0]);
@@ -224,7 +266,7 @@ export class ScoreScanner {
       await writeFile(path.join(folder, 'recognized.musicxml'), musicXml);
       // Audiveris can exit zero after logging an exception during export and
       // still leave an MXL containing only part of the score.
-      if (/PartwiseBuilder[^\n]*\bError visiting\b|\bjava\.lang\.(?:NullPointerException|IllegalStateException)\b/.test(output)) {
+      if (!copisteria && /PartwiseBuilder[^\n]*\bError visiting\b|\bjava\.lang\.(?:NullPointerException|IllegalStateException)\b/.test(output)) {
         throw new Error('The scanner could not finish exporting this page. No score was imported. The original and partial output are preserved; use a corrected MusicXML file instead.');
       }
       if (!/<time\b[^>]*>\s*<beats>[^<]+<\/beats>\s*<beat-type>[1-9]\d*<\/beat-type>\s*<\/time>/.test(musicXml)) {
@@ -232,7 +274,17 @@ export class ScoreScanner {
       }
       const images: ScoreScanResult['images'] = [];
       let imageBytes = 0;
-      for (const file of files.filter((file) => file.endsWith('.omr'))) {
+      if (copisteria) {
+        for (const page of input.pages) {
+          const file = path.join(folder, 'pages', `page-${String(page).padStart(6, '0')}.png`);
+          const size = (await stat(file)).size;
+          if (size + imageBytes > MAX_PREVIEW_BYTES) continue;
+          const bytes = await readFile(file);
+          imageBytes += bytes.length;
+          images.push({ page, dataUrl: `data:image/png;base64,${bytes.toString('base64')}` });
+        }
+      }
+      for (const file of files.filter((file) => !copisteria && file.endsWith('.omr'))) {
         if ((await stat(file)).size > 64 * 1024 * 1024) continue;
         const zip = await JSZip.loadAsync(await readFile(file));
         for (const entry of Object.values(zip.files)) {
@@ -243,16 +295,18 @@ export class ScoreScanner {
           images.push({ page: Number(match[1]), dataUrl: `data:image/png;base64,${bytes.toString('base64')}` });
         }
       }
-      if (!images.length && input.extension === '.png') images.push({ page: 1, dataUrl: `data:image/png;base64,${input.bytes.toString('base64')}` });
+      if (!images.length && input.extension === '.png' && input.bytes.length <= MAX_PREVIEW_BYTES) images.push({ page: 1, dataUrl: `data:image/png;base64,${input.bytes.toString('base64')}` });
       const warnings = [...new Set(output.split('\n').filter((line) => /\bWARN\b|\bERROR\b/.test(line)).map((line) => line.trim()))].slice(0, 20);
       if (/no correct rhythm|No timeOffset/.test(output)) warnings.unshift('Some measures have unresolved rhythms. Check durations and voice assignments carefully.');
       if (!images.length) warnings.push('A source preview was unavailable. Open the source folder to compare the original.');
+      else if (images.length < input.pages.length) warnings.push('Some source previews are unavailable. Open the source folder to compare every selected page.');
+      const pageMeasures = copisteria ? JSON.parse(await readFile(path.join(folder, 'copisteria.json'), 'utf8')).pageMeasures : undefined;
       const elapsedMs = Date.now() - started;
-      await writeFile(path.join(folder, 'manifest.json'), JSON.stringify({ ...manifest, executable, status: 'recognized', elapsedMs, warnings }, null, 2));
-      return { jobId, sourceName: input.name, sourceFolder: folder, musicXml, pages: input.pages, images: images.sort((a, b) => a.page - b.page), warnings, elapsedMs };
+      await writeFile(path.join(folder, 'manifest.json'), JSON.stringify({ ...manifest, executable, installation, pageMeasures, status: 'recognized', elapsedMs, warnings }, null, 2));
+      return { engine: input.engine, jobId, sourceName: input.name, sourceFolder: folder, musicXml, pages: input.pages, images: images.sort((a, b) => a.page - b.page), warnings, elapsedMs };
     } catch (error) {
       processFailure = controller.signal.aborted ? 'Scan cancelled.' : error instanceof Error ? error.message : 'Scanning failed.';
-      if (folderCreated) await writeFile(path.join(folder, 'manifest.json'), JSON.stringify({ ...manifest, status: 'failed', error: processFailure }, null, 2));
+      if (folderCreated) await writeFile(path.join(folder, 'manifest.json'), JSON.stringify({ ...manifest, installation, status: 'failed', error: processFailure }, null, 2));
       throw new Error(processFailure);
     } finally {
       try { if (folderCreated) await writeFile(path.join(folder, 'recognition.log'), `${output}\n${processFailure}`); }

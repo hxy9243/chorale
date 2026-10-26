@@ -74,6 +74,7 @@ export const useDocumentStore = () => {
   const [hydrationStatus, setHydrationStatus] = useState<HydrationStatus>('hydrating');
   const [activeFileId, setActiveFileId] = useState<string>(() => readStoredActiveFileId());
   const [activeAnchor, setActiveAnchor] = useState<ScoreAnchor | null>(null);
+  const [persistedDocumentIds, setPersistedDocumentIds] = useState<Set<string>>(() => new Set());
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +115,7 @@ export const useDocumentStore = () => {
         const docs = await storageAdapter.getDocuments();
         if (!cancelled) {
           setDocuments(docs);
+          setPersistedDocumentIds(new Set(docs.map((document) => document.id)));
           const searchFile = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('file') : null;
           const sessionFile = typeof window !== 'undefined' && window.sessionStorage ? window.sessionStorage.getItem(ACTIVE_FILE_KEY) : null;
           const localActiveFile = typeof window !== 'undefined' ? window.localStorage.getItem(ACTIVE_FILE_KEY) : null;
@@ -163,7 +165,7 @@ export const useDocumentStore = () => {
     setSaveStatus('saving');
     const timeout = window.setTimeout(() => {
       void storageAdapter.saveDocuments(documents)
-        .then(() => setSaveStatus('saved'))
+        .then(() => { setSaveStatus('saved'); setPersistedDocumentIds(new Set(documents.map((document) => document.id))); })
         .catch((caught) => {
           console.error('Failed to auto-save documents:', caught);
           setSaveStatus('error');
@@ -354,18 +356,21 @@ export const useDocumentStore = () => {
     }
   }, []);
 
-  const handleCreateDocument = useCallback((abcSource: string, title: string) => {
+  const handleCreateDocument = useCallback((abcSource: string, title: string, options?: { id?: string; activate?: boolean }) => {
     workspaceInitializedRef.current = true;
     // Creating a score wins over any first-run sample fetch still in flight.
-    // Invalidating that request prevents its late response from stealing focus.
-    loadRequestRef.current += 1;
+    // Only foreground creation interrupts a pending open; background completion
+    // must leave the user's current import/sample request and its status intact.
+    if (options?.activate !== false) loadRequestRef.current += 1;
     const safeFileName = `${title.trim() || 'Untitled score'}.abc`;
     const newDocument = createDocumentFromAbc(safeFileName, 'abc', abcSource, title);
-    setDocuments((current) => [newDocument, ...current]);
-    setActiveFileId(newDocument.id);
-    setActiveAnchor(null);
-    setLoading(false);
-    setError(null);
+    if (options?.id) newDocument.id = options.id;
+    setDocuments((current) => current.some((document) => document.id === newDocument.id) ? current : [newDocument, ...current]);
+    if (options?.activate !== false) {
+      setActiveFileId(newDocument.id); setActiveAnchor(null);
+      setLoading(false); setError(null);
+    }
+    return newDocument.id;
   }, []);
 
   const handleMeasureMutation = useCallback((
@@ -757,6 +762,7 @@ export const useDocumentStore = () => {
   return {
     documents,
     hydrationStatus,
+    persistedDocumentIds,
     activeFileId,
     activeDocument,
     activeFileName,

@@ -70,6 +70,32 @@ describe('Voices panel', () => {
     view.unmount();
     expect(synth.stop).toHaveBeenCalledTimes(2);
   });
+  it('shows both staff rows for a shared label and dismisses on outside pointer or focus only', () => {
+    const onClose = vi.fn();
+    const view = render(<><button>Outside</button><svg><text className="staff-sound-label">Other staff</text></svg>
+      <VoicesPanel voices={voices} settings={{}} activeStaffId="S" visibleStaffIds={['S', 'B']} title="Piano"
+        onChange={vi.fn()} onClose={onClose} onBeforePreview={vi.fn()} disabled={false}
+        volume={0.8} stopSignal={0} mainPlaying={false} /></>);
+    expect(screen.getByRole('heading', { name: 'Piano' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Instrument for Bass' })).toBeDefined();
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Instrument for Soprano' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Instrument for Soprano' }));
+    const search = screen.getByRole('combobox');
+    fireEvent.pointerDown(search);
+    fireEvent.focusIn(search);
+    fireEvent.mouseLeave(screen.getByRole('dialog', { name: 'Staff sound' }));
+    fireEvent.pointerDown(screen.getByText('Other staff'));
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Outside' }));
+    expect(onClose).toHaveBeenLastCalledWith(false);
+    onClose.mockClear();
+    fireEvent.focusIn(screen.getByRole('button', { name: 'Outside' }));
+    expect(onClose).toHaveBeenCalledWith(false);
+    view.unmount();
+    onClose.mockClear();
+    fireEvent.pointerDown(document.body);
+    expect(onClose).not.toHaveBeenCalled();
+  });
   it('cancels a loading preview and reports failures without getting stuck', async () => {
     let resolve!: () => void;
     synth.init.mockImplementationOnce(() => new Promise<void>((done) => { resolve = done; }));

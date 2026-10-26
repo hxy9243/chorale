@@ -1,0 +1,330 @@
+{
+  "date": "2026-10-24",
+  "method": "Strict written measure + pitch/onset/duration multiset; voices pooled; clean rendered ABC fixtures; raw OMR and ABC conversion scored separately. Not a universal accuracy benchmark.",
+  "artifactRoots": {
+    "copisteria": ".local/scan-trial/2026-10-24T20-32-13-662Z",
+    "audiveris": ".local/scan-trial/2026-10-24T20-46-14-403Z",
+    "multipage": ".local/scan-trial/2026-10-24T20-37-44-864Z",
+    "historicalScan": ".local/scan-trial/2026-10-24T20-52-08-634Z"
+  },
+  "copisteria": [
+    {
+      "engine": "copisteria",
+      "source": "melody.pdf",
+      "sha256": "8870920fbadf8501eee61da282aa3b7ccdee19f9d86e05c15f09a011352d78b2",
+      "jobId": "0d6b28ec-d166-4936-bb96-55733fc7c9eb",
+      "elapsedMs": 78387,
+      "omr": {
+        "expectedNotes": 16,
+        "actualNotes": 16,
+        "matchedEvents": 16,
+        "missingOrChanged": 0,
+        "extraOrChanged": 0,
+        "referenceVoices": 1,
+        "actualVoices": 1
+      },
+      "conversion": {
+        "expectedNotes": 16,
+        "actualNotes": 16,
+        "matchedEvents": 16,
+        "missingOrChanged": 0,
+        "extraOrChanged": 0,
+        "referenceVoices": 1,
+        "actualVoices": 1
+      },
+      "warnings": []
+    },
+    {
+      "engine": "copisteria",
+      "source": "moonlight.pdf",
+      "sha256": "b195172fc801a82a66880f73f61088e0ca01310b2d8ed6293fd42c488cc9fde3",
+      "jobId": "2eea00ef-f9f7-41e0-b427-a2ebd7b260f7",
+      "elapsedMs": 81092,
+      "omr": {
+        "expectedNotes": 60,
+        "actualNotes": 41,
+        "matchedEvents": 40,
+        "missingOrChanged": 20,
+        "extraOrChanged": 1,
+        "referenceVoices": 2,
+        "actualVoices": 2
+      },
+      "conversion": {
+        "expectedNotes": 41,
+        "actualNotes": 41,
+        "matchedEvents": 41,
+        "missingOrChanged": 0,
+        "extraOrChanged": 0,
+        "referenceVoices": 2,
+        "actualVoices": 2
+      },
+      "warnings": []
+    },
+    {
+      "engine": "copisteria",
+      "source": "fur-elise.pdf",
+      "sha256": "ccdad455eb6491ea70670a30c2fb59908dce19e56053b9662ab3c7bfc12628e0",
+      "jobId": "8949ee35-a640-41b4-b86c-6c8dd2d4c722",
+      "elapsedMs": 97636,
+      "omr": {
+        "expectedNotes": 9,
+        "actualNotes": 9,
+        "matchedEvents": 9,
+        "missingOrChanged": 0,
+        "extraOrChanged": 0,
+        "referenceVoices": 1,
+        "actualVoices": 1
+      },
+      "conversion": {
+        "expectedNotes": 9,
+        "actualNotes": 9,
+        "matchedEvents": 9,
+        "missingOrChanged": 0,
+        "extraOrChanged": 0,
+        "referenceVoices": 1,
+        "actualVoices": 1
+      },
+      "warnings": []
+    },
+    {
+      "engine": "copisteria",
+      "source": "bwv269.pdf",
+      "sha256": "a7194627eb0038a29d1f4987d78e96f5ffe63a481f91b322981d88d638b076da",
+      "jobId": "c6fcbf05-ffe7-4105-9fba-fcac232cca0a",
+      "elapsedMs": 102898,
+      "omr": {
+        "expectedNotes": 51,
+        "actualNotes": 51,
+        "matchedEvents": 51,
+        "missingOrChanged": 0,
+        "extraOrChanged": 0,
+        "referenceVoices": 4,
+        "actualVoices": 4
+      },
+      "conversion": {
+        "expectedNotes": 51,
+        "actualNotes": 51,
+        "matchedEvents": 51,
+        "missingOrChanged": 0,
+        "extraOrChanged": 0,
+        "referenceVoices": 4,
+        "actualVoices": 4
+      },
+      "warnings": []
+    },
+    {
+      "engine": "copisteria",
+      "source": "melody.png",
+      "sha256": "310de1c4ada2208459dc53f19e2c605d03610f4eb77484769cd7108d3987a777",
+      "jobId": "eb23889f-f080-49ba-badf-0b57638c0dc5",
+      "elapsedMs": 80649,
+      "omr": {
+        "expectedNotes": 16,
+        "actualNotes": 16,
+        "matchedEvents": 16,
+        "missingOrChanged": 0,
+        "extraOrChanged": 0,
+        "referenceVoices": 1,
+        "actualVoices": 1
+      },
+      "conversion": {
+        "expectedNotes": 16,
+        "actualNotes": 16,
+        "matchedEvents": 16,
+        "missingOrChanged": 0,
+        "extraOrChanged": 0,
+        "referenceVoices": 1,
+        "actualVoices": 1
+      },
+      "warnings": []
+    },
+    {
+      "engine": "copisteria",
+      "source": "bwv371.pdf",
+      "sha256": "d7ae86bccb6f273da764fe6a8d23a74baf7c75cbc046716571463151334d31ec",
+      "jobId": "ecd4d279-278c-4331-986b-e709d152ca68",
+      "elapsedMs": 88319,
+      "omr": {
+        "expectedNotes": 77,
+        "actualNotes": 75,
+        "matchedEvents": 75,
+        "missingOrChanged": 2,
+        "extraOrChanged": 0,
+        "referenceVoices": 4,
+        "actualVoices": 4
+      },
+      "conversion": {
+        "expectedNotes": 75,
+        "actualNotes": 75,
+        "matchedEvents": 75,
+        "missingOrChanged": 0,
+        "extraOrChanged": 0,
+        "referenceVoices": 4,
+        "actualVoices": 4
+      },
+      "warnings": []
+    }
+  ],
+  "audiveris": [
+    {
+      "engine": "audiveris",
+      "source": "bwv371.pdf",
+      "sha256": "e341f219176aae8ee25a4323afd9ede3384a75e690d1f5c799c8b28fad37399b",
+      "jobId": "70d0b864-f69f-4157-9473-2cc76df121b2",
+      "elapsedMs": 62031,
+      "omr": {
+        "expectedNotes": 77,
+        "actualNotes": 76,
+        "matchedEvents": 76,
+        "missingOrChanged": 1,
+        "extraOrChanged": 0,
+        "referenceVoices": 4,
+        "actualVoices": 4
+      },
+      "conversion": {
+        "expectedNotes": 76,
+        "actualNotes": 76,
+        "matchedEvents": 76,
+        "missingOrChanged": 0,
+        "extraOrChanged": 0,
+        "referenceVoices": 4,
+        "actualVoices": 4
+      },
+      "warnings": []
+    },
+    {
+      "engine": "audiveris",
+      "source": "bwv269.pdf",
+      "sha256": "e7ef643adbdb44e7e74bd13f999d332e6c3e2240d68853ecc31b704915db2437",
+      "jobId": "b6aa1819-c50d-49f6-a91d-e38106e30666",
+      "elapsedMs": 78308,
+      "omr": {
+        "expectedNotes": 51,
+        "actualNotes": 42,
+        "matchedEvents": 42,
+        "missingOrChanged": 9,
+        "extraOrChanged": 0,
+        "referenceVoices": 4,
+        "actualVoices": 4
+      },
+      "conversion": {
+        "expectedNotes": 42,
+        "actualNotes": 42,
+        "matchedEvents": 42,
+        "missingOrChanged": 0,
+        "extraOrChanged": 0,
+        "referenceVoices": 4,
+        "actualVoices": 4
+      },
+      "warnings": []
+    },
+    {
+      "engine": "audiveris",
+      "source": "moonlight.pdf",
+      "error": "The scanner could not determine the time signature. No score was imported. This trial does not support unmetered scan results; use a corrected MusicXML file instead."
+    }
+  ],
+  "multipage": [
+    {
+      "engine": "copisteria",
+      "source": "melody-two-pages.pdf",
+      "sha256": "125f3e1292d949d30ab0f1c7234743d723533c7c118630e17578a585cfdbfc01",
+      "jobId": "3e7c749a-82ad-41bc-9c9a-a6e64e60ee1a",
+      "elapsedMs": 175632,
+      "omr": {
+        "expectedNotes": 32,
+        "actualNotes": 32,
+        "matchedEvents": 32,
+        "missingOrChanged": 0,
+        "extraOrChanged": 0,
+        "referenceVoices": 1,
+        "actualVoices": 1
+      },
+      "conversion": {
+        "expectedNotes": 32,
+        "actualNotes": 32,
+        "matchedEvents": 32,
+        "missingOrChanged": 0,
+        "extraOrChanged": 0,
+        "referenceVoices": 1,
+        "actualVoices": 1
+      },
+      "warnings": []
+    }
+  ],
+  "historicalScan": [
+    {
+      "external": true,
+      "engine": "copisteria",
+      "source": "/home/kevin/Downloads/music/IMSLP02821-Debussy-L066.pdf",
+      "pages": [
+        1
+      ],
+      "jobId": "fd552cd2-e133-4b57-a27d-9541814eeb29",
+      "error": "The recognized music could not be converted for preview. Your original and MusicXML are preserved. Open the source folder, or try another page.",
+      "stage": "conversion/review",
+      "recognizedNotes": 229
+    }
+  ],
+  "verification": {
+    "command": "npm test -- --maxWorkers=1",
+    "serviceTests": 252,
+    "uiUnitTests": 990,
+    "skipped": 0,
+    "failed": 0,
+    "scannerFocusedTests": 28,
+    "pythonAdapterTests": 8,
+    "browserBuild": "passed",
+    "electronBuild": "passed",
+    "typescript": "passed",
+    "lint": "passed with existing warnings",
+    "packageScannerFiles": [
+      "server/python/score_scan.py",
+      "server/setup-score-scanner.mjs",
+      "server/setup-copisteria.mjs",
+      "server/setup-audiveris.mjs",
+      "dist-electron/main.js"
+    ],
+    "logs": ".local/scanner-verification/2026-10-24"
+  },
+  "sourceState": {
+    "baseCommit": "af43077fb04149686d9f0c747503f41818c19623",
+    "uncommittedScannerChanges": true,
+    "sha256": {
+      "electron/scoreScan.ts": "7acad3438bb70717ca4a569d951a403b5e5aa6a312bda605e3a4e173fc3f4005",
+      "server/python/score_scan.py": "92f91d12455e0db5107b3a0166c665cd3092f8178b1cb49ceb27d1666249e1fd",
+      "server/setup-score-scanner.mjs": "4f35ff9c76fb2759757e3d41485395bb261b9fcd52ca7060ce397bf2a7f4679b",
+      "server/setup-copisteria.mjs": "2a826613559226d8b91ae91e5de040e973e07595285412674f86c994eaed6fdd",
+      "server/setup-audiveris.mjs": "77d2cb16f106f2e11a7f6f575e0ddd473998672aba5fb704a6b422cf79d425b1",
+      "src/types/scoreScan.ts": "871c8eb4baa4db0016b31e2478f797b1ed05dedaf6201149d80b1f0549c1bec8",
+      "src/components/ScoreScanModal.tsx": "d44b85d19797f6ed5c78a45807707381702becd5ff34a9d88841b5f4324a9b9e",
+      "src/styles/score-scan.css": "dd92e05b7345d6a59e639464f5965b79ab868b0bfa597f77d04b19a262ba42b8",
+      "scripts/scan-import-smoke.mjs": "3a23c38d9ce814f93c1485d35a4cc3cde989c501eaeabf1136d33e0b45deb453",
+      "scripts/scan-pages-smoke.mjs": "13630f9a6d8fc45d7a9491dba4d1cb5ccdc159471b07fc13dff07b2bccb669e9",
+      "scripts/setup-score-scanner.mjs": "913013c4b01b589863d4efaef6e88c7cbab4c46466a16032e0f0d6ef6da8dfea",
+      "package.json": "a80a5366614fd923c61dd61a01ad59a9c8264a3ec83f292d74d9be2e2321202d",
+      "spec/score-scan-import.md": "f4db0acf6c663f5a8432eea25fbe6d3af9d62639f02e29456eebe4351e49a832",
+      "src/agent/__tests__/scoreScan.test.ts": "2b8ff86ceb6ee6e067dcf88a802d2343f89f002432fbe1990e650cee62ae83c2",
+      "src/components/__tests__/ScoreScanModal.test.tsx": "a7724fd572077ba62fc33fda4be9fef0471ed3980667157e449f0ab6cd32b140",
+      "test/score-scan-adapter.python.py": "78456313d09b0cff54d5cb75cbc3bc40de3c68e9c4bf904ee60e7a94d91c7172",
+      "test/fixtures/score-scan/bwv269.musicxml": "a05bac1f0465ba95a4a291591555ec79fd8ccc8e898bfeee2b7c0cdf6a14a6fa"
+    }
+  },
+  "copisteriaInstallation": {
+    "name": "Copisteria",
+    "version": "1.3.4",
+    "revision": "bcf4e036fbb1721d525dc78144bc61f3c47db08a",
+    "models": [
+      {
+        "path": "models/evidence-2m.pt",
+        "sha256": "7a3eb0362b44016e941680c5df1e133239576592ab134057c3dbac8e9f3b8838"
+      },
+      {
+        "path": "models/small/v7_obj-recall-30m_best.pt",
+        "sha256": "9f1db282271fb1064461387da4a2e15de14b099c49b619c21429cdc45be85cfe"
+      }
+    ],
+    "pythonVersion": "Python 3.12.3",
+    "dependencies": "-e file:///home/kevin/.chorale/scanners/copisteria\nfilelock==3.32.3\nfsspec==2026.7.0\njinja2==3.1.6\nmarkupsafe==3.0.3\nmpmath==1.3.0\nnetworkx==3.6.1\nnumpy==2.5.2\nopencv-python==5.0.0.93\npillow==12.3.0\nscipy==1.18.1\nsetuptools==78.1.0\nsympy==1.14.0\ntorch==2.14.1+cpu\ntorchvision==0.29.1+cpu\ntyping-extensions==4.16.0\n"
+  }
+}

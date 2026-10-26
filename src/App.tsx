@@ -1,8 +1,12 @@
 import type abcjs from 'abcjs';
+import type { StaffSoundTarget } from './components/StaffInstruments';
+import { setStaffInstrument } from './music/staffInstruments';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileMusic, Plus, X } from 'lucide-react';
 import { Header } from './components/Header';
 import { FileRail } from './components/FileRail';
+import { BackgroundImportStage } from './components/BackgroundImportStage';
+import { useBackgroundScoreImports } from './hooks/useBackgroundScoreImports';
 import { ScoreScanModal } from './components/ScoreScanModal';
 import { RightRail } from './components/RightRail';
 import { AgentChatPanel } from './components/AgentChatPanel';
@@ -71,12 +75,15 @@ export const WATERFALL_VISIBLE_KEY = 'chorale.workspace.waterfallVisible';
 
 export const App: React.FC = () => {
   const [scanModalOpen, setScanModalOpen] = useState(false);
+  const [staffSound, setStaffSound] = useState<{ documentId: string; target: StaffSoundTarget } | null>(null);
   const {
     documents,
     activeFileId,
-    activeDocument,
+    activeDocument: storedActiveDocument,
     activeFileName,
-    abcCode,
+    abcCode: storedAbcCode,
+    hydrationStatus,
+    persistedDocumentIds,
     abcRevision,
     activeAnchor,
     setActiveAnchor,
@@ -85,18 +92,18 @@ export const App: React.FC = () => {
     error,
     editingHistory,
     activeHistoryIndex,
-    canUndo,
-    canRedo,
+    canUndo: storedCanUndo,
+    canRedo: storedCanRedo,
     handleUndo,
     handleRedo,
     handleRevertTo,
-    handleSelectFile,
+    handleSelectFile: selectFile,
     handleAbcChange,
     handleUpdateMetadata,
-    handleCreateDocument,
+    handleCreateDocument: createDocument,
     handleMeasureMutation,
     handleWholeScoreReplacement,
-    handleProcessMusicXml,
+    handleProcessMusicXml: processMusicXml,
     handleDeleteDocument,
     handleDuplicateDocument,
     handleReorderDocument,
@@ -108,6 +115,17 @@ export const App: React.FC = () => {
     handleDeleteAnnotations,
     handleRefreshDocuments,
   } = useDocumentStore();
+
+  const backgroundImports = useBackgroundScoreImports({ documents, persistedDocumentIds, hydrationStatus, createDocument, selectDocument: selectFile });
+  const activeImport = backgroundImports.activeJob;
+  const activeDocument = activeImport ? undefined : storedActiveDocument;
+  const abcCode = activeImport ? '' : storedAbcCode;
+  const canUndo = !activeImport && storedCanUndo;
+  const canRedo = !activeImport && storedCanRedo;
+  const selectImport = backgroundImports.select;
+  const handleSelectFile = useCallback((id: string) => { selectImport(null); selectFile(id); }, [selectImport, selectFile]);
+  const handleCreateDocument = useCallback((abc: string, title: string) => { selectImport(null); return createDocument(abc, title); }, [selectImport, createDocument]);
+  const handleProcessMusicXml = useCallback((data: ArrayBuffer | string, name: string) => { selectImport(null); return processMusicXml(data, name); }, [selectImport, processMusicXml]);
 
   const interfaceZoom = useInterfaceZoom();
   const aiProviders = useAIProviders();
@@ -215,6 +233,9 @@ export const App: React.FC = () => {
   };
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<'integration' | undefined>();
+  const [settingsRequestId, setSettingsRequestId] = useState(0);
+  const [mcpSetupDeferred, setMcpSetupDeferred] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [newScoreModalOpen, setNewScoreModalOpen] = useState(false);
   const [videoExportModalOpen, setVideoExportModalOpen] = useState(false);
@@ -227,8 +248,33 @@ export const App: React.FC = () => {
     isPlaying: false,
   });
 
-  const openSettings = useCallback(() => setSettingsOpen(true), []);
+  const openSettings = useCallback(() => {
+    setSettingsInitialTab(undefined);
+    setSettingsOpen(true);
+  }, []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  useEffect(() => {
+    const bridge = window.choraleMcp;
+    if (!bridge) return;
+    let active = true;
+    const openIntegration = () => {
+      setSettingsInitialTab('integration');
+      setSettingsRequestId((value) => value + 1);
+      setSettingsOpen(true);
+    };
+    const unsubscribe = bridge.onOpenSettings(openIntegration);
+    void bridge.offerSetup().then((result) => {
+      if (!active) return;
+      if (result === 'open-settings') openIntegration();
+      if (result === 'declined') setMcpSetupDeferred(true);
+    }).catch(() => { /* Setup remains available in Settings if the offer fails. */ });
+    return () => { active = false; unsubscribe(); };
+  }, []);
+  useEffect(() => {
+    if (!mcpSetupDeferred) return;
+    const timer = window.setTimeout(() => setMcpSetupDeferred(false), 10000);
+    return () => window.clearTimeout(timer);
+  }, [mcpSetupDeferred]);
   const openHistoryModal = useCallback(() => setHistoryModalOpen(true), []);
   const closeHistoryModal = useCallback(() => setHistoryModalOpen(false), []);
   const closeNewScoreModal = useCallback(() => setNewScoreModalOpen(false), []);
@@ -363,7 +409,7 @@ export const App: React.FC = () => {
   }
 
   const liveMetadata = useMemo(() => parseAbcHeaderMetadata(displayAbc), [displayAbc]);
-  const scoreTitle = liveMetadata.title || activeDocument?.scoreInfo.title || activeFileName || 'Untitled score';
+  const scoreTitle = activeImport?.title || liveMetadata.title || activeDocument?.scoreInfo.title || activeFileName || 'Untitled score';
   const scoreComposer = liveMetadata.composer || activeDocument?.scoreInfo.composer || 'Unknown composer';
   const scoreKey = liveMetadata.key || activeDocument?.scoreInfo.key || 'C';
   const scoreMeter = liveMetadata.meter || activeDocument?.scoreInfo.meter || '4/4';
@@ -425,7 +471,7 @@ export const App: React.FC = () => {
   }, [exportStatus.status, dismissExportStatus]);
 
   usePluginMcpBridge({
-    enabled: true,
+    enabled: !activeImport,
     hasUnsavedChanges: saveStatus !== 'saved',
     documentId: activeDocument?.id,
     title: scoreTitle,
@@ -443,7 +489,7 @@ export const App: React.FC = () => {
     onRefreshDocuments: handleRefreshDocuments,
   });
 
-  const chatVisible = aiProviders.desktopAvailable && chatOpen;
+  const chatVisible = aiProviders.desktopAvailable && chatOpen && !activeImport;
   const chatColumnWidth = FILE_RAIL_BAR_WIDTH + (chatVisible ? fittedPanelLayout.chatPanelWidth : 0);
 
   return (
@@ -459,7 +505,9 @@ export const App: React.FC = () => {
       >
         <FileRail
           documents={documents}
-          activeFileId={activeFileId}
+          activeFileId={activeImport?.id || activeFileId}
+          imports={backgroundImports.jobs}
+          onSelectImport={backgroundImports.select}
           onSelectDocument={handleSelectFile}
           onFileLoaded={handleProcessMusicXml}
           onScanScore={window.choraleScan ? () => setScanModalOpen(true) : undefined}
@@ -499,7 +547,9 @@ export const App: React.FC = () => {
             onUndo={handleUndo}
             onRedo={handleRedo}
           />
-          <main
+          {activeImport ? <BackgroundImportStage key={activeImport.id} job={activeImport}
+            onCancel={() => backgroundImports.cancel(activeImport.id)} onRemove={() => backgroundImports.remove(activeImport.id)}
+            onImportAnother={() => setScanModalOpen(true)} /> : <main
             className={`central-workspace ${sheetVisible ? 'sheet-open' : 'sheet-hidden'} ${editorVisible ? 'editor-open' : 'editor-hidden'}`}
             style={{
               '--editor-panel-width': editorVisible ? `${horizontalEditorWidth}px` : '0px',
@@ -582,6 +632,7 @@ export const App: React.FC = () => {
                     </div>
                   )}
 
+                  {abcCode.includes('% Chorale scan source:') && <p className="scan-completed-notice" role="status">Imported from a scan. Check notes, rhythms and voice assignments against the original.</p>}
                   <div className="score-canvas">
                     <div className="score-sheet">
                       {buildStatus === 'invalid' && (
@@ -621,6 +672,9 @@ export const App: React.FC = () => {
                               disabled={Boolean(scorePreview)}
                             />
                           )}
+                          activeStaffSoundKey={staffSound?.documentId === activeDocument.id ? staffSound.target.entryKey : undefined}
+                          onOpenStaffSound={(target) => setStaffSound({ documentId: activeDocument.id, target })}
+                          soundEditingDisabled={Boolean(scorePreview || draftSheetSource || displayAbc !== abcCode || !canRenderScore)}
                           abcCode={canRenderScore ? (draftSheetSource ?? displayAbc) : ''}
                           annotations={activeDocument?.annotations || []}
                           activeAnchor={activeAnchor}
@@ -813,6 +867,14 @@ export const App: React.FC = () => {
           {activeDocument && (
             <div className="playback-dock-container">
               <AudioPlayer
+                staffSoundTarget={staffSound?.documentId === activeDocument.id ? staffSound.target : null}
+                onCloseStaffSound={() => setStaffSound(null)}
+                soundEditingDisabled={Boolean(scorePreview || draftSheetSource || displayAbc !== abcCode || !canRenderScore)}
+                onStaffInstrumentChange={(staff, program) => {
+                  if (!scorePreview && !draftSheetSource && displayAbc === abcCode && canRenderScore) {
+                    handleAbcChange(setStaffInstrument(abcCode, staff, program));
+                  }
+                }}
                 onWaterfallPlaybackChange={setWaterfallPlayback}
                 documentId={activeDocument.id}
                 abcCode={displayAbc}
@@ -827,7 +889,7 @@ export const App: React.FC = () => {
             </div>
           )}
 
-          </main>
+          </main>}
         </div>
 
         {aiProviders.desktopAvailable && (
@@ -842,7 +904,7 @@ export const App: React.FC = () => {
                 aria-label="Resize chat sidebar"
               />
             )}
-            <AgentChatPanel
+            {!activeImport && <AgentChatPanel
               open={chatOpen}
               onClose={() => {
                 setChatOpen(false);
@@ -864,7 +926,7 @@ export const App: React.FC = () => {
               onPreviewScoreProposal={handlePreviewScoreProposal}
               onApplyScoreProposal={handleApplyScoreProposal}
               onDiscardScoreProposal={handleDiscardScoreProposal}
-            />
+            />}
           </div>
           <RightRail
             chatOpen={chatOpen}
@@ -873,12 +935,14 @@ export const App: React.FC = () => {
         </div>
         )}
       </div>
-      {scanModalOpen && <ScoreScanModal onClose={() => setScanModalOpen(false)} onImport={(abc, name) => {
-        handleCreateDocument(abc, parseAbcHeaderMetadata(abc).title || name.replace(/\.abc$/i, ''));
-      }} />}
+      {scanModalOpen && <ScoreScanModal onClose={() => setScanModalOpen(false)} onImport={backgroundImports.start} />}
+      {backgroundImports.connectionError && <div className="export-status-toast" role="alert">{backgroundImports.connectionError}</div>}
+      {mcpSetupDeferred && <div className="export-status-toast" role="status">You can set up MCP integration later in Settings → Integration.</div>}
       <WorkspaceModals
         aiProviders={aiProviders}
         settingsOpen={settingsOpen}
+        settingsInitialTab={settingsInitialTab}
+        settingsRequestId={settingsRequestId}
         onCloseSettings={closeSettings}
         interfaceZoom={interfaceZoom.zoom}
         onInterfaceZoomChange={interfaceZoom.setZoom}
