@@ -433,12 +433,10 @@ button.btn-chorale:hover:not(:disabled) {
 }
 
 /* ==========================================================================
-   6. Siderails (Left & Right): Deep Charcoal Outer Frame (#292824)
+   6. Left siderail: Deep Charcoal Outer Frame (#292824)
    ========================================================================== */
 
-.file-rail-tabs,
-.right-rail,
-.right-rail-tabs {
+.file-rail-tabs {
   width: 56px !important;
   background: var(--surface-siderail, #292824) !important;
   display: flex;
@@ -454,14 +452,7 @@ button.btn-chorale:hover:not(:disabled) {
   border-left: 0 !important;
 }
 
-.right-rail,
-.right-rail-tabs {
-  border-left: 1px solid #38352f !important;
-  border-right: 0 !important;
-}
-
-.file-rail-tab,
-.right-rail-tab {
+.file-rail-tab {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -475,24 +466,20 @@ button.btn-chorale:hover:not(:disabled) {
   transition: all var(--dur-micro) var(--ease-out);
 }
 
-.file-rail-tab:hover,
-.right-rail-tab:hover {
+.file-rail-tab:hover {
   background: #36342e !important;
   color: #f5f2eb !important;
 }
 
 .file-rail-tab.active,
-.file-rail-tab[aria-selected='true'],
-.right-rail-tab.active,
-.right-rail-tab[aria-selected='true'] {
+.file-rail-tab[aria-selected='true'] {
   background: #3d3a33 !important;
   border-color: #524d43 !important;
   color: #f5f2eb !important;
   box-shadow: inset 2px 0 0 var(--accent-rust, #b85233), 0 1px 2px rgba(0, 0, 0, 0.2) !important;
 }
 
-.file-rail-tab.rail-toggle,
-.right-rail-tab.rail-toggle {
+.file-rail-tab.rail-toggle {
   color: #d6d0c4 !important;
 }
 

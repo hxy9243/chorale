@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  clampChatPanelWidth,
   clampEditorPanelWidth,
   fitWorkspacePanelLayout,
   clampFileRailWidth,
   defaultFileRailWidth,
   MIN_SCORE_WORKSPACE_WIDTH,
-  maximumChatPanelWidth,
+  MIN_CHAT_RAIL_WIDTH,
 } from '../workspaceSizing';
 
 describe('file rail sizing', () => {
@@ -22,19 +21,6 @@ describe('file rail sizing', () => {
   });
 });
 
-describe('chat panel sizing', () => {
-  it('allows the panel to reach one half of the viewport', () => {
-    expect(maximumChatPanelWidth(1_800)).toBe(900);
-    expect(clampChatPanelWidth(900, 1_800)).toBe(900);
-    expect(clampChatPanelWidth(520, 1_800)).toBe(520);
-  });
-
-  it('retains a usable minimum on narrow viewports', () => {
-    expect(maximumChatPanelWidth(720)).toBe(360);
-    expect(clampChatPanelWidth(100, 720)).toBe(280);
-  });
-});
-
 describe('ABC editor sizing', () => {
   it('has no arbitrary maximum but still retains a usable minimum', () => {
     expect(clampEditorPanelWidth(100)).toBe(320);
@@ -45,10 +31,8 @@ describe('ABC editor sizing', () => {
     const layout = fitWorkspacePanelLayout({
       viewportWidth: 1_600,
       fileRailWidth: 360,
-      chatPanelWidth: 420,
       editorPanelWidth: 1_200,
       fileRailVisible: false,
-      chatPanelVisible: false,
       editorPanelVisible: true,
     });
 
@@ -58,36 +42,30 @@ describe('ABC editor sizing', () => {
 });
 
 describe('workspace panel fitting', () => {
-  it('turns side panels into drawers at 1024px instead of collapsing the score', () => {
+  it('keeps the shared rail in flow when the panes cannot all fit at preferred widths', () => {
     const layout = fitWorkspacePanelLayout({
       viewportWidth: 1_024,
       fileRailWidth: 560,
-      chatPanelWidth: 560,
       editorPanelWidth: 720,
       fileRailVisible: true,
-      chatPanelVisible: true,
       editorPanelVisible: true,
     });
 
-    expect(layout.overlaySidePanels).toBe(true);
-    expect(layout.scoreWorkspaceWidth).toBeGreaterThanOrEqual(MIN_SCORE_WORKSPACE_WIDTH);
-    expect(layout.editorPanelWidth).toBe(456);
+    expect(layout.fileRailWidth).toBe(240);
+    expect(layout.scoreWorkspaceWidth).toBe(448);
+    expect(layout.editorPanelWidth).toBe(320);
   });
 
   it('shrinks inline panels proportionally while preserving the score minimum', () => {
     const layout = fitWorkspacePanelLayout({
       viewportWidth: 1_480,
       fileRailWidth: 560,
-      chatPanelWidth: 560,
       editorPanelWidth: 720,
       fileRailVisible: true,
-      chatPanelVisible: true,
       editorPanelVisible: true,
     });
 
-    expect(layout.overlaySidePanels).toBe(false);
     expect(layout.fileRailWidth).toBeGreaterThanOrEqual(240);
-    expect(layout.chatPanelWidth).toBeGreaterThanOrEqual(280);
     expect(layout.editorPanelWidth).toBeGreaterThanOrEqual(320);
     expect(layout.scoreWorkspaceWidth).toBeGreaterThanOrEqual(MIN_SCORE_WORKSPACE_WIDTH);
   });
@@ -96,33 +74,38 @@ describe('workspace panel fitting', () => {
     const layout = fitWorkspacePanelLayout({
       viewportWidth: 2_400,
       fileRailWidth: 360,
-      chatPanelWidth: 420,
       editorPanelWidth: 520,
       fileRailVisible: true,
-      chatPanelVisible: true,
       editorPanelVisible: true,
     });
 
     expect(layout).toMatchObject({
       fileRailWidth: 360,
-      chatPanelWidth: 420,
       editorPanelWidth: 520,
-      overlaySidePanels: false,
     });
+  });
+
+  it.each([720, 1024, 1480])('keeps Chat readable in the shared rail at %ipx', (viewportWidth) => {
+    const layout = fitWorkspacePanelLayout({
+      viewportWidth,
+      fileRailWidth: 240,
+      fileRailMinimumWidth: MIN_CHAT_RAIL_WIDTH,
+      editorPanelWidth: 420,
+      fileRailVisible: true,
+      editorPanelVisible: true,
+    });
+    expect(layout.fileRailWidth).toBe(336);
   });
 
   it('allocates the persistent 56px icon rail when file rail content panel is collapsed', () => {
     const layout = fitWorkspacePanelLayout({
       viewportWidth: 1_480,
       fileRailWidth: 360,
-      chatPanelWidth: 420,
       editorPanelWidth: 520,
       fileRailVisible: false,
-      chatPanelVisible: true,
       editorPanelVisible: true,
     });
 
     expect(layout.fileRailWidth).toBe(56);
-    expect(layout.overlaySidePanels).toBe(false);
   });
 });

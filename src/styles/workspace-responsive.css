@@ -1,27 +1,29 @@
-/* Responsive workspace rules that depend on the sizing contract in
- * utils/workspaceSizing.ts. Keep these after the theme import. */
-.workspace-body > .right-panel {
-  min-height: 0;
-  height: 100%;
+/* Shared left sidebar and center column stay bounded to the viewport. */
+.workspace-body {
+  grid-template-rows: minmax(0, 1fr);
 }
 
-.workspace-body .chat-panel-stack {
-  min-height: 0;
-  min-width: 0;
+.file-rail-chat-panel {
+  display: flex;
   flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
+.file-rail-chat-panel[hidden] {
+  display: none;
+}
 
-
-.workspace-body.side-panels-overlay .right-panel,
-.workspace-body.side-panels-overlay.chat-open .right-panel,
-.workspace-body.side-panels-overlay #current-sheet-agent {
-  position: absolute;
-  z-index: var(--z-dropdown);
-  inset: 0 0 0 auto;
-  width: min(var(--chat-rail-width), calc(100% - var(--space-xl)));
+.file-rail-chat-panel > .agent-panel {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
   height: 100%;
-  box-shadow: var(--shadow-modal);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* Horizontal panes stay side by side across widths; vertical is an explicit preference. */
@@ -48,11 +50,4 @@
 /* Keep both pane minimums and the divider reachable in short windows. */
 .score-editor-shell.layout-vertical {
   overflow-y: auto;
-}
-
-/* The browser grid deliberately has two columns. Desktop restores the third
- * column without allowing its rail to become an implicit second grid row. */
-.workspace-body.desktop-workspace {
-  grid-template-columns: var(--desktop-workspace-columns) !important;
-  grid-template-rows: minmax(0, 1fr);
 }

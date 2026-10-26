@@ -95,6 +95,29 @@ describe('FileRail Component', () => {
     expect(onOpenSettings).toHaveBeenCalledOnce();
   });
 
+  it('switches Chat into the shared panel stack and keeps its contents mounted while hidden', () => {
+    const onToggleCollapse = vi.fn();
+    const props = { ...defaultProps, onToggleCollapse, chatPanel: <textarea aria-label="Chat draft" defaultValue="Keep this idea" /> };
+    const { rerender } = render(<FileRail {...props} />);
+    const draft = screen.getByLabelText('Chat draft');
+    const chat = screen.getByRole('tab', { name: 'Chat' });
+    expect(chat.getAttribute('aria-controls')).toBe('chat-panel');
+    fireEvent.click(chat);
+    expect(screen.getByRole('tabpanel', { name: 'Chat' }).contains(draft)).toBe(true);
+    expect(screen.queryByRole('tabpanel', { name: 'Files' })).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
+    expect(screen.queryByRole('tabpanel', { name: 'Chat' })).toBeNull();
+    expect(screen.getByLabelText('Chat draft')).toBe(draft);
+    fireEvent.click(chat);
+    fireEvent.click(chat);
+    expect(onToggleCollapse).toHaveBeenCalledOnce();
+    rerender(<FileRail {...props} collapsed activePanel="chat" />);
+    expect(screen.queryByRole('tabpanel', { name: 'Chat' })).toBeNull();
+    expect(screen.getByLabelText('Chat draft')).toBe(draft);
+    fireEvent.click(chat);
+    expect(onToggleCollapse).toHaveBeenCalledTimes(2);
+  });
+
   it('renders active document names', () => {
     render(<FileRail {...defaultProps} />);
 

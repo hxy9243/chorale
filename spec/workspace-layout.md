@@ -3,7 +3,7 @@ title: "Workspace Layout Spec"
 description: "Specification for the top-level desktop workspace structure, header, file rail, central score workspace, and chat panel"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-10-24
+updated: 2026-10-25
 status: "implemented"
 source_files:
   - src/App.tsx
@@ -11,7 +11,7 @@ source_files:
   - src/components/Header.tsx
   - src/components/FileRail.tsx
   - src/components/DeleteFileConfirmModal.tsx
-  - src/components/RightRail.tsx
+  - src/components/AgentChatPanel.tsx
   - src/components/ScoreMetadataHeader.tsx
   - src/components/ScoreCardHeader.tsx
   - src/components/EditingHistoryModal.tsx
@@ -19,6 +19,8 @@ source_files:
   - src/utils/abcMetadata.ts
   - src/utils/fileHistory.ts
   - src/hooks/useWorkspaceLayout.ts
+  - src/utils/workspaceSizing.ts
+  - src/styles/controls.css
   - src/hooks/useWorkspacePanes.ts
   - src/hooks/usePaneTabDrag.ts
   - src/hooks/useSplitStackLayout.ts
@@ -30,7 +32,6 @@ source_files:
 test_files:
   - src/App.test.tsx
   - src/components/__tests__/FileRail.test.tsx
-  - src/components/__tests__/RightRail.test.tsx
   - src/components/__tests__/Header.test.tsx
   - src/components/__tests__/ScoreMetadataHeader.test.tsx
   - src/components/__tests__/EditingHistoryModal.test.tsx
@@ -39,6 +40,8 @@ test_files:
   - src/hooks/__tests__/useResizablePanel.test.ts
   - src/hooks/__tests__/useWorkspacePanes.test.ts
   - src/hooks/__tests__/useWorkspaceLayout.test.tsx
+  - src/utils/__tests__/workspaceSizing.test.ts
+  - scripts/electron-smoke.mjs
   - src/hooks/__tests__/usePaneTabDrag.test.ts
   - src/hooks/__tests__/useSplitStackLayout.test.ts
   - src/components/workspace/__tests__/WorkspacePaneMenu.test.tsx
@@ -56,24 +59,23 @@ related_specs:
 # Workspace Layout Spec
 
 Date: 2026-07-28  
-Updated: 2026-10-24
+Updated: 2026-10-25
 Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 ## 1. Goal
 
 Define the top-level desktop workspace composition for Chorale.
 
-The design is a persistent application workspace with four primary regions:
+The design is a persistent application workspace with two primary regions:
 
 1. left work rail (spans the full viewport height, top of page to bottom)
 2. central column: global header above the central score workspace
-3. right-side chat rail and chat panel (also spans the full viewport height)
 
-Both work rails own the page edges edge-to-edge vertically; the global header only spans the central column between them.
+The left work rail spans the full viewport height. The header spans only the central column; there is no right work rail or separate chat column.
 
 ## 2. Header
 
-The header communicates score context, editing actions, and persistence/render health without cluttering the score reading surface. It sits at the top of the central column only — the full-height work rails flank it on both sides.
+The header communicates score context, editing actions, and persistence/render health without cluttering the score reading surface. It sits at the top of the central column only — the full-height left work rail sits beside it.
 
 Required regions:
 
@@ -89,7 +91,7 @@ The Electron window and renderer document title are exactly `Chorale`. Save and 
 
 ## 3. Left work rail
 
-The left rail uses a persistent narrow vertical selection bar (`3.5rem` / `56px`) rendered in deep warm charcoal (`#292824`) with warm parchment icons (`#b8b2a6`, active `#f5f2eb` on `#3a3832` with a terracotta accent indicator) that remains visible at all times and spans the entire page height to switch between **Files** and **Tools** panels. Each selection is one icon with a tooltip and accessible name. Clicking the currently active panel icon collapses the secondary content panel stack; clicking an icon while collapsed expands the rail with that panel active.
+The left rail uses a persistent narrow vertical selection bar (`3.5rem` / `56px`) rendered in deep warm charcoal (`#292824`) with warm parchment icons (`#b8b2a6`, active `#f5f2eb` on `#3a3832` with a terracotta accent indicator) that remains visible at all times and spans the entire page height to switch between **Files**, **Tools**, and desktop **Chat** panels. Each selection is one icon with a tooltip and accessible name. Clicking the currently active panel icon collapses the secondary content panel stack; clicking an icon while collapsed expands the rail with that panel active.
 
 A dedicated **toggle expansion** icon sits at the very top of the selection bar (typical sidebar-toggle glyph: `PanelLeftClose` when expanded, `PanelLeft` when collapsed). Clicking it collapses the rail or re-expands it restoring the **last focused panel tab**. The last focused panel persists across refreshes as `chorale.workspace.fileRailActivePanel`.
 
@@ -153,19 +155,18 @@ Closing a pane collapses its empty slot while retaining the saved split arrangem
 The score and editor panes present clean physical paper depth above the desk surface. Native system window controls (minimize, maximize, close) are enabled without an application menu bar.
 
 
-## 5. Right work rail and chat panel
+## 5. Chat in the left work rail
 
-The right side mirrors the left work rail: a persistent narrow vertical icon bar (`3.5rem` / `56px`) anchored to the right screen edge remains visible at all times and spans the entire page height. A dedicated toggle expansion icon sits at the very top of the bar (`PanelRightClose` when the chat panel is open, `PanelRight` when closed), symmetric with the left rail; it toggles the chat panel, and re-expanding restores the last focused icon (Chat). Its **Chat** button also toggles the chat panel; the open/closed state persists as `chorale.workspace.chatOpen`. As on the left, the divider between the icon bar and an open panel is invisible so both read as one surface.
+Desktop Chat is the third tab in the left work rail, alongside Files and Tools. Only the selected panel is visible. Chat uses the shared sidebar width and right-edge resize handle; there is no right rail, independent chat width, or chat overlay. The shared rail retains its existing 240–560px bounds, with a 336px minimum while Chat is selected so the transcript has at least 280px beside the 56px icon bar.
 
-The chat panel is part of the fixed workspace layout on desktop. It supports horizontal drag-to-resize (minimum 280px, maximum one half of the whole logical layout viewport, default 392px) via a left drag handle. Its resized width persists as `chorale.workspace.chatWidth` and is restored across refreshes (re-clamped to the current viewport maximum on load and resize). Closing it collapses the workspace back to the persistent icon bar.
+The shared collapse control and clicking the active Chat tab collapse the left panel. Reopening restores Chat. The assistant close button also collapses the shared rail and exits any score preview. The active panel and collapsed state persist using `chorale.workspace.fileRailActivePanel` and `chorale.workspace.fileRailCollapsed`; the retired `chatOpen` and `chatWidth` preferences no longer affect the layout. Files remains the default panel. When desktop chat is unavailable, a saved Chat selection falls back to Files and the Chat tab is omitted.
 
-It functions as a persistent product surface with:
+The chat component remains mounted when switching panels or collapsing the rail, preserving drafts, conversation state, and in-progress responses. It retains:
 
-- file-scoped title row and a full-width, consistently styled thread selector beneath it
-- conversation transcript with collapsible structured reasoning, tool progress, and per-round token usage
-- persisted follow-up queue controls for edit, remove, reorder, run next, and priority steering
-- anchored composer with provider/model selector, thinking level selector (`off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`), and active range chip
-- resize drag handle on left edge
+- file-scoped title row and thread selector
+- scrollable conversation transcript with reasoning, tool progress, and token usage
+- persisted follow-up queue controls
+- anchored composer with provider/model selector, thinking level, and active range chip
 
 ## 6. Responsive guidance
 

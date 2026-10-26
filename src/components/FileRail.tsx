@@ -27,6 +27,7 @@ import {
   Film,
   FolderOpen,
   History,
+  MessageSquare,
   PanelLeft,
   PanelLeftClose,
   Plus,
@@ -42,7 +43,7 @@ import type { ScoreExportFormat } from '../hooks/useScoreExport';
 import { DeleteFileConfirmModal } from './DeleteFileConfirmModal';
 
 
-type RailPanel = 'files' | 'tools';
+type RailPanel = 'files' | 'tools' | 'chat';
 type DropPlacement = 'before' | 'after';
 
 const fileOrdersMatch = (first: string[], second: string[]) => (
@@ -102,6 +103,7 @@ interface FileRailProps {
   onOpenSettings?: () => void;
   onOpenHistory?: () => void;
   historyCount?: number;
+  chatPanel?: React.ReactNode;
 }
 
 interface FileItemTextProps {
@@ -424,6 +426,7 @@ export const FileRail: React.FC<FileRailProps> = ({
   onOpenSettings,
   onOpenHistory,
   historyCount = 0,
+  chatPanel,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [internalActivePanel, setInternalActivePanel] = useState<RailPanel>('files');
@@ -652,6 +655,21 @@ export const FileRail: React.FC<FileRailProps> = ({
           >
             <Wrench size={18} aria-hidden="true" />
           </button>
+          {chatPanel && (
+            <button
+              type="button"
+              id="chat-tab"
+              className={`file-rail-tab ${!collapsed && activePanel === 'chat' ? 'active' : ''}`}
+              role="tab"
+              aria-selected={!collapsed && activePanel === 'chat'}
+              aria-controls="chat-panel"
+              aria-label="Chat"
+              title="Chat"
+              onClick={() => handleTabClick('chat')}
+            >
+              <MessageSquare size={18} aria-hidden="true" />
+            </button>
+          )}
         </div>
         <button
           type="button"
@@ -824,6 +842,17 @@ export const FileRail: React.FC<FileRailProps> = ({
             )}
           </button>
         </section>
+        {chatPanel && (
+          <section
+            className="file-rail-chat-panel"
+            id="chat-panel"
+            role="tabpanel"
+            aria-labelledby="chat-tab"
+            hidden={collapsed || activePanel !== 'chat'}
+          >
+            {chatPanel}
+          </section>
+        )}
       </div>
 
       {onBeginResize && !collapsed && (

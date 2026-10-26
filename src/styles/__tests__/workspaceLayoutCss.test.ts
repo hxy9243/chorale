@@ -23,16 +23,10 @@ const controlsCss = readFileSync(
 );
 
 describe('workspace layout CSS contract', () => {
-  it('lets the visible right panel shrink inside the workspace grid row', () => {
-    expect(responsiveCss).toMatch(
-      /\.workspace-body\s*>\s*\.right-panel\s*{[^}]*min-height:\s*0;/s,
-    );
-  });
-
-  it('lets chat-panel-stack shrink and fill flex container', () => {
-    expect(responsiveCss).toMatch(
-      /\.workspace-body\s+\.chat-panel-stack\s*{[^}]*min-height:\s*0;[^}]*flex:\s*1\s+1\s+auto;/s,
-    );
+  it('bounds the workspace row and the shared chat panel to allow transcript scrolling', () => {
+    expect(responsiveCss).toMatch(/\.workspace-body\s*{[^}]*grid-template-rows:\s*minmax\(0,\s*1fr\);/s);
+    expect(responsiveCss).toMatch(/\.file-rail-chat-panel\s*{[^}]*min-height:\s*0;[^}]*height:\s*100%;/s);
+    expect(responsiveCss).toMatch(/\.file-rail-chat-panel\[hidden\]\s*{[^}]*display:\s*none;/s);
   });
 
   it('keeps score-display-options below modal backdrop in stacking scale', () => {
@@ -209,9 +203,9 @@ describe('workspace layout CSS contract', () => {
     expect(responsiveCss).toMatch(/\.score-editor-shell\.layout-vertical\s*{[^}]*overflow-y:\s*auto;/s);
   });
 
-  it('uses deep charcoal outer siderails, single-row 6-slot transport grid, and top-aligned measure source timeline', () => {
+  it('uses a deep charcoal outer siderail, single-row 6-slot transport grid, and top-aligned measure source timeline', () => {
     const waterfallCss = readFileSync(resolve(process.cwd(), 'src/styles/waterfall.css'), 'utf8');
-    expect(controlsCss).toMatch(/\.file-rail-tabs,\s*\.right-rail,\s*\.right-rail-tabs\s*{[^}]*background:\s*var\(--surface-siderail,\s*#292824\)\s*!important;/s);
+    expect(controlsCss).toMatch(/\.file-rail-tabs\s*{[^}]*background:\s*var\(--surface-siderail,\s*#292824\)\s*!important;/s);
     expect(waterfallCss).toMatch(/grid-template-areas:\s*'transport progress status voices speed volume'\s*!important;/);
     expect(themeCss).toMatch(/\.abc-editor-card\s+\.editor-body\.is-measure-view\s*{[^}]*justify-content:\s*flex-start;/s);
   });

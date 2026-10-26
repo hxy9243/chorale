@@ -1,6 +1,6 @@
 import './test/mockSharedStorage';
 import { act, render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import abcjs from 'abcjs';
 import App, {
   EDITOR_WIDTH_KEY,
@@ -40,6 +40,7 @@ vi.mock('abcjs', () => ({
 }));
 
 describe('App Integration', () => {
+  afterEach(() => vi.unstubAllGlobals());
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
@@ -515,7 +516,8 @@ describe('App Integration', () => {
       expect(screen.getByTestId('sheet-svg')).toBeDefined();
     }, { timeout: 4000 });
 
-    expect(document.querySelector('#current-sheet-agent')).toBeNull();
+    expect(document.querySelector('.right-panel')).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Chat' })).toBeNull();
   });
 
   it('persists files reordered through the rail contract', async () => {
@@ -766,7 +768,7 @@ describe('App Integration', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'ABC code' }));
     expect(document.querySelector<HTMLElement>('.editor-workspace-card')?.style.width)
-      .toBe('456px');
+      .toBe('320px');
     expect(localStorage.getItem(EDITOR_WIDTH_KEY)).toBe('520');
   });
 
@@ -1192,6 +1194,7 @@ describe('App Integration', () => {
   });
 
   it('controls pane visibility via pane tabs and the + popover menu', async () => {
+    vi.stubGlobal('innerWidth', 1480);
     localStorage.setItem('chorale.workspace.paneOrientation', 'horizontal');
     render(<App />);
 

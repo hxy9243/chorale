@@ -2,23 +2,21 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useState, type RefObj
 import { useResizablePanel } from './useResizablePanel';
 import {
   clampEditorPanelWidth,
-  clampChatPanelWidth,
   clampFileRailWidth,
   defaultFileRailWidth,
+  MIN_CHAT_RAIL_WIDTH,
   fitWorkspacePanelLayout,
 } from '../utils/workspaceSizing';
 
 export const EDITOR_VISIBLE_KEY = 'chorale.workspace.editorVisible';
 export const EDITOR_WIDTH_KEY = 'chorale.workspace.editorWidth';
 export const EDITOR_HEIGHT_KEY = 'chorale.workspace.editorHeight';
-export const CHAT_OPEN_KEY = 'chorale.workspace.chatOpen';
-export const CHAT_WIDTH_KEY = 'chorale.workspace.chatWidth';
 export const FILE_RAIL_WIDTH_KEY = 'chorale.workspace.fileRailWidth';
 export const FILE_RAIL_COLLAPSED_KEY = 'chorale.workspace.fileRailCollapsed';
 export const FILE_RAIL_ACTIVE_PANEL_KEY = 'chorale.workspace.fileRailActivePanel';
 export const SHEET_ZOOM_KEY = 'chorale.workspace.sheetZoom';
 
-export type RailPanelId = 'files' | 'tools';
+export type RailPanelId = 'files' | 'tools' | 'chat';
 
 const DEFAULT_RAIL_PANEL: RailPanelId = 'files';
 
@@ -49,9 +47,11 @@ const readStoredBool = (key: string, fallback: boolean) => {
   return value === null ? fallback : value === 'true';
 };
 
-const readStoredRailPanel = (key: string): RailPanelId => {
+const readStoredRailPanel = (key: string, chatAvailable = false): RailPanelId => {
   if (typeof window === 'undefined') return DEFAULT_RAIL_PANEL;
-  return window.localStorage.getItem(key) === 'tools' ? 'tools' : DEFAULT_RAIL_PANEL;
+  const stored = window.localStorage.getItem(key);
+  if (stored === 'tools' || (stored === 'chat' && chatAvailable)) return stored;
+  return DEFAULT_RAIL_PANEL;
 };
 
 const readStoredNumber = (
@@ -73,7 +73,6 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }, panes?: Work
   );
 
   const [layoutWidth, setLayoutWidth] = useState(() => layoutViewportWidth());
-  const [chatOpen, setChatOpen] = useState<boolean>(() => readStoredBool(CHAT_OPEN_KEY, true));
   const [editorVisible, setEditorVisible] = useState<boolean>(() => readStoredBool(EDITOR_VISIBLE_KEY, false));
   const [zoom, setZoom] = useState<number>(() => (
     readStoredNumber(SHEET_ZOOM_KEY, DEFAULT_SHEET_ZOOM, clampSheetZoom)
@@ -95,14 +94,7 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }, panes?: Work
     readStoredBool(FILE_RAIL_COLLAPSED_KEY, false)
   ));
   const [railActivePanel, setRailActivePanel] = useState<RailPanelId>(() => (
-    readStoredRailPanel(FILE_RAIL_ACTIVE_PANEL_KEY)
-  ));
-  const [chatWidth, setChatWidth] = useState<number>(() => (
-    readStoredNumber(
-      CHAT_WIDTH_KEY,
-      clampChatPanelWidth(392, layoutViewportWidth()),
-      (width) => clampChatPanelWidth(width, layoutViewportWidth()),
-    )
+    readStoredRailPanel(FILE_RAIL_ACTIVE_PANEL_KEY, panes?.chatAvailable)
   ));
   useEffect(() => {
     window.localStorage.setItem(EDITOR_VISIBLE_KEY, String(editorVisible));
@@ -133,18 +125,9 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }, panes?: Work
   }, [railActivePanel]);
 
   useEffect(() => {
-    window.localStorage.setItem(CHAT_OPEN_KEY, String(chatOpen));
-  }, [chatOpen]);
-
-  useEffect(() => {
-    window.localStorage.setItem(CHAT_WIDTH_KEY, String(Math.round(chatWidth)));
-  }, [chatWidth]);
-
-  useEffect(() => {
     const handleResize = () => {
       const nextLayoutWidth = layoutViewportWidth();
       setLayoutWidth(nextLayoutWidth);
-      setChatWidth((current) => clampChatPanelWidth(current, nextLayoutWidth));
     };
     handleResize();
     window.addEventListener('resize', handleResize);
@@ -209,38 +192,30 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }, panes?: Work
     direction: 'bottom',
   });
 
+  const chatSelected = Boolean(panes?.chatAvailable && railActivePanel === 'chat');
+  const clampRailWidth = useCallback((width: number) => (
+    clampFileRailWidth(chatSelected ? Math.max(MIN_CHAT_RAIL_WIDTH, width) : width)
+  ), [chatSelected]);
+
   const { beginResize: beginRailResize } = useResizablePanel({
-    initialWidth: railWidth,
-    clampWidth: clampFileRailWidth,
+    initialWidth: clampRailWidth(railWidth),
+    clampWidth: clampRailWidth,
     onWidthChange: setRailWidth,
     direction: 'right',
-  });
-
-  const { beginResize: beginChatResize } = useResizablePanel({
-    initialWidth: chatWidth,
-    clampWidth: useCallback(
-      (width: number) => clampChatPanelWidth(width, layoutViewportWidth()),
-      [layoutViewportWidth],
-    ),
-    onWidthChange: setChatWidth,
-    direction: 'left',
   });
 
   const fittedPanelLayout = useMemo(() => fitWorkspacePanelLayout({
     viewportWidth: layoutWidth,
     fileRailWidth: railWidth,
-    chatPanelWidth: panes?.chatAvailable && chatOpen ? chatWidth : 0,
+    fileRailMinimumWidth: chatSelected ? MIN_CHAT_RAIL_WIDTH : undefined,
     editorPanelWidth: editorWidth,
     fileRailVisible: !railCollapsed,
-    chatPanelVisible: Boolean(panes?.chatAvailable && chatOpen),
     editorPanelVisible: editorVisible,
-  }), [panes?.chatAvailable, chatOpen, chatWidth, editorVisible, editorWidth, layoutWidth, railCollapsed, railWidth]);
+  }), [chatSelected, editorVisible, editorWidth, layoutWidth, railCollapsed, railWidth]);
 
   return {
     zoom,
     setZoom,
-    chatOpen,
-    setChatOpen,
     editorVisible,
     setEditorVisible,
     editorWidth,
@@ -252,13 +227,11 @@ export const useWorkspaceLayout = (interfaceZoom: { zoom: number }, panes?: Work
     setRailCollapsed,
     railActivePanel,
     setRailActivePanel,
-    chatWidth,
     fittedPanelLayout,
     beginEditorResize,
     beginEditorResizeFromRight,
     beginEditorVerticalResize,
     beginEditorVerticalResizeFromBottom,
     beginRailResize,
-    beginChatResize,
   };
 };

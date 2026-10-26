@@ -4,10 +4,8 @@ import { FileMusic, Plus, X } from 'lucide-react';
 import { Header } from './components/Header';
 import { FileRail } from './components/FileRail';
 import { ScoreScanModal } from './components/ScoreScanModal';
-import { RightRail } from './components/RightRail';
 import { AgentChatPanel } from './components/AgentChatPanel';
 import { useAIProviders } from './agent/useAIProviders';
-import { FILE_RAIL_BAR_WIDTH } from './utils/workspaceSizing';
 import { ScoreCardHeader } from './components/ScoreCardHeader';
 import { ScoreMetadataHeader } from './components/ScoreMetadataHeader';
 import { SheetMusicView } from './components/SheetMusicView';
@@ -138,9 +136,6 @@ export const App: React.FC = () => {
   const {
     zoom,
     setZoom,
-    chatOpen,
-    setChatOpen,
-    beginChatResize,
     editorVisible,
     setEditorVisible,
     editorHeight,
@@ -443,17 +438,12 @@ export const App: React.FC = () => {
     onRefreshDocuments: handleRefreshDocuments,
   });
 
-  const chatVisible = aiProviders.desktopAvailable && chatOpen;
-  const chatColumnWidth = FILE_RAIL_BAR_WIDTH + (chatVisible ? fittedPanelLayout.chatPanelWidth : 0);
-
   return (
     <div className="chorale-app-shell">
       <div
-        className={`workspace-body ${aiProviders.desktopAvailable ? 'desktop-workspace' : ''} ${chatVisible ? 'chat-open' : ''} ${railCollapsed ? 'rail-collapsed' : ''} ${fittedPanelLayout.overlaySidePanels ? 'side-panels-overlay' : ''}`}
+        className={`workspace-body ${railCollapsed ? 'rail-collapsed' : ''}`}
         style={{
-          gridTemplateColumns: `${fittedPanelLayout.fileRailWidth}px minmax(0, 1fr)${aiProviders.desktopAvailable ? ` ${chatColumnWidth}px` : ''}`,
-          '--desktop-workspace-columns': `${fittedPanelLayout.fileRailWidth}px minmax(0, 1fr) ${chatColumnWidth}px`,
-          '--chat-rail-width': `${chatColumnWidth}px`,
+          gridTemplateColumns: `${fittedPanelLayout.fileRailWidth}px minmax(0, 1fr)`,
           '--file-rail-width': `${fittedPanelLayout.fileRailWidth}px`,
         } as React.CSSProperties}
       >
@@ -478,6 +468,32 @@ export const App: React.FC = () => {
           onOpenSettings={openSettings}
           onOpenHistory={openHistoryModal}
           historyCount={editingHistory.length}
+          chatPanel={aiProviders.desktopAvailable ? (
+            <AgentChatPanel
+              // The rail hides the panel without unmounting its composer or cancelling a response.
+              open
+              onClose={() => {
+                setRailCollapsed(true);
+                handleExitScorePreview();
+              }}
+              fileId={activeFileId}
+              abcCode={abcCode}
+              activeFileName={scoreTitle}
+              revision={abcRevision}
+              annotations={activeDocument?.annotations || []}
+              activeAnchor={activeAnchor}
+              onClearAnchor={() => handleSelectAnchor(null)}
+              totalMeasures={totalMeasures}
+              scoreMeter={scoreMeter}
+              ai={aiProviders}
+              onOpenSettings={openSettings}
+              onNavigateMeasure={handleNavigateMeasure}
+              onApplyAnnotations={handleAddAnnotations}
+              onPreviewScoreProposal={handlePreviewScoreProposal}
+              onApplyScoreProposal={handleApplyScoreProposal}
+              onDiscardScoreProposal={handleDiscardScoreProposal}
+            />
+          ) : undefined}
         />
 
         <div className="central-column">
@@ -827,49 +843,6 @@ export const App: React.FC = () => {
 
           </main>
         </div>
-
-        {aiProviders.desktopAvailable && (
-        <div id="current-sheet-agent" className="right-panel">
-          <div id="chat-panel" className="chat-panel-stack">
-            {chatOpen && (
-              <button
-                type="button"
-                className="chat-rail-resize-handle"
-                onPointerDown={beginChatResize}
-                title="Drag to resize chat sidebar width"
-                aria-label="Resize chat sidebar"
-              />
-            )}
-            <AgentChatPanel
-              open={chatOpen}
-              onClose={() => {
-                setChatOpen(false);
-                handleExitScorePreview();
-              }}
-              fileId={activeFileId}
-              abcCode={abcCode}
-              activeFileName={scoreTitle}
-              revision={abcRevision}
-              annotations={activeDocument?.annotations || []}
-              activeAnchor={activeAnchor}
-              onClearAnchor={() => handleSelectAnchor(null)}
-              totalMeasures={totalMeasures}
-              scoreMeter={scoreMeter}
-              ai={aiProviders}
-              onOpenSettings={openSettings}
-              onNavigateMeasure={handleNavigateMeasure}
-              onApplyAnnotations={handleAddAnnotations}
-              onPreviewScoreProposal={handlePreviewScoreProposal}
-              onApplyScoreProposal={handleApplyScoreProposal}
-              onDiscardScoreProposal={handleDiscardScoreProposal}
-            />
-          </div>
-          <RightRail
-            chatOpen={chatOpen}
-            onToggleChat={() => setChatOpen((open) => !open)}
-          />
-        </div>
-        )}
       </div>
       {scanModalOpen && <ScoreScanModal onClose={() => setScanModalOpen(false)} onImport={(abc, name) => {
         handleCreateDocument(abc, parseAbcHeaderMetadata(abc).title || name.replace(/\.abc$/i, ''));

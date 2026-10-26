@@ -5,6 +5,8 @@ import {
   clampEditorPanelHeight,
   EDITOR_HEIGHT_KEY,
   EDITOR_VISIBLE_KEY,
+  FILE_RAIL_ACTIVE_PANEL_KEY,
+  FILE_RAIL_WIDTH_KEY,
   useWorkspaceLayout,
 } from '../useWorkspaceLayout';
 
@@ -121,18 +123,30 @@ describe('vertical workspace sizing', () => {
 });
 
 
-describe('desktop chat sizing', () => {
-  it('reserves a chat column only when the desktop bridge is available', () => {
+describe('shared chat rail', () => {
+  it('uses the same score width for Files and Chat at the same rail width', () => {
     vi.stubGlobal('innerWidth', 1920);
     localStorage.setItem(EDITOR_VISIBLE_KEY, 'false');
     const shellRef = { current: shell };
-    const { result, rerender } = renderHook(({ available }) => useWorkspaceLayout({ zoom: 100 }, {
-      shellRef, vertical: false, sheetVisible: true, chatAvailable: available,
-    }), { initialProps: { available: false } });
-    const browserScoreWidth = result.current.fittedPanelLayout.scoreWorkspaceWidth;
-    rerender({ available: true });
-    expect(result.current.fittedPanelLayout.scoreWorkspaceWidth).toBeLessThan(browserScoreWidth);
-    act(() => result.current.setChatOpen(false));
-    expect(result.current.fittedPanelLayout.scoreWorkspaceWidth).toBe(browserScoreWidth);
+    const { result } = renderHook(() => useWorkspaceLayout({ zoom: 100 }, {
+      shellRef, vertical: false, sheetVisible: true, chatAvailable: true,
+    }));
+    const filesScoreWidth = result.current.fittedPanelLayout.scoreWorkspaceWidth;
+    act(() => result.current.setRailActivePanel('chat'));
+    expect(result.current.fittedPanelLayout.scoreWorkspaceWidth).toBe(filesScoreWidth);
+    expect(localStorage.getItem(FILE_RAIL_ACTIVE_PANEL_KEY)).toBe('chat');
+    act(() => result.current.setRailCollapsed(true));
+    expect(result.current.fittedPanelLayout.fileRailWidth).toBe(56);
+    expect(result.current.fittedPanelLayout.scoreWorkspaceWidth).toBeGreaterThan(filesScoreWidth);
+  });
+
+  it.each([true, false])('restores a saved Chat tab only when available (%s)', (chatAvailable) => {
+    localStorage.setItem(FILE_RAIL_ACTIVE_PANEL_KEY, 'chat');
+    localStorage.setItem(FILE_RAIL_WIDTH_KEY, '240');
+    const { result } = renderHook(() => useWorkspaceLayout({ zoom: 100 }, {
+      shellRef: { current: shell }, vertical: false, sheetVisible: true, chatAvailable,
+    }));
+    expect(result.current.railActivePanel).toBe(chatAvailable ? 'chat' : 'files');
+    expect(result.current.fittedPanelLayout.fileRailWidth).toBe(chatAvailable ? 336 : 240);
   });
 });

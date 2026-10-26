@@ -68,7 +68,7 @@ try {
             send({ type: 'score-proposal-created', proposal: { ...common, kind: 'replace-measures', span: { startMeasure: 1, endMeasure: 1 }, summary: 'Reverse the opening', replacementAbc: 'F E D C |', validation: { status: 'valid', errors: [] } } });
           }
           send({ type: 'chat-done' });
-        }, 80);
+        }, 500);
         return { requestId };
       },
     };
@@ -76,9 +76,60 @@ try {
   });
   console.log('Reloading workspace');
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 15000 });
+  await page.getByRole('tab', { name: 'Chat', exact: true }).click();
   await page.getByRole('textbox', { name: 'Ask about the current sheet' }).waitFor();
   await page.locator('#paper svg').first().waitFor();
   console.log('Score and chat rendered');
+  assert.equal(await page.locator('.right-panel, .right-rail').count(), 0, 'No right rail remains');
+  assert.equal(await page.locator('.workspace-body > *').count(), 2, 'Sidebar and center are the only workspace columns');
+  assert.equal(await page.locator('.file-rail #chat-panel .agent-panel').count(), 1, 'Chat belongs to the left sidebar');
+  const chatInput = page.getByRole('textbox', { name: 'Ask about the current sheet' });
+  await chatInput.fill('Keep this draft while navigating');
+  await page.getByRole('tab', { name: 'Files', exact: true }).click();
+  await page.getByRole('button', { name: 'Import score', exact: true }).waitFor();
+  await page.getByRole('tab', { name: 'Tools', exact: true }).click();
+  await page.getByRole('button', { name: 'Open file editing history popup', exact: true }).waitFor();
+  await page.getByRole('tab', { name: 'Chat', exact: true }).click();
+  assert.equal(await chatInput.inputValue(), 'Keep this draft while navigating', 'Switching tabs preserves the draft');
+  await chatInput.fill('');
+  await page.getByRole('button', { name: 'Collapse sidebar', exact: true }).click();
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 15000 });
+  await page.getByRole('button', { name: 'Expand sidebar', exact: true }).click();
+  await chatInput.waitFor();
+  assert.equal(await page.getByRole('tab', { name: 'Chat', exact: true }).getAttribute('aria-selected'), 'true', 'Reopening after reload restores Chat');
+  // The same in-flow sidebar owns resizing for every tab, including at narrow widths.
+  const desktopSize = page.viewportSize();
+  await page.evaluate(() => localStorage.setItem('chorale.workspace.fileRailWidth', '240'));
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 15000 });
+  await chatInput.waitFor();
+  for (const width of [1024, 800, 1480]) {
+    await page.setViewportSize({ width, height: 960 });
+    await page.waitForFunction(() => document.querySelector('.file-rail').clientWidth >= 336);
+    const geometry = await page.evaluate(() => {
+      const bounds = (selector) => document.querySelector(selector).getBoundingClientRect().toJSON();
+      return { rail: bounds('.file-rail'), center: bounds('.central-column'), chat: bounds('.agent-panel'), composer: bounds('.agent-composer'), viewport: innerWidth, height: innerHeight };
+    });
+    assert.ok(Math.abs(geometry.rail.right - geometry.center.left) < 2, 'Sidebar stays inline beside the score');
+    assert.ok(geometry.center.right <= geometry.viewport + 2, 'Center ends at the right viewport edge');
+    assert.ok(geometry.chat.bottom <= geometry.height + 2, 'Chat stays inside viewport');
+    assert.ok(geometry.composer.bottom <= geometry.height + 2, 'Composer stays reachable');
+    assert.ok(geometry.composer.right <= geometry.rail.right + 2, 'Composer fits inside the shared sidebar');
+    if (process.env.CHORALE_SMOKE_SCREENSHOT) {
+      await page.screenshot({ path: resolve(process.env.CHORALE_SMOKE_SCREENSHOT.replace(/\.png$/, `-${width}.png`)) });
+    }
+  }
+  if (desktopSize) await page.setViewportSize(desktopSize);
+  const resizeHandle = await page.getByRole('button', { name: 'Resize sidebar', exact: true }).boundingBox();
+  const railBefore = await page.locator('.file-rail').boundingBox();
+  await page.mouse.move(resizeHandle.x + resizeHandle.width / 2, resizeHandle.y + resizeHandle.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(resizeHandle.x + resizeHandle.width / 2 + 60, resizeHandle.y + resizeHandle.height / 2, { steps: 5 });
+  await page.mouse.up();
+  const railAfter = await page.locator('.file-rail').boundingBox();
+  assert.ok(railAfter.width > railBefore.width + 40, 'Shared right-edge handle grows Chat');
+  await page.getByRole('tab', { name: 'Files', exact: true }).click();
+  assert.equal((await page.locator('.file-rail').boundingBox()).width, railAfter.width, 'Files shares the resized width');
+  await page.getByRole('tab', { name: 'Chat', exact: true }).click();
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('tab', { name: 'API providers' }).waitFor();
   await page.getByRole('button', { name: 'Close settings', exact: true }).click();
@@ -107,12 +158,17 @@ try {
   assert.deepEqual(afterMixer.documents, beforeMixer.documents, 'Mixer must not change score revisions or content');
   await voices.getByRole('button', { name: 'Reset voices', exact: true }).click();
   await voices.getByRole('button', { name: 'Close Voices', exact: true }).click();
+  await page.getByRole('tab', { name: 'Files', exact: true }).click();
   await page.getByRole('button', { name: 'Scan PDF / PNG', exact: true }).click();
   await page.getByLabel('Sheet music file').waitFor();
   await page.getByRole('button', { name: 'Close scan', exact: true }).click();
+  await page.getByRole('tab', { name: 'Chat', exact: true }).click();
   console.log('Desktop voice mixer and scan entry passed; shared score unchanged');
   await input.fill('Add an annotation');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await page.getByRole('tab', { name: 'Files', exact: true }).click();
+  await page.getByRole('button', { name: 'Apply All', exact: true, includeHidden: true }).waitFor({ state: 'attached' });
+  await page.getByRole('tab', { name: 'Chat', exact: true }).click();
   await page.getByRole('button', { name: 'Apply All', exact: true }).click();
   if (process.env.CHORALE_SMOKE_SCREENSHOT) await page.screenshot({ path: resolve(process.env.CHORALE_SMOKE_SCREENSHOT) });
   await page.getByRole('complementary', { name: 'Annotations', exact: true }).getByText('Smoke annotation', { exact: true }).waitFor();
@@ -123,7 +179,7 @@ try {
   await page.getByText('Previewing measure 1', { exact: true }).waitFor();
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await page.getByRole('button', { name: 'Close assistant', exact: true }).click();
-  await page.getByRole('button', { name: 'Expand chat panel', exact: true }).click();
+  await page.getByRole('tab', { name: 'Chat', exact: true }).click();
   await input.waitFor();
   await page.waitForFunction(async () => {
     const response = await fetch('/v1/workspace');
@@ -140,7 +196,7 @@ try {
   assert.ok(dock && dock.y + dock.height <= viewportHeight + 2, 'Playback dock remains visible');
   assert.deepEqual(errors, []);
   if (process.env.CHORALE_SMOKE_SCREENSHOT) await page.screenshot({ path: resolve(process.env.CHORALE_SMOKE_SCREENSHOT) });
-  console.log('Electron smoke passed: desktop launch, shared score storage, providers, three panes, chat IPC, annotation Apply All, score preview/apply, transcript persistence, playback layout. Provider responses were simulated.');
+  console.log('Electron smoke passed: desktop launch, shared score storage, providers, three panes, shared left Chat rail, tab switching, drafts, resizing, responsive geometry, chat IPC, background response, annotation Apply All, score preview/apply, transcript persistence, playback layout. Provider responses were simulated.');
 } catch (error) {
   console.error('Desktop smoke failed:', error);
   throw error;

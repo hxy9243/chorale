@@ -2,8 +2,7 @@ export const MIN_FILE_RAIL_WIDTH = 240;
 export const MAX_FILE_RAIL_WIDTH = 560;
 export const FILE_RAIL_BAR_WIDTH = 56;
 export const DEFAULT_FILE_RAIL_WIDTH_FRACTION = 1 / 4;
-export const MIN_CHAT_PANEL_WIDTH = 280;
-export const CHAT_PANEL_WIDTH_FRACTION = 1 / 2;
+export const MIN_CHAT_RAIL_WIDTH = FILE_RAIL_BAR_WIDTH + 280;
 export const MIN_EDITOR_PANEL_WIDTH = 320;
 export const MIN_SCORE_WORKSPACE_WIDTH = 560;
 export const DESKTOP_PANEL_LAYOUT_MIN_WIDTH = 960;
@@ -12,19 +11,16 @@ const PANEL_DIVIDER_ALLOWANCE = 8;
 export interface WorkspacePanelLayoutInput {
   viewportWidth: number;
   fileRailWidth: number;
-  chatPanelWidth: number;
   editorPanelWidth: number;
   fileRailVisible: boolean;
-  chatPanelVisible: boolean;
+  fileRailMinimumWidth?: number;
   editorPanelVisible: boolean;
 }
 
 export interface WorkspacePanelLayout {
   fileRailWidth: number;
-  chatPanelWidth: number;
   editorPanelWidth: number;
   scoreWorkspaceWidth: number;
-  overlaySidePanels: boolean;
 }
 
 export const clampFileRailWidth = (width: number) => (
@@ -33,14 +29,6 @@ export const clampFileRailWidth = (width: number) => (
 
 export const defaultFileRailWidth = (viewportWidth: number) => (
   clampFileRailWidth(Math.round(viewportWidth * DEFAULT_FILE_RAIL_WIDTH_FRACTION))
-);
-
-export const maximumChatPanelWidth = (viewportWidth: number) => (
-  Math.max(MIN_CHAT_PANEL_WIDTH, Math.floor(viewportWidth * CHAT_PANEL_WIDTH_FRACTION))
-);
-
-export const clampChatPanelWidth = (width: number, viewportWidth: number) => (
-  Math.max(MIN_CHAT_PANEL_WIDTH, Math.min(maximumChatPanelWidth(viewportWidth), width))
 );
 
 export const clampEditorPanelWidth = (width: number) => (
@@ -52,62 +40,38 @@ const dividerAllowance = (visiblePanelCount: number) => (
 );
 
 /**
- * Fits the persistent panel preferences into the current layout without ever
- * sacrificing the score's reading width. Side panels become drawers when all
- * visible panels cannot coexist at their usable minimum widths.
+ * Fits the persistent panel preferences into the current layout while
+ * prioritizing the score's reading width. The shared sidebar stays in flow
+ * and its collapsed icon bar always retains its width.
  */
 export const fitWorkspacePanelLayout = ({
   viewportWidth,
   fileRailWidth,
-  chatPanelWidth,
   editorPanelWidth,
   fileRailVisible,
-  chatPanelVisible,
+  fileRailMinimumWidth = MIN_FILE_RAIL_WIDTH,
   editorPanelVisible,
 }: WorkspacePanelLayoutInput): WorkspacePanelLayout => {
   const safeViewportWidth = Math.max(0, viewportWidth);
-  const desiredFileRailWidth = clampFileRailWidth(fileRailWidth);
-  const desiredChatPanelWidth = clampChatPanelWidth(chatPanelWidth, safeViewportWidth);
+  const minimumRailWidth = clampFileRailWidth(fileRailMinimumWidth);
+  const desiredFileRailWidth = Math.max(minimumRailWidth, clampFileRailWidth(fileRailWidth));
   const desiredEditorPanelWidth = clampEditorPanelWidth(editorPanelWidth);
 
   if (safeViewportWidth < DESKTOP_PANEL_LAYOUT_MIN_WIDTH) {
     const inlineRailWidth = fileRailVisible ? desiredFileRailWidth : FILE_RAIL_BAR_WIDTH;
     return {
       fileRailWidth: inlineRailWidth,
-      chatPanelWidth: desiredChatPanelWidth,
       editorPanelWidth: Math.min(desiredEditorPanelWidth, safeViewportWidth),
       scoreWorkspaceWidth: Math.max(0, safeViewportWidth - inlineRailWidth),
-      overlaySidePanels: chatPanelVisible,
     };
   }
-
-  const visibleSidePanelMinimum = (
-    (fileRailVisible ? MIN_FILE_RAIL_WIDTH : FILE_RAIL_BAR_WIDTH)
-    + (chatPanelVisible ? MIN_CHAT_PANEL_WIDTH : 0)
-  );
-  const visibleEditorMinimum = editorPanelVisible ? MIN_EDITOR_PANEL_WIDTH : 0;
-  const visiblePanelCount = 1 + Number(chatPanelVisible) + Number(editorPanelVisible);
-  const minimumInlineWidth = (
-    MIN_SCORE_WORKSPACE_WIDTH
-    + visibleSidePanelMinimum
-    + visibleEditorMinimum
-    + dividerAllowance(visiblePanelCount)
-  );
-  const overlaySidePanels = (fileRailVisible || chatPanelVisible)
-    && safeViewportWidth < minimumInlineWidth;
 
   const panelDefinitions = [
     {
       key: 'fileRailWidth' as const,
-      visible: !overlaySidePanels,
-      minimum: fileRailVisible ? MIN_FILE_RAIL_WIDTH : FILE_RAIL_BAR_WIDTH,
+      visible: true,
+      minimum: fileRailVisible ? minimumRailWidth : FILE_RAIL_BAR_WIDTH,
       desired: fileRailVisible ? desiredFileRailWidth : FILE_RAIL_BAR_WIDTH,
-    },
-    {
-      key: 'chatPanelWidth' as const,
-      visible: chatPanelVisible && !overlaySidePanels,
-      minimum: MIN_CHAT_PANEL_WIDTH,
-      desired: desiredChatPanelWidth,
     },
     {
       key: 'editorPanelWidth' as const,
@@ -134,7 +98,6 @@ export const fitWorkspacePanelLayout = ({
     : Math.min(1, availableExtraWidth / desiredExtraWidth);
   const fittedWidths = {
     fileRailWidth: fileRailVisible ? desiredFileRailWidth : FILE_RAIL_BAR_WIDTH,
-    chatPanelWidth: desiredChatPanelWidth,
     editorPanelWidth: desiredEditorPanelWidth,
   };
 
@@ -152,6 +115,5 @@ export const fitWorkspacePanelLayout = ({
   return {
     ...fittedWidths,
     scoreWorkspaceWidth: Math.max(0, safeViewportWidth - usedInlineWidth),
-    overlaySidePanels,
   };
 };
