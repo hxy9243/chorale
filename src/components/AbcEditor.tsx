@@ -36,6 +36,7 @@ interface AbcEditorProps {
   documentId?: string;
   revision?: number;
   activeAnchor?: ScoreAnchor | null;
+  focusSelectionRequest?: { documentId: string; revision: number; anchor: ScoreAnchor } | null;
   onSelectAnchor?: (anchor: ScoreAnchor | null) => void;
   onNavigateMeasure?: (anchor: ScoreAnchor) => void;
   onMeasureMutation?: (mutation: MeasureMutation) => MeasureMutationResult;
@@ -156,6 +157,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
   documentId,
   revision = 0,
   activeAnchor = null,
+  focusSelectionRequest,
   onSelectAnchor,
   onNavigateMeasure,
   onMeasureMutation,
@@ -319,6 +321,24 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
       presentation?.voices.flatMap(({ cells: voiceCells }) => voiceCells) || [],
     [presentation],
   );
+  const handledFocusRequest = useRef<typeof focusSelectionRequest>(null);
+  useEffect(() => {
+    const request = focusSelectionRequest;
+    if (!visible || !request || handledFocusRequest.current === request
+      || request.documentId !== documentId || request.revision !== revision || !presentation) return;
+    if (view !== 'measures') { setView('measures'); return; }
+    handledFocusRequest.current = request;
+    const cell = cells.find((candidate) => candidate.measureNumber === request.anchor.startMeasure
+      && (!request.anchor.voiceId || candidate.voiceId === request.anchor.voiceId));
+    if (!cell) return;
+    setFocusedMeasure(cell.measureNumber);
+    // Focus the existing source cell without replacing an in-progress draft.
+    queueMicrotask(() => {
+      const group = editorBodyRef.current?.querySelector<HTMLElement>(`[data-cell-text="${escapeSelector(cell.id)}"]`);
+      group?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+      (group?.querySelector<HTMLElement>('input') ?? group)?.focus({ preventScroll: true });
+    });
+  }, [focusSelectionRequest, documentId, revision, visible, presentation, cells, view]);
   const expectedMeasureDomain = useMemo(() => {
     if (!presentation) return [];
     const measureNumbers = new Set<number>();

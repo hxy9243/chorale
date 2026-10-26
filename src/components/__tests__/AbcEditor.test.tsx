@@ -27,6 +27,19 @@ K:C
       onSelectAnchor={(next) => { setAnchor(next); onSelect(next); }} onPreviewMeasure={onPreview} />;
   }
 
+  it('opens Measure Source and focuses the requested voice without collapsing the range', async () => {
+    const anchor = { startMeasure: 1, endMeasure: 2, voiceId: 'lower' };
+    const props = { abcCode: formattedAbc, documentId: 'score', revision: 1, activeAnchor: anchor,
+      onAbcChange: vi.fn(), onSelectAnchor: vi.fn() };
+    const view = render(<AbcEditor {...props} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+    view.rerender(<AbcEditor {...props} focusSelectionRequest={{ documentId: 'score', revision: 1, anchor }} />);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Edit lower, measure 1' })));
+    expect(view.container.querySelectorAll('.abc-timeline-measure.is-selected')).toHaveLength(2);
+    expect(props.onSelectAnchor).not.toHaveBeenCalled();
+    expect(props.onAbcChange).not.toHaveBeenCalled();
+  });
+
   it('follows the editing destination rather than the start of an extended selection', async () => {
     const onFocusMeasure = vi.fn();
     const centerSpy = vi.spyOn(autoScroll, 'calculateCenterScrollLeft');

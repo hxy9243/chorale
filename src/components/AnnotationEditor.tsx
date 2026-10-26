@@ -17,6 +17,7 @@ interface AnnotationEditorProps {
   mode: AnnotationEditorMode;
   variant?: 'full' | 'chord-inline';
   initialAnnotation?: Annotation;
+  defaultKind?: AnnotationKind;
   defaultSpan: MeasureSpan;
   meter?: string;
   onSave(annotation: Annotation): void | Promise<void>;
@@ -42,6 +43,7 @@ export const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
   mode,
   variant = 'full',
   initialAnnotation,
+  defaultKind = 'explanation',
   defaultSpan,
   meter,
   onSave,
@@ -52,7 +54,7 @@ export const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
   const initialFriendlyPosition = initialAnnotation?.kind === 'chord' && initialAnnotation.position
     ? friendlyBeatFromRational(grid, initialAnnotation.position.offset)
     : { beat: 1, subdivision: 1 as const, step: 0 };
-  const [kind, setKind] = useState<AnnotationKind>(initialAnnotation?.kind ?? 'explanation');
+  const [kind, setKind] = useState<AnnotationKind>(initialAnnotation?.kind ?? defaultKind);
   const [startMeasure, setStartMeasure] = useState(
     initialAnnotation?.span.startMeasure ?? defaultSpan.startMeasure,
   );
@@ -83,9 +85,9 @@ export const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
   const chordSymbolRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (variant === 'chord-inline') chordSymbolRef.current?.focus();
+    if (variant === 'chord-inline' || defaultKind === 'chord') chordSymbolRef.current?.focus();
     else firstFieldRef.current?.focus();
-  }, [variant]);
+  }, [variant, defaultKind]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -289,6 +291,7 @@ export const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
           <label>
             Chord symbol
             <input
+              ref={chordSymbolRef}
               value={chordSymbol}
               onChange={(event) => setChordSymbol(event.target.value)}
               disabled={saving}

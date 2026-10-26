@@ -48,6 +48,13 @@ import { createChoraleQueueAdapter } from './chat/ChoraleQueueAdapter';
 import { createChoraleExternalStoreAdapter } from './chat/ChoraleExternalStoreAdapter';
 import { ChoraleComposer, type ChoraleComposerRef } from './chat/ChoraleComposer';
 
+export interface AskSelectionRequest {
+  fileId: string;
+  revision: number;
+  anchor: ScoreAnchor;
+  newChat: boolean;
+}
+
 interface AgentChatPanelProps {
   open: boolean;
   onClose: () => void;
@@ -57,6 +64,7 @@ interface AgentChatPanelProps {
   revision: number;
   annotations?: Annotation[];
   activeAnchor?: ScoreAnchor | null;
+  askSelectionRequest?: AskSelectionRequest | null;
   onClearAnchor?: () => void;
   totalMeasures?: number;
   scoreMeter?: string;
@@ -508,6 +516,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   revision,
   annotations = [],
   activeAnchor,
+  askSelectionRequest,
   onClearAnchor,
   totalMeasures = 0,
   scoreMeter,
@@ -532,6 +541,8 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
   } | null>(null);
   const [invalidProposalIds, setInvalidProposalIds] = useState<Record<string, string[]>>({});
   const [thinkingLevel, setThinkingLevel] = useState<AIThinkingLevel>(loadThinkingLevel);
+  const [attachedSelections, setAttachedSelections] = useState<Record<string, ScoreAnchor>>({});
+  const handledAskRequest = useRef<AskSelectionRequest | null>(null);
 
   const panelRef = useRef<HTMLElement | null>(null);
   const composerRef = useRef<ChoraleComposerRef | null>(null);
@@ -601,6 +612,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       if (!cancelled) setDurableHydrationPending(false);
     });
     composerRef.current?.setDraft('');
+    setAttachedSelections({});
     setError(null);
     setEditingProposal(null);
     setInvalidProposalIds({});
@@ -665,7 +677,29 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
 
   const messages = useMemo(() => activeThread?.messages || [], [activeThread]);
   const pendingMessages = useMemo(() => activeThread?.pendingMessages || [], [activeThread]);
-  const anchorLabel = formatAnchorLabel(activeAnchor);
+  const attachedAnchor = activeThread ? attachedSelections[activeThread.id] : undefined;
+  const chatAnchor = attachedAnchor ?? activeAnchor;
+  const anchorLabel = formatAnchorLabel(chatAnchor);
+
+  useEffect(() => {
+    const request = askSelectionRequest;
+    if (!request || handledAskRequest.current === request || request.fileId !== fileId
+      || request.revision !== revision || conversationFileId !== fileId
+      || durableHydrationPending || durableHydrationFailed || !activeThread) return;
+    handledAskRequest.current = request;
+    let threadId = activeThread.id;
+    if (request.newChat) {
+      if (isStreaming) stop();
+      const thread = makeThread();
+      threadId = thread.id;
+      updateConversation((current) => ({ activeThreadId: thread.id, threads: [thread, ...current.threads] }));
+      composerRef.current?.setDraft('');
+    }
+    setAttachedSelections((current) => ({ ...current, [threadId]: request.anchor }));
+    setThreadMenuOpen(false);
+    queueMicrotask(() => composerRef.current?.focus());
+  }, [askSelectionRequest, fileId, revision, conversationFileId, durableHydrationPending,
+    durableHydrationFailed, activeThread, isStreaming, stop, updateConversation]);
 
   const getAgent = useCallback(() => {
     agentRef.current ??= new DesktopSheetAgent();
@@ -722,9 +756,9 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
     capturedAt: new Date().toISOString(),
     fileName: activeFileName || 'Untitled score',
     abc: prepareAbcForPlayback(abcCode),
-    selection: activeAnchor,
+    selection: chatAnchor,
     annotations,
-  }), [abcCode, activeAnchor, activeFileName, annotations, fileId, revision]);
+  }), [abcCode, chatAnchor, activeFileName, annotations, fileId, revision]);
 
   const updateMessages = useCallback((threadId: string, updater: (messages: ChatMessage[]) => ChatMessage[]) => {
     updateConversation((current) => replaceActiveThread(current, threadId, (thread) => ({
@@ -1463,7 +1497,14 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
             supportedThinkingLevels={supportedThinkingLevels}
             modelSupportsThinking={modelSupportsThinking}
             anchorLabel={anchorLabel}
-            onClearAnchor={onClearAnchor}
+            onClearAnchor={() => {
+              if (activeThread) setAttachedSelections((current) => {
+                const next = { ...current };
+                delete next[activeThread.id];
+                return next;
+              });
+              onClearAnchor?.();
+            }}
             onOpenSettings={onOpenSettings}
             onSend={(text) => void executePrompt(text)}
             onPrioritySteer={(text) => void handlePrioritySteer(text)}

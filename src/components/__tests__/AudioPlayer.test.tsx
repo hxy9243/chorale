@@ -416,6 +416,102 @@ describe('AudioPlayer Component', () => {
     return tune;
   }
 
+  it('plays the complete selected range and replaces existing playback on a menu request', async () => {
+    const tune = await previewTune('C4 | D4 | E4 | F4 |');
+    const { controller, context, buffer } = installClockController();
+    const source = { stop: vi.fn() };
+    Object.assign(buffer, { directSource: [source] });
+    let frame: FrameRequestCallback = () => {};
+    const spy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => { frame = callback; return 1; });
+    try {
+      const view = render(<AudioPlayer tunes={[tune]} sourceKey="range" />);
+      await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+      fireEvent.click(screen.getByTitle('Play Piano Synthesizer'));
+      context.currentTime += 1;
+      view.rerender(<AudioPlayer tunes={[tune]} sourceKey="range"
+        measurePreviewRequest={{ measure: 2, endMeasure: 3, sourceKey: 'range', restart: true }} />);
+      await waitFor(() => expect(controller.play).toHaveBeenCalledTimes(2));
+      expect(controller.seek).toHaveBeenLastCalledWith(2, 'seconds');
+      expect(source.stop).toHaveBeenLastCalledWith(105);
+      context.currentTime += 2.1;
+      act(() => frame(0));
+      expect(screen.getByTitle('Pause Audio')).toBeDefined();
+      context.currentTime += 2;
+      act(() => frame(0));
+      expect(screen.getByTitle('Play Piano Synthesizer')).toBeDefined();
+      expect(controller.seek).toHaveBeenLastCalledWith(2, 'seconds');
+    } finally { spy.mockRestore(); }
+  });
+
+  it('loops from the audio boundary without animation frames and ignores ended events after Stop', async () => {
+    const tune = await previewTune('C4 | D4 | E4 |');
+    const { controller, context, buffer } = installClockController();
+    const source = { stop: vi.fn(), addEventListener: vi.fn() };
+    Object.assign(buffer, { directSource: [source] });
+    render(<AudioPlayer tunes={[tune]} sourceKey="loop"
+      measurePreviewRequest={{ measure: 2, endMeasure: 3, sourceKey: 'loop', restart: true, loop: true }} />);
+    await waitFor(() => expect(controller.play).toHaveBeenCalledOnce());
+    expect(screen.getByText('Looping mm. 2–3')).toBeDefined();
+    expect(source.stop).toHaveBeenLastCalledWith(104);
+    context.currentTime += 4;
+    act(() => source.addEventListener.mock.lastCall![1]());
+    await waitFor(() => expect(controller.play).toHaveBeenCalledTimes(2));
+    expect(controller.seek).toHaveBeenLastCalledWith(2, 'seconds');
+    expect(source.stop).toHaveBeenLastCalledWith(108);
+    const lateEnd = source.addEventListener.mock.lastCall![1];
+    fireEvent.click(screen.getByTitle('Stop & Reset'));
+    act(() => lateEnd());
+    expect(controller.play).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText('Looping mm. 2–3')).toBeNull();
+  });
+
+  it('keeps the loop boundary after changing speed and handles a selection ending at the score end', async () => {
+    const tune = await previewTune('C4 | D4 | E4 | F4 |');
+    const { controller, context, buffer } = installClockController();
+    const source = { stop: vi.fn(), addEventListener: vi.fn() };
+    Object.assign(buffer, { directSource: [source] });
+    render(<AudioPlayer tunes={[tune]} sourceKey="speed-loop"
+      measurePreviewRequest={{ measure: 3, endMeasure: 4, sourceKey: 'speed-loop', restart: true, loop: true }} />);
+    await waitFor(() => expect(controller.play).toHaveBeenCalledOnce());
+    context.currentTime += 1;
+    fireEvent.change(screen.getByRole('combobox', { name: 'Playback speed' }), { target: { value: '1.5' } });
+    await waitFor(() => expect(controller.play).toHaveBeenCalledTimes(2));
+    expect(source.stop).toHaveBeenLastCalledWith(103);
+    act(() => controller.load.mock.lastCall[1].onFinished());
+    await waitFor(() => expect(controller.play).toHaveBeenCalledTimes(3));
+    expect(controller.seek.mock.lastCall[0]).toBeCloseTo(4 / 1.5);
+    expect(screen.getByText('Looping mm. 3–4')).toBeDefined();
+  });
+
+  it('limits selected playback at a repeat that leaves the selection', async () => {
+    const tune = await previewTune('|: C4 | D4 :| E4 | F4 |');
+    const { controller, buffer } = installClockController();
+    const source = { stop: vi.fn() };
+    Object.assign(buffer, { directSource: [source] });
+    render(<AudioPlayer tunes={[tune]} sourceKey="repeat-range"
+      measurePreviewRequest={{ measure: 2, endMeasure: 3, sourceKey: 'repeat-range', restart: true }} />);
+    await waitFor(() => expect(controller.play).toHaveBeenCalledOnce());
+    expect(controller.seek).toHaveBeenLastCalledWith(2, 'seconds');
+    expect(source.stop).toHaveBeenLastCalledWith(102);
+  });
+
+  it('cancels an old loop when the user selects a different passage', async () => {
+    const tune = await previewTune('C4 | D4 | E4 |');
+    const { controller, buffer } = installClockController();
+    const source = { stop: vi.fn(), addEventListener: vi.fn() };
+    Object.assign(buffer, { directSource: [source] });
+    const request = { measure: 1, endMeasure: 2, sourceKey: 'selection-change', restart: true, loop: true };
+    const view = render(<AudioPlayer tunes={[tune]} sourceKey="selection-change" measurePreviewRequest={request} />);
+    await waitFor(() => expect(controller.play).toHaveBeenCalledOnce());
+    const lateEnd = source.addEventListener.mock.lastCall![1];
+    view.rerender(<AudioPlayer tunes={[tune]} sourceKey="selection-change" measurePreviewRequest={request}
+      activeAnchor={{ startMeasure: 3, endMeasure: 3, playbackSeconds: 4 }} />);
+    act(() => lateEnd());
+    expect(controller.play).toHaveBeenCalledOnce();
+    expect(controller.seek).toHaveBeenLastCalledWith(4, 'seconds');
+    expect(screen.queryByText('Looping mm. 1–2')).toBeNull();
+  });
+
   it('keeps the hidden abcjs tempo input available for real transport rebuilds', async () => {
     const { default: realAbcjs } = await vi.importActual<{ default: typeof abcjs }>('abcjs');
     const realControl = new realAbcjs.synth.SynthController();
