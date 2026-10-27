@@ -1,0 +1,408 @@
+[
+  {
+    "documentId": "20-secondary",
+    "revision": 1,
+    "range": {
+      "startMeasure": 1,
+      "endMeasure": 16
+    },
+    "engine": {
+      "name": "music21",
+      "version": "10.5.0",
+      "pythonVersion": "3.12.3"
+    },
+    "sandbox": {
+      "backend": "bubblewrap",
+      "network": "isolated",
+      "hostHome": "unmounted",
+      "runtime": "read-only",
+      "syscalls": "seccomp",
+      "childProcesses": "blocked",
+      "scratchMiB": 64,
+      "cpuSeconds": 5,
+      "memoryMiB": 768
+    },
+    "durationMs": 1045,
+    "inputSummary": {
+      "pitchedEvents": 64,
+      "measures": 16,
+      "voices": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ]
+    },
+    "result": {
+      "sonorities": [
+        {
+          "m": 1,
+          "t": "0.0",
+          "p": [
+            "C3",
+            "G4",
+            "C5",
+            "E5"
+          ],
+          "b": "C3",
+          "r": "C",
+          "q": "major",
+          "i": 0
+        },
+        {
+          "m": 2,
+          "t": "0.0",
+          "p": [
+            "F3",
+            "A4",
+            "C5",
+            "F5"
+          ],
+          "b": "F3",
+          "r": "F",
+          "q": "major",
+          "i": 0
+        },
+        {
+          "m": 3,
+          "t": "0.0",
+          "p": [
+            "E3",
+            "G4",
+            "C5",
+            "E5"
+          ],
+          "b": "E3",
+          "r": "C",
+          "q": "major",
+          "i": 1
+        },
+        {
+          "m": 4,
+          "t": "0.0",
+          "p": [
+            "G2",
+            "G4",
+            "B4",
+            "D5"
+          ],
+          "b": "G2",
+          "r": "G",
+          "q": "major",
+          "i": 0
+        },
+        {
+          "m": 5,
+          "t": "0.0",
+          "p": [
+            "E3",
+            "G#4",
+            "B4",
+            "D5"
+          ],
+          "b": "E3",
+          "r": "E",
+          "q": "major",
+          "i": 0
+        },
+        {
+          "m": 6,
+          "t": "0.0",
+          "p": [
+            "A2",
+            "A4",
+            "C5",
+            "E5"
+          ],
+          "b": "A2",
+          "r": "A",
+          "q": "minor",
+          "i": 0
+        },
+        {
+          "m": 7,
+          "t": "0.0",
+          "p": [
+            "F3",
+            "A4",
+            "D5",
+            "F5"
+          ],
+          "b": "F3",
+          "r": "D",
+          "q": "minor",
+          "i": 1
+        },
+        {
+          "m": 8,
+          "t": "0.0",
+          "p": [
+            "G2",
+            "G4",
+            "B4",
+            "D5"
+          ],
+          "b": "G2",
+          "r": "G",
+          "q": "major",
+          "i": 0
+        },
+        {
+          "m": 9,
+          "t": "0.0",
+          "p": [
+            "A2",
+            "A4",
+            "C5",
+            "E5"
+          ],
+          "b": "A2",
+          "r": "A",
+          "q": "minor",
+          "i": 0
+        },
+        {
+          "m": 10,
+          "t": "0.0",
+          "p": [
+            "D3",
+            "A4",
+            "D5",
+            "F5"
+          ],
+          "b": "D3",
+          "r": "D",
+          "q": "minor",
+          "i": 0
+        },
+        {
+          "m": 11,
+          "t": "0.0",
+          "p": [
+            "G2",
+            "D4",
+            "B4",
+            "F5"
+          ],
+          "b": "G2",
+          "r": "G",
+          "q": "major",
+          "i": 0
+        },
+        {
+          "m": 12,
+          "t": "0.0",
+          "p": [
+            "C3",
+            "G4",
+            "C5",
+            "E5"
+          ],
+          "b": "C3",
+          "r": "C",
+          "q": "major",
+          "i": 0
+        },
+        {
+          "m": 13,
+          "t": "0.0",
+          "p": [
+            "F3",
+            "A4",
+            "C5",
+            "F5"
+          ],
+          "b": "F3",
+          "r": "F",
+          "q": "major",
+          "i": 0
+        },
+        {
+          "m": 14,
+          "t": "0.0",
+          "p": [
+            "C3",
+            "G4",
+            "C5",
+            "E5"
+          ],
+          "b": "C3",
+          "r": "C",
+          "q": "major",
+          "i": 0
+        },
+        {
+          "m": 15,
+          "t": "0.0",
+          "p": [
+            "G2",
+            "G4",
+            "B4",
+            "D5"
+          ],
+          "b": "G2",
+          "r": "G",
+          "q": "major",
+          "i": 0
+        },
+        {
+          "m": 16,
+          "t": "0.0",
+          "p": [
+            "A2",
+            "A4",
+            "C5",
+            "E5"
+          ],
+          "b": "A2",
+          "r": "A",
+          "q": "minor",
+          "i": 0
+        }
+      ],
+      "ranges": [
+        {
+          "voice": "1",
+          "low": "D5",
+          "high": "F5"
+        },
+        {
+          "voice": "2",
+          "low": "B4",
+          "high": "D5"
+        },
+        {
+          "voice": "3",
+          "low": "D4",
+          "high": "A4"
+        },
+        {
+          "voice": "4",
+          "low": "G2",
+          "high": "F3"
+        }
+      ]
+    },
+    "stdout": "",
+    "warning": "Read-only computed evidence; verify interpretation against the written score. Rest gaps are silence, and tied notes are merged pitched events."
+  },
+  {
+    "documentId": "20-secondary",
+    "revision": 1,
+    "range": {
+      "startMeasure": 17,
+      "endMeasure": 20
+    },
+    "engine": {
+      "name": "music21",
+      "version": "10.5.0",
+      "pythonVersion": "3.12.3"
+    },
+    "sandbox": {
+      "backend": "bubblewrap",
+      "network": "isolated",
+      "hostHome": "unmounted",
+      "runtime": "read-only",
+      "syscalls": "seccomp",
+      "childProcesses": "blocked",
+      "scratchMiB": 64,
+      "cpuSeconds": 5,
+      "memoryMiB": 768
+    },
+    "durationMs": 776,
+    "inputSummary": {
+      "pitchedEvents": 16,
+      "measures": 4,
+      "voices": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ]
+    },
+    "result": {
+      "sonorities": [
+        {
+          "m": 17,
+          "t": "0.0",
+          "p": [
+            "D3",
+            "A4",
+            "D5",
+            "F5"
+          ],
+          "b": "D3",
+          "r": "D",
+          "q": "minor",
+          "i": 0
+        },
+        {
+          "m": 18,
+          "t": "0.0",
+          "p": [
+            "G2",
+            "D4",
+            "B4",
+            "F5"
+          ],
+          "b": "G2",
+          "r": "G",
+          "q": "major",
+          "i": 0
+        },
+        {
+          "m": 19,
+          "t": "0.0",
+          "p": [
+            "C3",
+            "G4",
+            "C5",
+            "E5"
+          ],
+          "b": "C3",
+          "r": "C",
+          "q": "major",
+          "i": 0
+        },
+        {
+          "m": 20,
+          "t": "0.0",
+          "p": [
+            "C3",
+            "G4",
+            "C5",
+            "E5"
+          ],
+          "b": "C3",
+          "r": "C",
+          "q": "major",
+          "i": 0
+        }
+      ],
+      "ranges": [
+        {
+          "voice": "1",
+          "low": "E5",
+          "high": "F5"
+        },
+        {
+          "voice": "2",
+          "low": "B4",
+          "high": "D5"
+        },
+        {
+          "voice": "3",
+          "low": "D4",
+          "high": "A4"
+        },
+        {
+          "voice": "4",
+          "low": "G2",
+          "high": "D3"
+        }
+      ]
+    },
+    "stdout": "",
+    "warning": "Read-only computed evidence; verify interpretation against the written score. Rest gaps are silence, and tied notes are merged pitched events."
+  }
+]

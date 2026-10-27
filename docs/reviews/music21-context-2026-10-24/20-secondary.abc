@@ -1,0 +1,13 @@
+X:1
+T:Twenty-bar sketch
+M:4/4
+L:1/4
+K:C
+V:1
+e4 | f4 | e4 | d4 | d4 | e4 | f4 | d4 | e4 | f4 | f4 | e4 | f4 | e4 | d4 | e4 | f4 | f4 | e4 | e4 |]
+V:2
+c4 | c4 | c4 | B4 | B4 | c4 | d4 | B4 | c4 | d4 | B4 | c4 | c4 | c4 | B4 | c4 | d4 | B4 | c4 | c4 |]
+V:3
+G4 | A4 | G4 | G4 | ^G4 | A4 | A4 | G4 | A4 | A4 | D4 | G4 | A4 | G4 | G4 | A4 | A4 | D4 | G4 | G4 |]
+V:4 clef=bass
+C,4 | F,4 | E,4 | G,,4 | E,4 | A,,4 | F,4 | G,,4 | A,,4 | D,4 | G,,4 | C,4 | F,4 | C,4 | G,,4 | A,,4 | D,4 | G,,4 | C,4 | C,4 |]

@@ -1,0 +1,13 @@
+X:1
+T:Four-bar cadence
+M:4/4
+L:1/4
+K:G
+V:1
+B4 | c4 | A4 | G4 |]
+V:2
+G4 | G4 | ^F4 | D4 |]
+V:3
+D4 | E4 | D4 | B,4 |]
+V:4 clef=bass
+G,,4 | C,4 | D,4 | G,,4 |]

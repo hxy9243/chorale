@@ -1,0 +1,78 @@
+{
+  "pairedRequests": [
+    {
+      "case": "04-cadence",
+      "identicalBaseInputsAndSettings": true,
+      "baselinePersistedBeforeAnyEvidence": true,
+      "bothFinishedNormally": true,
+      "sameReportedModelAndProvider": true
+    },
+    {
+      "case": "08-suspension",
+      "identicalBaseInputsAndSettings": true,
+      "baselinePersistedBeforeAnyEvidence": true,
+      "bothFinishedNormally": true,
+      "sameReportedModelAndProvider": true
+    },
+    {
+      "case": "20-secondary",
+      "identicalBaseInputsAndSettings": true,
+      "baselinePersistedBeforeAnyEvidence": true,
+      "bothFinishedNormally": true,
+      "sameReportedModelAndProvider": true
+    }
+  ],
+  "originalRunHashesIntact": true,
+  "liveCalls": 6,
+  "tokenMetricEncoding": "o200k_base reference; GLM provider usage also saved",
+  "experimentalLimitations": [
+    "One sample per arm, three synthetic passages; not a general accuracy benchmark.",
+    "ABC-only baseline differs from the full Electron score-tools baseline.",
+    "Fixed author-written query, not autonomous query selection.",
+    "Assisted request contains evidence as a user message, excluding Python/schema and tool turn overhead."
+  ],
+  "evidenceDefects": {
+    "heldC5MissingAtMeasure5Beat1": {
+      "m": 5,
+      "t": "0.0",
+      "p": [
+        "G2",
+        "G3",
+        "D4"
+      ],
+      "b": "G2",
+      "r": "G",
+      "q": "other",
+      "i": 0
+    },
+    "majorQualityOnDominantSeventh": {
+      "m": 5,
+      "t": "0.0",
+      "p": [
+        "E3",
+        "G#4",
+        "B4",
+        "D5"
+      ],
+      "b": "E3",
+      "r": "E",
+      "q": "major",
+      "i": 0
+    },
+    "authoritativeHeldC5": {
+      "id": "1@57:62#0",
+      "voiceId": "1",
+      "pitch": "C5",
+      "measure": 4,
+      "offsetQuarterLength": "12",
+      "measureOffsetQuarterLength": "0",
+      "durationQuarterLength": "5",
+      "carryIn": false,
+      "sourceEventIds": [
+        "1@57:62#0",
+        "1@63:66#0"
+      ]
+    }
+  },
+  "productFilesChanged": false
+}

@@ -1,0 +1,25 @@
+{
+  "model": "z-ai/glm-5.3",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a careful music tutor helping a student revise a short score. Analyze only the supplied notation. Be concrete about measure numbers, pitches and bass. Separate literal sonorities, harmonic interpretation, and aesthetic judgment. Computed root/quality guesses may be wrong around non-chord tones. Respond in at most 400 words. Do not invent missing information."
+    },
+    {
+      "role": "user",
+      "content": "Analyze this 8-measure score. Explain the event across measures 4-5, identify the harmony and inversion in measures 5-7, and give one student revision suggestion without treating every vertical slice as a new functional chord.\n\nX:1\nT:Suspension study\nM:4/4\nL:1/4\nK:C\nV:1\ne4 | f4 | e4 | c4- | c B3 | e4 | d4 | c4 |]\nV:2\nG4 | A4 | G4 | A4 | D4 | c4 | B4 | G4 |]\nV:3\nE4 | F4 | E4 | F4 | G,4 | E4 | F4 | E4 |]\nV:4 clef=bass\nC,4 | F,4 | C,4 | F,4 | G,,4 | A,,4 | G,,4 | C,4 |]"
+    },
+    {
+      "role": "user",
+      "content": "Additional read-only music21 evidence, computed from the exact same score revision. Do not accept chord roots blindly; interpret preparation/resolution and retain uncertainty.\n[{\"documentId\":\"08-suspension\",\"revision\":1,\"range\":{\"startMeasure\":1,\"endMeasure\":8},\"engine\":{\"name\":\"music21\",\"version\":\"10.5.0\",\"pythonVersion\":\"3.12.3\"},\"sandbox\":{\"backend\":\"bubblewrap\",\"network\":\"isolated\",\"hostHome\":\"unmounted\",\"runtime\":\"read-only\",\"syscalls\":\"seccomp\",\"childProcesses\":\"blocked\",\"scratchMiB\":64,\"cpuSeconds\":5,\"memoryMiB\":768},\"durationMs\":1101,\"inputSummary\":{\"pitchedEvents\":32,\"measures\":8,\"voices\":[\"1\",\"2\",\"3\",\"4\"]},\"result\":{\"sonorities\":[{\"m\":1,\"t\":\"0.0\",\"p\":[\"C3\",\"E4\",\"G4\",\"E5\"],\"b\":\"C3\",\"r\":\"C\",\"q\":\"major\",\"i\":0},{\"m\":2,\"t\":\"0.0\",\"p\":[\"F3\",\"F4\",\"A4\",\"F5\"],\"b\":\"F3\",\"r\":\"F\",\"q\":\"major\",\"i\":0},{\"m\":3,\"t\":\"0.0\",\"p\":[\"C3\",\"E4\",\"G4\",\"E5\"],\"b\":\"C3\",\"r\":\"C\",\"q\":\"major\",\"i\":0},{\"m\":4,\"t\":\"0.0\",\"p\":[\"F3\",\"F4\",\"A4\",\"C5\"],\"b\":\"F3\",\"r\":\"F\",\"q\":\"major\",\"i\":0},{\"m\":4,\"t\":\"4.0\",\"p\":[\"C5\"],\"b\":\"C5\",\"r\":\"C\",\"q\":\"other\",\"i\":0},{\"m\":5,\"t\":\"0.0\",\"p\":[\"G2\",\"G3\",\"D4\"],\"b\":\"G2\",\"r\":\"G\",\"q\":\"other\",\"i\":0},{\"m\":5,\"t\":\"1.0\",\"p\":[\"G2\",\"G3\",\"D4\",\"B4\"],\"b\":\"G2\",\"r\":\"G\",\"q\":\"major\",\"i\":0},{\"m\":6,\"t\":\"0.0\",\"p\":[\"A2\",\"E4\",\"C5\",\"E5\"],\"b\":\"A2\",\"r\":\"A\",\"q\":\"minor\",\"i\":0},{\"m\":7,\"t\":\"0.0\",\"p\":[\"G2\",\"F4\",\"B4\",\"D5\"],\"b\":\"G2\",\"r\":\"G\",\"q\":\"major\",\"i\":0},{\"m\":8,\"t\":\"0.0\",\"p\":[\"C3\",\"E4\",\"G4\",\"C5\"],\"b\":\"C3\",\"r\":\"C\",\"q\":\"major\",\"i\":0}],\"ranges\":[{\"voice\":\"1\",\"low\":\"B4\",\"high\":\"F5\"},{\"voice\":\"2\",\"low\":\"D4\",\"high\":\"C5\"},{\"voice\":\"3\",\"low\":\"G3\",\"high\":\"F4\"},{\"voice\":\"4\",\"low\":\"G2\",\"high\":\"F3\"}]},\"stdout\":\"\",\"warning\":\"Read-only computed evidence; verify interpretation against the written score. Rest gaps are silence, and tied notes are merged pitched events.\"}]"
+    }
+  ],
+  "temperature": 0,
+  "max_tokens": 4500,
+  "reasoning": {
+    "effort": "low"
+  },
+  "provider": {
+    "allow_fallbacks": false
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "model": "z-ai/glm-5.3",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a careful music tutor helping a student revise a short score. Analyze only the supplied notation. Be concrete about measure numbers, pitches and bass. Separate literal sonorities, harmonic interpretation, and aesthetic judgment. Computed root/quality guesses may be wrong around non-chord tones. Respond in at most 400 words. Do not invent missing information."
+    },
+    {
+      "role": "user",
+      "content": "Analyze this 20-measure score. Give a basic harmonic and phrase overview. Identify any applied dominant and resolution, inversions in measures 3 and 7, the sonority in measure 11, and whether G-sharp from measure 5 affects measure 13. Distinguish score facts from tentative formal or aesthetic judgments.\n\nX:1\nT:Twenty-bar sketch\nM:4/4\nL:1/4\nK:C\nV:1\ne4 | f4 | e4 | d4 | d4 | e4 | f4 | d4 | e4 | f4 | f4 | e4 | f4 | e4 | d4 | e4 | f4 | f4 | e4 | e4 |]\nV:2\nc4 | c4 | c4 | B4 | B4 | c4 | d4 | B4 | c4 | d4 | B4 | c4 | c4 | c4 | B4 | c4 | d4 | B4 | c4 | c4 |]\nV:3\nG4 | A4 | G4 | G4 | ^G4 | A4 | A4 | G4 | A4 | A4 | D4 | G4 | A4 | G4 | G4 | A4 | A4 | D4 | G4 | G4 |]\nV:4 clef=bass\nC,4 | F,4 | E,4 | G,,4 | E,4 | A,,4 | F,4 | G,,4 | A,,4 | D,4 | G,,4 | C,4 | F,4 | C,4 | G,,4 | A,,4 | D,4 | G,,4 | C,4 | C,4 |]"
+    }
+  ],
+  "temperature": 0,
+  "max_tokens": 4500,
+  "reasoning": {
+    "effort": "low"
+  },
+  "provider": {
+    "allow_fallbacks": false
+  }
+}

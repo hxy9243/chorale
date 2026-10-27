@@ -1,0 +1,334 @@
+{
+  "tokenizer": "tiktoken o200k_base: exact counts for this encoding only; not the GLM tokenizer or provider framing",
+  "toolSchemaTokens": 159,
+  "schemaBytes": 708,
+  "contextRows": [
+    {
+      "measures": 4,
+      "calls": 1,
+      "abcTokens": 102,
+      "pythonCallArgumentsTokens": 197,
+      "resultTokens": 398,
+      "musicalResultOnlyTokens": 235,
+      "rawEventDumpTokens": 1050,
+      "sandboxMs": 1529,
+      "pitchedEvents": 16,
+      "addedCallAndResultTokens": 595
+    },
+    {
+      "measures": 8,
+      "calls": 1,
+      "abcTokens": 155,
+      "pythonCallArgumentsTokens": 197,
+      "resultTokens": 567,
+      "musicalResultOnlyTokens": 404,
+      "rawEventDumpTokens": 2091,
+      "sandboxMs": 1376,
+      "pitchedEvents": 32,
+      "addedCallAndResultTokens": 764
+    },
+    {
+      "measures": 12,
+      "calls": 1,
+      "abcTokens": 207,
+      "pythonCallArgumentsTokens": 197,
+      "resultTokens": 735,
+      "musicalResultOnlyTokens": 572,
+      "rawEventDumpTokens": 3131,
+      "sandboxMs": 3309,
+      "pitchedEvents": 48,
+      "addedCallAndResultTokens": 932
+    },
+    {
+      "measures": 16,
+      "calls": 1,
+      "abcTokens": 259,
+      "pythonCallArgumentsTokens": 197,
+      "resultTokens": 903,
+      "musicalResultOnlyTokens": 740,
+      "rawEventDumpTokens": 4171,
+      "sandboxMs": 2071,
+      "pitchedEvents": 64,
+      "addedCallAndResultTokens": 1100
+    },
+    {
+      "measures": 20,
+      "calls": 2,
+      "abcTokens": 311,
+      "pythonCallArgumentsTokens": 394,
+      "resultTokens": 1301,
+      "musicalResultOnlyTokens": 975,
+      "rawEventDumpTokens": 5221,
+      "sandboxMs": 3617,
+      "pitchedEvents": 80,
+      "addedCallAndResultTokens": 1695
+    }
+  ],
+  "quarterNoteRearticulationRows": [
+    {
+      "measures": 4,
+      "calls": 1,
+      "abcTokens": 146,
+      "pythonCallArgumentsTokens": 197,
+      "resultTokens": 901,
+      "musicalResultOnlyTokens": 739,
+      "rawEventDumpTokens": 3978,
+      "sandboxMs": 794,
+      "pitchedEvents": 64,
+      "addedCallAndResultTokens": 1098
+    },
+    {
+      "measures": 8,
+      "calls": 1,
+      "abcTokens": 246,
+      "pythonCallArgumentsTokens": 197,
+      "resultTokens": 1577,
+      "musicalResultOnlyTokens": 1415,
+      "rawEventDumpTokens": 7950,
+      "sandboxMs": 830,
+      "pitchedEvents": 128,
+      "addedCallAndResultTokens": 1774
+    },
+    {
+      "measures": 12,
+      "calls": 1,
+      "abcTokens": 342,
+      "pythonCallArgumentsTokens": 197,
+      "resultTokens": 2250,
+      "musicalResultOnlyTokens": 2087,
+      "rawEventDumpTokens": 11918,
+      "sandboxMs": 2125,
+      "pitchedEvents": 192,
+      "addedCallAndResultTokens": 2447
+    },
+    {
+      "measures": 16,
+      "calls": 1,
+      "abcTokens": 438,
+      "pythonCallArgumentsTokens": 197,
+      "resultTokens": 2922,
+      "musicalResultOnlyTokens": 2759,
+      "rawEventDumpTokens": 15886,
+      "sandboxMs": 2497,
+      "pitchedEvents": 256,
+      "addedCallAndResultTokens": 3119
+    },
+    {
+      "measures": 20,
+      "calls": 2,
+      "abcTokens": 534,
+      "pythonCallArgumentsTokens": 394,
+      "resultTokens": 3824,
+      "musicalResultOnlyTokens": 3498,
+      "rawEventDumpTokens": 19864,
+      "sandboxMs": 4221,
+      "pitchedEvents": 320,
+      "addedCallAndResultTokens": 4218
+    }
+  ],
+  "livePairs": [
+    {
+      "id": "04-cadence",
+      "measures": 4,
+      "before": {
+        "model": "z-ai/glm-5.3",
+        "provider": "Relace",
+        "usage": {
+          "prompt_tokens": 231,
+          "completion_tokens": 870,
+          "total_tokens": 1101,
+          "cost": 0.003753975,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.003753975,
+            "upstream_inference_prompt_cost": 1.7325e-05,
+            "upstream_inference_completions_cost": 0.00373665
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 260,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "latencyMs": 7717,
+        "messageContentReferenceTokens": 212,
+        "finishReason": "stop"
+      },
+      "after": {
+        "model": "z-ai/glm-5.3",
+        "provider": "Relace",
+        "usage": {
+          "prompt_tokens": 658,
+          "completion_tokens": 719,
+          "total_tokens": 1377,
+          "cost": 0.003137455,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.003137455,
+            "upstream_inference_prompt_cost": 4.935e-05,
+            "upstream_inference_completions_cost": 0.003088105
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 59,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "latencyMs": 7602,
+        "messageContentReferenceTokens": 642,
+        "finishReason": "stop"
+      },
+      "providerPromptTokenDelta": 427
+    },
+    {
+      "id": "08-suspension",
+      "measures": 8,
+      "before": {
+        "model": "z-ai/glm-5.3",
+        "provider": "Relace",
+        "usage": {
+          "prompt_tokens": 290,
+          "completion_tokens": 1855,
+          "total_tokens": 2145,
+          "cost": 0.007988975,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.007988975,
+            "upstream_inference_prompt_cost": 2.175e-05,
+            "upstream_inference_completions_cost": 0.007967225
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 863,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "latencyMs": 17436,
+        "messageContentReferenceTokens": 275,
+        "finishReason": "stop"
+      },
+      "after": {
+        "model": "z-ai/glm-5.3",
+        "provider": "Relace",
+        "usage": {
+          "prompt_tokens": 950,
+          "completion_tokens": 975,
+          "total_tokens": 1925,
+          "cost": 0.004258875,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.004258875,
+            "upstream_inference_prompt_cost": 7.125e-05,
+            "upstream_inference_completions_cost": 0.004187625
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 205,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "latencyMs": 9020,
+        "messageContentReferenceTokens": 945,
+        "finishReason": "stop"
+      },
+      "providerPromptTokenDelta": 660
+    },
+    {
+      "id": "20-secondary",
+      "measures": 20,
+      "before": {
+        "model": "z-ai/glm-5.3",
+        "provider": "Relace",
+        "usage": {
+          "prompt_tokens": 464,
+          "completion_tokens": 1783,
+          "total_tokens": 2247,
+          "cost": 0.007692785,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.007692785,
+            "upstream_inference_prompt_cost": 3.48e-05,
+            "upstream_inference_completions_cost": 0.007657985
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 665,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "latencyMs": 19499,
+        "messageContentReferenceTokens": 449,
+        "finishReason": "stop"
+      },
+      "after": {
+        "model": "z-ai/glm-5.3",
+        "provider": "Relace",
+        "usage": {
+          "prompt_tokens": 1772,
+          "completion_tokens": 1033,
+          "total_tokens": 2805,
+          "cost": 0.004569635,
+          "is_byok": false,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "cost_details": {
+            "upstream_inference_cost": 0.004569635,
+            "upstream_inference_prompt_cost": 0.0001329,
+            "upstream_inference_completions_cost": 0.004436735
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 116,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "latencyMs": 9110,
+        "messageContentReferenceTokens": 1777,
+        "finishReason": "stop"
+      },
+      "providerPromptTokenDelta": 1308
+    }
+  ],
+  "notes": [
+    "Code, call arguments and result enter the conversation; Python implementation, imports and internal event arrays do not enter unless returned or printed.",
+    "Schema is an additional persistent tool-definition overhead per request. Prior score-read and profile tools are existing baseline overhead, excluded from these deltas.",
+    "Call/result text counts exclude provider role/tool framing and full general chat history. The live pairs instead isolate evidence supplied as an extra user message, without autonomous tool use.",
+    "Raw event dump column is a hypothetical alternative, not an additional payload in the measured tool result.",
+    "20 measures use 1-16 and 17-20; analysis across the boundary needs explicit surrounding context.",
+    "Provider routing is recorded per response; same requested model/settings do not fix backend infrastructure."
+  ]
+}

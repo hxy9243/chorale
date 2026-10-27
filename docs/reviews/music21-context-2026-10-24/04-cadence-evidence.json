@@ -1,0 +1,121 @@
+[
+  {
+    "documentId": "04-cadence",
+    "revision": 1,
+    "range": {
+      "startMeasure": 1,
+      "endMeasure": 4
+    },
+    "engine": {
+      "name": "music21",
+      "version": "10.5.0",
+      "pythonVersion": "3.12.3"
+    },
+    "sandbox": {
+      "backend": "bubblewrap",
+      "network": "isolated",
+      "hostHome": "unmounted",
+      "runtime": "read-only",
+      "syscalls": "seccomp",
+      "childProcesses": "blocked",
+      "scratchMiB": 64,
+      "cpuSeconds": 5,
+      "memoryMiB": 768
+    },
+    "durationMs": 837,
+    "inputSummary": {
+      "pitchedEvents": 16,
+      "measures": 4,
+      "voices": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ]
+    },
+    "result": {
+      "sonorities": [
+        {
+          "m": 1,
+          "t": "0.0",
+          "p": [
+            "G2",
+            "D4",
+            "G4",
+            "B4"
+          ],
+          "b": "G2",
+          "r": "G",
+          "q": "major",
+          "i": 0
+        },
+        {
+          "m": 2,
+          "t": "0.0",
+          "p": [
+            "C3",
+            "E4",
+            "G4",
+            "C5"
+          ],
+          "b": "C3",
+          "r": "C",
+          "q": "major",
+          "i": 0
+        },
+        {
+          "m": 3,
+          "t": "0.0",
+          "p": [
+            "D3",
+            "D4",
+            "F#4",
+            "A4"
+          ],
+          "b": "D3",
+          "r": "D",
+          "q": "major",
+          "i": 0
+        },
+        {
+          "m": 4,
+          "t": "0.0",
+          "p": [
+            "G2",
+            "B3",
+            "D4",
+            "G4"
+          ],
+          "b": "G2",
+          "r": "G",
+          "q": "major",
+          "i": 0
+        }
+      ],
+      "ranges": [
+        {
+          "voice": "1",
+          "low": "G4",
+          "high": "C5"
+        },
+        {
+          "voice": "2",
+          "low": "D4",
+          "high": "G4"
+        },
+        {
+          "voice": "3",
+          "low": "B3",
+          "high": "E4"
+        },
+        {
+          "voice": "4",
+          "low": "G2",
+          "high": "D3"
+        }
+      ]
+    },
+    "stdout": "",
+    "warning": "Read-only computed evidence; verify interpretation against the written score. Rest gaps are silence, and tied notes are merged pitched events."
+  }
+]

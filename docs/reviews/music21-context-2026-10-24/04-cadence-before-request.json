@@ -1,0 +1,21 @@
+{
+  "model": "z-ai/glm-5.3",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a careful music tutor helping a student revise a short score. Analyze only the supplied notation. Be concrete about measure numbers, pitches and bass. Separate literal sonorities, harmonic interpretation, and aesthetic judgment. Computed root/quality guesses may be wrong around non-chord tones. Respond in at most 400 words. Do not invent missing information."
+    },
+    {
+      "role": "user",
+      "content": "Analyze this 4-measure score. Identify the four harmonies and their basses; does the final cadence meet the strict soprano-and-bass condition for a perfect authentic cadence?\n\nX:1\nT:Four-bar cadence\nM:4/4\nL:1/4\nK:G\nV:1\nB4 | c4 | A4 | G4 |]\nV:2\nG4 | G4 | ^F4 | D4 |]\nV:3\nD4 | E4 | D4 | B,4 |]\nV:4 clef=bass\nG,,4 | C,4 | D,4 | G,,4 |]"
+    }
+  ],
+  "temperature": 0,
+  "max_tokens": 4500,
+  "reasoning": {
+    "effort": "low"
+  },
+  "provider": {
+    "allow_fallbacks": false
+  }
+}
