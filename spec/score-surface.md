@@ -3,7 +3,7 @@ title: "Score Surface Spec"
 description: "Specification for score rendering, continuous range selection, chord overlays, range annotation rail, line measure numbers, and auto-centering playback"
 category: "core-workspace"
 date: 2026-08-05
-updated: 2026-10-25
+updated: 2026-10-26
 status: "implemented"
 source_files:
   - src/App.tsx
@@ -102,7 +102,7 @@ This document specifies rendering, layout, interaction, and accessibility behavi
 - Save and build status pills (`Auto-saved`, `SVG ready`, `Music ready`) are hosted in the global application header so they remain permanently visible regardless of score scroll position.
 - Floating score display options (`ScoreCardHeader`) float over the top-center of the score paper with scroll-reactive translucency (`is-scrolling`), providing synchronized zoom controls (−, %, +, Fit).
 - Score zoom remains independently persisted and centered without clipping.
-- Line-start measure numbers (`.chorale-line-measure-number`) are rendered above the start of each staff system for rapid orientation. For scores with an opening pickup measure (measure 0), System 0 displays `1` to identify the first complete measure. When a line starts with the second half of a split measure (e.g. an anacrusis across a section or repeat boundary), the line-start measure number displays the first complete measure on that system.
+- Line-start measure numbers (`.chorale-line-measure-number`) are rendered above the start of each staff system except the opening system, including scores with an opening pickup (measure 0). Later systems display the canonical measure number at their start. A split-measure continuation retains the number of the measure begun on the previous system; it must not advance to the next complete measure. This display rule does not change measure identity, selection, or playback numbering.
 - Playback auto-centering and its manual-scroll pause behavior remain intact.
 - Existing transpose, playback cursor, repeat selection, and first-click hit-area behavior must not regress.
 

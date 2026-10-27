@@ -1156,7 +1156,7 @@ describe('SheetMusicView Component', () => {
     ]);
   });
 
-  it('renders the first measure number in a small label at the start of every system', () => {
+  it('labels later systems while omitting the opening system', () => {
     vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
       if (element && typeof element !== 'string') {
         element.innerHTML = `
@@ -1189,11 +1189,44 @@ describe('SheetMusicView Component', () => {
     const { container } = render(<SheetMusicView abcCode={sampleAbc} />);
 
     const labels = Array.from(container.querySelectorAll('.chorale-line-measure-number'));
-    expect(labels.map((label) => label.textContent)).toEqual(['1', '3']);
-    expect(labels.map((label) => label.getAttribute('data-measure'))).toEqual(['1', '3']);
-    expect(labels.map((label) => label.getAttribute('x'))).toEqual(['24', '24']);
-    expect(labels.map((label) => label.getAttribute('y'))).toEqual(['40', '140']);
+    expect.soft(container.querySelector('.chorale-line-measure-number.abcjs-l0')).toBeNull();
+    expect(labels.map((label) => label.textContent)).toEqual(['3']);
+    expect(labels.map((label) => label.getAttribute('data-measure'))).toEqual(['3']);
+    expect(labels.map((label) => label.getAttribute('x'))).toEqual(['24']);
+    expect(labels.map((label) => label.getAttribute('y'))).toEqual(['140']);
     expect(labels.every((label) => label.getAttribute('aria-hidden') === 'true')).toBe(true);
+  });
+
+  it.each([
+    { name: 'pickup', music: 'C | D4 |\nE4 | F4 |', firstBars: [0, 1], nextBars: [2, 3], expected: '2' },
+    { name: 'split repeat', music: 'C4 | D2 :|:\nD2 | E4 |', firstBars: [0, 1], nextBars: [2, 3], expected: '2' },
+    { name: 'split repeat after a pickup', music: 'C | D4 | E2 :|:\nE2 | F4 |', firstBars: [0, 1, 2], nextBars: [3, 4], expected: '2' },
+    { name: 'final split fragment', music: 'C4 | D2 :|:\nD2 |]', firstBars: [0, 1], nextBars: [2], expected: '2' },
+  ])('keeps canonical system numbering for $name', async ({ music, firstBars, nextBars, expected }) => {
+    // Use the real parser so pickup and repeat-fragment mappings are exercised.
+    const actualAbcjs = (await vi.importActual<{ default: typeof abcjs }>('abcjs')).default;
+    vi.mocked(abcjs.parseOnly).mockImplementationOnce(actualAbcjs.parseOnly);
+    vi.mocked(abcjs.renderAbc).mockImplementationOnce((element) => {
+      if (element && typeof element !== 'string') {
+        element.innerHTML = `<svg>${[firstBars, nextBars].map((bars, line) => `
+          <g class="abcjs-staff abcjs-l${line}"></g>
+          ${bars.map((bar) => `<g class="abcjs-note abcjs-l${line} abcjs-mm${bar}"></g>
+            <g class="abcjs-bar abcjs-l${line} abcjs-mm${bar}"></g>`).join('')}
+        `).join('')}</svg>`;
+        element.querySelectorAll<SVGGraphicsElement>('g').forEach((node) => {
+          Object.defineProperty(node, 'getBBox', {
+            value: () => ({ x: 24, y: node.classList.contains('abcjs-l0') ? 60 : 160, width: 300, height: 40 }),
+          });
+        });
+      }
+      return [{ getBpm: () => 120 }] as any;
+    });
+
+    const { container } = render(<SheetMusicView abcCode={`X:1\nM:4/4\nL:1/4\nK:C\n${music}`} />);
+    expect.soft(container.querySelector('.chorale-line-measure-number.abcjs-l0')).toBeNull();
+    const label = container.querySelector('.chorale-line-measure-number.abcjs-l1');
+    expect(label?.textContent).toBe(expected);
+    expect(label?.getAttribute('data-measure')).toBe(expected);
   });
 
   it('shifts the complete above-staff content stack without moving below-staff text', () => {

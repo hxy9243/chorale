@@ -325,6 +325,8 @@ const installLineStartMeasureNumbers = (
 
   Array.from(lineClasses)
     .sort((left, right) => Number(left.slice(7)) - Number(right.slice(7)))
+    // The opening system is conventionally unnumbered, including pickups.
+    .slice(1)
     .forEach((lineClass) => {
       const staffElements = Array.from(container.querySelectorAll<SVGGraphicsElement>(
         `.abcjs-staff.${lineClass}`,
@@ -341,18 +343,11 @@ const installLineStartMeasureNumbers = (
       if (!svg) return;
       const staffBoxes = staffElements.map((element) => element.getBBox());
       const minBarIndex = Math.min(...measureIndexes);
-      let measure: number;
-      if (mapping && typeof mapping === 'object' && Array.isArray(mapping.barToMeasure)) {
-        if (minBarIndex === 0 && mapping.firstMeasureNumber === 0) {
-          measure = mapping.barToMeasure[1] ?? 1;
-        } else if (minBarIndex > 0 && mapping.barToMeasure[minBarIndex] === mapping.barToMeasure[minBarIndex - 1]) {
-          measure = mapping.barToMeasure[minBarIndex + 1] ?? (minBarIndex + firstMeasureNumber);
-        } else {
-          measure = mapping.barToMeasure[minBarIndex] ?? (minBarIndex + firstMeasureNumber);
-        }
-      } else {
-        measure = minBarIndex + firstMeasureNumber;
-      }
+      // Repeat/section boundaries can split a measure into multiple engraved
+      // bars. A continuation keeps its canonical number on the next system.
+      const measure = mapping && typeof mapping === 'object' && Array.isArray(mapping.barToMeasure)
+        ? (mapping.barToMeasure[minBarIndex] ?? (minBarIndex + firstMeasureNumber))
+        : minBarIndex + firstMeasureNumber;
       const label = document.createElementNS(SVG_NAMESPACE, 'text');
       label.classList.add('chorale-line-measure-number', lineClass);
       label.dataset.measure = String(measure);
