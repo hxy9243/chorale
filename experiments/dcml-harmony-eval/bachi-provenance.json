@@ -1,0 +1,14 @@
+{
+  "code_repository": "https://github.com/AndyWeasley2004/BACHI_Chord_Recognition",
+  "code_commit": "f0bead1a9ffad4720190a5e4ddc57c35926327aa",
+  "compatibility_patch": "patches/bachi-music21-10.patch",
+  "checkpoint_repository": "https://huggingface.co/datasets/Itsuki-music/BACHI_Chord_Recognition",
+  "checkpoint_repository_revision": "7fd45be21b2b917d0a3fc349b6f48e9486f6ad19",
+  "checkpoint_path": "classical_film_kdec",
+  "checkpoint_sha256": "fdf2ddb6ff623735cc4b2631520f412ca5c0efe18e9fd50e692552aa95990b47",
+  "config_sha256": "5be3f13d02f1abec99edb067b11599361f92f9b86961530fd51ff5c72f455ce3",
+  "vocab_sha256": "a8fb7cafc82f6eafc31785f0b0faf5f9eece1169b19e41cbdaf1e96d487e5e2b",
+  "device": "cpu",
+  "input_resolution_frames_per_quarter_beat": 12,
+  "six_case_export_validation": "zero differing piano-roll cells for all six cases"
+}

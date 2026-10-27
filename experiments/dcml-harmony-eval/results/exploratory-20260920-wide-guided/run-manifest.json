@@ -1,0 +1,27 @@
+{
+  "calls_expected": 80,
+  "calls_recorded": 80,
+  "condition": "model_skill_evidence",
+  "created_utc": "2026-09-21T01:52:21Z",
+  "models": [
+    {
+      "effort": "xhigh",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "effort": "xhigh",
+      "model": "gpt-5.6-terra"
+    },
+    {
+      "effort": "high",
+      "model": "gpt-5.6-sol"
+    },
+    {
+      "effort": "medium",
+      "model": "gpt-6-astra"
+    }
+  ],
+  "run_id": "exploratory-20260920-wide-guided",
+  "selection_sha256": "7a64372366ab311cda45132b3fd91f140e0a32aea68b2b071dd7b739a78452e7",
+  "skill_sha256": "f30056c7716d9307ddc5881549a374f9656f775fec22f4c8e1e2ef6b339a8f36"
+}

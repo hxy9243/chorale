@@ -1,0 +1,46 @@
+{
+  "calls_expected": 140,
+  "calls_recorded": 140,
+  "condition": "model_skill_evidence",
+  "created_utc": "2026-09-21T03:31:46Z",
+  "models": [
+    {
+      "effort": "xhigh",
+      "model": "gpt-5.6-luna",
+      "transport": "codex-cli"
+    },
+    {
+      "effort": "high",
+      "model": "gpt-5.6-sol",
+      "transport": "codex-cli"
+    },
+    {
+      "effort": "xhigh",
+      "model": "gpt-5.6-terra",
+      "transport": "codex-cli"
+    },
+    {
+      "effort": "medium",
+      "model": "gpt-6-astra",
+      "transport": "codex-cli"
+    },
+    {
+      "effort": "high",
+      "model": "openrouter/deepseek/deepseek-v4.1-flash",
+      "transport": "pi/openrouter"
+    },
+    {
+      "effort": "high",
+      "model": "openrouter/moonshotai/kimi-k3",
+      "transport": "pi/openrouter"
+    },
+    {
+      "effort": "high",
+      "model": "openrouter/z-ai/glm-5.2",
+      "transport": "pi/openrouter"
+    }
+  ],
+  "run_id": "exploratory-20260920-final-seven-model",
+  "selection_sha256": "7a64372366ab311cda45132b3fd91f140e0a32aea68b2b071dd7b739a78452e7",
+  "skill_sha256": "f30056c7716d9307ddc5881549a374f9656f775fec22f4c8e1e2ef6b339a8f36"
+}

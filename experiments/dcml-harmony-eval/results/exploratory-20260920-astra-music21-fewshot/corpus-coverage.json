@@ -1,0 +1,56 @@
+[
+  {
+    "case_id": "case-a1",
+    "duration_qb": "32",
+    "gold_spans": 23,
+    "measures": 8,
+    "movement": "K310-1",
+    "note_events": 180,
+    "rationale": "A-minor development passage with dense attacks and chromatic dominant function"
+  },
+  {
+    "case_id": "case-b2",
+    "duration_qb": "32",
+    "gold_spans": 28,
+    "measures": 8,
+    "movement": "K533-1",
+    "note_events": 82,
+    "rationale": "F-major work, locally dominant, with independent lines and alla-breve texture"
+  },
+  {
+    "case_id": "case-c3",
+    "duration_qb": "32",
+    "gold_spans": 42,
+    "measures": 8,
+    "movement": "K570-2",
+    "note_events": 202,
+    "rationale": "Slow E-flat-major passage with ornaments, sustained voices, and high label density"
+  },
+  {
+    "case_id": "case-d4",
+    "duration_qb": "24",
+    "gold_spans": 19,
+    "measures": 8,
+    "movement": "K576-1",
+    "note_events": 118,
+    "rationale": "Late D-major 6/8 writing with contrapuntal and figurated activity"
+  },
+  {
+    "case_id": "case-e5",
+    "duration_qb": "16",
+    "gold_spans": 21,
+    "measures": 8,
+    "movement": "K281-1",
+    "note_events": 152,
+    "rationale": "B-flat-major movement's minor-key episode and return with applied dominants"
+  },
+  {
+    "case_id": "case-f6",
+    "duration_qb": "32",
+    "gold_spans": 14,
+    "measures": 8,
+    "movement": "K457-1",
+    "note_events": 74,
+    "rationale": "C-minor work, locally in III, with sparse but chromatically complex harmony"
+  }
+]

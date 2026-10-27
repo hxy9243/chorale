@@ -1,0 +1,6721 @@
+{
+  "boundary_tolerance_qb": "1/4",
+  "cases": [
+    {
+      "case_id": "wide-a01",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 642.099,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 14,
+        "metrics": {
+          "boundary_f1": 0.7027027027027027,
+          "boundary_precision": 0.5416666666666666,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 25,
+          "harmony_exact": 0.4375,
+          "inversion_accuracy": 0.796875,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.765625,
+          "root_accuracy": 0.640625,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 25,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "1/4"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/4"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I64"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "V(64)"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 35584,
+        "input_tokens": 47292,
+        "output_tokens": 2283,
+        "reasoning_output_tokens": 0
+      }
+    },
+    {
+      "case_id": "wide-a02",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 717.998,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 17,
+        "metrics": {
+          "boundary_f1": 0.6341463414634146,
+          "boundary_precision": 0.52,
+          "boundary_recall": 0.8125,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 26,
+          "harmony_exact": 0.3125,
+          "inversion_accuracy": 0.53125,
+          "local_key_accuracy": 0.8125,
+          "quality_accuracy": 0.8125,
+          "root_accuracy": 0.6875,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 26,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "5/4"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "1"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "bVII"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "C major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 17152,
+        "input_tokens": 52785,
+        "output_tokens": 2416,
+        "reasoning_output_tokens": 0
+      }
+    },
+    {
+      "case_id": "wide-a03",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 581.077,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 17,
+        "metrics": {
+          "boundary_f1": 0.967741935483871,
+          "boundary_precision": 1.0,
+          "boundary_recall": 0.9375,
+          "coverage": 1.0,
+          "duration_qb": 24.0,
+          "evidence_claims": 17,
+          "harmony_exact": 0.5833333333333334,
+          "inversion_accuracy": 0.7916666666666666,
+          "local_key_accuracy": 0.8333333333333334,
+          "quality_accuracy": 0.7916666666666666,
+          "root_accuracy": 0.7916666666666666,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 16,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "D major",
+              "quality": "dominant seventh",
+              "roman": "V43"
+            },
+            "reference": {
+              "inversion": "second",
+              "local_key": "D major",
+              "quality": "dominant-seventh",
+              "roman": "V43"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 3,
+              "offset_qb": "2"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "D major",
+              "quality": "minor",
+              "roman": "iii64"
+            },
+            "reference": {
+              "inversion": "third",
+              "local_key": "D major",
+              "quality": "MM7",
+              "roman": "IM2"
+            },
+            "start": {
+              "measure": 3,
+              "offset_qb": "1"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 21248,
+        "input_tokens": 35474,
+        "output_tokens": 18006,
+        "reasoning_output_tokens": 16528
+      }
+    },
+    {
+      "case_id": "wide-a04",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 437.111,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 12,
+        "metrics": {
+          "boundary_f1": 0.41509433962264153,
+          "boundary_precision": 0.2619047619047619,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 43,
+          "harmony_exact": 0.5,
+          "inversion_accuracy": 0.53125,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.9375,
+          "root_accuracy": 0.90625,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 43,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "V"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 6912,
+        "input_tokens": 15615,
+        "output_tokens": 24022,
+        "reasoning_output_tokens": 19963
+      }
+    },
+    {
+      "case_id": "wide-a05",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 539.106,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 16,
+        "metrics": {
+          "boundary_f1": 0.5714285714285713,
+          "boundary_precision": 0.4117647058823529,
+          "boundary_recall": 0.9333333333333333,
+          "coverage": 1.0,
+          "duration_qb": 24.0,
+          "evidence_claims": 35,
+          "harmony_exact": 0.375,
+          "inversion_accuracy": 0.611111111111111,
+          "local_key_accuracy": 0.7916666666666666,
+          "quality_accuracy": 0.7083333333333334,
+          "root_accuracy": 0.7152777777777778,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 35,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "5/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "B- major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "B- major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "2"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "2"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "B- major",
+              "quality": "minor",
+              "roman": "v6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "E- major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 16672,
+        "output_tokens": 29711,
+        "reasoning_output_tokens": 26456
+      }
+    },
+    {
+      "case_id": "wide-a06",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 1222.753,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 32,
+        "metrics": {
+          "boundary_f1": 0.5,
+          "boundary_precision": 0.3333333333333333,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 32.0,
+          "evidence_claims": 94,
+          "harmony_exact": 0.28125,
+          "inversion_accuracy": 0.5,
+          "local_key_accuracy": 0.78125,
+          "quality_accuracy": 0.5,
+          "root_accuracy": 0.5703125,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 94,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/4"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "B- major",
+              "quality": "minor",
+              "roman": "iv6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "B- major",
+              "quality": "minor",
+              "roman": "iv6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "B- major",
+              "quality": "minor",
+              "roman": "iv64"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "B- major",
+              "quality": "minor",
+              "roman": "iv6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "1/4"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 27392,
+        "input_tokens": 27905,
+        "output_tokens": 38706,
+        "reasoning_output_tokens": 29801
+      }
+    },
+    {
+      "case_id": "wide-a07",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 1662.564,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 14,
+        "metrics": {
+          "boundary_f1": 0.3823529411764706,
+          "boundary_precision": 0.23636363636363636,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 32.0,
+          "evidence_claims": 57,
+          "harmony_exact": 0.0,
+          "inversion_accuracy": 0.5104166666666666,
+          "local_key_accuracy": 0.0,
+          "quality_accuracy": 0.359375,
+          "root_accuracy": 0.8125,
+          "unsupported_note_claim_rate": 0.017543859649122806
+        },
+        "predicted_span_count": 56,
+        "representative": {
+          "correct": null,
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "C minor",
+              "quality": "major",
+              "roman": "III6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": [
+          {
+            "position_qb": "3",
+            "reason": "unsupported-pitch",
+            "span": 4
+          }
+        ]
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 17152,
+        "input_tokens": 29548,
+        "output_tokens": 34793,
+        "reasoning_output_tokens": 29524
+      }
+    },
+    {
+      "case_id": "wide-a08",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 379.617,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 10,
+        "metrics": {
+          "boundary_f1": 0.4666666666666666,
+          "boundary_precision": 0.3333333333333333,
+          "boundary_recall": 0.7777777777777778,
+          "coverage": 1.0,
+          "duration_qb": 12.0,
+          "evidence_claims": 22,
+          "harmony_exact": 0.0,
+          "inversion_accuracy": 0.2916666666666667,
+          "local_key_accuracy": 0.0,
+          "quality_accuracy": 0.3958333333333333,
+          "root_accuracy": 0.625,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 22,
+        "representative": {
+          "correct": null,
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "A minor",
+              "quality": "minor triad",
+              "roman": "v"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "IV6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 6912,
+        "input_tokens": 14956,
+        "output_tokens": 20789,
+        "reasoning_output_tokens": 18646
+      }
+    },
+    {
+      "case_id": "wide-a09",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 363.598,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 8,
+        "metrics": {
+          "boundary_f1": 0.2857142857142857,
+          "boundary_precision": 0.17857142857142858,
+          "boundary_recall": 0.7142857142857143,
+          "coverage": 1.0,
+          "duration_qb": 12.0,
+          "evidence_claims": 32,
+          "harmony_exact": 0.0,
+          "inversion_accuracy": 0.25,
+          "local_key_accuracy": 0.0,
+          "quality_accuracy": 0.4583333333333333,
+          "root_accuracy": 0.625,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 29,
+        "representative": {
+          "correct": null,
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "unknown",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "C major",
+              "quality": "dominant-seventh",
+              "roman": "V7(9)"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 13781,
+        "output_tokens": 20001,
+        "reasoning_output_tokens": 17279
+      }
+    },
+    {
+      "case_id": "wide-a10",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 575.574,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 27,
+        "metrics": {
+          "boundary_f1": 0.8666666666666666,
+          "boundary_precision": 0.7647058823529411,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 35,
+          "harmony_exact": 0.65625,
+          "inversion_accuracy": 0.75,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.71875,
+          "root_accuracy": 0.75,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 35,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "A major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "A major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "A major",
+              "quality": "diminished",
+              "roman": "vii\u00b06/vi"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "A major",
+              "quality": "o",
+              "roman": "#viio6/vi"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 17244,
+        "output_tokens": 17376,
+        "reasoning_output_tokens": 13984
+      }
+    },
+    {
+      "case_id": "wide-b01",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 642.029,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 8,
+        "metrics": {
+          "boundary_f1": 0.2978723404255319,
+          "boundary_precision": 0.175,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 24.0,
+          "evidence_claims": 41,
+          "harmony_exact": 0.3125,
+          "inversion_accuracy": 0.3958333333333333,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.8958333333333334,
+          "root_accuracy": 0.9583333333333334,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 41,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "E major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "E major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "1"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "E major",
+              "quality": "major",
+              "roman": "IV64"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "E major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 17152,
+        "input_tokens": 45594,
+        "output_tokens": 3921,
+        "reasoning_output_tokens": 19
+      }
+    },
+    {
+      "case_id": "wide-b02",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 598.793,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 12,
+        "metrics": {
+          "boundary_f1": 0.8,
+          "boundary_precision": 0.7142857142857143,
+          "boundary_recall": 0.9090909090909091,
+          "coverage": 1.0,
+          "duration_qb": 24.0,
+          "evidence_claims": 16,
+          "harmony_exact": 0.6319458333333333,
+          "inversion_accuracy": 0.6527791666666667,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.8819458333333333,
+          "root_accuracy": 0.8819458333333333,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 15,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "D major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "D major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "2"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "D major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "D major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 21838,
+        "output_tokens": 20628,
+        "reasoning_output_tokens": 19164
+      }
+    },
+    {
+      "case_id": "wide-b03",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 693.162,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 29,
+        "metrics": {
+          "boundary_f1": 0.7586206896551724,
+          "boundary_precision": 0.7333333333333333,
+          "boundary_recall": 0.7857142857142857,
+          "coverage": 1.0,
+          "duration_qb": 32.0,
+          "evidence_claims": 33,
+          "harmony_exact": 0.109375,
+          "inversion_accuracy": 0.578125,
+          "local_key_accuracy": 0.828125,
+          "quality_accuracy": 0.109375,
+          "root_accuracy": 0.125,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 31,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "2"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "B- major",
+              "quality": "major triad",
+              "roman": "I6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "Bb major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "B- major",
+              "quality": "incomplete dominant seventh",
+              "roman": "V7"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "Bb major",
+              "quality": "minor",
+              "roman": "iii6[no1][add2]"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 20224,
+        "input_tokens": 55661,
+        "output_tokens": 3417,
+        "reasoning_output_tokens": 254
+      }
+    },
+    {
+      "case_id": "wide-b04",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 613.482,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 13,
+        "metrics": {
+          "boundary_f1": 0.5454545454545454,
+          "boundary_precision": 0.375,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 33,
+          "harmony_exact": 0.0,
+          "inversion_accuracy": 0.11458333333333333,
+          "local_key_accuracy": 0.0,
+          "quality_accuracy": 0.484375,
+          "root_accuracy": 0.5677083333333334,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 33,
+        "representative": {
+          "correct": null,
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/6"
+            },
+            "prediction": {
+              "inversion": "unknown",
+              "local_key": "G# minor",
+              "quality": "minor",
+              "roman": "i"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "F# major",
+              "quality": "dominant-seventh",
+              "roman": "V65/V"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 6912,
+        "input_tokens": 34942,
+        "output_tokens": 33761,
+        "reasoning_output_tokens": 30182
+      }
+    },
+    {
+      "case_id": "wide-b05",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 362.199,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 30,
+        "metrics": {
+          "boundary_f1": 0.9508196721311475,
+          "boundary_precision": 0.90625,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 25.0,
+          "evidence_claims": 33,
+          "harmony_exact": 0.68,
+          "inversion_accuracy": 0.9,
+          "local_key_accuracy": 0.84,
+          "quality_accuracy": 0.9,
+          "root_accuracy": 0.9,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 33,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 4,
+              "offset_qb": "2"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I64"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "V"
+            },
+            "start": {
+              "measure": 4,
+              "offset_qb": "3/2"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 6912,
+        "input_tokens": 17400,
+        "output_tokens": 19839,
+        "reasoning_output_tokens": 16646
+      }
+    },
+    {
+      "case_id": "wide-b06",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 901.545,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 15,
+        "metrics": {
+          "boundary_f1": 0.7368421052631579,
+          "boundary_precision": 0.5833333333333334,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 12.0,
+          "evidence_claims": 25,
+          "harmony_exact": 0.5208333333333334,
+          "inversion_accuracy": 0.75,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 1.0,
+          "root_accuracy": 0.875,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 25,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "3/4"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "F major",
+              "quality": "major triad",
+              "roman": "V"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "V"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/4"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "F major",
+              "quality": "major triad",
+              "roman": "V6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "V6[add11]"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 15546,
+        "output_tokens": 24589,
+        "reasoning_output_tokens": 22272
+      }
+    },
+    {
+      "case_id": "wide-b07",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 593.954,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 12,
+        "metrics": {
+          "boundary_f1": 0.7096774193548387,
+          "boundary_precision": 0.55,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 12.0,
+          "evidence_claims": 22,
+          "harmony_exact": 0.0,
+          "inversion_accuracy": 0.75,
+          "local_key_accuracy": 0.0,
+          "quality_accuracy": 0.7708333333333334,
+          "root_accuracy": 0.8125,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 21,
+        "representative": {
+          "correct": null,
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "C minor",
+              "quality": "minor triad",
+              "roman": "iv64"
+            },
+            "reference": {
+              "inversion": "second",
+              "local_key": "C major",
+              "quality": "minor",
+              "roman": "iv64"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 6912,
+        "input_tokens": 14656,
+        "output_tokens": 32797,
+        "reasoning_output_tokens": 30801
+      }
+    },
+    {
+      "case_id": "wide-b08",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 846.311,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 11,
+        "metrics": {
+          "boundary_f1": 0.75,
+          "boundary_precision": 0.6428571428571429,
+          "boundary_recall": 0.9,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 15,
+          "harmony_exact": 0.6510416666666666,
+          "inversion_accuracy": 0.6588541666666666,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.7135416666666666,
+          "root_accuracy": 0.0,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 15,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "E- minor",
+              "quality": "minor",
+              "roman": "iv"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "Eb minor",
+              "quality": "minor",
+              "roman": "iv"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 3,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "E- minor",
+              "quality": "major",
+              "roman": "III"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "Eb minor",
+              "quality": "major",
+              "roman": "bII6"
+            },
+            "start": {
+              "measure": 3,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 6912,
+        "input_tokens": 35522,
+        "output_tokens": 27371,
+        "reasoning_output_tokens": 25840
+      }
+    },
+    {
+      "case_id": "wide-b09",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 712.976,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 15,
+        "metrics": {
+          "boundary_f1": 0.5405405405405405,
+          "boundary_precision": 0.43478260869565216,
+          "boundary_recall": 0.7142857142857143,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 28,
+          "harmony_exact": 0.078125,
+          "inversion_accuracy": 0.5625,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.3203125,
+          "root_accuracy": 0.28125,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 24,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 3,
+              "offset_qb": "5/4"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major triad",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 3,
+              "offset_qb": "1"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major triad",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "V"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 23570,
+        "output_tokens": 39419,
+        "reasoning_output_tokens": 37015
+      }
+    },
+    {
+      "case_id": "wide-b10",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 577.058,
+      "model": "gpt-5.6-luna",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 35,
+        "metrics": {
+          "boundary_f1": 0.8800000000000001,
+          "boundary_precision": 0.8048780487804879,
+          "boundary_recall": 0.9705882352941176,
+          "coverage": 1.0,
+          "duration_qb": 32.0,
+          "evidence_claims": 44,
+          "harmony_exact": 0.265625,
+          "inversion_accuracy": 0.828125,
+          "local_key_accuracy": 0.3125,
+          "quality_accuracy": 0.828125,
+          "root_accuracy": 0.8125,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 42,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 4,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 3,
+              "offset_qb": "3"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "F major",
+              "quality": "minor",
+              "roman": "vi"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "D minor",
+              "quality": "minor",
+              "roman": "i"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 19687,
+        "output_tokens": 31829,
+        "reasoning_output_tokens": 27641
+      }
+    },
+    {
+      "case_id": "wide-a01",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 182.319,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 14,
+        "metrics": {
+          "boundary_f1": 1.0,
+          "boundary_precision": 1.0,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 20,
+          "harmony_exact": 0.59375,
+          "inversion_accuracy": 0.8125,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.78125,
+          "root_accuracy": 0.8125,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 14,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I64"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "V(64)"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 16885,
+        "output_tokens": 9917,
+        "reasoning_output_tokens": 8464
+      }
+    },
+    {
+      "case_id": "wide-a02",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 129.332,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 17,
+        "metrics": {
+          "boundary_f1": 0.9333333333333333,
+          "boundary_precision": 1.0,
+          "boundary_recall": 0.875,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 31,
+          "harmony_exact": 0.8125,
+          "inversion_accuracy": 0.9375,
+          "local_key_accuracy": 0.8125,
+          "quality_accuracy": 0.9375,
+          "root_accuracy": 0.9375,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 15,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 3,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "1"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "bVII"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "C major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 17325,
+        "output_tokens": 6989,
+        "reasoning_output_tokens": 5178
+      }
+    },
+    {
+      "case_id": "wide-a03",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 198.813,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 17,
+        "metrics": {
+          "boundary_f1": 0.9032258064516129,
+          "boundary_precision": 0.9333333333333333,
+          "boundary_recall": 0.875,
+          "coverage": 0.875,
+          "duration_qb": 24.0,
+          "evidence_claims": 43,
+          "harmony_exact": 0.625,
+          "inversion_accuracy": 0.7083333333333334,
+          "local_key_accuracy": 0.875,
+          "quality_accuracy": 0.6666666666666666,
+          "root_accuracy": 0.75,
+          "unsupported_note_claim_rate": 0.023255813953488372
+        },
+        "predicted_span_count": 16,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "D major",
+              "quality": "dominant seventh",
+              "roman": "V43"
+            },
+            "reference": {
+              "inversion": "second",
+              "local_key": "D major",
+              "quality": "dominant-seventh",
+              "roman": "V43"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 3,
+              "offset_qb": "2"
+            },
+            "prediction": {
+              "inversion": "third",
+              "local_key": "D major",
+              "quality": "major seventh",
+              "roman": "I42"
+            },
+            "reference": {
+              "inversion": "third",
+              "local_key": "D major",
+              "quality": "MM7",
+              "roman": "IM2"
+            },
+            "start": {
+              "measure": 3,
+              "offset_qb": "1"
+            }
+          }
+        },
+        "unsupported_claims": [
+          {
+            "position_qb": "41/2",
+            "reason": "incorrect-literal-bass",
+            "span": 15
+          }
+        ]
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 22010,
+        "output_tokens": 10775,
+        "reasoning_output_tokens": 6186
+      }
+    },
+    {
+      "case_id": "wide-a04",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 86.508,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 12,
+        "metrics": {
+          "boundary_f1": 0.9565217391304348,
+          "boundary_precision": 0.9166666666666666,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 20,
+          "harmony_exact": 0.9375,
+          "inversion_accuracy": 0.96875,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.9375,
+          "root_accuracy": 0.96875,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 13,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 3,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "E- major",
+              "quality": "dominant seventh",
+              "roman": "V65"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "V6"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "3/2"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 7680,
+        "input_tokens": 15615,
+        "output_tokens": 4589,
+        "reasoning_output_tokens": 3171
+      }
+    },
+    {
+      "case_id": "wide-a05",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 160.647,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 16,
+        "metrics": {
+          "boundary_f1": 0.6363636363636364,
+          "boundary_precision": 0.4827586206896552,
+          "boundary_recall": 0.9333333333333333,
+          "coverage": 1.0,
+          "duration_qb": 24.0,
+          "evidence_claims": 31,
+          "harmony_exact": 0.125,
+          "inversion_accuracy": 0.6041666666666666,
+          "local_key_accuracy": 0.20833333333333334,
+          "quality_accuracy": 0.6666666666666666,
+          "root_accuracy": 0.8333333333333334,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 30,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "2"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "E- major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "E- major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "E- major",
+              "quality": "half-diminished seventh",
+              "roman": "vii\u00f87/V"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "E- major",
+              "quality": "%7",
+              "roman": "vii%7/V"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "2"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 16672,
+        "output_tokens": 8727,
+        "reasoning_output_tokens": 5931
+      }
+    },
+    {
+      "case_id": "wide-a06",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 242.292,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 32,
+        "metrics": {
+          "boundary_f1": 0.6923076923076925,
+          "boundary_precision": 0.574468085106383,
+          "boundary_recall": 0.8709677419354839,
+          "coverage": 1.0,
+          "duration_qb": 32.0,
+          "evidence_claims": 81,
+          "harmony_exact": 0.421875,
+          "inversion_accuracy": 0.78125,
+          "local_key_accuracy": 0.78125,
+          "quality_accuracy": 0.6953125,
+          "root_accuracy": 0.7421875,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 48,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "B- major",
+              "quality": "minor",
+              "roman": "iv6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "B- major",
+              "quality": "minor",
+              "roman": "iv6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "11/4"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "B- major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "B- major",
+              "quality": "major",
+              "roman": "I6(14)"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "2"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 27905,
+        "output_tokens": 13247,
+        "reasoning_output_tokens": 7814
+      }
+    },
+    {
+      "case_id": "wide-a07",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 155.661,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 14,
+        "metrics": {
+          "boundary_f1": 0.8275862068965517,
+          "boundary_precision": 0.75,
+          "boundary_recall": 0.9230769230769231,
+          "coverage": 1.0,
+          "duration_qb": 32.0,
+          "evidence_claims": 23,
+          "harmony_exact": 0.3125,
+          "inversion_accuracy": 0.796875,
+          "local_key_accuracy": 0.625,
+          "quality_accuracy": 0.625,
+          "root_accuracy": 0.8125,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 17,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "2"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "Eb major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 3,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "Eb major",
+              "quality": "major",
+              "roman": "V"
+            },
+            "reference": {
+              "inversion": "second",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "I64"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "3"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 7680,
+        "input_tokens": 17634,
+        "output_tokens": 8394,
+        "reasoning_output_tokens": 6732
+      }
+    },
+    {
+      "case_id": "wide-a08",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 104.934,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 10,
+        "metrics": {
+          "boundary_f1": 0.8888888888888888,
+          "boundary_precision": 0.8888888888888888,
+          "boundary_recall": 0.8888888888888888,
+          "coverage": 1.0,
+          "duration_qb": 12.0,
+          "evidence_claims": 14,
+          "harmony_exact": 0.9166666666666666,
+          "inversion_accuracy": 0.9583333333333334,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.9583333333333334,
+          "root_accuracy": 0.9583333333333334,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 10,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "IV6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "IV6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 7,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "start": {
+              "measure": 7,
+              "offset_qb": "1/2"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 14956,
+        "output_tokens": 5635,
+        "reasoning_output_tokens": 4577
+      }
+    },
+    {
+      "case_id": "wide-a09",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 76.3,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 8,
+        "metrics": {
+          "boundary_f1": 0.7142857142857143,
+          "boundary_precision": 0.7142857142857143,
+          "boundary_recall": 0.7142857142857143,
+          "coverage": 1.0,
+          "duration_qb": 12.0,
+          "evidence_claims": 18,
+          "harmony_exact": 0.0,
+          "inversion_accuracy": 0.625,
+          "local_key_accuracy": 0.0,
+          "quality_accuracy": 0.4583333333333333,
+          "root_accuracy": 0.625,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 8,
+        "representative": {
+          "correct": null,
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "unknown",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "C major",
+              "quality": "dominant-seventh",
+              "roman": "V7(9)"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 13781,
+        "output_tokens": 4007,
+        "reasoning_output_tokens": 3027
+      }
+    },
+    {
+      "case_id": "wide-a10",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 135.528,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 27,
+        "metrics": {
+          "boundary_f1": 0.9811320754716981,
+          "boundary_precision": 0.9629629629629629,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 33,
+          "harmony_exact": 0.71875,
+          "inversion_accuracy": 0.84375,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.78125,
+          "root_accuracy": 0.84375,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 28,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "A major",
+              "quality": "major triad",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "A major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "A major",
+              "quality": "diminished triad",
+              "roman": "viio6/vi"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "A major",
+              "quality": "o",
+              "roman": "#viio6/vi"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 17244,
+        "output_tokens": 7313,
+        "reasoning_output_tokens": 4419
+      }
+    },
+    {
+      "case_id": "wide-b01",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 87.542,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 8,
+        "metrics": {
+          "boundary_f1": 0.7999999999999999,
+          "boundary_precision": 0.75,
+          "boundary_recall": 0.8571428571428571,
+          "coverage": 1.0,
+          "duration_qb": 24.0,
+          "evidence_claims": 11,
+          "harmony_exact": 0.4375,
+          "inversion_accuracy": 0.4583333333333333,
+          "local_key_accuracy": 0.9791666666666666,
+          "quality_accuracy": 0.9375,
+          "root_accuracy": 0.9583333333333334,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 9,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 5,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "E major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "E major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 3,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "E major",
+              "quality": "major",
+              "roman": "IV64"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "E major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 17624,
+        "output_tokens": 4589,
+        "reasoning_output_tokens": 3624
+      }
+    },
+    {
+      "case_id": "wide-b02",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 89.474,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 12,
+        "metrics": {
+          "boundary_f1": 0.7407407407407406,
+          "boundary_precision": 0.625,
+          "boundary_recall": 0.9090909090909091,
+          "coverage": 1.0,
+          "duration_qb": 24.0,
+          "evidence_claims": 28,
+          "harmony_exact": 0.4652791666666667,
+          "inversion_accuracy": 0.4861125,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.6736125,
+          "root_accuracy": 0.7152791666666666,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 17,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "D major",
+              "quality": "minor triad",
+              "roman": "ii6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "D major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "2"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "D major",
+              "quality": "major triad",
+              "roman": "IV"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "D major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 21838,
+        "output_tokens": 4764,
+        "reasoning_output_tokens": 2772
+      }
+    },
+    {
+      "case_id": "wide-b03",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 175.994,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 29,
+        "metrics": {
+          "boundary_f1": 0.7999999999999999,
+          "boundary_precision": 0.8148148148148148,
+          "boundary_recall": 0.7857142857142857,
+          "coverage": 1.0,
+          "duration_qb": 32.0,
+          "evidence_claims": 29,
+          "harmony_exact": 0.09375,
+          "inversion_accuracy": 0.546875,
+          "local_key_accuracy": 0.703125,
+          "quality_accuracy": 0.1875,
+          "root_accuracy": 0.140625,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 28,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "2"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "B- major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "Bb major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "B- major",
+              "quality": "dominant seventh",
+              "roman": "V7"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "Bb major",
+              "quality": "minor",
+              "roman": "iii6[no1][add2]"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 20955,
+        "output_tokens": 9548,
+        "reasoning_output_tokens": 6775
+      }
+    },
+    {
+      "case_id": "wide-b04",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 178.808,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 13,
+        "metrics": {
+          "boundary_f1": 0.923076923076923,
+          "boundary_precision": 0.8571428571428571,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 24,
+          "harmony_exact": 0.0,
+          "inversion_accuracy": 0.8854166666666666,
+          "local_key_accuracy": 0.0,
+          "quality_accuracy": 0.875,
+          "root_accuracy": 0.78125,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 15,
+        "representative": {
+          "correct": null,
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "C# major",
+              "quality": "dominant seventh",
+              "roman": "V65"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "F# major",
+              "quality": "dominant-seventh",
+              "roman": "V65/V"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 34942,
+        "output_tokens": 9719,
+        "reasoning_output_tokens": 7768
+      }
+    },
+    {
+      "case_id": "wide-b05",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 126.22,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 30,
+        "metrics": {
+          "boundary_f1": 0.9206349206349206,
+          "boundary_precision": 0.8529411764705882,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 25.0,
+          "evidence_claims": 36,
+          "harmony_exact": 0.72,
+          "inversion_accuracy": 0.88,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.88,
+          "root_accuracy": 0.88,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 35,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "unknown",
+              "local_key": "G major",
+              "quality": "dominant-seventh",
+              "roman": "V7"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 17400,
+        "output_tokens": 6626,
+        "reasoning_output_tokens": 3211
+      }
+    },
+    {
+      "case_id": "wide-b06",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 111.373,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 15,
+        "metrics": {
+          "boundary_f1": 0.8125000000000001,
+          "boundary_precision": 0.7222222222222222,
+          "boundary_recall": 0.9285714285714286,
+          "coverage": 1.0,
+          "duration_qb": 12.0,
+          "evidence_claims": 39,
+          "harmony_exact": 0.5,
+          "inversion_accuracy": 0.7916666666666666,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.9166666666666666,
+          "root_accuracy": 0.875,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 19,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "1/2"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "F major",
+              "quality": "major triad",
+              "roman": "I6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "F major",
+              "quality": "dominant seventh",
+              "roman": "V65"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "V6[add11]"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 15546,
+        "output_tokens": 5978,
+        "reasoning_output_tokens": 3674
+      }
+    },
+    {
+      "case_id": "wide-b07",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 117.388,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 12,
+        "metrics": {
+          "boundary_f1": 0.7586206896551725,
+          "boundary_precision": 0.6111111111111112,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 12.0,
+          "evidence_claims": 25,
+          "harmony_exact": 0.0,
+          "inversion_accuracy": 0.8958333333333334,
+          "local_key_accuracy": 0.0,
+          "quality_accuracy": 0.7916666666666666,
+          "root_accuracy": 0.9583333333333334,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 19,
+        "representative": {
+          "correct": null,
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "C minor",
+              "quality": "minor",
+              "roman": "iv64"
+            },
+            "reference": {
+              "inversion": "second",
+              "local_key": "C major",
+              "quality": "minor",
+              "roman": "iv64"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 14656,
+        "output_tokens": 6258,
+        "reasoning_output_tokens": 4323
+      }
+    },
+    {
+      "case_id": "wide-b08",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 179.13,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 11,
+        "metrics": {
+          "boundary_f1": 0.8421052631578948,
+          "boundary_precision": 0.8888888888888888,
+          "boundary_recall": 0.8,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 22,
+          "harmony_exact": 0.3125,
+          "inversion_accuracy": 0.695,
+          "local_key_accuracy": 0.625,
+          "quality_accuracy": 0.8046875,
+          "root_accuracy": 0.0625,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 10,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "E- minor",
+              "quality": "minor",
+              "roman": "iv"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "Eb minor",
+              "quality": "minor",
+              "roman": "iv"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 3,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "E- minor",
+              "quality": "major",
+              "roman": "V"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "Eb minor",
+              "quality": "major",
+              "roman": "bII6"
+            },
+            "start": {
+              "measure": 3,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 7680,
+        "input_tokens": 35522,
+        "output_tokens": 9710,
+        "reasoning_output_tokens": 8310
+      }
+    },
+    {
+      "case_id": "wide-b09",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 160.367,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 15,
+        "metrics": {
+          "boundary_f1": 0.5641025641025641,
+          "boundary_precision": 0.44,
+          "boundary_recall": 0.7857142857142857,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 40,
+          "harmony_exact": 0.109375,
+          "inversion_accuracy": 0.640625,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.265625,
+          "root_accuracy": 0.25,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 26,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "dominant-seventh",
+              "roman": "V7"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "dominant-seventh",
+              "roman": "V7"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "1/2"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "V"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 23570,
+        "output_tokens": 8664,
+        "reasoning_output_tokens": 5787
+      }
+    },
+    {
+      "case_id": "wide-b10",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "high",
+      "error": null,
+      "latency_seconds": 246.744,
+      "model": "gpt-5.6-sol",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 35,
+        "metrics": {
+          "boundary_f1": 0.9315068493150686,
+          "boundary_precision": 0.8717948717948718,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 32.0,
+          "evidence_claims": 40,
+          "harmony_exact": 0.4375,
+          "inversion_accuracy": 0.875,
+          "local_key_accuracy": 0.53125,
+          "quality_accuracy": 0.921875,
+          "root_accuracy": 0.859375,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 40,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 4,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 3,
+              "offset_qb": "3"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "F major",
+              "quality": "minor",
+              "roman": "vi"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "D minor",
+              "quality": "minor",
+              "roman": "i"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 19456,
+        "input_tokens": 28169,
+        "output_tokens": 3900,
+        "reasoning_output_tokens": 0
+      }
+    },
+    {
+      "case_id": "wide-a01",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 334.348,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 14,
+        "metrics": {
+          "boundary_f1": 0.787878787878788,
+          "boundary_precision": 0.65,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 21,
+          "harmony_exact": 0.515625,
+          "inversion_accuracy": 0.765625,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.765625,
+          "root_accuracy": 0.71875,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 21,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "minor seventh",
+              "roman": "ii65"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "mm7",
+              "roman": "ii65"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "1"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/4"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I64"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "V(64)"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 6912,
+        "input_tokens": 16885,
+        "output_tokens": 9180,
+        "reasoning_output_tokens": 7250
+      }
+    },
+    {
+      "case_id": "wide-a02",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 445.76,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 17,
+        "metrics": {
+          "boundary_f1": 0.967741935483871,
+          "boundary_precision": 1.0,
+          "boundary_recall": 0.9375,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 16,
+          "harmony_exact": 0.125,
+          "inversion_accuracy": 0.9375,
+          "local_key_accuracy": 0.1875,
+          "quality_accuracy": 0.875,
+          "root_accuracy": 0.890625,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 16,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "C major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "C major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "1"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "C major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "C major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 17152,
+        "input_tokens": 17325,
+        "output_tokens": 12224,
+        "reasoning_output_tokens": 10752
+      }
+    },
+    {
+      "case_id": "wide-a03",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 709.356,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 17,
+        "metrics": {
+          "boundary_f1": 0.30000000000000004,
+          "boundary_precision": 0.17857142857142858,
+          "boundary_recall": 0.9375,
+          "coverage": 1.0,
+          "duration_qb": 24.0,
+          "evidence_claims": 86,
+          "harmony_exact": 0.21875,
+          "inversion_accuracy": 0.3541666666666667,
+          "local_key_accuracy": 0.875,
+          "quality_accuracy": 0.875,
+          "root_accuracy": 0.8333333333333334,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 85,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/4"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "D major",
+              "quality": "dominant seventh",
+              "roman": "V43"
+            },
+            "reference": {
+              "inversion": "second",
+              "local_key": "D major",
+              "quality": "dominant-seventh",
+              "roman": "V43"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "D major",
+              "quality": "dominant seventh",
+              "roman": "V7"
+            },
+            "reference": {
+              "inversion": "second",
+              "local_key": "D major",
+              "quality": "dominant-seventh",
+              "roman": "V43"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "1/4"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 21248,
+        "input_tokens": 22010,
+        "output_tokens": 19606,
+        "reasoning_output_tokens": 11647
+      }
+    },
+    {
+      "case_id": "wide-a04",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 316.008,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 12,
+        "metrics": {
+          "boundary_f1": 0.41509433962264153,
+          "boundary_precision": 0.2619047619047619,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 43,
+          "harmony_exact": 0.46875,
+          "inversion_accuracy": 0.53125,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.9375,
+          "root_accuracy": 0.96875,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 43,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "I64"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 15104,
+        "input_tokens": 19515,
+        "output_tokens": 4060,
+        "reasoning_output_tokens": 0
+      }
+    },
+    {
+      "case_id": "wide-a05",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 371.803,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 16,
+        "metrics": {
+          "boundary_f1": 0.6511627906976745,
+          "boundary_precision": 0.5,
+          "boundary_recall": 0.9333333333333333,
+          "coverage": 1.0,
+          "duration_qb": 24.0,
+          "evidence_claims": 29,
+          "harmony_exact": 0.3958333333333333,
+          "inversion_accuracy": 0.6458333333333334,
+          "local_key_accuracy": 0.7916666666666666,
+          "quality_accuracy": 0.75,
+          "root_accuracy": 0.7916666666666666,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 29,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "5/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "B- major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "B- major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "2"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "2"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "B- major",
+              "quality": "minor",
+              "roman": "v6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "E- major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 16128,
+        "input_tokens": 16672,
+        "output_tokens": 10235,
+        "reasoning_output_tokens": 7558
+      }
+    },
+    {
+      "case_id": "wide-a06",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 819.563,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 32,
+        "metrics": {
+          "boundary_f1": 0.5504587155963303,
+          "boundary_precision": 0.38461538461538464,
+          "boundary_recall": 0.967741935483871,
+          "coverage": 1.0,
+          "duration_qb": 32.0,
+          "evidence_claims": 79,
+          "harmony_exact": 0.296875,
+          "inversion_accuracy": 0.515625,
+          "local_key_accuracy": 0.78125,
+          "quality_accuracy": 0.515625,
+          "root_accuracy": 0.5859375,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 79,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/4"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "B- major",
+              "quality": "minor",
+              "roman": "iv6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "B- major",
+              "quality": "minor",
+              "roman": "iv6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "B- major",
+              "quality": "minor",
+              "roman": "iv64"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "B- major",
+              "quality": "minor",
+              "roman": "iv6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "1/4"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 6912,
+        "input_tokens": 27905,
+        "output_tokens": 22629,
+        "reasoning_output_tokens": 15219
+      }
+    },
+    {
+      "case_id": "wide-a07",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 734.401,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 14,
+        "metrics": {
+          "boundary_f1": 0.38095238095238093,
+          "boundary_precision": 0.24,
+          "boundary_recall": 0.9230769230769231,
+          "coverage": 1.0,
+          "duration_qb": 32.0,
+          "evidence_claims": 51,
+          "harmony_exact": 0.0,
+          "inversion_accuracy": 0.5416666666666666,
+          "local_key_accuracy": 0.0,
+          "quality_accuracy": 0.4375,
+          "root_accuracy": 0.6875,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 51,
+        "representative": {
+          "correct": null,
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "C minor",
+              "quality": "major triad",
+              "roman": "III6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 17152,
+        "input_tokens": 31967,
+        "output_tokens": 4798,
+        "reasoning_output_tokens": 0
+      }
+    },
+    {
+      "case_id": "wide-a08",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 252.094,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 10,
+        "metrics": {
+          "boundary_f1": 0.7777777777777778,
+          "boundary_precision": 0.7777777777777778,
+          "boundary_recall": 0.7777777777777778,
+          "coverage": 1.0,
+          "duration_qb": 12.0,
+          "evidence_claims": 14,
+          "harmony_exact": 0.7083333333333334,
+          "inversion_accuracy": 0.75,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.7083333333333334,
+          "root_accuracy": 0.75,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 10,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "V6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "V6"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "minor",
+              "roman": "vi"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "IV6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 6912,
+        "input_tokens": 14956,
+        "output_tokens": 6744,
+        "reasoning_output_tokens": 5696
+      }
+    },
+    {
+      "case_id": "wide-a09",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 198.202,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 8,
+        "metrics": {
+          "boundary_f1": 0.2702702702702703,
+          "boundary_precision": 0.16666666666666666,
+          "boundary_recall": 0.7142857142857143,
+          "coverage": 1.0,
+          "duration_qb": 12.0,
+          "evidence_claims": 31,
+          "harmony_exact": 0.0,
+          "inversion_accuracy": 0.6041666666666666,
+          "local_key_accuracy": 0.0,
+          "quality_accuracy": 0.4583333333333333,
+          "root_accuracy": 0.625,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 31,
+        "representative": {
+          "correct": null,
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "C major",
+              "quality": "dominant-seventh",
+              "roman": "V7(9)"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 6912,
+        "input_tokens": 13781,
+        "output_tokens": 5397,
+        "reasoning_output_tokens": 2568
+      }
+    },
+    {
+      "case_id": "wide-a10",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 324.264,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 27,
+        "metrics": {
+          "boundary_f1": 0.8813559322033898,
+          "boundary_precision": 0.7878787878787878,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 34,
+          "harmony_exact": 0.671875,
+          "inversion_accuracy": 0.765625,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.734375,
+          "root_accuracy": 0.765625,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 34,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "A major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "A major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "A major",
+              "quality": "diminished",
+              "roman": "vii\u00b06/vi"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "A major",
+              "quality": "o",
+              "roman": "#viio6/vi"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 16128,
+        "input_tokens": 19316,
+        "output_tokens": 6659,
+        "reasoning_output_tokens": 3370
+      }
+    },
+    {
+      "case_id": "wide-b01",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 374.641,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 8,
+        "metrics": {
+          "boundary_f1": 0.2978723404255319,
+          "boundary_precision": 0.175,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 24.0,
+          "evidence_claims": 41,
+          "harmony_exact": 0.4166666666666667,
+          "inversion_accuracy": 0.3958333333333333,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.9375,
+          "root_accuracy": 0.9583333333333334,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 41,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "E major",
+              "quality": "major triad",
+              "roman": "IV"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "E major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "1"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "E major",
+              "quality": "major triad",
+              "roman": "IV64"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "E major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 17624,
+        "output_tokens": 10142,
+        "reasoning_output_tokens": 6186
+      }
+    },
+    {
+      "case_id": "wide-b02",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 332.57,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 12,
+        "metrics": {
+          "boundary_f1": 0.6666666666666666,
+          "boundary_precision": 0.5263157894736842,
+          "boundary_recall": 0.9090909090909091,
+          "coverage": 1.0,
+          "duration_qb": 24.0,
+          "evidence_claims": 20,
+          "harmony_exact": 0.4861125,
+          "inversion_accuracy": 0.5069458333333333,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.6944458333333333,
+          "root_accuracy": 0.6944458333333333,
+          "unsupported_note_claim_rate": 0.05
+        },
+        "predicted_span_count": 20,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "D major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "D major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "2"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "D major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "D major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": [
+          {
+            "position_qb": "17/2",
+            "reason": "unsupported-pitch",
+            "span": 5
+          }
+        ]
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 21838,
+        "output_tokens": 9109,
+        "reasoning_output_tokens": 7221
+      }
+    },
+    {
+      "case_id": "wide-b03",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 929.157,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 29,
+        "metrics": {
+          "boundary_f1": 0.7719298245614034,
+          "boundary_precision": 0.7586206896551724,
+          "boundary_recall": 0.7857142857142857,
+          "coverage": 1.0,
+          "duration_qb": 32.0,
+          "evidence_claims": 30,
+          "harmony_exact": 0.09375,
+          "inversion_accuracy": 0.578125,
+          "local_key_accuracy": 0.578125,
+          "quality_accuracy": 0.1875,
+          "root_accuracy": 0.140625,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 30,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "2"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "B- major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "Bb major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "B- major",
+              "quality": "dominant seventh",
+              "roman": "V7"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "Bb major",
+              "quality": "minor",
+              "roman": "iii6[no1][add2]"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 6912,
+        "input_tokens": 20955,
+        "output_tokens": 25714,
+        "reasoning_output_tokens": 22756
+      }
+    },
+    {
+      "case_id": "wide-b04",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 616.121,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 13,
+        "metrics": {
+          "boundary_f1": 0.5454545454545454,
+          "boundary_precision": 0.375,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 33,
+          "harmony_exact": 0.0,
+          "inversion_accuracy": 0.14583333333333334,
+          "local_key_accuracy": 0.0,
+          "quality_accuracy": 0.6875,
+          "root_accuracy": 0.5989583333333334,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 33,
+        "representative": {
+          "correct": null,
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/6"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "G# minor",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "F# major",
+              "quality": "dominant-seventh",
+              "roman": "V65/V"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 6912,
+        "input_tokens": 34942,
+        "output_tokens": 16994,
+        "reasoning_output_tokens": 13428
+      }
+    },
+    {
+      "case_id": "wide-b05",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 397.878,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 30,
+        "metrics": {
+          "boundary_f1": 0.9206349206349206,
+          "boundary_precision": 0.8529411764705882,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 25.0,
+          "evidence_claims": 35,
+          "harmony_exact": 0.72,
+          "inversion_accuracy": 0.9,
+          "local_key_accuracy": 0.96,
+          "quality_accuracy": 0.9,
+          "root_accuracy": 0.9,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 35,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "unknown",
+              "local_key": "G major",
+              "quality": "diminished",
+              "roman": "vii\u00b0"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 6912,
+        "input_tokens": 17400,
+        "output_tokens": 10916,
+        "reasoning_output_tokens": 7531
+      }
+    },
+    {
+      "case_id": "wide-b06",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 381.282,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 15,
+        "metrics": {
+          "boundary_f1": 0.8125000000000001,
+          "boundary_precision": 0.7222222222222222,
+          "boundary_recall": 0.9285714285714286,
+          "coverage": 1.0,
+          "duration_qb": 12.0,
+          "evidence_claims": 19,
+          "harmony_exact": 0.5833333333333334,
+          "inversion_accuracy": 0.7916666666666666,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.9166666666666666,
+          "root_accuracy": 0.875,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 19,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "F major",
+              "quality": "major triad",
+              "roman": "V"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "V"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "F major",
+              "quality": "dominant seventh",
+              "roman": "V65"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "V6[add11]"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 6912,
+        "input_tokens": 15546,
+        "output_tokens": 10484,
+        "reasoning_output_tokens": 8714
+      }
+    },
+    {
+      "case_id": "wide-b07",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 453.01,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 12,
+        "metrics": {
+          "boundary_f1": 0.6875000000000001,
+          "boundary_precision": 0.5238095238095238,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 12.0,
+          "evidence_claims": 22,
+          "harmony_exact": 0.0,
+          "inversion_accuracy": 0.7083333333333334,
+          "local_key_accuracy": 0.0,
+          "quality_accuracy": 0.75,
+          "root_accuracy": 0.7916666666666666,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 22,
+        "representative": {
+          "correct": null,
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "F minor",
+              "quality": "minor",
+              "roman": "i64"
+            },
+            "reference": {
+              "inversion": "second",
+              "local_key": "C major",
+              "quality": "minor",
+              "roman": "iv64"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 14080,
+        "input_tokens": 24339,
+        "output_tokens": 2036,
+        "reasoning_output_tokens": 0
+      }
+    },
+    {
+      "case_id": "wide-b08",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 574.303,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 11,
+        "metrics": {
+          "boundary_f1": 0.9473684210526316,
+          "boundary_precision": 1.0,
+          "boundary_recall": 0.9,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 13,
+          "harmony_exact": 0.375,
+          "inversion_accuracy": 0.7575,
+          "local_key_accuracy": 0.625,
+          "quality_accuracy": 0.82,
+          "root_accuracy": 0.0078125,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 10,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "E- minor",
+              "quality": "minor",
+              "roman": "iv"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "Eb minor",
+              "quality": "minor",
+              "roman": "iv"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 4,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "E- minor",
+              "quality": "minor",
+              "roman": "i"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "Eb minor",
+              "quality": "minor",
+              "roman": "i6"
+            },
+            "start": {
+              "measure": 3,
+              "offset_qb": "1"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 34560,
+        "input_tokens": 46400,
+        "output_tokens": 4738,
+        "reasoning_output_tokens": 3624
+      }
+    },
+    {
+      "case_id": "wide-b09",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 518.202,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 15,
+        "metrics": {
+          "boundary_f1": 0.55,
+          "boundary_precision": 0.4230769230769231,
+          "boundary_recall": 0.7857142857142857,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 30,
+          "harmony_exact": 0.078125,
+          "inversion_accuracy": 0.640625,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.2421875,
+          "root_accuracy": 0.25,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 27,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 3,
+              "offset_qb": "5/4"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 3,
+              "offset_qb": "1"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "V"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 6912,
+        "input_tokens": 23570,
+        "output_tokens": 14285,
+        "reasoning_output_tokens": 11649
+      }
+    },
+    {
+      "case_id": "wide-b10",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "xhigh",
+      "error": null,
+      "latency_seconds": 523.973,
+      "model": "gpt-5.6-terra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 35,
+        "metrics": {
+          "boundary_f1": 0.9295774647887325,
+          "boundary_precision": 0.8918918918918919,
+          "boundary_recall": 0.9705882352941176,
+          "coverage": 1.0,
+          "duration_qb": 32.0,
+          "evidence_claims": 38,
+          "harmony_exact": 0.28125,
+          "inversion_accuracy": 0.765625,
+          "local_key_accuracy": 0.40625,
+          "quality_accuracy": 0.828125,
+          "root_accuracy": 0.78125,
+          "unsupported_note_claim_rate": 0.02631578947368421
+        },
+        "predicted_span_count": 38,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 4,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 3,
+              "offset_qb": "3"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "F major",
+              "quality": "minor",
+              "roman": "vi"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "D minor",
+              "quality": "minor",
+              "roman": "i"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": [
+          {
+            "position_qb": "7",
+            "reason": "incorrect-literal-bass",
+            "span": 10
+          }
+        ]
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 19687,
+        "output_tokens": 14319,
+        "reasoning_output_tokens": 10621
+      }
+    },
+    {
+      "case_id": "wide-a01",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 55.977,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 14,
+        "metrics": {
+          "boundary_f1": 1.0,
+          "boundary_precision": 1.0,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 23,
+          "harmony_exact": 0.75,
+          "inversion_accuracy": 0.75,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.84375,
+          "root_accuracy": 0.75,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 14,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I64"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "V(64)"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 18062,
+        "output_tokens": 1709,
+        "reasoning_output_tokens": 174
+      }
+    },
+    {
+      "case_id": "wide-a02",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 61.122,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 17,
+        "metrics": {
+          "boundary_f1": 0.967741935483871,
+          "boundary_precision": 1.0,
+          "boundary_recall": 0.9375,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 23,
+          "harmony_exact": 0.9375,
+          "inversion_accuracy": 1.0,
+          "local_key_accuracy": 0.9375,
+          "quality_accuracy": 1.0,
+          "root_accuracy": 1.0,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 16,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "C major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "C major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 3,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "C major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "1"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 18502,
+        "output_tokens": 1893,
+        "reasoning_output_tokens": 240
+      }
+    },
+    {
+      "case_id": "wide-a03",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 72.645,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 17,
+        "metrics": {
+          "boundary_f1": 0.9333333333333333,
+          "boundary_precision": 1.0,
+          "boundary_recall": 0.875,
+          "coverage": 1.0,
+          "duration_qb": 24.0,
+          "evidence_claims": 38,
+          "harmony_exact": 0.6666666666666666,
+          "inversion_accuracy": 0.875,
+          "local_key_accuracy": 0.875,
+          "quality_accuracy": 0.875,
+          "root_accuracy": 0.9166666666666666,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 15,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "D major",
+              "quality": "dominant seventh",
+              "roman": "V43"
+            },
+            "reference": {
+              "inversion": "second",
+              "local_key": "D major",
+              "quality": "dominant-seventh",
+              "roman": "V43"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 3,
+              "offset_qb": "2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "D major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "third",
+              "local_key": "D major",
+              "quality": "MM7",
+              "roman": "IM2"
+            },
+            "start": {
+              "measure": 3,
+              "offset_qb": "1"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 23187,
+        "output_tokens": 2270,
+        "reasoning_output_tokens": 273
+      }
+    },
+    {
+      "case_id": "wide-a04",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 50.389,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 12,
+        "metrics": {
+          "boundary_f1": 0.9565217391304348,
+          "boundary_precision": 0.9166666666666666,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 19,
+          "harmony_exact": 0.9375,
+          "inversion_accuracy": 0.96875,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.9375,
+          "root_accuracy": 0.96875,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 13,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "Eb major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 3,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "Eb major",
+              "quality": "dominant seventh",
+              "roman": "V65"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "V6"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "3/2"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 8704,
+        "input_tokens": 16792,
+        "output_tokens": 1511,
+        "reasoning_output_tokens": 142
+      }
+    },
+    {
+      "case_id": "wide-a05",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 56.495,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 16,
+        "metrics": {
+          "boundary_f1": 0.8275862068965518,
+          "boundary_precision": 0.8571428571428571,
+          "boundary_recall": 0.8,
+          "coverage": 1.0,
+          "duration_qb": 24.0,
+          "evidence_claims": 21,
+          "harmony_exact": 0.5416666666666666,
+          "inversion_accuracy": 0.875,
+          "local_key_accuracy": 0.7916666666666666,
+          "quality_accuracy": 0.875,
+          "root_accuracy": 0.875,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 15,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 3,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "Bb major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "B- major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "2"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "2"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "Bb major",
+              "quality": "minor",
+              "roman": "v6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "E- major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 17849,
+        "output_tokens": 1728,
+        "reasoning_output_tokens": 208
+      }
+    },
+    {
+      "case_id": "wide-a06",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 149.185,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 32,
+        "metrics": {
+          "boundary_f1": 0.7142857142857142,
+          "boundary_precision": 0.6410256410256411,
+          "boundary_recall": 0.8064516129032258,
+          "coverage": 1.0,
+          "duration_qb": 32.0,
+          "evidence_claims": 63,
+          "harmony_exact": 0.4765625,
+          "inversion_accuracy": 0.75,
+          "local_key_accuracy": 0.78125,
+          "quality_accuracy": 0.71875,
+          "root_accuracy": 0.75,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 40,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "Bb major",
+              "quality": "minor",
+              "roman": "iv6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "B- major",
+              "quality": "minor",
+              "roman": "iv6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "11/4"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "Bb major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "B- major",
+              "quality": "major",
+              "roman": "I6(14)"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "2"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 29082,
+        "output_tokens": 4764,
+        "reasoning_output_tokens": 424
+      }
+    },
+    {
+      "case_id": "wide-a07",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 132.74,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 14,
+        "metrics": {
+          "boundary_f1": 0.48148148148148145,
+          "boundary_precision": 0.3170731707317073,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 32.0,
+          "evidence_claims": 43,
+          "harmony_exact": 0.390625,
+          "inversion_accuracy": 0.6979166666666666,
+          "local_key_accuracy": 0.625,
+          "quality_accuracy": 0.671875,
+          "root_accuracy": 0.859375,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 42,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "2"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "Eb major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 3,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "Eb major",
+              "quality": "major",
+              "roman": "V"
+            },
+            "reference": {
+              "inversion": "second",
+              "local_key": "E- major",
+              "quality": "major",
+              "roman": "I64"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "3"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 18811,
+        "output_tokens": 4166,
+        "reasoning_output_tokens": 230
+      }
+    },
+    {
+      "case_id": "wide-a08",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 45.493,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 10,
+        "metrics": {
+          "boundary_f1": 0.75,
+          "boundary_precision": 0.8571428571428571,
+          "boundary_recall": 0.6666666666666666,
+          "coverage": 1.0,
+          "duration_qb": 12.0,
+          "evidence_claims": 13,
+          "harmony_exact": 0.8333333333333334,
+          "inversion_accuracy": 0.9583333333333334,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.8333333333333334,
+          "root_accuracy": 0.9583333333333334,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 8,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "IV6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "IV6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "dominant seventh",
+              "roman": "V65"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "V6"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 16165,
+        "output_tokens": 1203,
+        "reasoning_output_tokens": 304
+      }
+    },
+    {
+      "case_id": "wide-a09",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 38.819,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 8,
+        "metrics": {
+          "boundary_f1": 0.7142857142857143,
+          "boundary_precision": 0.7142857142857143,
+          "boundary_recall": 0.7142857142857143,
+          "coverage": 1.0,
+          "duration_qb": 12.0,
+          "evidence_claims": 18,
+          "harmony_exact": 0.0,
+          "inversion_accuracy": 0.625,
+          "local_key_accuracy": 0.0,
+          "quality_accuracy": 0.4583333333333333,
+          "root_accuracy": 0.625,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 8,
+        "representative": {
+          "correct": null,
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "unknown",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "C major",
+              "quality": "dominant-seventh",
+              "roman": "V7(9)"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 14958,
+        "output_tokens": 1082,
+        "reasoning_output_tokens": 101
+      }
+    },
+    {
+      "case_id": "wide-a10",
+      "condition": "model_skill_evidence",
+      "corpus": "DCML",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 100.08,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 27,
+        "metrics": {
+          "boundary_f1": 0.9285714285714286,
+          "boundary_precision": 0.8666666666666667,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 31,
+          "harmony_exact": 0.78125,
+          "inversion_accuracy": 0.875,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.84375,
+          "root_accuracy": 0.875,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 31,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "A major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "A major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "A major",
+              "quality": "diminished",
+              "roman": "viio6/vi"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "A major",
+              "quality": "o",
+              "roman": "#viio6/vi"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 18421,
+        "output_tokens": 3181,
+        "reasoning_output_tokens": 196
+      }
+    },
+    {
+      "case_id": "wide-b01",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 63.179,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 8,
+        "metrics": {
+          "boundary_f1": 0.7142857142857143,
+          "boundary_precision": 0.7142857142857143,
+          "boundary_recall": 0.7142857142857143,
+          "coverage": 1.0,
+          "duration_qb": 24.0,
+          "evidence_claims": 12,
+          "harmony_exact": 0.6875,
+          "inversion_accuracy": 0.4583333333333333,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.9583333333333334,
+          "root_accuracy": 0.9583333333333334,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 8,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 3,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "unknown",
+              "local_key": "E major",
+              "quality": "dominant-seventh",
+              "roman": "V7"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "E major",
+              "quality": "dominant-seventh",
+              "roman": "V7"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "E major",
+              "quality": "major",
+              "roman": "IV64"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "E major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 4608,
+        "input_tokens": 18801,
+        "output_tokens": 1608,
+        "reasoning_output_tokens": 677
+      }
+    },
+    {
+      "case_id": "wide-b02",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 60.435,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 12,
+        "metrics": {
+          "boundary_f1": 0.7692307692307692,
+          "boundary_precision": 0.6666666666666666,
+          "boundary_recall": 0.9090909090909091,
+          "coverage": 1.0,
+          "duration_qb": 24.0,
+          "evidence_claims": 24,
+          "harmony_exact": 0.6111125000000001,
+          "inversion_accuracy": 0.6111125000000001,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.8923625,
+          "root_accuracy": 0.9027791666666666,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 16,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "5/2"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "D major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "D major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "2"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "D major",
+              "quality": "major",
+              "roman": "IV"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "D major",
+              "quality": "minor",
+              "roman": "ii6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 8704,
+        "input_tokens": 23015,
+        "output_tokens": 1867,
+        "reasoning_output_tokens": 97
+      }
+    },
+    {
+      "case_id": "wide-b03",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 113.268,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 29,
+        "metrics": {
+          "boundary_f1": 0.7457627118644068,
+          "boundary_precision": 0.7096774193548387,
+          "boundary_recall": 0.7857142857142857,
+          "coverage": 1.0,
+          "duration_qb": 32.0,
+          "evidence_claims": 35,
+          "harmony_exact": 0.140625,
+          "inversion_accuracy": 0.59375,
+          "local_key_accuracy": 0.90625,
+          "quality_accuracy": 0.28125,
+          "root_accuracy": 0.15625,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 32,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "2"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "B- major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "Bb major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "3/2"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "B- major",
+              "quality": "dominant-seventh",
+              "roman": "V7"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "Bb major",
+              "quality": "minor",
+              "roman": "iii6[no1][add2]"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 22132,
+        "output_tokens": 3644,
+        "reasoning_output_tokens": 516
+      }
+    },
+    {
+      "case_id": "wide-b04",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 99.731,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 13,
+        "metrics": {
+          "boundary_f1": 0.6666666666666666,
+          "boundary_precision": 0.5,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 25,
+          "harmony_exact": 0.125,
+          "inversion_accuracy": 0.16145833333333334,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.8802083333333334,
+          "root_accuracy": 0.7447916666666666,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 25,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/6"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "F# major",
+              "quality": "dominant-seventh",
+              "roman": "V65/V"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "F# major",
+              "quality": "dominant-seventh",
+              "roman": "V65/V"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "7/4"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "F# major",
+              "quality": "dominant-seventh",
+              "roman": "V7/V"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "F# major",
+              "quality": "dominant-seventh",
+              "roman": "V65/V"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "1/6"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 36119,
+        "output_tokens": 3139,
+        "reasoning_output_tokens": 463
+      }
+    },
+    {
+      "case_id": "wide-b05",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 118.447,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 30,
+        "metrics": {
+          "boundary_f1": 0.9206349206349206,
+          "boundary_precision": 0.8529411764705882,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 25.0,
+          "evidence_claims": 40,
+          "harmony_exact": 0.66,
+          "inversion_accuracy": 0.9,
+          "local_key_accuracy": 0.84,
+          "quality_accuracy": 0.9,
+          "root_accuracy": 0.9,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 35,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "unknown",
+              "local_key": "G major",
+              "quality": "diminished",
+              "roman": "viio"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 8704,
+        "input_tokens": 18577,
+        "output_tokens": 3765,
+        "reasoning_output_tokens": 212
+      }
+    },
+    {
+      "case_id": "wide-b06",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 75.613,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 15,
+        "metrics": {
+          "boundary_f1": 0.7777777777777778,
+          "boundary_precision": 0.6363636363636364,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 12.0,
+          "evidence_claims": 28,
+          "harmony_exact": 0.5,
+          "inversion_accuracy": 0.7916666666666666,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.9166666666666666,
+          "root_accuracy": 0.875,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 23,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "1/2"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "I6"
+            },
+            "start": {
+              "measure": 2,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            },
+            "prediction": {
+              "inversion": "first",
+              "local_key": "F major",
+              "quality": "dominant seventh",
+              "roman": "V65"
+            },
+            "reference": {
+              "inversion": "first",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "V6[add11]"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 16723,
+        "output_tokens": 2375,
+        "reasoning_output_tokens": 140
+      }
+    },
+    {
+      "case_id": "wide-b07",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 67.286,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 12,
+        "metrics": {
+          "boundary_f1": 0.7586206896551725,
+          "boundary_precision": 0.6111111111111112,
+          "boundary_recall": 1.0,
+          "coverage": 1.0,
+          "duration_qb": 12.0,
+          "evidence_claims": 25,
+          "harmony_exact": 0.0,
+          "inversion_accuracy": 0.8958333333333334,
+          "local_key_accuracy": 0.0,
+          "quality_accuracy": 0.7916666666666666,
+          "root_accuracy": 0.9583333333333334,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 19,
+        "representative": {
+          "correct": null,
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "C minor",
+              "quality": "minor",
+              "roman": "iv64"
+            },
+            "reference": {
+              "inversion": "second",
+              "local_key": "C major",
+              "quality": "minor",
+              "roman": "iv64"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 15833,
+        "output_tokens": 2100,
+        "reasoning_output_tokens": 181
+      }
+    },
+    {
+      "case_id": "wide-b08",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 68.429,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 11,
+        "metrics": {
+          "boundary_f1": 0.8571428571428572,
+          "boundary_precision": 0.8181818181818182,
+          "boundary_recall": 0.9,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 24,
+          "harmony_exact": 0.625,
+          "inversion_accuracy": 0.445,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.82,
+          "root_accuracy": 0.0625,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 12,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "E- minor",
+              "quality": "minor",
+              "roman": "iv"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "Eb minor",
+              "quality": "minor",
+              "roman": "iv"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 2,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "second",
+              "local_key": "E- minor",
+              "quality": "minor",
+              "roman": "iv64"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "Eb minor",
+              "quality": "minor",
+              "roman": "iv"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 36699,
+        "output_tokens": 2128,
+        "reasoning_output_tokens": 516
+      }
+    },
+    {
+      "case_id": "wide-b09",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 96.781,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 15,
+        "metrics": {
+          "boundary_f1": 0.55,
+          "boundary_precision": 0.4230769230769231,
+          "boundary_recall": 0.7857142857142857,
+          "coverage": 1.0,
+          "duration_qb": 16.0,
+          "evidence_claims": 29,
+          "harmony_exact": 0.078125,
+          "inversion_accuracy": 0.4609375,
+          "local_key_accuracy": 1.0,
+          "quality_accuracy": 0.2890625,
+          "root_accuracy": 0.328125,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 27,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 3,
+              "offset_qb": "5/4"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 3,
+              "offset_qb": "1"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "G major",
+              "quality": "major",
+              "roman": "V"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 24747,
+        "output_tokens": 3019,
+        "reasoning_output_tokens": 386
+      }
+    },
+    {
+      "case_id": "wide-b10",
+      "condition": "model_skill_evidence",
+      "corpus": "BACHI validation",
+      "effort": "medium",
+      "error": null,
+      "latency_seconds": 128.633,
+      "model": "gpt-6-astra",
+      "schema_valid": true,
+      "score": {
+        "gold_span_count": 35,
+        "metrics": {
+          "boundary_f1": 0.9166666666666667,
+          "boundary_precision": 0.868421052631579,
+          "boundary_recall": 0.9705882352941176,
+          "coverage": 1.0,
+          "duration_qb": 32.0,
+          "evidence_claims": 39,
+          "harmony_exact": 0.25,
+          "inversion_accuracy": 0.828125,
+          "local_key_accuracy": 0.3125,
+          "quality_accuracy": 0.90625,
+          "root_accuracy": 0.84375,
+          "unsupported_note_claim_rate": 0.0
+        },
+        "predicted_span_count": 39,
+        "representative": {
+          "correct": {
+            "end": {
+              "measure": 4,
+              "offset_qb": "0"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "F major",
+              "quality": "major",
+              "roman": "I"
+            },
+            "start": {
+              "measure": 3,
+              "offset_qb": "3"
+            }
+          },
+          "incorrect": {
+            "end": {
+              "measure": 1,
+              "offset_qb": "1/2"
+            },
+            "prediction": {
+              "inversion": "root",
+              "local_key": "F major",
+              "quality": "minor",
+              "roman": "vi"
+            },
+            "reference": {
+              "inversion": "root",
+              "local_key": "D minor",
+              "quality": "minor",
+              "roman": "i"
+            },
+            "start": {
+              "measure": 1,
+              "offset_qb": "0"
+            }
+          }
+        },
+        "unsupported_claims": []
+      },
+      "status": "ok",
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 0,
+        "input_tokens": 20864,
+        "output_tokens": 4145,
+        "reasoning_output_tokens": 343
+      }
+    }
+  ],
+  "groups": [
+    {
+      "bootstrap_95": {
+        "harmony_exact": {
+          "high": 0.4925828970331588,
+          "low": 0.17956349206349204
+        }
+      },
+      "boundary_f1": 0.6969827312824934,
+      "boundary_precision": 0.5919720181285664,
+      "boundary_recall": 0.9279679144385027,
+      "cases_scored": 10,
+      "cases_total": 10,
+      "corpus": "BACHI validation",
+      "coverage": 1.0,
+      "duration_weighted": {
+        "coverage": 1.0,
+        "harmony_exact": 0.33293476874003186,
+        "inversion_accuracy": 0.6317784688995215,
+        "local_key_accuracy": 0.715311004784689,
+        "quality_accuracy": 0.6732457735247209,
+        "root_accuracy": 0.6244020733652312,
+        "unsupported_note_claim_rate": 0.0
+      },
+      "effort": "xhigh",
+      "execution_failures": 0,
+      "harmony_exact": 0.32494458333333337,
+      "inversion_accuracy": 0.6190800000000001,
+      "local_key_accuracy": 0.6980625,
+      "mean_latency_seconds": 654.1509,
+      "model": "gpt-5.6-luna",
+      "monetary_cost_usd": null,
+      "quality_accuracy": 0.6904341666666667,
+      "root_accuracy": 0.62142375,
+      "schema_valid_rate": 1.0,
+      "unsupported_note_claim_rate": 0.0,
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 65024,
+        "input_tokens": 284416,
+        "output_tokens": 237571,
+        "reasoning_output_tokens": 209834
+      }
+    },
+    {
+      "bootstrap_95": {
+        "harmony_exact": {
+          "high": 0.47306414141414144,
+          "low": 0.1846590909090909
+        }
+      },
+      "boundary_f1": 0.8093287950683283,
+      "boundary_precision": 0.7433915942445355,
+      "boundary_recall": 0.9066233766233767,
+      "cases_scored": 10,
+      "cases_total": 10,
+      "corpus": "BACHI validation",
+      "coverage": 1.0,
+      "duration_weighted": {
+        "coverage": 1.0,
+        "harmony_exact": 0.33213732057416273,
+        "inversion_accuracy": 0.6983414673046251,
+        "local_key_accuracy": 0.7177033492822966,
+        "quality_accuracy": 0.7071373205741627,
+        "root_accuracy": 0.6395535885167464,
+        "unsupported_note_claim_rate": 0.0
+      },
+      "effort": "high",
+      "execution_failures": 0,
+      "harmony_exact": 0.30759041666666664,
+      "inversion_accuracy": 0.71548625,
+      "local_key_accuracy": 0.6838541666666667,
+      "mean_latency_seconds": 147.304,
+      "model": "gpt-5.6-sol",
+      "monetary_cost_usd": null,
+      "quality_accuracy": 0.7254133333333332,
+      "root_accuracy": 0.6480695833333334,
+      "schema_valid_rate": 1.0,
+      "unsupported_note_claim_rate": 0.0,
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 27136,
+        "input_tokens": 230222,
+        "output_tokens": 69756,
+        "reasoning_output_tokens": 46244
+      }
+    },
+    {
+      "bootstrap_95": {
+        "harmony_exact": {
+          "high": 0.46396441441441444,
+          "low": 0.17386363636363636
+        }
+      },
+      "boundary_f1": 0.7129504183584432,
+      "boundary_precision": 0.6248878216600006,
+      "boundary_recall": 0.9279679144385027,
+      "cases_scored": 10,
+      "cases_total": 10,
+      "corpus": "BACHI validation",
+      "coverage": 1.0,
+      "duration_weighted": {
+        "coverage": 1.0,
+        "harmony_exact": 0.3153909090909091,
+        "inversion_accuracy": 0.6213877192982457,
+        "local_key_accuracy": 0.6770334928229665,
+        "quality_accuracy": 0.6801995215311004,
+        "root_accuracy": 0.5998805422647528,
+        "unsupported_note_claim_rate": 0.009770838579702847
+      },
+      "effort": "xhigh",
+      "execution_failures": 0,
+      "harmony_exact": 0.30342375,
+      "inversion_accuracy": 0.6190487499999999,
+      "local_key_accuracy": 0.6569375,
+      "mean_latency_seconds": 510.1137,
+      "model": "gpt-5.6-terra",
+      "monetary_cost_usd": null,
+      "quality_accuracy": 0.6963925,
+      "root_accuracy": 0.5998091666666666,
+      "schema_valid_rate": 1.0,
+      "unsupported_note_claim_rate": 0.0076315789473684215,
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 83200,
+        "input_tokens": 242301,
+        "output_tokens": 118737,
+        "reasoning_output_tokens": 91730
+      }
+    },
+    {
+      "bootstrap_95": {
+        "harmony_exact": {
+          "high": 0.5404624277456648,
+          "low": 0.2240566037735849
+        }
+      },
+      "boundary_f1": 0.7676788773924952,
+      "boundary_precision": 0.6800725518142876,
+      "boundary_recall": 0.9065393430099313,
+      "cases_scored": 10,
+      "cases_total": 10,
+      "corpus": "BACHI validation",
+      "coverage": 1.0,
+      "duration_weighted": {
+        "coverage": 1.0,
+        "harmony_exact": 0.3799842105263158,
+        "inversion_accuracy": 0.6267704944178628,
+        "local_key_accuracy": 0.8038277511961722,
+        "quality_accuracy": 0.7523685805422647,
+        "root_accuracy": 0.6666668261562999,
+        "unsupported_note_claim_rate": 0.0
+      },
+      "effort": "medium",
+      "execution_failures": 0,
+      "harmony_exact": 0.36773625,
+      "inversion_accuracy": 0.6146216666666666,
+      "local_key_accuracy": 0.805875,
+      "mean_latency_seconds": 89.1802,
+      "model": "gpt-6-astra",
+      "monetary_cost_usd": null,
+      "quality_accuracy": 0.7635799999999999,
+      "root_accuracy": 0.67298625,
+      "schema_valid_rate": 1.0,
+      "unsupported_note_claim_rate": 0.0,
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 22016,
+        "input_tokens": 233510,
+        "output_tokens": 27790,
+        "reasoning_output_tokens": 3531
+      }
+    },
+    {
+      "bootstrap_95": {
+        "harmony_exact": {
+          "high": 0.4574468085106383,
+          "low": 0.16826923076923078
+        }
+      },
+      "boundary_f1": 0.579251445092529,
+      "boundary_precision": 0.4581643748408454,
+      "boundary_recall": 0.9175396825396825,
+      "cases_scored": 10,
+      "cases_total": 10,
+      "corpus": "DCML",
+      "coverage": 1.0,
+      "duration_weighted": {
+        "coverage": 1.0,
+        "harmony_exact": 0.3125,
+        "inversion_accuracy": 0.57125,
+        "local_key_accuracy": 0.625,
+        "quality_accuracy": 0.6275,
+        "root_accuracy": 0.7158333333333333,
+        "unsupported_note_claim_rate": 0.002807017543859649
+      },
+      "effort": "xhigh",
+      "execution_failures": 0,
+      "harmony_exact": 0.3145833333333333,
+      "inversion_accuracy": 0.556423611111111,
+      "local_key_accuracy": 0.621875,
+      "mean_latency_seconds": 712.1497,
+      "model": "gpt-5.6-luna",
+      "monetary_cost_usd": null,
+      "quality_accuracy": 0.6447916666666667,
+      "root_accuracy": 0.7124131944444445,
+      "schema_valid_rate": 1.0,
+      "unsupported_note_claim_rate": 0.0017543859649122805,
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 132352,
+        "input_tokens": 271272,
+        "output_tokens": 208103,
+        "reasoning_output_tokens": 172181
+      }
+    },
+    {
+      "bootstrap_95": {
+        "harmony_exact": {
+          "high": 0.690625,
+          "low": 0.35
+        }
+      },
+      "boundary_f1": 0.8533645093129563,
+      "boundary_precision": 0.8223364271933604,
+      "boundary_recall": 0.9080552601520344,
+      "cases_scored": 10,
+      "cases_total": 10,
+      "corpus": "DCML",
+      "coverage": 0.9875,
+      "duration_weighted": {
+        "coverage": 0.985,
+        "harmony_exact": 0.5075,
+        "inversion_accuracy": 0.79,
+        "local_key_accuracy": 0.72,
+        "quality_accuracy": 0.73125,
+        "root_accuracy": 0.81875,
+        "unsupported_note_claim_rate": 0.0027906976744186047
+      },
+      "effort": "high",
+      "execution_failures": 0,
+      "harmony_exact": 0.5463541666666667,
+      "inversion_accuracy": 0.8036458333333334,
+      "local_key_accuracy": 0.7302083333333333,
+      "mean_latency_seconds": 147.2334,
+      "model": "gpt-5.6-sol",
+      "monetary_cost_usd": null,
+      "quality_accuracy": 0.75078125,
+      "root_accuracy": 0.8283854166666667,
+      "schema_valid_rate": 1.0,
+      "unsupported_note_claim_rate": 0.002325581395348837,
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 15360,
+        "input_tokens": 180027,
+        "output_tokens": 79593,
+        "reasoning_output_tokens": 55499
+      }
+    },
+    {
+      "bootstrap_95": {
+        "harmony_exact": {
+          "high": 0.45230263157894735,
+          "low": 0.17410714285714285
+        }
+      },
+      "boundary_f1": 0.5982692930483124,
+      "boundary_precision": 0.4947414807414807,
+      "boundary_recall": 0.9191215683957619,
+      "cases_scored": 10,
+      "cases_total": 10,
+      "corpus": "DCML",
+      "coverage": 1.0,
+      "duration_weighted": {
+        "coverage": 1.0,
+        "harmony_exact": 0.30625,
+        "inversion_accuracy": 0.6104166666666666,
+        "local_key_accuracy": 0.64,
+        "quality_accuracy": 0.6825,
+        "root_accuracy": 0.74875,
+        "unsupported_note_claim_rate": 0.0
+      },
+      "effort": "xhigh",
+      "execution_failures": 0,
+      "harmony_exact": 0.34010416666666665,
+      "inversion_accuracy": 0.6411458333333333,
+      "local_key_accuracy": 0.6635416666666667,
+      "mean_latency_seconds": 450.5799,
+      "model": "gpt-5.6-terra",
+      "monetary_cost_usd": null,
+      "quality_accuracy": 0.7057291666666667,
+      "root_accuracy": 0.76171875,
+      "schema_valid_rate": 1.0,
+      "unsupported_note_claim_rate": 0.0,
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 130560,
+        "input_tokens": 200332,
+        "output_tokens": 101532,
+        "reasoning_output_tokens": 64060
+      }
+    },
+    {
+      "bootstrap_95": {
+        "harmony_exact": {
+          "high": 0.7567934782608695,
+          "low": 0.47287735849056606
+        }
+      },
+      "boundary_f1": 0.827380755346853,
+      "boundary_precision": 0.8170003573662111,
+      "boundary_recall": 0.8799903993855607,
+      "cases_scored": 10,
+      "cases_total": 10,
+      "corpus": "DCML",
+      "coverage": 1.0,
+      "duration_weighted": {
+        "coverage": 1.0,
+        "harmony_exact": 0.60625,
+        "inversion_accuracy": 0.8241666666666667,
+        "local_key_accuracy": 0.8,
+        "quality_accuracy": 0.8,
+        "root_accuracy": 0.855,
+        "unsupported_note_claim_rate": 0.0
+      },
+      "effort": "medium",
+      "execution_failures": 0,
+      "harmony_exact": 0.6315104166666667,
+      "inversion_accuracy": 0.8375,
+      "local_key_accuracy": 0.8010416666666667,
+      "mean_latency_seconds": 76.2945,
+      "model": "gpt-6-astra",
+      "monetary_cost_usd": null,
+      "quality_accuracy": 0.8057291666666666,
+      "root_accuracy": 0.8578125,
+      "schema_valid_rate": 1.0,
+      "unsupported_note_claim_rate": 0.0,
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 8704,
+        "input_tokens": 191829,
+        "output_tokens": 23507,
+        "reasoning_output_tokens": 2292
+      }
+    }
+  ]
+}

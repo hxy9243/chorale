@@ -1,0 +1,57 @@
+{
+  "corpus": {
+    "repository": "https://github.com/DCMLab/mozart_piano_sonatas.git",
+    "commit": "5337257a5318711e6302cfe85c3f1a6ade3c6271",
+    "release": "v2.3",
+    "license": "CC BY-NC-SA 4.0",
+    "citation": "Hentschel, Neuwirth, and Rohrmeier (2021), The Annotated Mozart Sonatas: Score, Harmony, and Cadence"
+  },
+  "development_movements": [
+    "K279-1",
+    "K280-2"
+  ],
+  "held_out": [
+    {
+      "case_id": "case-a1",
+      "movement": "K310-1",
+      "start_mc": 86,
+      "end_mc": 93,
+      "rationale": "A-minor development passage with dense attacks and chromatic dominant function"
+    },
+    {
+      "case_id": "case-b2",
+      "movement": "K533-1",
+      "start_mc": 75,
+      "end_mc": 82,
+      "rationale": "F-major work, locally dominant, with independent lines and alla-breve texture"
+    },
+    {
+      "case_id": "case-c3",
+      "movement": "K570-2",
+      "start_mc": 10,
+      "end_mc": 17,
+      "rationale": "Slow E-flat-major passage with ornaments, sustained voices, and high label density"
+    },
+    {
+      "case_id": "case-d4",
+      "movement": "K576-1",
+      "start_mc": 74,
+      "end_mc": 81,
+      "rationale": "Late D-major 6/8 writing with contrapuntal and figurated activity"
+    },
+    {
+      "case_id": "case-e5",
+      "movement": "K281-1",
+      "start_mc": 56,
+      "end_mc": 63,
+      "rationale": "B-flat-major movement's minor-key episode and return with applied dominants"
+    },
+    {
+      "case_id": "case-f6",
+      "movement": "K457-1",
+      "start_mc": 43,
+      "end_mc": 50,
+      "rationale": "C-minor work, locally in III, with sparse but chromatically complex harmony"
+    }
+  ]
+}

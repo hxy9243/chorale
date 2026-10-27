@@ -1,0 +1,35 @@
+{
+  "codex": "codex-cli 0.154.0",
+  "conditions": [
+    "bachi",
+    "model_score_only",
+    "model_skill_bachi",
+    "model_skill_bachi_fewshot",
+    "model_skill_evidence"
+  ],
+  "corpus_commit": "5337257a5318711e6302cfe85c3f1a6ade3c6271",
+  "cost_note": "ChatGPT-authenticated Codex JSONL does not expose an actual monetary charge.",
+  "created_utc": "2026-09-20T17:46:28Z",
+  "effort": "medium",
+  "exploratory_rerun": true,
+  "few_shot_sha256": "a82939e8d640fa1d3be68607f23e6b3bb67b9a02d29eb333bcc2f0a2f48c55ba",
+  "models": [
+    "BACHI-classical_film_kdec",
+    "gpt-5.6-luna",
+    "gpt-5.6-terra",
+    "gpt-6-astra"
+  ],
+  "monetary_cost_usd": null,
+  "music21": "9.9.1",
+  "new_models": [
+    "gpt-5.6-terra",
+    "gpt-5.6-luna"
+  ],
+  "parallelism": 2,
+  "python": "3.13.5",
+  "run_id": "exploratory-20260920-astra-bachi-fewshot",
+  "schema_sha256": "5d7d13bad1c17d1785938b9bd63976ce1252eddf282b4b1f304b1af84acb8565",
+  "selection_sha256": "fcbcc51b33ae333fa535182b85799f3aabf623d8844867468b65135485589599",
+  "skill_sha256": "f30056c7716d9307ddc5881549a374f9656f775fec22f4c8e1e2ef6b339a8f36",
+  "timeout_seconds": 300
+}
