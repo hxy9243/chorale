@@ -14,6 +14,7 @@ source_files:
   - src/App.tsx
   - src/chorale-theme.css
 test_files:
+  - scripts/electron-smoke.mjs
   - src/components/__tests__/VoicesPanel.test.tsx
   - src/components/__tests__/AudioPlayer.test.tsx
   - src/music/__tests__/voiceMixer.test.ts

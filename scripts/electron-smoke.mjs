@@ -19,7 +19,7 @@ const port = await new Promise((resolvePort) => {
     server.close(() => resolvePort(port));
   });
 });
-const abc = 'X:1\nT:Desktop smoke\nM:4/4\nL:1/4\nK:C\nC D E F | G A B c |]';
+const abc = 'X:1\nT:Desktop smoke\nM:4/4\nL:1/4\nV:1 name="Piano"\nK:C\n[V:1] C D E F | G A B c |]';
 const home = join(scratch, 'scores');
 const store = new LocalDocumentStore({ baseDir: home, seedDefault: false });
 await store.create({ abcSource: abc, title: 'Desktop smoke' });
@@ -181,28 +181,38 @@ try {
   await page.getByRole('button', { name: 'Close ABC source pane', exact: true }).click();
   await page.getByRole('button', { name: 'Close Waterfall pane', exact: true }).click();
   // Exercise the controls combined from the playback and desktop branches before
-  // accepting a revision. Listening preferences must never edit the shared score.
+  // accepting a revision. Staff instruments edit ABC; mute/solo stay local.
   const beforeMixer = await page.evaluate(async () => (await fetch('/v1/workspace')).json());
-  await page.getByRole('button', { name: 'Voices', exact: true }).click();
-  const voices = page.getByRole('region', { name: 'Voices', exact: true });
+  await page.getByRole('button', { name: 'Piano: staff sounds', exact: true }).click();
+  const voices = page.getByRole('dialog', { name: 'Staff sound', exact: true });
   await voices.getByRole('button', { name: /^Instrument for / }).first().click();
   const instrumentSearch = voices.getByRole('combobox', { name: /^Search instruments for / });
   await instrumentSearch.fill('Flute');
   await instrumentSearch.press('Enter');
   assert.match(await voices.getByRole('button', { name: /^Instrument for / }).first().innerText(), /^Flute\s*⌄$/);
+  let afterInstrument;
+  const instrumentDeadline = Date.now() + 12000;
+  do {
+    afterInstrument = await page.evaluate(async () => (await fetch('/v1/workspace', { cache: 'no-store' })).json());
+    if (afterInstrument.documents.some((document) => document.abcSource.includes('MIDI=program 73'))) break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  } while (Date.now() < instrumentDeadline);
+  assert.equal(afterInstrument.documents.length, beforeMixer.documents.length);
+  assert.ok(afterInstrument.documents[0].revision > beforeMixer.documents[0].revision, 'Instrument edits create a saved score revision');
+  assert.ok(afterInstrument.documents[0].abcSource.includes('C D E F | G A B c |]'), 'Instrument edits preserve notes');
   const mute = voices.getByRole('button', { name: /^Mute / }).first();
   await mute.click();
   assert.equal(await mute.getAttribute('aria-pressed'), 'true');
   const afterMixer = await page.evaluate(async () => (await fetch('/v1/workspace')).json());
-  assert.deepEqual(afterMixer.documents, beforeMixer.documents, 'Mixer must not change score revisions or content');
-  await voices.getByRole('button', { name: 'Reset voices', exact: true }).click();
-  await voices.getByRole('button', { name: 'Close Voices', exact: true }).click();
+  assert.deepEqual(afterMixer.documents, afterInstrument.documents, 'Mute must not change score revisions or content');
+  await voices.getByRole('button', { name: 'Reset listening', exact: true }).click();
+  await voices.getByRole('button', { name: 'Close staff sound', exact: true }).click();
   await page.getByRole('tab', { name: 'Files', exact: true }).click();
   await page.getByRole('button', { name: 'Scan PDF / PNG', exact: true }).click();
   await page.getByLabel('Sheet music file').waitFor();
   await page.getByRole('button', { name: 'Close scan', exact: true }).click();
   await page.getByRole('tab', { name: 'Chat', exact: true }).click();
-  console.log('Desktop voice mixer and scan entry passed; shared score unchanged');
+  console.log('Desktop staff instrument editing, local listening controls, and scan entry passed');
   await input.fill('Add an annotation');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await page.getByRole('tab', { name: 'Files', exact: true }).click();

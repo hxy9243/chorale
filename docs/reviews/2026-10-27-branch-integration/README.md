@@ -24,8 +24,9 @@ Retained the shared left Chat rail and score-selection menu, incorporated backgr
 - Focused final recheck plus usability/new-score checks: 43 tests passed.
 - TypeScript build, production web build, Electron main/preload builds, and lint passed; lint reports warnings, no errors.
 - Fresh CLI install/persistence smoke passed.
+- Full desktop smoke passed with simulated provider responses: staff instrument saves and revisions, local mute, scan entry, left Chat rail resizing and drafts, settings/panes, annotation Apply All, score preview/apply, and reload persistence. The smoke fixture now uses a named staff and checks the current source-editing contract.
 - DCML experiment: frozen dependency environment, 17 pytest tests passed.
 - Background-import desktop smoke passed with a controlled recognizer: seven-page input, queue, cancellation, reload, no focus theft, stable document ID, persistence before acknowledgement, preserved originals, and failure recovery. This verifies integration, not recognition quality.
 - Score-context-menu browser smoke passed: selection preservation, ABC focus, annotations, current/new chat routing, real bounded playback/loop restart, small viewport and interface zoom, keyboard dismissal, and browser capability boundaries. No model prompts were sent.
 
-The first browser rerun overlapped the install smoke's rebuild of `dist`, causing a transient service fallback page. After the install completed, the isolated browser rerun passed. Desktop smoke uses the existing correctly configured sandbox helper from the primary checkout; installing the new temporary worktree could not elevate to configure its own helper.
+The first browser rerun overlapped the install smoke's rebuild of `dist`, causing a transient service fallback page. After the install completed, the isolated browser rerun passed. The temporary worktree could not elevate to configure its own Electron sandbox helper. Playwright desktop smoke launch arguments include `--no-sandbox` (recorded in `background-results.json`), so these runs do not validate sandbox installation. The primary checkout retains its root-owned 4755 helper.
