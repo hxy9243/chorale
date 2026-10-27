@@ -590,7 +590,11 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       ? parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16
       : 16
   ));
-  const sceneTracks = sheetViewportWidth > 0
+  const hasAnnotationRail = annotations.some(({ kind }) => kind !== 'chord')
+    || annotationEditor?.mode === 'manual';
+  const sceneTracks = !hasAnnotationRail
+    ? { balanceWidth: 0, annotationWidth: 0 }
+    : sheetViewportWidth > 0
     ? fitScoreSceneTracks({
       availableWidth: sheetViewportWidth / effectiveZoom,
       notationWidth: rootFontSize * PREFERRED_SCORE_NOTATION_WIDTH_REM,
@@ -607,7 +611,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     '--score-annotation-width': sceneTracks
       ? `${sceneTracks.annotationWidth}px`
       : `${PREFERRED_SCORE_ANNOTATION_WIDTH_REM}rem`,
-    '--score-scene-gap': `${SCORE_SCENE_GAP_REM}rem`,
+    '--score-scene-gap': `${hasAnnotationRail ? SCORE_SCENE_GAP_REM : 0}rem`,
   } as React.CSSProperties;
 
   const handleAnnotationRailGeometry = React.useCallback((geometry: AnnotationRailGeometry) => {
@@ -1164,8 +1168,9 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       const target = Array.from(controls || []).find((control) => (
         returnTarget === 'manual' || control.dataset.editAnnotation === returnTarget
       ));
-      (target || cardRef.current?.querySelector<HTMLElement>('[data-annotation-rail-heading]'))
-        ?.focus({ preventScroll: true });
+      const rail = cardRef.current?.querySelector<HTMLElement>('[data-annotation-rail-heading]');
+      const fallback = rail?.closest('[hidden]') ? containerRef.current : rail;
+      (target || fallback || containerRef.current)?.focus({ preventScroll: true });
     });
   };
 
@@ -1216,6 +1221,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         closeAnnotationEditor(annotation.id);
       }}
       onCancel={() => closeAnnotationEditor(editedAnnotation.id)}
+      onDismiss={() => setAnnotationEditor(null)}
       onDelete={() => {
         if (!onDeleteAnnotation) throw new Error('Annotation deletion is unavailable.');
         onDeleteAnnotation(editedAnnotation.id);
@@ -1361,7 +1367,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                     }}
                   />}
                 </div>
-                <div className="annotation-rail-viewport">
+                <div className="annotation-rail-viewport" hidden={!hasAnnotationRail}>
                   <AnnotationRail
                     annotations={annotations}
                     editing={annotationEditor}

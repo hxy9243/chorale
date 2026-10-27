@@ -220,6 +220,69 @@ describe('App Integration', () => {
     expect(screen.getByRole('separator', { name: 'Resize split columns' }).getAttribute('aria-valuenow')).toBe('58');
   }, 30000);
 
+  it('keeps all three pane slots and one transport through every edge and inner-corner drop', async () => {
+    const { unmount } = render(<App />);
+    await screen.findByTestId('sheet-svg');
+    fireEvent.click(screen.getByRole('button', { name: 'Open pane' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Split stack left' }));
+    const shell = document.querySelector<HTMLElement>('.score-editor-shell')!;
+    vi.spyOn(shell, 'getBoundingClientRect').mockReturnValue({
+      left: 100, top: 100, width: 800, height: 600, right: 900, bottom: 700,
+      x: 100, y: 100, toJSON: () => {},
+    });
+    const panes = [
+      document.querySelector<HTMLElement>('.score-pane')!,
+      document.querySelector<HTMLElement>('.editor-pane')!,
+      screen.getByRole('region', { name: 'Waterfall pane' }),
+    ];
+    const transport = document.querySelector('.audio-player-card');
+    let pointerId = 1;
+    for (const pane of panes) {
+      const tab = pane.querySelector('.pane-tab')!;
+      for (const [target, x, y, orientation, column, row] of [
+        ['top-left', 260, 310, 'split-left', '1', '1'],
+        ['bottom-left', 260, 490, 'split-left', '1', '3'],
+        ['top-right', 740, 310, 'split-right', '3', '1'],
+        ['bottom-right', 740, 490, 'split-right', '3', '3'],
+        ['left', 120, 400, 'horizontal', '', ''],
+        ['right', 880, 400, 'horizontal', '', ''],
+        ['top', 500, 120, 'vertical', '', ''],
+        ['bottom', 500, 680, 'vertical', '', ''],
+      ] as const) {
+        fireEvent.pointerDown(tab, { clientX: 500, clientY: 140, pointerId });
+        fireEvent.pointerMove(window, { clientX: x, clientY: y, pointerId });
+        expect(screen.getByTestId('pane-snap-target-map')).toBeDefined();
+        const preview = screen.getByTestId(`pane-snap-${target}`);
+        if (orientation === 'horizontal') expect(preview.textContent).toContain('Arrange in columns');
+        if (orientation === 'vertical') expect(preview.textContent).toContain('Arrange in rows');
+        fireEvent.pointerUp(window, { clientX: x, clientY: y, pointerId });
+        pointerId++;
+        expect(shell.classList.contains(`layout-${orientation}`)).toBe(true);
+        if (column) expect(pane.style.gridColumn).toBe(column);
+        if (row) expect(pane.style.gridRow).toBe(row);
+        expect([...shell.querySelectorAll(':scope > .workspace-pane')]).toEqual(panes);
+        expect(document.querySelector('.audio-player-card')).toBe(transport);
+        expect(document.querySelectorAll('.audio-player-card')).toHaveLength(1);
+        expect(screen.queryByTestId('pane-snap-overlay')).toBeNull();
+      }
+    }
+    // A central release must not change the most recently chosen arrangement.
+    const orientation = localStorage.getItem('chorale.workspace.paneOrientation');
+    const sequence = localStorage.getItem('chorale.workspace.paneSequence');
+    fireEvent.pointerDown(panes[1].querySelector('.pane-tab')!, { clientX: 500, clientY: 140, pointerId });
+    fireEvent.pointerMove(window, { clientX: 500, clientY: 400, pointerId });
+    expect(screen.getByText('Keep current layout')).toBeDefined();
+    fireEvent.pointerUp(window, { clientX: 500, clientY: 400, pointerId });
+    expect(localStorage.getItem('chorale.workspace.paneOrientation')).toBe(orientation);
+    expect(localStorage.getItem('chorale.workspace.paneSequence')).toBe(sequence);
+    unmount();
+    render(<App />);
+    await screen.findByTestId('sheet-svg');
+    expect(document.querySelector('.score-editor-shell')?.classList.contains(`layout-${orientation}`)).toBe(true);
+    expect(localStorage.getItem('chorale.workspace.paneSequence')).toBe(sequence);
+    expect(document.querySelectorAll('.audio-player-card')).toHaveLength(1);
+  }, 30000);
+
   it.each([false, true])('drags Waterfall in all four directions with ABC visible: %s', async (abcVisible) => {
     render(<App />);
     await waitFor(() => expect(screen.getByTestId('sheet-svg')).toBeDefined());

@@ -1,0 +1,354 @@
+/* Recital components consume surface roles; geometry stays in the workspace styles. */
+html, body, #root { background: var(--surface-backdrop); color: var(--text); }
+body, button, input, textarea, select { font-family: var(--font-ui); }
+body { background-image: none; }
+button, input, textarea, select { accent-color: var(--text-primary); }
+::selection { background: var(--context-blue); color: var(--text-primary); }
+:where(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+:where(.glass-panel, .app-header, .agent-panel, .file-rail, .workspace-pane-card) {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+:where(.chorale-app-shell, .central-column, .central-workspace, .score-editor-shell) { background: var(--surface-backdrop); }
+:where(.file-rail, .file-rail-section, .file-rail-panel-stack, .agent-panel, .app-header) {
+  background: var(--surface-wing);
+  color: var(--text);
+  border-color: var(--line);
+}
+:where(.file-rail-tabs, .right-rail, .playback-dock-container, .pane-layout-segmented, .file-context-menu, .workspace-pane-menu, .presentation-menu-popover, .abc-completion-menu) {
+  color-scheme: dark;
+  --local-text: var(--frame-text);
+  --local-muted: var(--frame-muted);
+  --local-surface: var(--surface-frame);
+  --local-hover: var(--frame-raised);
+  --local-line: var(--frame-line);
+  --local-control-line: var(--frame-line);
+  --local-sound: var(--frame-sound);
+  --local-context: var(--frame-context);
+  --local-pending: var(--frame-pending);
+  --local-settled: var(--frame-settled);
+  --surface-raised: var(--frame-raised);
+}
+:where(.sheet-zoom-wrapper, .score-display-options) {
+  color-scheme: light;
+  --local-text: var(--stage-ink);
+  --local-muted: var(--stage-muted);
+  --local-surface: var(--surface-stage);
+  --local-hover: var(--stage-hover);
+  --local-line: var(--stage-rule);
+  --local-control-line: var(--stage-muted);
+  --local-sound: var(--stage-sound);
+  --local-context: var(--stage-context);
+  --local-pending: var(--stage-pending);
+  --local-settled: var(--stage-settled);
+  --surface-raised: var(--surface-stage);
+}
+:where(.voices-panel, .ai-settings-modal, .ai-connection-modal) {
+  color-scheme: var(--theme-color-scheme);
+  --local-text: var(--text);
+  --local-muted: var(--text-muted);
+  --local-surface: var(--surface-wing);
+  --local-hover: var(--wing-raised);
+  --local-line: var(--line);
+  --local-control-line: var(--line-control);
+  --local-sound: var(--signal-sound);
+  --local-context: var(--signal-context);
+  --local-pending: var(--status-pending);
+  --local-settled: var(--status-settled);
+  --surface-raised: var(--wing-raised);
+}
+
+/* Navigation and header are neutral; Chat carries the context marker. */
+.file-rail-tabs { background: var(--surface-frame); color: var(--frame-text); }
+.file-rail-tabs .file-rail-tab {
+  position: relative;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--rail-icon);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-chip);
+  outline: none;
+  box-shadow: none;
+  transform: none;
+}
+.file-rail-tabs .file-rail-tab:hover,
+.file-rail-tabs .file-rail-tab.active,
+.file-rail-tabs .file-rail-tab[aria-selected='true'] {
+  background: transparent;
+  color: var(--frame-text);
+  border: 0;
+  box-shadow: none;
+}
+.file-rail-tabs .file-rail-tab.active::after,
+.file-rail-tabs .file-rail-tab[aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  bottom: 1px;
+  left: calc(50% - 7px);
+  width: 14px;
+  height: 1px;
+  background: var(--frame-muted);
+}
+.file-rail-tabs .file-rail-tab:focus-visible {
+  outline: 1px solid var(--frame-muted);
+  outline-offset: -2px;
+  box-shadow: none;
+}
+.file-item.active, .file-item-select.active { background: var(--surface-raised); border-color: var(--line-control); color: var(--text); }
+.file-item.active::before { background: var(--text-muted); }
+.file-item-name { font-size: 13px; font-weight: 600; }
+.file-item-meta, .file-revision, .file-type-badge, .rail-tool-badge { font-family: var(--font-meta); color: var(--text-muted); }
+.rail-section-title { font: 600 14px/1.3 var(--font-ui); }
+.app-header { background: var(--surface-wing); border-bottom-color: var(--line); }
+.header-breadcrumb strong { font: 400 20px/1.2 var(--font-title); color: var(--text); }
+.pane-layout-segmented { background: var(--surface-frame); border-color: var(--frame-line); }
+.pane-layout-segmented .pane-layout-segment { color: var(--frame-muted); }
+.pane-layout-segmented .pane-layout-segment[aria-pressed='true'] { background: var(--frame-raised); color: var(--frame-text); }
+.header-status-pill { background: transparent; color: var(--text-muted); border: 0; font-family: var(--font-ui); }
+.header-status-pill.saved, .header-status-pill.ready { color: var(--status-settled); }
+.header-status-pill.error, .header-status-pill.invalid { color: var(--status-pending); }
+
+/* Controls use the same flat material throughout the wings. */
+.button, .btn, .agent-icon-button, .rail-tool-button, .abc-toolbelt-actions button {
+  border-radius: var(--radius-control); box-shadow: none;
+}
+.button--primary, .btn-primary, .ai-primary-button, .score-drafting-primary-button, .annotation-apply-all {
+  background: var(--text-primary); color: var(--surface-paper); border-color: var(--text-primary);
+}
+.button--primary:hover:not(:disabled), .btn-primary:hover:not(:disabled), .ai-primary-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text-primary) 88%, var(--surface-paper));
+  border-color: var(--text-primary);
+}
+.button--accent { background: var(--signal-sound); color: var(--surface-frame); border-color: var(--signal-sound); }
+:where(input, textarea, select) { color: var(--text-primary); background-color: var(--surface-raised); border-color: var(--border-selected); }
+:where(input, textarea)::placeholder { color: var(--text-secondary); opacity: 1; }
+:where(.file-context-menu, .workspace-pane-menu, .presentation-menu-popover, .abc-completion-menu) {
+  background: var(--surface-frame); color: var(--frame-text); border-color: var(--frame-line); border-radius: var(--radius-panel); box-shadow: var(--shadow-float);
+}
+:where(.modal-window, .history-modal-window, .delete-file-modal-window, .ai-settings-modal, .score-drafting-modal, .video-export-modal-content) {
+  background: var(--surface-wing); color: var(--text); border-color: var(--line-control); border-radius: var(--radius-float); box-shadow: var(--shadow-float);
+}
+
+/* One compact gutter surrounds the paper; annotation cards sit on the backdrop. */
+.workspace-pane.score-pane .score-canvas,
+.workspace-pane.score-pane .score-sheet { padding: 0; }
+.sheet-music-card, .sheet-viewport { background: var(--surface-backdrop); border: 0; box-shadow: none; }
+.sheet-viewport { padding: 16px 12px 56px; }
+.sheet-scene-positioner { padding: 0; }
+.sheet-zoom-wrapper { padding: 0; border-radius: 0; background: transparent; color: var(--stage-ink); box-shadow: none; }
+.sheet-notation-column { background: var(--surface-stage); box-shadow: var(--shadow-stage); }
+.abcjs-paper-container, .abcjs-paper-container svg { background: transparent; color: var(--stage-ink); }
+.score-metadata-header, .score-title-text { color: var(--stage-ink); }
+.score-title-text { font-family: var(--font-title); font-weight: 400; }
+.score-composer-text, .score-subtitle { color: var(--stage-muted); font-family: var(--font-title); font-style: italic; }
+.sheet-zoom-wrapper .annotation-rail-card { background: var(--stage-card); color: var(--stage-ink); border: 1px solid var(--stage-rule); border-radius: var(--radius-chip); box-shadow: none; }
+.sheet-zoom-wrapper .annotation-card-measures { color: var(--stage-context); font-family: var(--font-meta); }
+.abcjs-measure-highlight { fill: var(--stage-selection); stroke: var(--stage-selection-line); }
+.abcjs-measure-hit-area.is-editor-focused { stroke: var(--stage-context); }
+.abcjs-cursor { stroke: var(--stage-sound); }
+.workspace-pane.score-pane .score-display-options {
+  position: absolute;
+  top: auto;
+  bottom: 16px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--surface-stage) 55%, transparent);
+  color: var(--stage-ink);
+  border-color: color-mix(in srgb, var(--stage-muted) 22%, transparent);
+  border-radius: var(--radius-pill);
+  box-shadow: none;
+  padding: 1px;
+  opacity: .4;
+}
+.workspace-pane.score-pane .score-display-options.is-scrolling { opacity: .15; }
+.workspace-pane.score-pane .score-display-options:hover,
+.workspace-pane.score-pane .score-display-options:focus-within {
+  opacity: 1;
+  background: color-mix(in srgb, var(--surface-stage) 90%, transparent);
+}
+.score-display-options .zoom-controls-group { gap: 6px; }
+.score-display-options .figma-button { min-height: 26px; padding: 0 6px; font-size: 11px; gap: 4px; }
+.score-display-options .zoom-button { width: 26px; min-width: 26px; padding: 0; }
+.score-display-options .zoom-level-text { min-width: 40px; font-size: 11px; }
+.score-display-options .figma-button svg { width: 12px; height: 12px; }
+/* Pane tabs join the top edge of a defined workspace boundary. */
+.pane-tab-strip {
+  position: relative;
+  align-items: flex-end;
+  min-height: 34px;
+  padding: 0 8px;
+  background: transparent;
+  border-bottom: 1px solid var(--line-pane);
+  overflow: visible;
+}
+.pane-tab {
+  position: relative;
+  gap: 8px;
+  padding: 6px 12px;
+  margin-bottom: -1px;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control) var(--radius-control) 0 0;
+  font: 500 12px/1.4 var(--font-ui);
+}
+.pane-tab.active {
+  z-index: 1;
+  background: var(--surface-wing);
+  color: var(--text);
+  border: 1px solid var(--line-pane);
+  border-bottom-color: var(--surface-wing);
+  box-shadow: none;
+}
+.workspace-pane-card.score-workspace-card,
+.workspace-pane-card.editor-workspace-card,
+.workspace-pane-card.waterfall-card {
+  border: 1px solid var(--line-pane);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-control) var(--radius-control);
+  box-shadow: none;
+}
+.workspace-pane-card.score-workspace-card { background: var(--surface-backdrop); }
+.workspace-pane-card.editor-workspace-card { background: var(--surface-source); }
+
+/* Context and proposals share one readable conversation surface. */
+.agent-panel { background: var(--surface-wing); }
+.agent-panel-header, .agent-panel-header h2 { color: var(--text); }
+.agent-panel-header h2 { font: 600 14px/1.4 var(--font-ui); }
+.agent-panel-header h2::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 8px; border-radius: var(--radius-pill); background: var(--signal-context); }
+.agent-message, .agent-message-content { font: 400 14px/1.6 var(--font-ui); color: var(--text); }
+.agent-message.assistant { background: transparent; border: 0; box-shadow: none; }
+.agent-message.user { background: var(--surface-raised); border: 0; border-radius: var(--radius-panel); }
+.agent-message-label, .agent-message-context, .agent-message-provider, .agent-tool-row, .agent-thinking { color: var(--text-muted); }
+.agent-anchor-pill, .agent-composer-range-chip, .agent-composer-anchor { color: var(--signal-context); background: var(--context-blue); border-color: transparent; border-radius: var(--radius-chip); }
+.agent-measure-link, .agent-message-content a[data-measure], .agent-message-content .measure-link { color: var(--signal-context); text-decoration-color: var(--signal-context); }
+.agent-composer { background: var(--surface-raised); border: 1px solid var(--line-control); border-radius: var(--radius-panel); box-shadow: none; }
+.agent-composer textarea { background: transparent; color: var(--text); }
+.agent-composer .agent-send-button { color: var(--surface-wing); background: var(--signal-context); border-color: var(--signal-context); border-radius: var(--radius-control); }
+.agent-composer .agent-send-button:hover:not(:disabled) { background: color-mix(in srgb, var(--signal-context) 85%, var(--text)); }
+.annotation-proposal-card, .score-change-proposal-card { background: var(--surface-raised); border-color: var(--line-control); border-radius: var(--radius-control); box-shadow: none; }
+
+/* One voice palette connects source rows and the waterfall. */
+.abc-editor-card { background: var(--surface-source); --local-surface: var(--surface-source); }
+.abc-editor-card .editor-header { background: var(--surface-source); border-bottom-color: var(--line); }
+.abc-editor-card .abc-editor-tabs { background: var(--surface-wing); border-radius: var(--radius-control); }
+.abc-editor-card .abc-editor-tabs button[aria-selected='true'] { background: var(--surface-raised); color: var(--text); box-shadow: none; }
+.abc-timeline-measure { background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--radius-control); box-shadow: none; }
+.abc-timeline-measure.is-selected { border-color: var(--signal-context); }
+.abc-timeline-measure-number { color: var(--text-muted); font-family: var(--font-meta); }
+.abc-timeline-measure.is-selected .abc-timeline-measure-number { color: var(--signal-context); }
+.abc-timeline-voice, .abc-raw-line-row { background: transparent; }
+.abc-timeline-voice-label { color: var(--abc-voice-solid); font-family: var(--font-meta); }
+.abc-source-beat-display, .abc-measure-edit-input, .abc-raw-textarea { font-family: var(--font-meta); color: var(--text); }
+.abc-timeline-voice.is-invalid { box-shadow: inset 0 0 0 1px var(--status-pending); }
+.abc-editor-card .editor-status-pill.valid { color: var(--status-settled); border-color: var(--status-settled); background: transparent; }
+.abc-editor-card .editor-status-pill.invalid, .abc-editor-error-toast { color: var(--status-pending); border-color: var(--status-pending); background: var(--surface-raised); }
+.abc-horizontal-scrollbar, .abc-toolbelt-section { background: var(--surface-wing); border-color: var(--line-control); box-shadow: none; }
+
+/* The dock is dark hardware in every theme. */
+.central-workspace > .playback-dock-container .audio-player-card {
+  width: min(100%, 760px); max-width: 760px; color: var(--frame-text); background: var(--surface-dock);
+  border: 1px solid var(--frame-line); border-radius: var(--radius-float); box-shadow: var(--shadow-float);
+}
+.central-workspace > .playback-dock-container .main-play-buttons .btn-primary {
+  background: var(--frame-sound); color: var(--surface-frame); border-color: var(--frame-sound); box-shadow: none;
+}
+.central-workspace > .playback-dock-container .main-play-buttons .btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--frame-sound) 85%, var(--frame-text)); color: var(--surface-frame); border-color: var(--frame-sound);
+}
+.central-workspace > .playback-dock-container .main-play-buttons .btn-secondary { background: var(--frame-raised); color: var(--frame-text); border-color: var(--frame-line); }
+.central-workspace > .playback-dock-container .playback-progress strong { color: var(--frame-text); font-family: var(--font-meta); }
+.central-workspace > .playback-dock-container .playback-progress span { color: var(--frame-muted); font-family: var(--font-meta); }
+.central-workspace > .playback-dock-container .playback-progress-track { background: var(--frame-line); border-color: var(--frame-line); accent-color: var(--frame-sound); }
+.central-workspace > .playback-dock-container .playback-measure-pill { color: var(--frame-sound); background: var(--frame-raised); border-color: var(--frame-line); }
+.central-workspace > .playback-dock-container .playback-loop-pill { color: var(--frame-context); background: color-mix(in srgb, var(--frame-context) 16%, var(--surface-dock)); border-color: color-mix(in srgb, var(--frame-context) 35%, var(--surface-dock)); }
+.central-workspace > .playback-dock-container .playback-selection-empty { color: var(--frame-muted); }
+.playback-progress-track::-webkit-slider-thumb, .audio-slider::-webkit-slider-thumb { background: var(--frame-text); }
+.playback-progress-track::-webkit-slider-runnable-track { background: var(--frame-line); }
+.playback-speed-control, .playback-speed-control select { color: var(--frame-text); }
+.playback-speed-control select { background: var(--frame-raised); border-color: var(--frame-line); border-radius: var(--radius-chip); }
+.voices-panel { background: var(--surface-wing); color: var(--text); border-color: var(--line-control); border-radius: var(--radius-float); box-shadow: var(--shadow-float); }
+.voices-panel p, .voice-mixer-heading small, .voices-panel footer span { color: var(--text-muted); }
+.voice-mixer-row.is-silent .voice-mixer-heading small { color: var(--status-pending); }
+.voice-mixer-actions button[aria-pressed='true'] { background: var(--text); color: var(--surface-wing); border-color: var(--text); }
+
+/* Falling notes keep night inks and a Sound hit line in both themes. */
+.waterfall-card { background: var(--surface-wing); border-color: var(--line); border-radius: var(--radius-control); }
+.waterfall-legend { background: var(--surface-wing); color: var(--text-muted); font-family: var(--font-meta); }
+.waterfall-viewport { --local-text: var(--frame-text); --local-muted: var(--frame-muted); --local-surface: var(--surface-frame); background: var(--surface-frame); color: var(--frame-text); }
+.waterfall-lane { stroke: var(--frame-line); }
+.waterfall-keyboard-rail { stroke: var(--frame-sound); stroke-width: 2px; }
+.waterfall-key-label { fill: var(--stage-muted); font: 400 11px var(--font-meta); }
+.waterfall-empty { color: var(--frame-muted); }
+
+/* Appearance controls are native radio groups with a consistent preview material. */
+.appearance-preferences { margin-bottom: 28px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+.appearance-intro h3 { margin: 0 0 4px; font: 400 28px/1.2 var(--font-title); }
+.appearance-intro p, .appearance-help { color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+.appearance-preferences fieldset { min-width: 0; margin: 22px 0 0; padding: 0; border: 0; }
+.appearance-preferences legend { margin-bottom: 10px; color: var(--text); font: 600 13px/1.4 var(--font-ui); }
+.appearance-theme-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.appearance-theme-option { display: flex; gap: 9px; align-items: flex-start; padding: 12px; border: 1px solid var(--line-control); border-radius: var(--radius-control); cursor: pointer; }
+.appearance-theme-option:has(input:checked) { background: var(--surface-raised); border-color: var(--text-muted); }
+.appearance-theme-option input { margin-top: 3px; flex: none; }
+.appearance-theme-option span { display: flex; flex-direction: column; gap: 3px; }
+.appearance-theme-option strong { color: var(--text); font-size: 13px; font-weight: 500; }
+.appearance-theme-option small { color: var(--text-muted); font-size: 11px; }
+.appearance-hall-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.appearance-hall-option { display: grid; gap: 8px; position: relative; color: var(--text); font-size: 12px; cursor: pointer; }
+.appearance-hall-option input { position: absolute; inset: 8px auto auto 8px; z-index: 1; }
+.appearance-hall-swatch { display: flex; height: 58px; overflow: hidden; border: 1px solid var(--line-control); border-radius: var(--radius-control); outline: 2px solid transparent; outline-offset: 3px; }
+.appearance-hall-swatch i:nth-child(1) { flex: 0 0 18%; background: var(--preview-frame); }
+.appearance-hall-swatch i:nth-child(2) { flex: 0 0 32%; background: var(--preview-wing); }
+.appearance-hall-swatch i:nth-child(3) { flex: 1; background: var(--preview-backdrop); }
+.appearance-hall-option input:checked + .appearance-hall-swatch { outline-color: var(--text-muted); }
+:root[data-theme='studio'] .appearance-accent-option input:checked + .appearance-hall-swatch { outline-color: var(--studio-accent); }
+:root[data-theme='studio'] .file-item.active,
+:root[data-theme='studio'] .ai-settings-tabs button[aria-selected='true'],
+:root[data-theme='studio'] .appearance-theme-option:has(input:checked) { background: var(--studio-accent-soft); border-color: var(--studio-accent); }
+:root[data-theme='studio'] .file-item.active::before { background: var(--studio-accent); }
+:root[data-theme='studio'] .pane-tab.active { color: var(--studio-accent); }
+.appearance-hall-fieldset:disabled { opacity: .5; }
+.appearance-hall-fieldset:disabled label { cursor: default; }
+.appearance-help { margin-top: 14px; }
+@media (max-width: 48rem) { .appearance-theme-options { grid-template-columns: 1fr; } .appearance-hall-options { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: no-preference) {
+  html, body, .app-header, .file-rail-section, .agent-panel, .central-workspace, .sheet-zoom-wrapper, .abc-editor-card {
+    transition: background-color var(--dur-theme) ease, color var(--dur-theme) ease, border-color var(--dur-theme) ease;
+  }
+}
+
+.abc-editor-card [data-color="0"] { --abc-voice-solid: var(--voice-soprano-night); --abc-voice-bg: color-mix(in srgb, var(--voice-soprano-night) 12%, transparent); }
+:root[data-theme="studio"] .abc-editor-card [data-color="0"] { --abc-voice-solid: var(--voice-soprano); --abc-voice-bg: color-mix(in srgb, var(--voice-soprano) 12%, transparent); }
+
+.abc-editor-card [data-color="1"] { --abc-voice-solid: var(--voice-alto-night); --abc-voice-bg: color-mix(in srgb, var(--voice-alto-night) 12%, transparent); }
+:root[data-theme="studio"] .abc-editor-card [data-color="1"] { --abc-voice-solid: var(--voice-alto); --abc-voice-bg: color-mix(in srgb, var(--voice-alto) 12%, transparent); }
+
+.abc-editor-card [data-color="2"] { --abc-voice-solid: var(--voice-tenor-night); --abc-voice-bg: color-mix(in srgb, var(--voice-tenor-night) 12%, transparent); }
+:root[data-theme="studio"] .abc-editor-card [data-color="2"] { --abc-voice-solid: var(--voice-tenor); --abc-voice-bg: color-mix(in srgb, var(--voice-tenor) 12%, transparent); }
+
+.abc-editor-card [data-color="3"] { --abc-voice-solid: var(--voice-bass-night); --abc-voice-bg: color-mix(in srgb, var(--voice-bass-night) 12%, transparent); }
+:root[data-theme="studio"] .abc-editor-card [data-color="3"] { --abc-voice-solid: var(--voice-bass); --abc-voice-bg: color-mix(in srgb, var(--voice-bass) 12%, transparent); }
+
+.abc-editor-card [data-color="4"] { --abc-voice-solid: var(--voice-fifth-night); --abc-voice-bg: color-mix(in srgb, var(--voice-fifth-night) 12%, transparent); }
+:root[data-theme="studio"] .abc-editor-card [data-color="4"] { --abc-voice-solid: var(--voice-fifth); --abc-voice-bg: color-mix(in srgb, var(--voice-fifth) 12%, transparent); }
+
+.abc-editor-card [data-color="5"] { --abc-voice-solid: var(--voice-sixth-night); --abc-voice-bg: color-mix(in srgb, var(--voice-sixth-night) 12%, transparent); }
+:root[data-theme="studio"] .abc-editor-card [data-color="5"] { --abc-voice-solid: var(--voice-sixth); --abc-voice-bg: color-mix(in srgb, var(--voice-sixth) 12%, transparent); }
+
+.file-rail-tab-label { font: 400 11px/1.1 var(--font-ui); }
+.file-rail .file-item-select.file-row.active { border-left-color: var(--text-muted); }
+.file-rail-tabs .file-rail-tab[aria-label='Chat'].active::after { background: var(--frame-context); }
+.central-workspace > .playback-dock-container .playback-progress-track > span { background: var(--frame-sound); }
+
+.appearance-preferences input[type='radio'] { appearance: auto; width: 14px; height: 14px; min-width: 14px; padding: 0; border: 0; accent-color: var(--text); }
+
+.ai-settings-header { background: var(--surface-wing); }
+.ai-settings-header::after { background: var(--line-control); }
+.ai-settings-tabs { background: var(--surface-wing); }
+.ai-settings-tabs button[aria-selected='true'] { color: var(--text); background: var(--surface-raised); border-color: var(--line-control); box-shadow: none; }

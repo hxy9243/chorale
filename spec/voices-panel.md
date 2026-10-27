@@ -19,6 +19,12 @@ related_specs:
 # Voices panel
 
 The playback dock exposes a Voices button opening an accessible, scrollable panel.
+The panel dismisses when pointer interaction or keyboard focus moves outside it,
+or when the application window loses focus. Focus and pointer interaction within
+the panel, including instrument search and its options, keep it open. The Voices
+trigger toggles the panel once. Outside dismissal preserves the new focus target;
+Escape and the explicit Close action return focus to the trigger. Dismissal stops
+any pending or playing instrument preview through the normal unmount cleanup.
 Each resolved synthesis track has a readable voice name, instrument choice, Preview,
 Mute and Solo. Generated chord/drum tracks remain separately controllable. Voice
 identity follows ABC voice IDs rather than names; unnamed parts use Voice 1, etc.

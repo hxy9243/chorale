@@ -124,6 +124,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [voicesOpen, setVoicesOpen] = useState(false);
   const [previewStopSignal, setPreviewStopSignal] = useState(0);
   const voicesButtonRef = useRef<HTMLButtonElement>(null);
+  const dismissVoices = React.useCallback(() => setVoicesOpen(false), []);
+  const closeVoices = React.useCallback(() => {
+    setVoicesOpen(false);
+    voicesButtonRef.current?.focus();
+  }, []);
   const [mixerState, setMixerState] = useState(() => ({ documentId, settings: readVoiceMix(documentId) }));
   const mixerSettings = mixerState.documentId === documentId ? mixerState.settings : readVoiceMix(documentId);
   if (mixerState.documentId !== documentId) setMixerState({ documentId, settings: mixerSettings });
@@ -773,7 +778,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         disabled={!isReady || isChangingSpeed || isStarting} volume={effectiveVolume} stopSignal={previewStopSignal} mainPlaying={isPlaying}
         onChange={handleMixChange}
         onBeforePreview={() => { if (isPlayingRef.current) void handlePlayToggle(); }}
-        onClose={() => { setVoicesOpen(false); voicesButtonRef.current?.focus(); }} />}
+        onClose={closeVoices} onDismiss={dismissVoices} triggerRef={voicesButtonRef} />}
       <div className="player-controls-bar">
         <div className="main-play-buttons">
           <button

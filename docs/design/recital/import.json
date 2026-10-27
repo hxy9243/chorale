@@ -1,0 +1,14 @@
+{
+  "source": "~/Downloads/design",
+  "imported": "2026-10-25",
+  "sha256": {
+    "DESIGN.md": "1ef70c588a22dcadad1732c8a44ef7154756800f721b52ff0a79ec2bc1827536",
+    "images/edit-abc-strip.png": "143ab92e7f5cdb7b97c62831fa81d47fa119095062c29ec1a7fca695c2e1a767",
+    "images/hall-colors.png": "579584c56660244fc1c028f8779f1eae32942b7db06238d4f7127a136e5f94b9",
+    "images/practice-lights-down.png": "838de5b41b323c7463df7f6ea43e7a14fef9a925e1aac53b8a265b06b4515346",
+    "images/recital-theme.png": "4839b078147087f97c973a5dcfe606ede3414dd37ef375a83890214dbffe32b1",
+    "images/study-recital.png": "b995fd7bd5956428c33b85502ea06858c557bf40db62a02904da8272d8ec7e13",
+    "images/study-studio.png": "d3eef07b2df56316cc72429fc1a0332862291a4ac632ae5456a500f69bb2b282",
+    "images/tools-panel.png": "1c81a7bf56c93c46b156c6aecd054b5874ae3f485cb20733466c9f61caa895b5"
+  }
+}

@@ -299,6 +299,34 @@ describe('usePaneTabDrag', () => {
     drag.expectIdle();
   });
 
+
+  it.each([
+    ['top-left', 260, 260], ['top-left', 380, 140],
+    ['bottom-left', 260, 440], ['bottom-left', 380, 560],
+    ['top-right', 740, 260], ['top-right', 620, 140],
+    ['bottom-right', 740, 440], ['bottom-right', 620, 560],
+  ] as const)('keeps the inner corner at (%s, %s, %s) in its stack slot', (zone, x, y) => {
+    const drag = setup(true, true);
+    drag.start('waterfall');
+    drag.dispatch('pointermove', x, y);
+    expect(drag.result.current.activeSnapTarget).toBe(zone);
+    drag.dispatch('pointerup', x, y);
+    expect(drag.rearrangePane).toHaveBeenCalledExactlyOnceWith('waterfall', zone);
+    drag.expectIdle();
+  });
+
+  it('does not rearrange three panes when released in the center', () => {
+    const drag = setup(true, true);
+    drag.start('editor', { clientX: 200, clientY: 80 });
+    drag.dispatch('pointermove', 260, 440);
+    expect(drag.result.current.activeSnapTarget).toBe('bottom-left');
+    drag.dispatch('pointermove', 500, 350);
+    expect(drag.result.current.activeSnapTarget).toBeNull();
+    drag.dispatch('pointerup', 500, 350);
+    expect(drag.rearrangePane).not.toHaveBeenCalled();
+    drag.expectIdle();
+  });
+
   it('retains edge snapping in a two-pane layout and cancels a corner preview on Escape', () => {
     const pair = setup();
     pair.start(); pair.dispatch('pointermove', 120, 70);

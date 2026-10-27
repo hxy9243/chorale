@@ -427,6 +427,42 @@ describe('AudioPlayer Component', () => {
     expect((document.querySelector('.hidden-synth .abcjs-midi-tempo') as HTMLInputElement).value).toBe('150');
   });
 
+  it.each(['pointer', 'focus', 'window'] as const)('dismisses Voices on outside %s without reclaiming focus', async (action) => {
+    render(<><button>Outside control</button><AudioPlayer tunes={[mockTune]} /></>);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    fireEvent.click(screen.getByRole('button', { name: 'Voices' }));
+    expect(screen.getByRole('region', { name: 'Voices' })).toBeDefined();
+    const outside = screen.getByRole('button', { name: 'Outside control' });
+    if (action === 'pointer') {
+      fireEvent.pointerDown(outside);
+      expect(screen.queryByRole('region', { name: 'Voices' })).toBeNull();
+    } else if (action === 'focus') {
+      act(() => outside.focus());
+      expect(document.activeElement).toBe(outside);
+    } else {
+      fireEvent(window, new Event('blur'));
+    }
+    expect(screen.queryByRole('region', { name: 'Voices' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Voices' }).getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('keeps Voices open for internal focus, closes once on its trigger, and restores focus on Escape', async () => {
+    render(<AudioPlayer tunes={[mockTune]} />);
+    await waitFor(() => expect(screen.getByText('Synth Ready')).toBeDefined());
+    const trigger = screen.getByRole('button', { name: 'Voices' });
+    fireEvent.click(trigger);
+    act(() => screen.getByRole('button', { name: 'Reset voices' }).focus());
+    expect(screen.getByRole('region', { name: 'Voices' })).toBeDefined();
+    fireEvent.pointerDown(trigger);
+    act(() => trigger.focus());
+    fireEvent.click(trigger);
+    expect(screen.queryByRole('region', { name: 'Voices' })).toBeNull();
+    fireEvent.click(trigger);
+    fireEvent.keyDown(screen.getByRole('region', { name: 'Voices' }), { key: 'Escape' });
+    expect(screen.queryByRole('region', { name: 'Voices' })).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
   it('applies voice settings to shared playback, preserves clock and speed, and isolates documents', async () => {
     const { default: realAbcjs } = await vi.importActual<{ default: typeof abcjs }>('abcjs');
     const source = 'X:1\nM:4/4\nL:1/4\nQ:1/4=120\nV:S name="Melody"\nV:B name="Bass" clef=bass\nK:C\n[V:S] C4 | D4 | E4 | F4 |\n[V:B] C,4 | D,4 | E,4 | F,4 |';

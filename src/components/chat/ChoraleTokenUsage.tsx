@@ -53,7 +53,7 @@ export const ChoraleTokenUsage = memo(function ChoraleTokenUsage({
             marginTop: 4,
             padding: '6px 8px',
             borderRadius: 4,
-            backgroundColor: 'var(--color-surface-subtle, rgba(0, 0, 0, 0.04))',
+            backgroundColor: 'var(--surface-raised)',
             display: 'grid',
             gridTemplateColumns: 'repeat(2, 1fr)',
             gap: '2px 12px',
@@ -66,7 +66,7 @@ export const ChoraleTokenUsage = memo(function ChoraleTokenUsage({
           {usage.reasoning !== undefined && (
             <div>Reasoning: <strong>{usage.reasoning.toLocaleString()}</strong> <em>(subset of completion)</em></div>
           )}
-          <div style={{ gridColumn: '1 / -1', borderTop: '1px solid rgba(128, 128, 128, 0.2)', paddingTop: 2, marginTop: 2 }}>
+          <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--line)', paddingTop: 2, marginTop: 2 }}>
             Total: <strong>{usage.totalTokens.toLocaleString()}</strong>
           </div>
         </div>

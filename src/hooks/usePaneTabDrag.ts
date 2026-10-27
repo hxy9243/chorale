@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react';
 import type { SnapTarget, WorkspacePaneId } from './useWorkspacePanes';
 
+// Shared with the visible target map: corners, edge centers, and a neutral center.
+export const SPLIT_SNAP_GRID = [0.4, 0.2, 0.4] as const;
+
 interface UsePaneTabDragOptions {
   shellRef: RefObject<HTMLElement | null>;
   bothPanesVisible: boolean;
@@ -26,8 +29,12 @@ function getSnapTarget(shell: HTMLElement | null, clientX: number, clientY: numb
   const relY = (clientY - top) / height;
   if (relX < 0 || relX > 1 || relY < 0 || relY > 1) return null;
 
-  if (allowSplitStack && (relX < 0.3 || relX > 0.7) && (relY < 0.3 || relY > 0.7)) {
-    return `${relY < 0.5 ? 'top' : 'bottom'}-${relX < 0.5 ? 'left' : 'right'}`;
+  if (allowSplitStack) {
+    const outer = SPLIT_SNAP_GRID[0];
+    const x = relX < outer ? 'left' : relX > 1 - outer ? 'right' : null;
+    const y = relY < outer ? 'top' : relY > 1 - outer ? 'bottom' : null;
+    if (x && y) return `${y}-${x}`;
+    return y ?? x;
   }
 
   if (relY < relX && relY < 1 - relX) return 'top';

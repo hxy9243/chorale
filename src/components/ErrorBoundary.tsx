@@ -53,9 +53,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             justifyContent: 'center',
             minHeight: '100vh',
             padding: '24px',
-            fontFamily: 'var(--font-sans, system-ui, sans-serif)',
-            backgroundColor: 'var(--bg-primary, #18181b)',
-            color: 'var(--text-primary, #f4f4f5)',
+            fontFamily: 'var(--font-ui)',
+            backgroundColor: 'var(--surface-backdrop)',
+            color: 'var(--text)',
             textAlign: 'center',
           }}
         >
@@ -63,10 +63,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             style={{
               maxWidth: '480px',
               padding: '32px',
-              borderRadius: '8px',
-              backgroundColor: 'var(--bg-secondary, #27272a)',
-              border: '1px solid var(--border-color, #3f3f46)',
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+              borderRadius: 'var(--radius-float)',
+              backgroundColor: 'var(--surface-wing)',
+              border: '1px solid var(--line-control)',
+              boxShadow: 'var(--shadow-float)',
             }}
           >
             <h2 style={{ margin: '0 0 12px 0', fontSize: '1.25rem', fontWeight: 600 }}>
@@ -76,7 +76,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               style={{
                 margin: '0 0 16px 0',
                 fontSize: '0.875rem',
-                color: 'var(--text-secondary, #a1a1aa)',
+                color: 'var(--text-muted)',
                 lineHeight: 1.5,
               }}
             >
@@ -86,12 +86,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               style={{
                 padding: '8px 12px',
                 marginBottom: '20px',
-                borderRadius: '4px',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                color: '#f87171',
+                borderRadius: 'var(--radius-control)',
+                backgroundColor: 'var(--color-warning-soft)',
+                border: '1px solid var(--status-pending)',
+                color: 'var(--status-pending)',
                 fontSize: '0.8125rem',
-                fontFamily: 'var(--font-mono, monospace)',
+                fontFamily: 'var(--font-meta)',
                 wordBreak: 'break-word',
                 textAlign: 'left',
               }}
@@ -104,10 +104,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 onClick={this.resetError}
                 style={{
                   padding: '8px 16px',
-                  borderRadius: '4px',
+                  borderRadius: 'var(--radius-control)',
                   border: 'none',
-                  backgroundColor: 'var(--accent-color, #3b82f6)',
-                  color: '#ffffff',
+                  backgroundColor: 'var(--text)',
+                  color: 'var(--surface-wing)',
                   fontSize: '0.875rem',
                   fontWeight: 500,
                   cursor: 'pointer',
@@ -120,10 +120,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 onClick={() => window.location.reload()}
                 style={{
                   padding: '8px 16px',
-                  borderRadius: '4px',
-                  border: '1px solid var(--border-color, #52525b)',
+                  borderRadius: 'var(--radius-control)',
+                  border: '1px solid var(--line-control)',
                   backgroundColor: 'transparent',
-                  color: 'var(--text-primary, #f4f4f5)',
+                  color: 'var(--text)',
                   fontSize: '0.875rem',
                   cursor: 'pointer',
                 }}

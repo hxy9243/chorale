@@ -53,7 +53,7 @@ describe('FileRail Component', () => {
     return { fileList, listTop, rowHeight, rowGap };
   };
 
-  it('renders icon-only work tabs and opens settings directly', () => {
+  it('renders labeled work tabs and opens settings directly', () => {
     const onOpenSettings = vi.fn();
     render(<FileRail {...defaultProps} onOpenSettings={onOpenSettings} />);
 
@@ -61,8 +61,8 @@ describe('FileRail Component', () => {
     const toolsTab = screen.getByRole('tab', { name: 'Tools' });
     const settingsButton = screen.getByRole('button', { name: 'Settings' });
 
-    expect(filesTab.textContent).toBe('');
-    expect(toolsTab.textContent).toBe('');
+    expect(filesTab.textContent).toBe('Files');
+    expect(toolsTab.textContent).toBe('Tools');
     expect(settingsButton.textContent).toBe('');
     expect(filesTab.getAttribute('title')).toBe('Files');
     expect(toolsTab.getAttribute('title')).toBe('Tools');

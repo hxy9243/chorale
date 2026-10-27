@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import type { RefObject } from 'react';
 import abcjs from 'abcjs';
 import { instrumentName, searchInstruments } from '../music/instruments';
 import { isVoiceAudible, type MixerVoice, type VoiceMixSettings, type VoiceMix } from '../music/voiceMixer';
@@ -53,9 +54,10 @@ function InstrumentPicker({ voice, program, disabled, onChange }: {
   </div>;
 }
 
-export function VoicesPanel({ voices, settings, disabled, volume, stopSignal, mainPlaying, onChange, onClose, onBeforePreview }: {
+export function VoicesPanel({ voices, settings, disabled, volume, stopSignal, mainPlaying, onChange, onClose, onDismiss = onClose, triggerRef, onBeforePreview }: {
   voices: readonly MixerVoice[]; settings: VoiceMixSettings; disabled: boolean; volume: number; stopSignal: number; mainPlaying: boolean;
   onChange: (settings: VoiceMixSettings) => void; onClose: () => void; onBeforePreview: () => void;
+  onDismiss?: () => void; triggerRef?: RefObject<HTMLButtonElement | null>;
 }) {
   const [preview, setPreview] = useState<{ id: string; playing: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +71,21 @@ export function VoicesPanel({ voices, settings, disabled, volume, stopSignal, ma
     setPreview(null);
   }, []);
   useEffect(() => { panelRef.current?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true }); }, []);
+  useEffect(() => {
+    const handleOutsideInteraction = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof Node) || panelRef.current?.contains(target) || triggerRef?.current?.contains(target)) return;
+      onDismiss();
+    };
+    document.addEventListener('pointerdown', handleOutsideInteraction, true);
+    document.addEventListener('focusin', handleOutsideInteraction, true);
+    window.addEventListener('blur', onDismiss);
+    return () => {
+      document.removeEventListener('pointerdown', handleOutsideInteraction, true);
+      document.removeEventListener('focusin', handleOutsideInteraction, true);
+      window.removeEventListener('blur', onDismiss);
+    };
+  }, [onDismiss, triggerRef]);
   useEffect(() => () => {
     previewOperation.current++;
     previewRef.current?.stop?.();

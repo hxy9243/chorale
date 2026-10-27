@@ -1323,7 +1323,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
         <div className="agent-panel-header">
           <div className="agent-title-row">
             <div>
-              <h2>Chat with this score</h2>
+              <h2>Chat</h2>
               <p>Grounded in {activeFileName || 'the active score'}</p>
             </div>
             <div className="agent-header-actions">

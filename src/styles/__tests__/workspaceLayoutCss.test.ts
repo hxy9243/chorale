@@ -17,6 +17,8 @@ const themeCss = readFileSync(
   'utf8',
 );
 
+const recitalCss = readFileSync(resolve(process.cwd(), 'src/styles/recital.css'), 'utf8');
+
 const controlsCss = readFileSync(
   resolve(process.cwd(), 'src/styles/controls.css'),
   'utf8',
@@ -60,25 +62,11 @@ describe('workspace layout CSS contract', () => {
     );
   });
 
-  it('limits playback dock to 66% width and uses warm dark grey palette matching the display', () => {
-    // Dock card must be constrained to 66% width
-    expect(themeCss).toMatch(
-      /\.central-workspace\s*>\s*\.playback-dock-container\s+\.audio-player-card\s*{[^}]*width:\s*66%\s*!important;[^}]*max-width:\s*66%\s*!important;/s,
-    );
-
-    // Dock card must use warm dark grey rather than jet-black, white, flat gray, or blue
-    expect(themeCss).not.toMatch(
-      /\.central-workspace\s*>\s*\.playback-dock-container\s+\.audio-player-card\s*{[^}]*background:\s*#24221d/s,
-    );
-    expect(themeCss).not.toMatch(
-      /\.central-workspace\s*>\s*\.playback-dock-container\s+\.audio-player-card\s*{[^}]*background:\s*var\(--surface-raised,\s*#fffdfa\)/s,
-    );
-    expect(themeCss).not.toMatch(
-      /\.central-workspace\s*>\s*\.playback-dock-container\s+\.audio-player-card\s*{[^}]*background:\s*var\(--context-blue/s,
-    );
-    expect(themeCss).toMatch(
-      /\.central-workspace\s*>\s*\.playback-dock-container\s+\.audio-player-card\s*{[^}]*background:\s*#52504a\s*!important;/s,
-    );
+  it('bounds the dock width and binds its dark surface to Recital roles', () => {
+    expect(themeCss).toMatch(/width:\s*min\(100%, 760px\)\s*!important;/);
+    expect(recitalCss).toMatch(/background:\s*var\(--surface-dock\)/);
+    expect(recitalCss).toMatch(/color:\s*var\(--frame-text\)/);
+    expect(recitalCss).toMatch(/background:\s*var\(--frame-sound\)/);
   });
 
   it('keeps the playback controls in a named grid at narrow widths', () => {
@@ -105,45 +93,17 @@ describe('workspace layout CSS contract', () => {
     );
   });
 
-  it('keeps file rail resize handle invisible unless hovered and preserves clean sidebar edge', () => {
-    // file-rail-resize-handle::after grip is NOT disabled with display: none
-    expect(themeCss).not.toMatch(
-      /\.file-rail-resize-handle::after\s*{[^}]*display:\s*none\s*!important/s,
-    );
-
-    // file-rail-resize-handle hover keeps transparent background rather than a solid fill
-    expect(themeCss).toMatch(
-      /\.file-rail-resize-handle:hover,\s*\.file-rail-resize-handle:active\s*{[^}]*background:\s*transparent\s*!important;/s,
-    );
-
-    // controls.css also keeps transparent background on hover
-    expect(controlsCss).toMatch(
-      /\.file-rail-resize-handle:hover,\s*\.file-rail-resize-handle:active\s*{[^}]*background:\s*transparent\s*!important;/s,
-    );
-
-    // file-rail maintains clean edge with zero borders conflicting with the paper shadow
-    expect(themeCss).toMatch(
-      /\.file-rail\s*{[^}]*border:\s*0;[^}]*border-right:\s*0;[^}]*border-inline-end:\s*0;/s,
-    );
+  it('keeps an invisible sidebar resize target until hover without duplicate visual overrides', () => {
+    const css = controlsCss + '\n' + themeCss;
+    expect(css).not.toMatch(/\.file-rail-resize-handle::after\s*{[^}]*display:\s*none/s);
+    expect(css).toMatch(/\.file-rail-resize-handle:hover,\s*\.file-rail-resize-handle:active\s*{[^}]*background:\s*transparent\s*;/s);
+    expect(themeCss).toMatch(/\.file-rail-resize-handle\s*{[^}]*width:\s*14px/s);
   });
 
-  it('keeps left sidebar edge clean with no right-side shadow or white slivers next to scroller', () => {
-    // .file-rail sets box-shadow: none !important
-    expect(themeCss).toMatch(
-      /\.file-rail\s*{[^}]*box-shadow:\s*none\s*!important;/s,
-    );
-
-    // .file-rail-panel-stack sets box-shadow: none !important
-    expect(controlsCss).toMatch(
-      /\.file-rail-panel-stack\s*{[^}]*box-shadow:\s*none\s*!important;/s,
-    );
-
-    // tokens.css defines --shadow-sidebar as none
+  it('uses the shared flat sidebar surface without obsolete paper-edge shadows', () => {
     expect(tokensCss).toMatch(/--shadow-sidebar:\s*none;/);
-
-    // Ensure no hard white sliver (#efebe2) shadow is applied to the rail or panel stack
-    expect(themeCss).not.toMatch(/\.file-rail\s*{[^}]*#efebe2/s);
-    expect(controlsCss).not.toMatch(/\.file-rail-panel-stack\s*{[^}]*#efebe2/s);
+    expect(themeCss).toMatch(/\.file-rail\s*{[^}]*box-shadow:\s*none;/s);
+    expect(themeCss + controlsCss).not.toMatch(/#efebe2/i);
   });
 
   it('orders playback dock media queries so narrow viewports are not shadowed by wider rules', () => {
@@ -205,7 +165,7 @@ describe('workspace layout CSS contract', () => {
 
   it('uses a deep charcoal outer siderail, single-row 6-slot transport grid, and top-aligned measure source timeline', () => {
     const waterfallCss = readFileSync(resolve(process.cwd(), 'src/styles/waterfall.css'), 'utf8');
-    expect(controlsCss).toMatch(/\.file-rail-tabs\s*{[^}]*background:\s*var\(--surface-siderail,\s*#292824\)\s*!important;/s);
+    expect(recitalCss).toMatch(/\.file-rail-tabs\s*{[^}]*background:\s*var\(--surface-frame\)/s);
     expect(waterfallCss).toMatch(/grid-template-areas:\s*'transport progress status voices speed volume'\s*!important;/);
     expect(themeCss).toMatch(/\.abc-editor-card\s+\.editor-body\.is-measure-view\s*{[^}]*justify-content:\s*flex-start;/s);
   });

@@ -1,0 +1,781 @@
+{
+  "dragCases": [
+    {
+      "selector": ".waterfall-pane",
+      "target": "bottom-left",
+      "pass": true,
+      "display": "grid",
+      "dockCount": 1,
+      "dragged": {
+        "column": "1",
+        "row": "3"
+      },
+      "layout": "score-editor-shell waterfall-open layout-split-left order-sheet-first  ",
+      "panes": [
+        {
+          "h": 343.4895935058594,
+          "name": "Sheet",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 737.951416015625,
+          "name": "ABC code",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 380.4687805175781,
+          "name": "Waterfall",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 421.4583435058594
+        }
+      ]
+    },
+    {
+      "selector": ".score-pane",
+      "target": "top-left",
+      "pass": true,
+      "display": "grid",
+      "dockCount": 1,
+      "dragged": {
+        "column": "1",
+        "row": "1"
+      },
+      "layout": "score-editor-shell waterfall-open layout-split-left order-sheet-first  ",
+      "panes": [
+        {
+          "h": 343.4895935058594,
+          "name": "Sheet",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 737.951416015625,
+          "name": "ABC code",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 380.4687805175781,
+          "name": "Waterfall",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 421.4583435058594
+        }
+      ]
+    },
+    {
+      "selector": ".score-pane",
+      "target": "bottom-left",
+      "pass": true,
+      "display": "grid",
+      "dockCount": 1,
+      "dragged": {
+        "column": "1",
+        "row": "3"
+      },
+      "layout": "score-editor-shell waterfall-open layout-split-left order-sheet-first  ",
+      "panes": [
+        {
+          "h": 380.4687805175781,
+          "name": "Sheet",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 421.4583435058594
+        },
+        {
+          "h": 737.951416015625,
+          "name": "ABC code",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 343.4895935058594,
+          "name": "Waterfall",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 63.9756965637207
+        }
+      ]
+    },
+    {
+      "selector": ".score-pane",
+      "target": "top-right",
+      "pass": true,
+      "display": "grid",
+      "dockCount": 1,
+      "dragged": {
+        "column": "3",
+        "row": "1"
+      },
+      "layout": "score-editor-shell waterfall-open layout-split-right order-sheet-first  ",
+      "panes": [
+        {
+          "h": 343.4895935058594,
+          "name": "Sheet",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 737.951416015625,
+          "name": "ABC code",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 380.4687805175781,
+          "name": "Waterfall",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 421.4583435058594
+        }
+      ]
+    },
+    {
+      "selector": ".score-pane",
+      "target": "bottom-right",
+      "pass": true,
+      "display": "grid",
+      "dockCount": 1,
+      "dragged": {
+        "column": "3",
+        "row": "3"
+      },
+      "layout": "score-editor-shell waterfall-open layout-split-right order-sheet-first  ",
+      "panes": [
+        {
+          "h": 380.4687805175781,
+          "name": "Sheet",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 421.4583435058594
+        },
+        {
+          "h": 737.951416015625,
+          "name": "ABC code",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 343.4895935058594,
+          "name": "Waterfall",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 63.9756965637207
+        }
+      ]
+    },
+    {
+      "selector": ".editor-pane",
+      "target": "top-left",
+      "pass": true,
+      "display": "grid",
+      "dockCount": 1,
+      "dragged": {
+        "column": "1",
+        "row": "1"
+      },
+      "layout": "score-editor-shell waterfall-open layout-split-left order-editor-first  ",
+      "panes": [
+        {
+          "h": 737.951416015625,
+          "name": "Sheet",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 343.4895935058594,
+          "name": "ABC code",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 380.4687805175781,
+          "name": "Waterfall",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 421.4583435058594
+        }
+      ]
+    },
+    {
+      "selector": ".editor-pane",
+      "target": "bottom-left",
+      "pass": true,
+      "display": "grid",
+      "dockCount": 1,
+      "dragged": {
+        "column": "1",
+        "row": "3"
+      },
+      "layout": "score-editor-shell waterfall-open layout-split-left order-editor-first  ",
+      "panes": [
+        {
+          "h": 737.951416015625,
+          "name": "Sheet",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 380.4687805175781,
+          "name": "ABC code",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 421.4583435058594
+        },
+        {
+          "h": 343.4895935058594,
+          "name": "Waterfall",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 63.9756965637207
+        }
+      ]
+    },
+    {
+      "selector": ".editor-pane",
+      "target": "top-right",
+      "pass": true,
+      "display": "grid",
+      "dockCount": 1,
+      "dragged": {
+        "column": "3",
+        "row": "1"
+      },
+      "layout": "score-editor-shell waterfall-open layout-split-right order-editor-first  ",
+      "panes": [
+        {
+          "h": 737.951416015625,
+          "name": "Sheet",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 343.4895935058594,
+          "name": "ABC code",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 380.4687805175781,
+          "name": "Waterfall",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 421.4583435058594
+        }
+      ]
+    },
+    {
+      "selector": ".editor-pane",
+      "target": "bottom-right",
+      "pass": true,
+      "display": "grid",
+      "dockCount": 1,
+      "dragged": {
+        "column": "3",
+        "row": "3"
+      },
+      "layout": "score-editor-shell waterfall-open layout-split-right order-editor-first  ",
+      "panes": [
+        {
+          "h": 737.951416015625,
+          "name": "Sheet",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 380.4687805175781,
+          "name": "ABC code",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 421.4583435058594
+        },
+        {
+          "h": 343.4895935058594,
+          "name": "Waterfall",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 63.9756965637207
+        }
+      ]
+    },
+    {
+      "selector": ".waterfall-pane",
+      "target": "top-left",
+      "pass": true,
+      "display": "grid",
+      "dockCount": 1,
+      "dragged": {
+        "column": "1",
+        "row": "1"
+      },
+      "layout": "score-editor-shell waterfall-open layout-split-left order-editor-first  ",
+      "panes": [
+        {
+          "h": 737.951416015625,
+          "name": "Sheet",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 380.4687805175781,
+          "name": "ABC code",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 421.4583435058594
+        },
+        {
+          "h": 343.4895935058594,
+          "name": "Waterfall",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 63.9756965637207
+        }
+      ]
+    },
+    {
+      "selector": ".waterfall-pane",
+      "target": "bottom-left",
+      "pass": true,
+      "display": "grid",
+      "dockCount": 1,
+      "dragged": {
+        "column": "1",
+        "row": "3"
+      },
+      "layout": "score-editor-shell waterfall-open layout-split-left order-editor-first  ",
+      "panes": [
+        {
+          "h": 737.951416015625,
+          "name": "Sheet",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 343.4895935058594,
+          "name": "ABC code",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 380.4687805175781,
+          "name": "Waterfall",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 421.4583435058594
+        }
+      ]
+    },
+    {
+      "selector": ".waterfall-pane",
+      "target": "top-right",
+      "pass": true,
+      "display": "grid",
+      "dockCount": 1,
+      "dragged": {
+        "column": "3",
+        "row": "1"
+      },
+      "layout": "score-editor-shell waterfall-open layout-split-right order-editor-first  ",
+      "panes": [
+        {
+          "h": 737.951416015625,
+          "name": "Sheet",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 380.4687805175781,
+          "name": "ABC code",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 421.4583435058594
+        },
+        {
+          "h": 343.4895935058594,
+          "name": "Waterfall",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 63.9756965637207
+        }
+      ]
+    },
+    {
+      "selector": ".waterfall-pane",
+      "target": "bottom-right",
+      "pass": true,
+      "display": "grid",
+      "dockCount": 1,
+      "dragged": {
+        "column": "3",
+        "row": "3"
+      },
+      "layout": "score-editor-shell waterfall-open layout-split-right order-editor-first  ",
+      "panes": [
+        {
+          "h": 737.951416015625,
+          "name": "Sheet",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 343.4895935058594,
+          "name": "ABC code",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 380.4687805175781,
+          "name": "Waterfall",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 421.4583435058594
+        }
+      ]
+    },
+    {
+      "selector": ".waterfall-pane",
+      "target": "left",
+      "pass": true,
+      "display": "flex",
+      "dockCount": 1,
+      "dragged": {
+        "column": "",
+        "row": ""
+      },
+      "layout": "score-editor-shell waterfall-open layout-horizontal order-editor-first  ",
+      "panes": [
+        {
+          "h": 737.951416015625,
+          "name": "Sheet",
+          "w": 140,
+          "x": 843.55908203125,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 737.951416015625,
+          "name": "ABC code",
+          "w": 276.2153015136719,
+          "x": 553.3507080078125,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 737.951416015625,
+          "name": "Waterfall",
+          "w": 289.357666015625,
+          "x": 251.9965362548828,
+          "y": 63.9756965637207
+        }
+      ]
+    },
+    {
+      "selector": ".waterfall-pane",
+      "target": "right",
+      "pass": true,
+      "display": "flex",
+      "dockCount": 1,
+      "dragged": {
+        "column": "",
+        "row": ""
+      },
+      "layout": "score-editor-shell waterfall-open layout-horizontal order-editor-first  ",
+      "panes": [
+        {
+          "h": 737.951416015625,
+          "name": "Sheet",
+          "w": 140,
+          "x": 542.2048950195312,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 737.951416015625,
+          "name": "ABC code",
+          "w": 276.2153015136719,
+          "x": 251.9965362548828,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 737.951416015625,
+          "name": "Waterfall",
+          "w": 289.357666015625,
+          "x": 694.201416015625,
+          "y": 63.9756965637207
+        }
+      ]
+    },
+    {
+      "selector": ".waterfall-pane",
+      "target": "top",
+      "pass": true,
+      "display": "flex",
+      "dockCount": 1,
+      "dragged": {
+        "column": "",
+        "row": ""
+      },
+      "layout": "score-editor-shell waterfall-open layout-vertical order-editor-first  ",
+      "panes": [
+        {
+          "h": 200.00001525878903,
+          "name": "Sheet",
+          "w": 720.451416015625,
+          "x": 251.9965362548828,
+          "y": 675.138916015625
+        },
+        {
+          "h": 265.1736145019531,
+          "name": "ABC code",
+          "w": 720.451416015625,
+          "x": 251.9965362548828,
+          "y": 395.97222900390625
+        },
+        {
+          "h": 320,
+          "name": "Waterfall",
+          "w": 720.451416015625,
+          "x": 251.9965362548828,
+          "y": 63.9756965637207
+        }
+      ]
+    },
+    {
+      "selector": ".waterfall-pane",
+      "target": "bottom",
+      "pass": true,
+      "display": "flex",
+      "dockCount": 1,
+      "dragged": {
+        "column": "",
+        "row": ""
+      },
+      "layout": "score-editor-shell waterfall-open layout-vertical order-editor-first  ",
+      "panes": [
+        {
+          "h": 200.00001525878903,
+          "name": "Sheet",
+          "w": 720.451416015625,
+          "x": 251.9965362548828,
+          "y": 343.1423645019531
+        },
+        {
+          "h": 265.1736145019531,
+          "name": "ABC code",
+          "w": 720.451416015625,
+          "x": 251.9965362548828,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 320,
+          "name": "Waterfall",
+          "w": 720.451416015625,
+          "x": 251.9965362548828,
+          "y": 555.138916015625
+        }
+      ]
+    },
+    {
+      "selector": ".editor-pane",
+      "target": "left",
+      "pass": true,
+      "display": "flex",
+      "dockCount": 1,
+      "dragged": {
+        "column": "",
+        "row": ""
+      },
+      "layout": "score-editor-shell  layout-horizontal order-editor-first  ",
+      "panes": [
+        {
+          "h": 737.951416015625,
+          "name": "Sheet",
+          "w": 397.5694580078125,
+          "x": 585.9896240234375,
+          "y": 62.86458587646485
+        },
+        {
+          "h": 737.951416015625,
+          "name": "ABC code",
+          "w": 320,
+          "x": 251.9965362548828,
+          "y": 62.86458587646485
+        }
+      ]
+    },
+    {
+      "selector": ".editor-pane",
+      "target": "right",
+      "pass": true,
+      "display": "flex",
+      "dockCount": 1,
+      "dragged": {
+        "column": "",
+        "row": ""
+      },
+      "layout": "score-editor-shell  layout-horizontal order-sheet-first  ",
+      "panes": [
+        {
+          "h": 737.951416015625,
+          "name": "Sheet",
+          "w": 397.5694580078125,
+          "x": 251.9965362548828,
+          "y": 62.86458587646485
+        },
+        {
+          "h": 737.951416015625,
+          "name": "ABC code",
+          "w": 320,
+          "x": 663.55908203125,
+          "y": 62.86458587646485
+        }
+      ]
+    },
+    {
+      "selector": ".editor-pane",
+      "target": "top",
+      "pass": true,
+      "display": "flex",
+      "dockCount": 1,
+      "dragged": {
+        "column": "",
+        "row": ""
+      },
+      "layout": "score-editor-shell  layout-vertical order-editor-first  ",
+      "panes": [
+        {
+          "h": 458.78472900390625,
+          "name": "Sheet",
+          "w": 731.5625610351562,
+          "x": 251.9965362548828,
+          "y": 342.0312805175781
+        },
+        {
+          "h": 265.1736145019531,
+          "name": "ABC code",
+          "w": 731.5625610351562,
+          "x": 251.9965362548828,
+          "y": 62.86458587646485
+        }
+      ]
+    },
+    {
+      "selector": ".editor-pane",
+      "target": "bottom",
+      "pass": true,
+      "display": "flex",
+      "dockCount": 1,
+      "dragged": {
+        "column": "",
+        "row": ""
+      },
+      "layout": "score-editor-shell  layout-vertical order-sheet-first  ",
+      "panes": [
+        {
+          "h": 458.78472900390625,
+          "name": "Sheet",
+          "w": 731.5625610351562,
+          "x": 251.9965362548828,
+          "y": 62.86458587646485
+        },
+        {
+          "h": 265.1736145019531,
+          "name": "ABC code",
+          "w": 731.5625610351562,
+          "x": 251.9965362548828,
+          "y": 535.6423950195312
+        }
+      ]
+    },
+    {
+      "selector": ".editor-pane",
+      "target": "bottom-left",
+      "pass": true,
+      "display": "grid",
+      "dockCount": 1,
+      "dragged": {
+        "column": "1",
+        "row": "3"
+      },
+      "layout": "score-editor-shell waterfall-open layout-split-left order-sheet-first  ",
+      "panes": [
+        {
+          "h": 343.4895935058594,
+          "name": "Sheet",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 63.9756965637207
+        },
+        {
+          "h": 380.4687805175781,
+          "name": "ABC code",
+          "w": 394.6528015136719,
+          "x": 251.9965362548828,
+          "y": 421.4583435058594
+        },
+        {
+          "h": 737.951416015625,
+          "name": "Waterfall",
+          "w": 322.91668701171875,
+          "x": 660.6423950195312,
+          "y": 63.9756965637207
+        }
+      ]
+    }
+  ],
+  "neutralDropChecks": [
+    {
+      "where": "center",
+      "unchanged": true
+    },
+    {
+      "where": "outside",
+      "unchanged": true
+    }
+  ],
+  "resizeChecks": [
+    {
+      "name": "Resize split columns",
+      "before": "55",
+      "changed": "58",
+      "restored": "55",
+      "pass": true
+    },
+    {
+      "name": "Resize stacked panes",
+      "before": "47",
+      "changed": "50",
+      "restored": "47",
+      "pass": true
+    }
+  ],
+  "reload": {
+    "layout": "split-left",
+    "panes": 3,
+    "columns": [
+      "Sheet + ABC",
+      "Waterfall"
+    ],
+    "dockCount": 1
+  }
+}

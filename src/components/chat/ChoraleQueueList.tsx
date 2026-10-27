@@ -42,7 +42,7 @@ export const ChoraleQueueList = memo(function ChoraleQueueList({
   };
 
   return (
-    <div className="agent-queue-list" style={{ marginTop: 12, borderTop: '1px solid var(--color-border-subtle, rgba(0, 0, 0, 0.1))', paddingTop: 8 }}>
+    <div className="agent-queue-list" style={{ marginTop: 12, borderTop: '1px solid var(--line)', paddingTop: 8 }}>
       <div className="agent-queue-header" style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.7, marginBottom: 6 }}>
         Pending Messages ({items.length})
       </div>
@@ -63,8 +63,8 @@ export const ChoraleQueueList = memo(function ChoraleQueueList({
               style={{
                 padding: '6px 8px',
                 borderRadius: 6,
-                backgroundColor: item.lane === 'steer' ? 'var(--color-surface-steer, rgba(240, 160, 40, 0.1))' : 'var(--color-surface-subtle, rgba(0, 0, 0, 0.03))',
-                border: '1px solid var(--color-border-subtle, rgba(0, 0, 0, 0.08))',
+                backgroundColor: item.lane === 'steer' ? 'var(--color-warning-soft)' : 'var(--surface-raised)',
+                border: '1px solid var(--line)',
                 fontSize: '0.85rem',
               }}
             >
@@ -75,9 +75,9 @@ export const ChoraleQueueList = memo(function ChoraleQueueList({
                       fontSize: '0.65rem',
                       fontWeight: 600,
                       padding: '1px 5px',
-                      borderRadius: 3,
+                      borderRadius: 'var(--radius-chip)',
                       textTransform: 'uppercase',
-                      backgroundColor: item.lane === 'steer' ? 'var(--color-warning-surface, #fdf6e2)' : 'var(--color-neutral-surface, #eee)',
+                      backgroundColor: item.lane === 'steer' ? 'var(--color-warning-soft)' : 'var(--surface-raised)',
                     }}
                   >
                     {item.lane}
@@ -141,7 +141,7 @@ export const ChoraleQueueList = memo(function ChoraleQueueList({
                     <button
                       type="button"
                       onClick={() => startEdit(item)}
-                      style={{ fontSize: '0.75rem', background: 'none', border: '1px solid rgba(0,0,0,0.15)', borderRadius: 3, padding: '1px 5px', cursor: 'pointer' }}
+                      style={{ fontSize: '0.75rem', background: 'none', border: '1px solid var(--line-control)', borderRadius: 'var(--radius-chip)', padding: '1px 5px', cursor: 'pointer' }}
                     >
                       Edit
                     </button>
@@ -149,7 +149,7 @@ export const ChoraleQueueList = memo(function ChoraleQueueList({
                       <button
                         type="button"
                         onClick={() => onSteerNow(item)}
-                        style={{ fontSize: '0.75rem', background: 'none', border: '1px solid rgba(0,0,0,0.15)', borderRadius: 3, padding: '1px 5px', cursor: 'pointer', fontWeight: 600 }}
+                        style={{ fontSize: '0.75rem', background: 'none', border: '1px solid var(--line-control)', borderRadius: 'var(--radius-chip)', padding: '1px 5px', cursor: 'pointer', fontWeight: 600 }}
                       >
                         Steer now
                       </button>
@@ -157,7 +157,7 @@ export const ChoraleQueueList = memo(function ChoraleQueueList({
                       <button
                         type="button"
                         onClick={() => onRunNext(item)}
-                        style={{ fontSize: '0.75rem', background: 'none', border: '1px solid rgba(0,0,0,0.15)', borderRadius: 3, padding: '1px 5px', cursor: 'pointer', fontWeight: 600 }}
+                        style={{ fontSize: '0.75rem', background: 'none', border: '1px solid var(--line-control)', borderRadius: 'var(--radius-chip)', padding: '1px 5px', cursor: 'pointer', fontWeight: 600 }}
                       >
                         Run next
                       </button>

@@ -642,6 +642,7 @@ export const FileRail: React.FC<FileRailProps> = ({
             onClick={() => handleTabClick('files')}
           >
             <FolderOpen size={18} aria-hidden="true" />
+            <span className="file-rail-tab-label">Files</span>
           </button>
           <button
             type="button"
@@ -654,6 +655,7 @@ export const FileRail: React.FC<FileRailProps> = ({
             onClick={() => handleTabClick('tools')}
           >
             <Wrench size={18} aria-hidden="true" />
+            <span className="file-rail-tab-label">Tools</span>
           </button>
           {chatPanel && (
             <button
@@ -668,6 +670,7 @@ export const FileRail: React.FC<FileRailProps> = ({
               onClick={() => handleTabClick('chat')}
             >
               <MessageSquare size={18} aria-hidden="true" />
+            <span className="file-rail-tab-label">Chat</span>
             </button>
           )}
         </div>

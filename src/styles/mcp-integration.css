@@ -10,10 +10,10 @@
   min-height: 2.75rem;
   padding: var(--space-sm) var(--space-md);
   font: inherit;
-  border-radius: 6px;
-  border: 1px solid var(--color-rule-2, #c8c1b4);
-  background: var(--color-paper-raised, #fffdfa);
-  color: var(--color-ink, #24211c);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--color-rule-2);
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
 }
 
 .mcp-connection-preview {
@@ -30,9 +30,9 @@
   line-height: 1.6;
   margin-block: var(--space-sm) var(--space-md);
   padding: var(--space-md);
-  background: var(--color-paper-2, #ede8df);
-  border: 1px solid var(--color-rule, #dcd6ca);
-  border-radius: 6px;
+  background: var(--color-paper-2);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-control);
 }
 
 .mcp-integration-actions {
@@ -43,7 +43,7 @@
   margin-top: var(--space-md, 0.75rem);
 }
 
-/* Override .ai-settings-single-panel button reset so MCP actions look and feel like real tactile buttons */
+/* Match settings actions to the neutral wing controls. */
 .ai-settings-single-panel.mcp-integration-settings button.mcp-action-btn {
   display: inline-flex;
   align-items: center;
@@ -51,8 +51,8 @@
   gap: 0.5rem;
   min-height: 2.75rem;
   padding: 0.625rem 1.25rem;
-  border-radius: 8px;
-  font-family: var(--font-sans, inherit);
+  border-radius: var(--radius-control);
+  font-family: var(--font-ui);
   font-size: 0.9375rem;
   font-weight: 600;
   line-height: 1.2;
@@ -66,16 +66,16 @@
 
 .ai-settings-single-panel.mcp-integration-settings button.mcp-review-btn,
 .ai-settings-single-panel.mcp-integration-settings button.mcp-guide-btn {
-  background: var(--color-paper-raised, #fffdfa);
-  color: var(--color-ink, #24211c);
-  border: 1.5px solid var(--color-rule-2, #c8c1b4);
-  box-shadow: 0 1px 2px rgba(36, 33, 28, 0.08);
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
+  border: 1px solid var(--color-rule-2);
+  box-shadow: none;
 }
 
 .ai-settings-single-panel.mcp-integration-settings button.mcp-review-btn:hover:not(:disabled),
 .ai-settings-single-panel.mcp-integration-settings button.mcp-guide-btn:hover:not(:disabled) {
-  background: var(--color-paper-2, #ede8df);
-  border-color: var(--color-ink-2, #575249);
+  background: var(--color-paper-2);
+  border-color: var(--color-ink-2);
 }
 
 .ai-settings-single-panel.mcp-integration-settings button.mcp-connect-btn {
@@ -84,16 +84,16 @@
   padding: 0.75rem 1.5rem;
   font-size: 0.96875rem;
   font-weight: 600;
-  background: var(--color-accent, #b85233);
-  color: #fffdfa;
-  border: 1.5px solid var(--color-accent, #b85233);
-  box-shadow: 0 2px 6px rgba(184, 82, 51, 0.25);
+  background: var(--text);
+  color: var(--surface-wing);
+  border: 1px solid var(--text);
+  box-shadow: none;
 }
 
 .ai-settings-single-panel.mcp-integration-settings button.mcp-connect-btn:hover:not(:disabled) {
-  background: #a14427;
-  border-color: #a14427;
-  box-shadow: 0 4px 10px rgba(184, 82, 51, 0.32);
+  background: color-mix(in srgb, var(--text) 88%, var(--surface-wing));
+  border-color: var(--text);
+  box-shadow: none;
 }
 
 .ai-settings-single-panel.mcp-integration-settings button.mcp-cancel-btn {
@@ -102,19 +102,19 @@
   padding: 0.75rem 1.35rem;
   font-size: 0.96875rem;
   font-weight: 600;
-  background: var(--color-paper-raised, #fffdfa);
-  color: var(--color-ink, #24211c);
-  border: 1.5px solid var(--color-rule-2, #c8c1b4);
-  box-shadow: 0 1px 3px rgba(36, 33, 28, 0.08);
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
+  border: 1px solid var(--color-rule-2);
+  box-shadow: none;
 }
 
 .ai-settings-single-panel.mcp-integration-settings button.mcp-cancel-btn:hover:not(:disabled) {
-  background: var(--color-paper-2, #ede8df);
-  border-color: var(--color-ink-2, #575249);
+  background: var(--color-paper-2);
+  border-color: var(--color-ink-2);
 }
 
 .ai-settings-single-panel.mcp-integration-settings button.mcp-action-btn:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: none;
 }
 
 .ai-settings-single-panel.mcp-integration-settings button.mcp-action-btn:disabled {

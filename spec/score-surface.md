@@ -3,7 +3,7 @@ title: "Score Surface Spec"
 description: "Specification for score rendering, continuous range selection, chord overlays, range annotation rail, line measure numbers, and auto-centering playback"
 category: "core-workspace"
 date: 2026-08-05
-updated: 2026-10-24
+updated: 2026-10-26
 status: "implemented"
 source_files:
   - src/App.tsx
@@ -25,6 +25,8 @@ source_files:
   - src/utils/autoScroll.ts
   - src/hooks/useInterfaceZoom.ts
   - tokens.css
+  - src/index.css
+  - src/styles/recital.css
   - src/chorale-theme.css
 test_files:
   - src/App.test.tsx
@@ -59,10 +61,15 @@ This document specifies rendering, layout, interaction, and accessibility behavi
 - Header alignment: title and subtitle are horizontally centered within the notation column above the score paper.
 - Secondary score metadata (composer, author/lyricist, subtitle, origin, rhythm) is right-aligned to match the right edge of the rendered sheet music.
 - Musical attributes (Key, Meter, Tempo) are presented as centered interactive metadata chips beneath the title block.
+- Engraving paint: filled staff and ledger paths retain abcjs's native no-stroke geometry; genuine SVG line strokes use paper ink rather than panel-border colors. This applies equally to ledger lines above and below the staff and to the Firefox line fallback.
 - Clean score engraving in view mode: ABC tag badges (`T:`, `C:`, etc.) are hidden during normal reading and only displayed when an input is actively being edited.
 - Save and build status pills (`Auto-saved`, `SVG ready`, `Music ready`) are hosted in the global application header so they remain permanently visible regardless of score scroll position.
-- Floating score display options (`ScoreCardHeader`) float over the top-center of the score paper with scroll-reactive translucency (`is-scrolling`), providing synchronized zoom controls (−, %, +, Fit).
+- Floating score display options (`ScoreCardHeader`) overlay the bottom-center of the score viewport with scroll-reactive translucency (`is-scrolling`), providing synchronized zoom controls (−, %, +, Fit) without covering the title or reserving layout space.
 - Score zoom remains independently persisted and centered without clipping.
+- The sheet has one compact backdrop gutter. The notation column alone owns the paper surface
+  and shadow; the zoom wrapper and annotation tracks are transparent. Workspace wrappers do not
+  add further sheet padding. Space below the scene keeps the floating zoom control clear of the
+  last staff at the end of scrolling.
 - Line-start measure numbers (`.chorale-line-measure-number`) are rendered above the start of each staff system for rapid orientation. For scores with an opening pickup measure (measure 0), System 0 displays `1` to identify the first complete measure. When a line starts with the second half of a split measure (e.g. an anacrusis across a section or repeat boundary), the line-start measure number displays the first complete measure on that system.
 - Playback auto-centering and its manual-scroll pause behavior remain intact.
 - Existing transpose, playback cursor, repeat selection, and first-click hit-area behavior must not regress.
@@ -114,7 +121,11 @@ feeds back into score geometry or makes systems jump.
 
 The score surface uses one three-track scene — empty balancing space, centered notation, and the
 annotation rail — whose side-track widths are computed elastically from the visible sheet viewport
-instead of being fixed. Track order never changes and the scene never stacks.
+instead of being fixed. The rail sits beside the paper on the backdrop. When there are no range
+annotations or manual range editor, both side tracks and their gaps collapse to zero and the empty
+rail is hidden, including for scores with chord badges only. Adding or removing range annotations
+updates that space without re-engraving notation, changing score zoom, or clearing selection.
+Track order never changes and the scene never stacks.
 
 Track sizing is a pure projection (`fitScoreSceneTracks` in `src/utils/scoreSceneSizing.ts`). It
 receives the viewport's visible width converted into unscaled wrapper coordinates (visible width
