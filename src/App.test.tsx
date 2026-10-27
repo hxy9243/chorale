@@ -67,6 +67,27 @@ describe('App Integration', () => {
     });
   });
 
+  afterEach(() => { delete window.choraleMcp; });
+
+  it.each(['open-settings', 'declined'] as const)('routes the MCP offer result %s to settings or an inline reminder', async (result) => {
+    const offerSetup = vi.fn().mockResolvedValue(result);
+    let openIntegration = () => {};
+    window.choraleMcp = {
+      offerSetup, preview: vi.fn(), connect: vi.fn(), openGuide: vi.fn(),
+      onOpenSettings: (listener) => { openIntegration = listener; return () => {}; },
+    };
+    render(<App />);
+    await waitFor(() => expect(offerSetup).toHaveBeenCalledOnce());
+    if (result === 'open-settings') {
+      expect(await screen.findByRole('tabpanel', { name: 'Integration' })).toBeDefined();
+    } else {
+      expect(await screen.findByText('You can set up MCP integration later in Settings → Integration.')).toBeDefined();
+      expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
+    }
+    act(() => openIntegration());
+    expect(screen.getByRole('tabpanel', { name: 'Integration' })).toBeDefined();
+  });
+
   it('keeps source editing and workspace controls available after an unexpected score error', async () => {
     const OriginalSheet = sheetMusicView.SheetMusicView;
     const source = 'X:1\nT:Crashing score\nM:4/4\nL:1/4\nK:C\nC4|';

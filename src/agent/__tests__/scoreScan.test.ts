@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import JSZip from 'jszip';
@@ -8,7 +8,7 @@ import { parseScanPages, ScoreScanner, validateScanRequest } from '../../../elec
 
 const directories: string[] = [];
 const pdf = new TextEncoder().encode('%PDF-1.4\nfixture').buffer;
-const request = { name: 'Score with spaces.pdf', bytes: pdf, pages: '1,3-4' };
+const request = { name: 'Score with spaces.pdf', bytes: pdf, pages: '1,3-4', engine: 'audiveris' as const };
 const xml = '<score-partwise><part id="P1"><measure number="1"><attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes><note><pitch><step>C</step><octave>4</octave></pitch><duration>1</duration></note></measure></part></score-partwise>';
 afterEach(async () => { await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true }))); });
 
@@ -27,7 +27,8 @@ const fixture = async (body?: string, timeoutMs?: number) => {
 describe('local score recognition boundary', () => {
   it('bounds page selection, deduplicates pages and refuses arguments disguised as pages', () => {
     expect(parseScanPages('4, 1-3, 2')).toEqual([1, 2, 3, 4]);
-    for (const invalid of ['0', '1-6', '1,2,3,4,5,6', '3-1', '1 --output /tmp', '', '1,']) {
+    expect(parseScanPages('1-60')).toHaveLength(60);
+    for (const invalid of ['0', '1-61', '3-1', '1 --output /tmp', '', '1,']) {
       expect(() => parseScanPages(invalid)).toThrow();
     }
   });
@@ -44,7 +45,7 @@ describe('local score recognition boundary', () => {
 
   it('reports a missing executable without accepting a scan', async () => {
     const scanner = new ScoreScanner({ projectDirectory: '/missing', executable: '/no-such-audiveris' });
-    expect((await scanner.status()).available).toBe(false);
+    expect((await scanner.status()).engines.find((engine) => engine.id === 'audiveris')?.available).toBe(false);
     await expect(scanner.scan(request)).rejects.toThrow('Install Audiveris');
   });
 
@@ -103,10 +104,55 @@ describe('local score recognition boundary', () => {
 
   it('times out a stalled recognizer and preserves diagnostics', async () => {
     const { scanner } = await fixture('console.log("started"); setInterval(()=>{},1000);', 1000);
-    await expect(scanner.scan(request)).rejects.toThrow('longer than');
+    await expect(scanner.scan(request)).rejects.toThrow('limit');
     const [job] = await readdir(scanner.root);
     expect(JSON.parse(await readFile(path.join(scanner.root,job,'manifest.json'),'utf8')).status).toBe('failed');
     expect(await readFile(path.join(scanner.root,job,'recognition.log'),'utf8')).toContain('started');
+  });
+
+  it('rejects engine names and defaults omitted engine to Copisteria', () => {
+    expect(() => validateScanRequest({ ...request, engine: '/tmp/recognizer' })).toThrow('Choose Copisteria or Audiveris');
+    expect(validateScanRequest({ ...request, engine: undefined }).engine).toBe('copisteria');
+  });
+
+  it('runs default Copisteria with original page numbers and preserves engine provenance', async () => {
+    const { root } = await fixture();
+    const home = path.join(root, 'copisteria');
+    await mkdir(path.join(home, '.venv/bin'), { recursive: true });
+    await mkdir(path.join(home, 'models/small'), { recursive: true });
+    await writeFile(path.join(home, 'models/evidence-2m.pt'), 'fixture');
+    await writeFile(path.join(home, 'models/small/v7_obj-recall-30m_best.pt'), 'fixture');
+    await writeFile(path.join(home, 'install.json'), JSON.stringify({ revision: 'tested-revision', models: ['fixture-hash'] }));
+    await writeFile(path.join(home, '.venv/bin/python'), `#!${process.execPath}\nconst fs=require('node:fs'),path=require('node:path');
+const args=process.argv.slice(2),folder=args[args.indexOf('--folder')+1];
+fs.writeFileSync(path.join(folder,'args.json'),JSON.stringify(args));
+fs.writeFileSync(path.join(folder,'recognized.musicxml'),${JSON.stringify(xml)});
+const pages=JSON.parse(args[args.indexOf('--pages')+1]);
+fs.mkdirSync(path.join(folder,'pages'));
+for(const page of pages)fs.writeFileSync(path.join(folder,'pages','page-'+String(page).padStart(6,'0')+'.png'),Buffer.from([137,80,78,71]));
+fs.writeFileSync(path.join(folder,'copisteria.json'),JSON.stringify({pageMeasures:pages.map(page=>({page,firstMeasure:1,lastMeasure:1}))}));
+`, { mode: 0o755 });
+    const scanner = new ScoreScanner({ projectDirectory: root, copisteriaHome: home, executable: '/missing-audiveris', root: path.join(root, 'imports') });
+    const status = await scanner.status();
+    expect(status.available).toBe(true);
+    expect(status.engines.find((engine) => engine.id === 'audiveris')?.available).toBe(false);
+    const result = await scanner.scan({ ...request, engine: undefined });
+    expect(result.engine).toBe('copisteria');
+    expect(result.images.map((image) => image.page)).toEqual([1, 3, 4]);
+    const manifest = JSON.parse(await readFile(path.join(result.sourceFolder, 'manifest.json'), 'utf8'));
+    expect(manifest.engine).toBe('copisteria');
+    expect(manifest.installation.revision).toBe('tested-revision');
+    expect(manifest.pageMeasures.map((entry: { page: number }) => entry.page)).toEqual([1, 3, 4]);
+    const args = JSON.parse(await readFile(path.join(result.sourceFolder, 'args.json'), 'utf8'));
+    expect(args[0]).toBe(path.join(root, 'server/python/score_scan.py'));
+    expect(args[args.indexOf('--pages') + 1]).toBe('[1,3,4]');
+  });
+
+  it('does not fall back to Audiveris when default Copisteria is unavailable', async () => {
+    const { scanner, root } = await fixture();
+    const isolated = new ScoreScanner({ projectDirectory: root, copisteriaHome: '/missing-copisteria', executable: path.join(root, 'fake-engine'), root: scanner.root });
+    await expect(isolated.scan({ ...request, engine: undefined })).rejects.toThrow('Copisteria unavailable');
+    expect((await isolated.status()).engines.find((engine) => engine.id === 'audiveris')?.available).toBe(true);
   });
 
   it('refuses source-folder traversal', async () => {

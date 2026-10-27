@@ -78,9 +78,11 @@ the browser and desktop builds. `chorale --browser` opens the browser workspace;
 headless stdio adapter. The service stays on `http://127.0.0.1:1685`, with
 Streamable HTTP MCP at `/mcp` and legacy SSE at `/sse`.
 
-The first desktop launch offers optional AI-app connections. Each change is
-previewed and requires confirmation. Reopen setup from **Chorale → Connect AI
-apps…** or run `chorale setup mcp`. Claude Desktop, Claude Code, Antigravity and
+Configure MCP integration in **Settings → Integration**. A one-time prompt offers
+to open these settings if no Chorale MCP connection is configured; choosing
+**Not now** leaves a reminder of where to find setup later. Each change is
+previewed and requires confirmation. Reopen setup from **Settings → Integration**
+or run `chorale setup mcp`. Claude Desktop, Claude Code, Antigravity and
 Codex can be registered locally; ChatGPT receives HTTPS connector guidance.
 Nothing is registered during npm installation.
 

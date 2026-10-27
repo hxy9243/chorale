@@ -6,6 +6,14 @@ import { join, resolve } from 'node:path';
 import { _electron } from 'playwright-core';
 
 const require = createRequire(import.meta.url);
+const waitForAsync = async (check, timeout = 20000) => {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    if (await check()) return;
+    await new Promise((done) => setTimeout(done, 100));
+  }
+  throw new Error('Timed out waiting for background import state.');
+};
 const root = resolve(import.meta.dirname, '..');
 const artifacts = join(root, '.local/page-inspection', new Date().toISOString().replace(/[:.]/g, '-'));
 await mkdir(artifacts, { recursive: true });
@@ -19,7 +27,7 @@ delete env.ELECTRON_RUN_AS_NODE;
 let application;
 const results = [];
 try {
-  application = await _electron.launch({ executablePath: require('electron'), args: [join(root, 'dist-electron/main.js')], cwd: root, env, timeout: 30000 });
+  application = await _electron.launch({ executablePath: require('electron'), args: [...(process.platform === 'linux' ? ['--ozone-platform=x11'] : []), join(root, 'dist-electron/main.js')], cwd: root, env, timeout: 30000 });
   const page = await application.firstWindow();
   page.setDefaultTimeout(60000);
   const errors = [];
@@ -28,7 +36,8 @@ try {
   const inspect = async (source) => {
     await page.getByRole('button', { name: 'Scan PDF / PNG', exact: true }).click();
     await page.getByLabel('Sheet music file').setInputFiles(source);
-    await page.getByText('Checking pages for music…', { exact: true }).waitFor({ state: 'hidden' });
+    await page.getByText('Checking pages…', { exact: true }).waitFor({ state: 'hidden' });
+    await page.getByText('Page previews and selection', { exact: true }).click();
     const cards = await page.locator('.scan-page-card').evaluateAll((cards) => cards.map((card) => ({
       page: Number(card.querySelector('input').getAttribute('aria-label').split(' ').at(-1)),
       kind: card.querySelector('small').textContent,
@@ -58,33 +67,33 @@ try {
   await writeFile(fixture, Buffer.from(pdf, 'base64'));
   const cards = await inspect(fixture);
   assert.equal(cards.length, 5, 'Fixture must contain five pages');
-  assert.deepEqual(cards.filter((card) => card.selected).map((card) => card.page), [4]);
+  assert.deepEqual(cards.filter((card) => card.selected).map((card) => card.page), [1, 2, 3, 4, 5]);
   assert.ok(cards.every((card) => card.thumbnail), 'Every page has a rendered thumbnail');
   await page.screenshot({ path: join(artifacts, 'mixed-pages-selection.png') });
-  // Explicit override can include a page without staves and then omit it again.
-  await page.getByLabel('Include page 1', { exact: true }).check();
-  assert.equal(await page.getByLabel('Pages to scan').inputValue(), '1, 4');
-  await page.getByLabel('Include page 1', { exact: true }).uncheck();
+  // All pages start included; explicitly omit the non-music pages for this recognition case.
+  for (const number of [1, 2, 3, 5]) await page.getByLabel(`Include page ${number}`, { exact: true }).uncheck();
+  assert.equal(await page.getByLabel('Pages to scan').inputValue(), '4');
   if (!process.env.CHORALE_PAGES_INSPECT_ONLY) {
-    await page.getByRole('button', { name: 'Scan selected pages', exact: true }).click();
-    await page.waitForFunction(() => document.querySelector('.scan-modal [role="alert"]') || [...document.querySelectorAll('.scan-modal button')].some((button) => button.textContent === 'Import recognized score'), {}, { timeout: 200000 });
-    assert.deepEqual(await page.locator('.scan-modal [role="alert"]').allTextContents(), []);
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Import sheet music' }).waitFor({ state: 'hidden' });
+    await waitForAsync(() => page.evaluate(async () => (await (await fetch('/v1/workspace')).json()).documents.some((document) => document.abcSource.includes('% Chorale scan job:'))), 650000);
+    assert.deepEqual(await page.locator('.background-import-stage [role="alert"]').allTextContents(), []);
     const jobs = await readdir(join(home, 'imports'));
     assert.equal(jobs.length, 1);
     const manifest = JSON.parse(await readFile(join(home, 'imports', jobs[0], 'manifest.json'), 'utf8'));
-    assert.deepEqual(manifest.pages, [4], 'Only original music page is passed to Audiveris');
+    assert.deepEqual(manifest.pages, [4], 'Only original music page is passed to the selected engine');
     assert.deepEqual(await readFile(join(home, 'imports', jobs[0], 'source.pdf')), Buffer.from(pdf, 'base64'), 'Full original is preserved');
-    assert.equal(await page.getByAltText('Scanned source page 4').count(), 1);
+    assert.ok(await page.locator('.abcjs-note').count());
     await page.screenshot({ path: join(artifacts, 'mixed-pages-review.png') });
   }
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  if (process.env.CHORALE_PAGES_INSPECT_ONLY) await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   // Optional local corpus. No scores are imported or rewritten.
   const directory = process.argv[2];
   if (directory) for (const name of (await readdir(directory)).filter((name) => /\.pdf$/i.test(name)).sort()) {
     const cards = await inspect(join(directory, name));
     assert.ok(cards.length, `${name}: inspection must succeed`);
     if (process.env.CHORALE_EXPECT_ALL_MUSIC === '1') assert.ok(cards.every((card) => card.kind === 'Staves detected'), `${name}: all visually verified music pages should be retained as candidates`);
-    assert.ok(cards.filter((card) => card.selected).length <= 5);
+    assert.ok(cards.every((card) => card.selected), 'Every page starts included');
     await page.screenshot({ path: join(artifacts, name + '.png') });
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   }
@@ -104,9 +113,9 @@ try {
   await writeFile(brokenFile, broken);
   const unknown = await inspect(brokenFile);
   assert.deepEqual(unknown.map((card) => card.kind), ['Check page']);
-  assert.ok(unknown.every((card) => !card.selected));
+  assert.ok(unknown.every((card) => card.selected));
   await page.getByLabel('Include page 1', { exact: true }).check();
-  assert.ok(await page.getByRole('button', { name: 'Scan selected pages', exact: true }).isEnabled());
+  assert.ok(await page.getByRole('button', { name: 'Import', exact: true }).isEnabled());
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   assert.deepEqual(errors, []);
   await writeFile(join(artifacts, 'results.json'), JSON.stringify({ sandboxDisabled: application.process().spawnargs.includes('--no-sandbox'), results, nativeScanTested: !process.env.CHORALE_PAGES_INSPECT_ONLY }, null, 2));

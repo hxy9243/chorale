@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile, stat, mkdir } from 'node:fs/promises'
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import test from 'node:test';
-import { planClientSetup, applyClientSetup, setupClientsInteractively } from '../server/client-setup.mjs';
+import { planClientSetup, applyClientSetup, setupClientsInteractively, hasConfiguredClient } from '../server/client-setup.mjs';
 
 test('client setup previews, requires confirmation, preserves settings and backs up privately', async () => {
   const home = await mkdtemp(join(tmpdir(), 'chorale-client-setup-'));
@@ -69,5 +69,29 @@ test('Codex uses its supported CLI with absolute stdio arguments only after appr
     assert.equal(called, false);
     await applyClientSetup(plan, { confirm: async () => true, execCommand });
     assert.equal(called, true);
+  } finally { await rm(home, { recursive: true, force: true }); }
+});
+
+
+test('existing JSON and CLI MCP registrations suppress the first-run offer', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'chorale-client-detect-'));
+  const options = { home, platform: 'linux', environment: {} };
+  try {
+    assert.equal(await hasConfiguredClient(options), false);
+    const plan = await planClientSetup({ ...options, client: 'claude-desktop' });
+    await mkdir(dirname(plan.destination), { recursive: true });
+    await writeFile(plan.destination, '{broken');
+    assert.equal(await hasConfiguredClient(options), false);
+    await writeFile(plan.destination, JSON.stringify({ mcpServers: { chorale: { command: 'chorale', args: ['mcp'] } } }));
+    assert.equal(await hasConfiguredClient(options), true);
+    await rm(plan.destination);
+    await writeFile(join(home, 'codex'), '', { mode: 0o755 });
+    const cliOptions = { ...options, environment: { PATH: home } };
+    assert.equal(await hasConfiguredClient({ ...cliOptions, execCommand: async (command, args) => {
+      assert.equal(command, join(home, 'codex'));
+      assert.deepEqual(args, ['mcp', 'get', 'chorale']);
+      return { stdout: 'Registered Chorale MCP server' };
+    } }), true);
+    assert.equal(await hasConfiguredClient({ ...cliOptions, execCommand: async () => { throw new Error('No such server'); } }), false);
   } finally { await rm(home, { recursive: true, force: true }); }
 });

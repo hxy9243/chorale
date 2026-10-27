@@ -12,6 +12,15 @@ source_files:
   - server/api_server.mjs
   - electron/clientSetup.ts
   - electron/main.ts
+  - electron/preload.ts
+  - electron/ipcChannels.ts
+  - src/App.tsx
+  - src/types/mcpIntegration.ts
+  - src/components/workspace/WorkspaceModals.tsx
+  - src/components/McpIntegrationSettings.tsx
+  - src/styles/mcp-integration.css
+  - src/components/AISettingsModal.tsx
+  - src/components/SettingsModal.tsx
 test_files:
   - test/cli-runtime.node.mjs
   - test/client-setup.node.mjs
@@ -22,6 +31,10 @@ test_files:
   - test/desktop-launch.node.mjs
   - test/desktop-detach.smoke.mjs
   - src/agent/__tests__/clientSetup.test.ts
+  - src/components/__tests__/McpIntegrationSettings.test.tsx
+  - src/components/__tests__/AISettingsModal.test.tsx
+  - src/components/__tests__/SettingsModal.test.tsx
+  - src/App.test.tsx
 related_specs:
   - spec/desktop-chat-restoration.md
   - spec/codex-plugin.md
@@ -86,8 +99,16 @@ legacy clients retain their existing APIs.
 
 ## Optional client setup
 
-The first desktop launch offers optional client setup; it can be reopened from
-the application menu. `chorale setup mcp [client]` offers the same capability in
+MCP integration lives in Settings → Integration, with a clearly labelled MCP
+helper, application selection, connection preview, confirmation and result shown
+inside the settings modal. The desktop offers a brief optional MCP integration
+prompt once per profile, only if no existing Chorale client registration is found.
+Accepting opens Settings → Integration; declining explains that setup remains
+available there. Persist the offered marker before displaying the prompt so it
+does not repeat on later launches, including after a decline or interrupted setup.
+The application menu also opens this settings section. The renderer can only
+confirm a pending preview created by the main process, never supply a configuration
+or command to execute. `chorale setup mcp [client]` offers the same capability in
 the terminal. Installation itself never modifies another application's config.
 Always show the target application, destination and proposed Chorale connection
 before asking for explicit confirmation. Declining, noninteractive input and

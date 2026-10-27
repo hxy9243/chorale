@@ -8,13 +8,19 @@ import type {
   SheetAgentSteerRequest,
 } from '../src/agent/aiTypes';
 import type { SavePdfFileRequest, SaveTextFileRequest } from '../src/types/fileBridge';
-import { AI_IPC, FILE_IPC, SCAN_IPC } from './ipcChannels';
+import { AI_IPC, FILE_IPC, SCAN_IPC, MCP_IPC } from './ipcChannels';
+import type { McpIntegrationBridge } from '../src/types/mcpIntegration';
 import type { ScoreScanBridge } from '../src/types/scoreScan';
 
 const scanBridge: ScoreScanBridge = {
   status: () => ipcRenderer.invoke(SCAN_IPC.status),
   scan: (request) => ipcRenderer.invoke(SCAN_IPC.scan, request),
-  cancel: () => ipcRenderer.invoke(SCAN_IPC.cancel),
+  start: (request) => ipcRenderer.invoke(SCAN_IPC.start, request),
+  listJobs: () => ipcRenderer.invoke(SCAN_IPC.listJobs),
+  result: (jobId) => ipcRenderer.invoke(SCAN_IPC.result, jobId),
+  fail: (jobId, message) => ipcRenderer.invoke(SCAN_IPC.fail, jobId, message),
+  dismiss: (jobId) => ipcRenderer.invoke(SCAN_IPC.dismiss, jobId),
+  cancel: (jobId) => ipcRenderer.invoke(SCAN_IPC.cancel, jobId),
   openSourceFolder: (jobId) => ipcRenderer.invoke(SCAN_IPC.openSourceFolder, jobId),
 };
 
@@ -69,3 +75,15 @@ const bridge: ChoraleAIBridge = {
 contextBridge.exposeInMainWorld('choraleAI', bridge);
 contextBridge.exposeInMainWorld('choraleFiles', filesBridge);
 contextBridge.exposeInMainWorld('choraleScan', scanBridge);
+const mcpBridge: McpIntegrationBridge = {
+  offerSetup: () => ipcRenderer.invoke(MCP_IPC.offerSetup),
+  preview: (client) => ipcRenderer.invoke(MCP_IPC.preview, client),
+  connect: (previewId) => ipcRenderer.invoke(MCP_IPC.connect, previewId),
+  openGuide: () => ipcRenderer.invoke(MCP_IPC.openGuide),
+  onOpenSettings: (listener) => {
+    const wrapped = () => listener();
+    ipcRenderer.on(MCP_IPC.openSettings, wrapped);
+    return () => ipcRenderer.removeListener(MCP_IPC.openSettings, wrapped);
+  },
+};
+contextBridge.exposeInMainWorld('choraleMcp', mcpBridge);

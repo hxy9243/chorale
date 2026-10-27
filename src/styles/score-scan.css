@@ -39,3 +39,19 @@
 .scan-modal-footer { border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; }
 .scan-modal button.scan-primary { background: #285c49; color: #fff; border-color: #285c49; }
 @media (max-width: 780px) { .scan-comparison { grid-template-columns: 1fr; } .scan-inputs { grid-template-columns: 1fr; } .scan-modal-overlay { padding: 12px; } .scan-review-heading { flex-direction: column; gap: 4px; } }
+
+.scan-engine-choice { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.scan-engine-choice select { font: inherit; color: inherit; background: var(--surface-raised, white); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 9px; }
+.scan-modal select:focus-visible { outline: 2px solid var(--accent-emerald, #21836a); outline-offset: 3px; }
+
+.scan-time-notice { color: var(--danger-text, #b42318); font-size: 13px; font-weight: 500; }
+.scan-importing-label { display: inline-block; margin-inline-start: .25em; animation: scan-import-pulse 1.6s ease-in-out infinite; }
+@keyframes scan-import-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .scan-importing-label { animation: none; } }
+.background-import-stage { display: grid; place-items: center; padding: 32px; }
+.background-import-card { width: min(640px, 100%); padding: 32px; border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--surface-paper, #f8f6ef); }
+.background-import-card h2 { font-size: 23px; margin-bottom: 20px; overflow-wrap: anywhere; }
+.background-import-card p { margin: 12px 0; }
+.background-import-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.background-import-actions button { padding: 8px 14px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--surface-raised, white); color: inherit; cursor: pointer; font: inherit; }
+.scan-completed-notice { flex: none; margin: 4rem .75rem 0; padding: 10px 16px; font-size: 13px; background: #e8cf7b30; }

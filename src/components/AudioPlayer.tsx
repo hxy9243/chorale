@@ -1,5 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import abcjs from 'abcjs';
+import { createPortal } from 'react-dom';
+import type { StaffSoundTarget } from './StaffInstruments';
+import { describeMixerStaves, staffListeningMix, type MixerStaff } from '../music/staffInstruments';
 import { Play, Pause, Square, Volume2, VolumeX, Music2 } from 'lucide-react';
 
 import { VoicesPanel } from './VoicesPanel';
@@ -76,6 +79,10 @@ export interface MeasurePreviewRequest {
 type SelectionPlayback = { start: number; end: number; loop?: boolean; label?: string };
 
 interface AudioPlayerProps {
+  staffSoundTarget?: StaffSoundTarget | null;
+  onCloseStaffSound?: () => void;
+  onStaffInstrumentChange?: (staff: MixerStaff, program: number) => void;
+  soundEditingDisabled?: boolean;
   tunes: abcjs.TuneObject[] | null;
   sourceKey?: string | null;
   documentId?: string;
@@ -90,6 +97,10 @@ interface AudioPlayerProps {
 
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   tunes,
+  staffSoundTarget,
+  onCloseStaffSound,
+  onStaffInstrumentChange,
+  soundEditingDisabled = false,
   sourceKey,
   documentId,
   abcCode = '',
@@ -100,6 +111,27 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   onPlaybackSourceRangesChange,
   onWaterfallPlaybackChange,
 }) => {
+
+  useLayoutEffect(() => {
+    if (!staffSoundTarget) return;
+    const { host, trigger } = staffSoundTarget;
+    const position = () => {
+      const rect = trigger.getBoundingClientRect();
+      const width = host.offsetWidth || 390;
+      const height = host.offsetHeight;
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+      const top = rect.bottom + height + 8 <= window.innerHeight
+        ? rect.bottom + 6 : Math.max(8, rect.top - height - 6);
+      host.style.setProperty('left', `${left}px`);
+      host.style.setProperty('top', `${top}px`);
+    };
+    position();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(position);
+    observer?.observe(host);
+    window.addEventListener('resize', position);
+    window.addEventListener('scroll', position, true);
+    return () => { observer?.disconnect(); window.removeEventListener('resize', position); window.removeEventListener('scroll', position, true); };
+  }, [staffSoundTarget]);
 
   const soundFontBaseVolume = 0.4;
   const synthControllerRef = useRef<any>(null);
@@ -126,14 +158,16 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const mixerVoices = React.useMemo(() => {
     try { return currentTune ? describeMixerVoices(currentTune, abcCode) : []; } catch { return []; }
   }, [currentTune, abcCode]);
-  const [voicesOpen, setVoicesOpen] = useState(false);
+  const mixerStaves = React.useMemo(() => {
+    try { return currentTune ? describeMixerStaves(currentTune, abcCode) : []; } catch { return []; }
+  }, [currentTune, abcCode]);
   const [previewStopSignal, setPreviewStopSignal] = useState(0);
-  const voicesButtonRef = useRef<HTMLButtonElement>(null);
   const [mixerState, setMixerState] = useState(() => ({ documentId, settings: readVoiceMix(documentId) }));
-  const mixerSettings = mixerState.documentId === documentId ? mixerState.settings : readVoiceMix(documentId);
+  const storedSettings = mixerState.documentId === documentId ? mixerState.settings : readVoiceMix(documentId);
+  const mixerSettings = React.useMemo(() => Object.fromEntries(Object.entries(storedSettings).map(([id, mix]) => [id, { muted: mix.muted, solo: mix.solo }])), [storedSettings]);
   if (mixerState.documentId !== documentId) setMixerState({ documentId, settings: mixerSettings });
-  const mixerRef = useRef({ voices: mixerVoices, settings: mixerSettings });
-  useLayoutEffect(() => { mixerRef.current = { voices: mixerVoices, settings: mixerSettings }; }, [mixerVoices, mixerSettings]);
+  const mixerRef = useRef({ voices: mixerVoices, settings: staffListeningMix(mixerVoices, mixerStaves, mixerSettings) });
+  useLayoutEffect(() => { mixerRef.current = { voices: mixerVoices, settings: staffListeningMix(mixerVoices, mixerStaves, mixerSettings) }; }, [mixerVoices, mixerStaves, mixerSettings]);
   const mixedTunes = useRef(new WeakMap<abcjs.TuneObject, abcjs.TuneObject>());
   const mixedTune = React.useCallback((tune: abcjs.TuneObject): abcjs.TuneObject => {
     if (typeof tune.setUpAudio !== 'function') return tune;
@@ -755,7 +789,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   const handleMixChange = async (settings: VoiceMixSettings) => {
     pendingMixerFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    mixerRef.current = { voices: mixerVoices, settings };
+    mixerRef.current = { voices: mixerVoices, settings: staffListeningMix(mixerVoices, mixerStaves, settings) };
     setMixerState({ documentId, settings });
     writeVoiceMix(documentId, settings);
     await handleSpeedChange(playbackSpeedRef.current, 'voices');
@@ -811,11 +845,19 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
       <div ref={audioContainerRef} className="abcjs-synth-container hidden-synth" />
 
-      {voicesOpen && <VoicesPanel key={documentId} voices={mixerVoices} settings={mixerSettings}
-        disabled={!isReady || isChangingSpeed || isStarting} volume={effectiveVolume} stopSignal={previewStopSignal} mainPlaying={isPlaying}
-        onChange={handleMixChange}
-        onBeforePreview={() => { if (isPlayingRef.current) void handlePlayToggle(); }}
-        onClose={() => { setVoicesOpen(false); voicesButtonRef.current?.focus(); }} />}
+      {staffSoundTarget?.host.isConnected && mixerStaves.some((staff) => staff.id === staffSoundTarget.staffId) && createPortal(
+        <VoicesPanel key={`${documentId}:${sourceKey}:${staffSoundTarget.staffId}`} voices={mixerStaves} settings={mixerSettings}
+          activeStaffId={staffSoundTarget.staffId} visibleStaffIds={staffSoundTarget.staffIds}
+          title={staffSoundTarget.label} onProgramChange={(id, program) => {
+            const staff = mixerStaves.find((entry) => entry.id === id);
+            if (staff) onStaffInstrumentChange?.(staff, program);
+          }}
+          disabled={soundEditingDisabled || !isReady || isChangingSpeed || isStarting}
+          volume={effectiveVolume} stopSignal={previewStopSignal} mainPlaying={isPlaying}
+          onChange={handleMixChange}
+          onBeforePreview={() => { if (isPlayingRef.current) void handlePlayToggle(); }}
+          onClose={(restoreFocus = true) => { onCloseStaffSound?.(); if (restoreFocus) staffSoundTarget.trigger.focus(); }} />,
+        staffSoundTarget.host)}
       <div className="player-controls-bar">
         <div className="main-play-buttons">
           <button
@@ -875,8 +917,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           </div>
         </div>
 
-        <button type="button" ref={voicesButtonRef} className="voices-toggle" aria-expanded={voicesOpen}
-          onClick={() => setVoicesOpen(!voicesOpen)}>Voices</button>
         <label className="playback-speed-control">
           <span className="sr-only">Playback speed</span>
           <select

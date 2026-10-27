@@ -106,8 +106,8 @@ It seeks to the selected measure's repeat-aware occurrence without installing a
 single-measure stop boundary. A second Enter stops, including a pending audio
 start. ABC Measure Source retains its single-measure preview behavior.
 
-The Voices panel provides per-voice instrument, sample preview, mute and solo
-listening controls; see `spec/voices-panel.md`. The hidden abcjs UI retains its
+Staff instrument buttons on the sheet provide sound selection, sample preview, mute and solo
+controls; see `spec/voices-panel.md`. The hidden abcjs UI retains its
 tempo input because controller rebuilds update it even though users interact
 with the application's own playback controls.
 

@@ -11590,3 +11590,14 @@ body.is-resizing-col .editor-divider::before {
 .voice-instrument-menu [role="option"] small { font-size: 10px; color: #6d675b; }
 .voice-instrument-menu [role="option"]:hover, .voice-instrument-menu [role="option"].is-highlighted { background: #ebe4d4; }
 @media (max-width: 560px) { .voice-mixer-row { grid-template-columns: 1fr; } .voice-mixer-actions { grid-column: 1; } .voices-panel footer { flex-wrap: wrap; } }
+
+/* The engraved name itself is the button; its layout and text stay intact. */
+.staff-sound-paper { position: relative; }
+.staff-sound-label { cursor: pointer; pointer-events: auto; }
+.staff-sound-label:hover, .staff-sound-label[aria-expanded="true"] { text-decoration: underline; }
+.staff-sound-label:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+.staff-sound-label[aria-disabled="true"] { cursor: default; opacity: .55; }
+/* Escape transformed score/annotation stacking contexts and clipping. */
+.staff-sound-panel-host { position: fixed; z-index: calc(var(--z-tooltip) + 1); }
+.staff-sound-panel-host:empty { display: none; }
+.staff-sound-panel-host .voices-panel { position: relative; bottom: auto; right: auto; width: min(390px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); }
