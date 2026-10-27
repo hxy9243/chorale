@@ -1,0 +1,15 @@
+npm notice run chorale@0.0.1 npx
+npm notice run 'vitest' run --maxWorkers=1
+
+ RUN  v5.0.5 /home/kevin/Workspace/chorale
+
+
+ Test Files  106 passed (106)
+      Tests  994 passed (994)
+   Start at  23:37:48
+   Duration  323.43s (environment 47%, tests 39%, import 12%, setup 1%, worker 1%)
+
+Environment  jsdom was created 106 times · 136.09s total, 47% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+

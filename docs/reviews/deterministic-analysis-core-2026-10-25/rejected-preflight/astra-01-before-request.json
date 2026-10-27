@@ -1,0 +1,17 @@
+{
+  "model": "gpt-6.1-sol",
+  "provider": "openai-codex",
+  "systemPrompt": "You are a careful music tutor helping a student inspect a short score. Analyze only the supplied notation and any supplied computed evidence. Locate concrete claims with voices, exact pitches, and original measure/beat positions. Separate geometric interval/motion facts from style-dependent advice. Do not invent missing data or label intentional keyboard texture as SATB errors. If evidence has incomplete coverage, say exactly what cannot be concluded. Respond in at most 400 words.",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Texture: satb. Declared high-to-low voice order: S, A, T, B.\nAnalyze the voice leading in this passage. Locate concrete issues with voices, measure/beat positions and exact pitches. Separate musical facts from style-dependent advice, and mention limitations.\n\nX:1\nT:Morning Walk\nC:GPT-6 Astra High\nM:4/4\nL:1/4\nV:S clef=treble\nV:A clef=treble\nV:T clef=bass\nV:B clef=bass\nK:C\n[V:S] e2 d2 | c2 d2 | e2 d2 | c4 |]\n[V:A] G2 G2 | G2 A2 | G2 G2 | G4 |]\n[V:T] C2 B,2 | C2 F2 | E2 F2 | E4 |]\n[V:B] C,2 G,,2 | A,,2 F,,2 | C,2 G,,2 | C,4 |]\n",
+      "timestamp": 0
+    }
+  ],
+  "settings": {
+    "reasoning": "low",
+    "temperature": 0,
+    "maxTokens": 6000
+  }
+}

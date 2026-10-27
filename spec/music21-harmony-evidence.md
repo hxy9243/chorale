@@ -36,6 +36,7 @@ test_files:
   - test/cli-runtime.node.mjs
   - test/codex-package.node.mjs
 related_specs:
+  - spec/deterministic-analysis-core.md
   - spec/codex-plugin.md
   - spec/mcp-server-redesign.md
   - spec/agent-evaluation.md

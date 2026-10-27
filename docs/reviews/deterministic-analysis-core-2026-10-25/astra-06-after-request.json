@@ -1,0 +1,21 @@
+{
+  "model": "gpt-6.1-sol",
+  "provider": "openai-codex",
+  "systemPrompt": "You are a careful music tutor helping a student inspect a short score. Analyze only the supplied notation and any supplied computed evidence. Locate concrete claims with voices, exact pitches, and original measure/beat positions. Separate geometric interval/motion facts from style-dependent advice. Do not invent missing data or label intentional keyboard texture as SATB errors. If evidence has incomplete coverage, say exactly what cannot be concluded. Respond in at most 400 words.",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Texture: two-part-counterpoint. Declared high-to-low voice order: U, L.\nAnalyze the voice leading in this passage. Locate concrete issues with voices, measure/beat positions and exact pitches. Separate musical facts from style-dependent advice, and mention limitations.\n\nX:6\nT:Two Paths\nC:GPT-6 Astra High\nM:4/4\nL:1/4\nV:U clef=treble\nV:L clef=bass\nK:C\n[V:U] E F G E | D2 G2 | E F D B, | C4 |]\n[V:L] C,4 | B,,2 G,,2 | C,2 G,2 | C,4 |]\n",
+      "timestamp": 0
+    },
+    {
+      "role": "user",
+      "timestamp": 0,
+      "content": "Additional read-only evidence computed for this exact score. Positions use zero-based rational quarter-length offsets; read coverage and diagnostics. Pattern observations require musical interpretation.\n{\"engine\":{\"name\":\"music21\",\"version\":\"10.5.0\",\"pythonVersion\":\"3.12.3\"},\"range\":{\"startMeasure\":1,\"endMeasure\":4},\"schemaVersion\":1,\"profile\":\"free\",\"findings\":[],\"diagnostics\":[{\"code\":\"SATB_PROFILE_REQUIRED\",\"checks\":[\"spacing\",\"ranges\"],\"message\":\"SATB spacing/ranges require the chorale profile and four explicitly ordered voices.\"}],\"totalFindings\":0,\"truncated\":false,\"coverage\":{\"requestedChecks\":[\"parallels\",\"crossing\",\"overlap\",\"spacing\",\"ranges\",\"melodic\"],\"executedChecks\":[\"parallels\",\"crossing\",\"overlap\",\"melodic\"],\"analyzedVoices\":[\"U\",\"L\"],\"excludedVoices\":[],\"skippedTransitions\":0,\"complete\":false,\"limitations\":[\"Selected written measures only; no playback unfolding or outside-range successions.\",\"Interval facts and profile conventions do not establish overall musical correctness.\"]}}"
+    }
+  ],
+  "settings": {
+    "reasoning": "low",
+    "maxTokens": 6000
+  }
+}

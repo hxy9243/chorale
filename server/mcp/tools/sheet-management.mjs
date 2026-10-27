@@ -424,7 +424,7 @@ export const createSheetManagementTools = (store, views, options = {}) => {
 
     analyze_music21: {
       title: 'Run sandboxed music21 Python analysis',
-      description: 'Run a short read-only Python snippet on a bounded score passage in an OS sandbox. Read the passage first. Use music21, score, events and measures; assign JSON to result. No host home/network access; missing sandbox fails closed. Results are fallible evidence, never score edits.',
+      description: 'Read-only Python on already-read measures (max 16). Core helper: result=analyze(checks=[...], voice_order=[high-to-low IDs], profile="chorale" or "free"). Custom code has music21, score, events and measures; assign JSON to result. OS sandbox without host home/network; missing isolation fails closed. Options and coverage: music21 skill reference.',
       inputSchema: {
         documentId: z.string().optional(),
         startMeasure: z.number().int().min(0).optional(),

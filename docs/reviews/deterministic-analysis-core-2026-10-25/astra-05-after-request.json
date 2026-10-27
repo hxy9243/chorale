@@ -1,0 +1,21 @@
+{
+  "model": "gpt-6.1-sol",
+  "provider": "openai-codex",
+  "systemPrompt": "You are a careful music tutor helping a student inspect a short score. Analyze only the supplied notation and any supplied computed evidence. Locate concrete claims with voices, exact pitches, and original measure/beat positions. Separate geometric interval/motion facts from style-dependent advice. Do not invent missing data or label intentional keyboard texture as SATB errors. If evidence has incomplete coverage, say exactly what cannot be concluded. Respond in at most 400 words.",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Texture: keyboard. Declared high-to-low voice order: RH, LH.\nAnalyze the voice leading in this passage. Locate concrete issues with voices, measure/beat positions and exact pitches. Separate musical facts from style-dependent advice, and mention limitations.\n\nX:5\nT:Small Prelude\nC:GPT-6 Astra High\nM:4/4\nL:1/4\nV:RH clef=treble\nV:LH clef=bass\nK:C\n[V:RH] [EGc]4 | [FAc]4 | [FGB]4 | [EGc]4 |]\n[V:LH] C,4 | F,,4 | G,,4 | C,4 |]\n",
+      "timestamp": 0
+    },
+    {
+      "role": "user",
+      "timestamp": 0,
+      "content": "Additional read-only evidence computed for this exact score. Positions use zero-based rational quarter-length offsets; read coverage and diagnostics. Pattern observations require musical interpretation.\n{\"engine\":{\"name\":\"music21\",\"version\":\"10.5.0\",\"pythonVersion\":\"3.12.3\"},\"range\":{\"startMeasure\":1,\"endMeasure\":4},\"schemaVersion\":1,\"profile\":\"free\",\"findings\":[],\"diagnostics\":[{\"code\":\"POLYPHONIC_VOICE\",\"voices\":[\"RH\"],\"message\":\"Overlapping/chordal events do not establish independent melodic lines; this voice is excluded.\"},{\"code\":\"SATB_PROFILE_REQUIRED\",\"checks\":[\"spacing\",\"ranges\"],\"message\":\"SATB spacing/ranges require the chorale profile and four explicitly ordered voices.\"}],\"totalFindings\":0,\"truncated\":false,\"coverage\":{\"requestedChecks\":[\"parallels\",\"crossing\",\"overlap\",\"spacing\",\"ranges\",\"melodic\"],\"executedChecks\":[\"parallels\",\"crossing\",\"overlap\",\"melodic\"],\"analyzedVoices\":[\"LH\"],\"excludedVoices\":[\"RH\"],\"skippedTransitions\":0,\"complete\":false,\"limitations\":[\"Selected written measures only; no playback unfolding or outside-range successions.\",\"Interval facts and profile conventions do not establish overall musical correctness.\"]}}"
+    }
+  ],
+  "settings": {
+    "reasoning": "low",
+    "maxTokens": 6000
+  }
+}

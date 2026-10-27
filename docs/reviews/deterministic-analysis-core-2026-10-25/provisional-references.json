@@ -1,0 +1,377 @@
+[
+  {
+    "id": "astra-01",
+    "reference": {
+      "findings": [],
+      "nonFindings": [
+        "No same-direction consecutive perfect fifths or octaves in any voice pair under the stated event convention.",
+        "No voice crossings or strict adjacent-voice overlaps.",
+        "Soprano-alto and alto-tenor spacing stays within one octave; every pitch lies within the broad SATB ranges stated in the author notes.",
+        "At measure 1 beats 1 and 3, alto G4 is stationary while bass moves C3 to G2. A perfect fifth followed by an octave under oblique motion is not a parallel perfect interval."
+      ],
+      "limitations": [
+        "PROVISIONAL authored expectations; independent verification is required.",
+        "Clean only for the requested factual checks; this is not a claim of flawless chorale harmony, dissonance treatment, or melodic style."
+      ]
+    }
+  },
+  {
+    "id": "astra-02",
+    "reference": {
+      "findings": [
+        {
+          "kind": "parallel_fifths",
+          "voices": [
+            "S",
+            "B"
+          ],
+          "from": {
+            "measure": 1,
+            "beat": 1
+          },
+          "to": {
+            "measure": 1,
+            "beat": 3
+          },
+          "pitches": {
+            "S": [
+              "G4",
+              "A4"
+            ],
+            "B": [
+              "C3",
+              "D3"
+            ]
+          },
+          "explanation": "Both voices ascend a whole tone, retaining a compound perfect fifth: C3–G4 becomes D3–A4."
+        }
+      ],
+      "nonFindings": [
+        "No other same-direction consecutive perfect fifths or octaves are expected under the stated event convention.",
+        "No voice crossings, adjacent-voice overlaps, upper-voice gaps greater than an octave, or pitches outside the stated broad SATB ranges."
+      ],
+      "limitations": [
+        "PROVISIONAL authored expectations; independent verification is required.",
+        "A compound fifth is grouped with a perfect fifth by interval class; both observed intervals are 19 semitones."
+      ]
+    }
+  },
+  {
+    "id": "astra-03",
+    "reference": {
+      "findings": [
+        {
+          "kind": "voice_crossing",
+          "voices": [
+            "S",
+            "A"
+          ],
+          "from": {
+            "measure": 2,
+            "beat": 1
+          },
+          "to": {
+            "measure": 2,
+            "beat": 1
+          },
+          "pitches": {
+            "S": [
+              "A4"
+            ],
+            "A": [
+              "B4"
+            ]
+          },
+          "explanation": "At this sonority the named alto B4 is higher than the named soprano A4."
+        },
+        {
+          "kind": "voice_crossing",
+          "voices": [
+            "S",
+            "A"
+          ],
+          "from": {
+            "measure": 2,
+            "beat": 3
+          },
+          "to": {
+            "measure": 2,
+            "beat": 3
+          },
+          "pitches": {
+            "S": [
+              "G4"
+            ],
+            "A": [
+              "A4"
+            ]
+          },
+          "explanation": "The named alto A4 remains above the named soprano G4 at the next sonority."
+        },
+        {
+          "kind": "voice_overlap",
+          "voices": [
+            "S",
+            "A"
+          ],
+          "from": {
+            "measure": 2,
+            "beat": 1
+          },
+          "to": {
+            "measure": 2,
+            "beat": 3
+          },
+          "pitches": {
+            "S": [
+              "A4",
+              "G4"
+            ],
+            "A": [
+              "B4",
+              "A4"
+            ]
+          },
+          "explanation": "Current soprano G4 is below previous alto B4. This temporal overlap occurs during an already crossed passage and is not an independent new crossing."
+        },
+        {
+          "kind": "voice_overlap",
+          "voices": [
+            "S",
+            "A"
+          ],
+          "from": {
+            "measure": 2,
+            "beat": 3
+          },
+          "to": {
+            "measure": 3,
+            "beat": 1
+          },
+          "pitches": {
+            "S": [
+              "G4",
+              "D5"
+            ],
+            "A": [
+              "A4",
+              "C5"
+            ]
+          },
+          "explanation": "Alto rises to C5, above the preceding soprano G4; the new soprano D5 is higher than C5, so the new sonority itself is not crossed."
+        },
+        {
+          "kind": "voice_overlap",
+          "voices": [
+            "S",
+            "A"
+          ],
+          "from": {
+            "measure": 3,
+            "beat": 1
+          },
+          "to": {
+            "measure": 3,
+            "beat": 3
+          },
+          "pitches": {
+            "S": [
+              "D5",
+              "B4"
+            ],
+            "A": [
+              "C5",
+              "G4"
+            ]
+          },
+          "explanation": "Soprano descends to B4, below the previous alto C5. Both sonorities have soprano above alto, making this a temporal overlap without a simultaneous crossing."
+        }
+      ],
+      "nonFindings": [
+        "No same-direction consecutive perfect fifths or octaves are expected.",
+        "Measure 3 beat 3 has soprano B4 above alto G4; report overlap with the previous sonority rather than a crossing at this sonority.",
+        "All pitches remain within the stated broad SATB ranges and the adjacent upper voices remain within one octave."
+      ],
+      "limitations": [
+        "PROVISIONAL authored expectations; independent verification is required.",
+        "Overlap reporting may suppress overlaps that coincide with crossing; such suppression should be disclosed rather than treated as missing pitch data.",
+        "The held rhythmic values do not imply that every sonority is a consonant textbook chorale chord."
+      ]
+    }
+  },
+  {
+    "id": "astra-04",
+    "reference": {
+      "findings": [
+        {
+          "kind": "voice_range",
+          "voices": [
+            "S"
+          ],
+          "from": {
+            "measure": 1,
+            "beat": 1
+          },
+          "to": {
+            "measure": 1,
+            "beat": 1
+          },
+          "pitches": {
+            "S": [
+              "A5"
+            ]
+          },
+          "explanation": "A5 lies above the illustrative soprano upper bound G5. The tied note sounds through measure 1; this is a style-dependent range advisory."
+        },
+        {
+          "kind": "upper_voice_spacing",
+          "voices": [
+            "S",
+            "A"
+          ],
+          "from": {
+            "measure": 1,
+            "beat": 1
+          },
+          "to": {
+            "measure": 1,
+            "beat": 1
+          },
+          "pitches": {
+            "S": [
+              "A5"
+            ],
+            "A": [
+              "G4"
+            ]
+          },
+          "explanation": "Soprano A5 lies 14 semitones above alto G4, exceeding the usual SATB upper-voice octave spacing guideline throughout measure 1."
+        },
+        {
+          "kind": "parallel_octaves",
+          "voices": [
+            "T",
+            "B"
+          ],
+          "from": {
+            "measure": 1,
+            "beat": 1
+          },
+          "to": {
+            "measure": 2,
+            "beat": 1
+          },
+          "pitches": {
+            "T": [
+              "C4",
+              "D4"
+            ],
+            "B": [
+              "C3",
+              "D3"
+            ]
+          },
+          "explanation": "Tenor and bass both ascend a whole tone from C4/C3 to D4/D3, maintaining a one-octave interval."
+        },
+        {
+          "kind": "parallel_octaves",
+          "voices": [
+            "T",
+            "B"
+          ],
+          "from": {
+            "measure": 2,
+            "beat": 1
+          },
+          "to": {
+            "measure": 2,
+            "beat": 3
+          },
+          "pitches": {
+            "T": [
+              "D4",
+              "E4"
+            ],
+            "B": [
+              "D3",
+              "E3"
+            ]
+          },
+          "explanation": "Tenor and bass again ascend a whole tone together, maintaining a one-octave interval."
+        },
+        {
+          "kind": "parallel_octaves",
+          "voices": [
+            "S",
+            "T"
+          ],
+          "from": {
+            "measure": 3,
+            "beat": 3
+          },
+          "to": {
+            "measure": 4,
+            "beat": 1
+          },
+          "pitches": {
+            "S": [
+              "F5",
+              "E5"
+            ],
+            "T": [
+              "F4",
+              "E4"
+            ]
+          },
+          "explanation": "After soprano re-enters, F5 over held tenor F4 moves continuously to E5/E4, with both voices descending a semitone."
+        }
+      ],
+      "nonFindings": [
+        "The second a2 in measure 1 is a tied continuation of A5, not a new soprano attack.",
+        "Do not connect soprano E5 at measure 2 beat 3 directly to F5 at measure 3 beat 3 as an uninterrupted parallel octave with tenor; soprano rests on measure 3 beats 1–2.",
+        "Tenor F4 at measure 3 beat 3 is already sounding, even though it has no new attack there.",
+        "No simultaneous voice crossing or adjacent-voice temporal overlap is expected."
+      ],
+      "limitations": [
+        "PROVISIONAL authored expectations; independent verification is required.",
+        "The two range/spacing findings describe one sustained situation and should not be multiplied at every duration subdivision.",
+        "Range and spacing are style-dependent advice; exact pitches and interval widths are musical facts.",
+        "A rest terminates continuous voice-leading comparison for that voice."
+      ]
+    }
+  },
+  {
+    "id": "astra-05",
+    "reference": {
+      "findings": [],
+      "nonFindings": [
+        "RH contains three simultaneous chord tones at each onset, while LH contains one bass tone; there are two explicit ABC voices, not four explicitly independent SATB lines.",
+        "Do not assign soprano, alto, and tenor identities to sorted RH chord members without stating that this is an inferred reduction.",
+        "Do not apply a four-voice SATB spacing or range diagnosis automatically to this keyboard texture.",
+        "The encoded outermost tones C5/C3, C5/F2, B4/G2, and C5/C3 do not form same-direction consecutive perfect fifths or octaves."
+      ],
+      "limitations": [
+        "PROVISIONAL authored expectations; independent verification is required.",
+        "Individual inner-line identity and voice-leading intent are not encoded within RH chords.",
+        "A proposed four-line reduction can be useful musical analysis, but its inferred status must remain explicit."
+      ]
+    }
+  },
+  {
+    "id": "astra-06",
+    "reference": {
+      "findings": [],
+      "nonFindings": [
+        "No same-direction consecutive perfect fifths or octaves, simultaneous crossing, or strict temporal overlap is expected between the two explicit parts.",
+        "Measure 1 upper E4–F4–G4–E4 moves against held lower C3; this is oblique motion.",
+        "At measure 2 beats 1 and 3, upper D4 rises to G4 while lower B2 falls to G2; the arrival at G4/G2 is a compound octave reached by contrary motion.",
+        "At measure 3 beat 3, upper D4 moves downward from F4 while lower G3 moves upward from C3; the arrival at G3–D4 is a fifth reached by contrary motion.",
+        "Do not apply a SATB upper-adjacent-voice octave spacing rule to these two contrapuntal parts."
+      ],
+      "limitations": [
+        "PROVISIONAL authored expectations; independent verification is required.",
+        "Clean for the listed factual checks; no claim is made about strict species-counterpoint rules, harmonic rhythm, or preferred melodic leaps."
+      ]
+    }
+  }
+]

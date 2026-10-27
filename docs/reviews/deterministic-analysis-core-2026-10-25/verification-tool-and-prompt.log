@@ -1,0 +1,11 @@
+npm notice run chorale@0.0.1 npx
+npm notice run 'vitest' run src/agent/__tests__/musicBenchmark.test.ts src/agent/__tests__/music21Tool.test.ts src/agent/__tests__/sheetTools.test.ts
+
+ RUN  v5.0.5 /home/kevin/Workspace/chorale
+
+
+ Test Files  3 passed (3)
+      Tests  29 passed (29)
+   Start at  23:25:48
+   Duration  2.37s (import 58%, tests 24%, transform 12%, setup 3%, worker 2%)
+

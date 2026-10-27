@@ -211,7 +211,7 @@ export const createSheetTools = (
   const music21Tool: AgentTool<typeof Music21Parameters> = {
     name: 'analyze_music21',
     label: 'Analyze with music21',
-    description: 'Run read-only custom Python analysis in an OS sandbox on already-read measures of the immutable score. Available: music21, score (music21 Score), events (pitched events with exact timing/provenance), measures. Assign JSON to result. Host home/network are unavailable; missing sandbox fails closed. At most 16 measures and 16000 code bytes. Does not edit the score.',
+    description: 'Read-only Python on already-read measures (max 16). Core helper: result=analyze(checks=[...], voice_order=[high-to-low IDs], profile="chorale" or "free"). Custom code has music21, score, events and measures; assign JSON to result. Immutable revision; OS sandbox without host home/network; missing isolation fails closed. Options and coverage: music21 skill reference.',
     parameters: Music21Parameters,
     executionMode: 'sequential',
     execute: async (_toolCallId, params, signal) => {

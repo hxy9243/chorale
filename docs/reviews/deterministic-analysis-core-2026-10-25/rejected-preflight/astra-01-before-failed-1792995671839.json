@@ -1,0 +1,23 @@
+{
+  "requestSha256": "68e14cc2f6e4ac3fd2fcea58cd097fa7f4d1b42177b3cee4e95f5f78cfadefd0",
+  "latencyMs": 637,
+  "model": "gpt-6.1-sol",
+  "provider": "openai-codex",
+  "api": "openai-codex-responses",
+  "stopReason": "error",
+  "usage": {
+    "input": 0,
+    "output": 0,
+    "cacheRead": 0,
+    "cacheWrite": 0,
+    "totalTokens": 0,
+    "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "total": 0
+    }
+  },
+  "text": ""
+}

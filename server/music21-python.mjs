@@ -7,6 +7,7 @@ import { extractScoreEvents, addRational, subRational, compareRational, rational
 
 // This module also bundles into dist-electron/main.js and server/cli.mjs.
 const RUNNER = fileURLToPath(new URL('../server/python/music21_analysis.py', import.meta.url));
+const CORE = fileURLToPath(new URL('../server/python/music21_core.py', import.meta.url));
 export const MUSIC21_CODE_LIMIT = 16000;
 
 export function prepareMusic21Input({ abcSource, startMeasure = 1, endMeasure = startMeasure }) {
@@ -30,7 +31,13 @@ export function prepareMusic21Input({ abcSource, startMeasure = 1, endMeasure = 
       sourceEventIds: event.sourceEventIds };
   });
   if (events.length > 8192) throw new Music21Error('ANALYSIS_TOO_COMPLEX', 'The passage exceeds the Python analysis event budget.');
-  return { events, measures: selected.map(m => ({ number: m.measure,
+  const boundaries = [...new Set(parsed.voices.flatMap(voice => voice.entries
+    .filter(entry => entry.element.el_type === 'bar'
+      && (/repeat/.test(entry.element.type || '') || entry.element.startEnding || entry.element.endEnding)
+      && compareRational(entry.absoluteOffset, start) >= 0 && compareRational(entry.absoluteOffset, end) <= 0)
+    .map(entry => rationalToText(subRational(entry.absoluteOffset, start)))))]
+    .map(offsetQuarterLength => ({ offsetQuarterLength }));
+  return { events, boundaries, measures: selected.map(m => ({ number: m.measure,
     offsetQuarterLength: rationalToText(subRational(m.start, start)), durationQuarterLength: rationalToText(m.duration) })) };
 }
 
@@ -60,6 +67,7 @@ export async function analyzeMusic21Python(payload, options = {}) {
     '--proc', '/proc', '--remount-ro', '/proc', '--dev', '/dev', '--remount-ro', '/dev',
     '--size', '67108864', '--tmpfs', '/tmp', '--chdir', '/tmp',
     '--ro-bind', options.scriptPath || RUNNER, '/runner.py',
+    '--ro-bind', CORE, '/core.py',
     '--remount-ro', '/',
     layout.executable, '-I', '/runner.py', JSON.stringify(layout.paths));
   const started = performance.now();

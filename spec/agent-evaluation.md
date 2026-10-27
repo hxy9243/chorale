@@ -4,10 +4,13 @@ source_files:
   - server/mcp/tools/file-management.mjs
   - server/mcp/tools/sheet-management.mjs
   - server/utils/measure-ops.mjs
+  - scripts/core-analysis-pilot.cjs
+  - scripts/core-analysis-report.mjs
 test_files:
   - test/agent-eval.node.mjs
   - test/eval/corpus.json
 related_specs:
+  - spec/deterministic-analysis-core.md
   - spec/agent-analysis-and-annotations.md
 ---
 
@@ -33,3 +36,23 @@ Passing this gate does not establish LLM answer quality, prompt reliability, har
 Every case records the user question, complete ABC input, bounded MCP read arguments, expected evidence, and a reference answer contract. `requiredEvidence` and `excludedEvidence` test the score tool output. `groundedClaims` pair an answer phrase with its literal support in the returned ABC. `requiredAnswerPhrases`, `citations`, and `forbiddenAnswerPhrases` cover citation and unsupported-answer behavior.
 
 New cases must remain deterministic. Adding a live model runner must use a separate command and report results separately from this release gate.
+
+## Deterministic core supplied-evidence pilot
+
+The separate [core analysis spec](deterministic-analysis-core.md) defines the
+P0 checker contract, analysis roadmap, implementation sequence and evaluation
+protocol. Its live paired evaluation uses the same model and base prompt before
+and after adding actual helper evidence; it does not replace the offline release
+gate above or measure autonomous tool selection.
+
+The first six-pair [report and raw outputs](../docs/reviews/deterministic-analysis-core-2026-10-25/README.md)
+show better reconstruction of selected located findings alongside false-warning
+and broader prose regressions. Preserve the distinction between engine
+correctness, source-grounded explanation, and musical judgment. The authored
+references remain provisional until independent review.
+
+Recompute artifact-level pairing, usage and selected-claim scores with
+`node scripts/core-analysis-report.mjs`. Running
+`scripts/core-analysis-pilot.cjs` through Electron makes live calls using the
+selected encrypted desktop connection; it is an explicit experiment, never part
+of credential-free `npm test`.

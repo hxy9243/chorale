@@ -1,0 +1,53 @@
+{
+  "source": "Original file-write timestamps captured after the run; not server execution timestamps.",
+  "files": {
+    "astra-01-before-response.json": {
+      "writtenAtMs": 1792995763190.64,
+      "sha256": "0c28c3f5fd14b8558708253c8c190a015891bc8ad021b34bc81074a73d0256ba"
+    },
+    "astra-01-evidence.json": {
+      "writtenAtMs": 1792995954660.1746,
+      "sha256": "8958b8aed7f0f9bc522adca148617552b670a1b6f5ee8ee5965c101d3f70e3cf"
+    },
+    "astra-02-before-response.json": {
+      "writtenAtMs": 1792995807221.6025,
+      "sha256": "808289dcca8d1a9885408e6ad3e6e1b85c603f5868130330ec7345eea8e1c0c7"
+    },
+    "astra-02-evidence.json": {
+      "writtenAtMs": 1792996022163.6245,
+      "sha256": "71adc0725d165c73b3b84d7b10d1fae241d20ef2aaf4205546926b5d7277b181"
+    },
+    "astra-03-before-response.json": {
+      "writtenAtMs": 1792995846182.6904,
+      "sha256": "69d67b1e8a53bddbb19cba8d4b60bfd194bdfc7fe3aca384237837d7660441dd"
+    },
+    "astra-03-evidence.json": {
+      "writtenAtMs": 1792996058073.8042,
+      "sha256": "6c7dd7d240dbeff9be4ef0c23ab6355dba47d3567fdcbf002a150d2b614ec361"
+    },
+    "astra-04-before-response.json": {
+      "writtenAtMs": 1792995879313.9185,
+      "sha256": "b3a4bc79f2d8d16bc4cdec2addee6a0b22b832184f87eccf2a6fde7fb580e9bb"
+    },
+    "astra-04-evidence.json": {
+      "writtenAtMs": 1792996096542.9285,
+      "sha256": "59e0e05fc5fd11605502e24c97ae2cd98e6e218fb0e4eb49616686d7aab26eb2"
+    },
+    "astra-05-before-response.json": {
+      "writtenAtMs": 1792995915156.087,
+      "sha256": "696669c405feb3b8486db01700c8652232f0d7d4c8357a3643c33e49930dab33"
+    },
+    "astra-05-evidence.json": {
+      "writtenAtMs": 1792996119790.4006,
+      "sha256": "e527c3360f6d0d9e5a53b24f013882e7e9ce403eea759f9e1767f33e147c2e56"
+    },
+    "astra-06-before-response.json": {
+      "writtenAtMs": 1792995951476.2478,
+      "sha256": "aac8fed0f5853c94c703eea3fdfa58eb1e6ab56be2120ffc52914d2facf33744"
+    },
+    "astra-06-evidence.json": {
+      "writtenAtMs": 1792996156945.559,
+      "sha256": "8d41c56c5b9e7544960988e4803b147550fa9ed1c0adaf14d342abcb2640c419"
+    }
+  }
+}

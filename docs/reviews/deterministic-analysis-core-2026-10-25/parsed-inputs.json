@@ -1,0 +1,1099 @@
+[
+  {
+    "id": "astra-01",
+    "measures": [
+      {
+        "measure": 1,
+        "duration": "4"
+      },
+      {
+        "measure": 2,
+        "duration": "4"
+      },
+      {
+        "measure": 3,
+        "duration": "4"
+      },
+      {
+        "measure": 4,
+        "duration": "4"
+      }
+    ],
+    "events": [
+      {
+        "voice": "S",
+        "pitch": "E5",
+        "measure": 1,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "D5",
+        "measure": 1,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "C5",
+        "measure": 2,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "D5",
+        "measure": 2,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "E5",
+        "measure": 3,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "D5",
+        "measure": 3,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "C5",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "A",
+        "pitch": "G4",
+        "measure": 1,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "G4",
+        "measure": 1,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "G4",
+        "measure": 2,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "A4",
+        "measure": 2,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "G4",
+        "measure": 3,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "G4",
+        "measure": 3,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "G4",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "T",
+        "pitch": "C4",
+        "measure": 1,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "B3",
+        "measure": 1,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "C4",
+        "measure": 2,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "F4",
+        "measure": 2,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "E4",
+        "measure": 3,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "F4",
+        "measure": 3,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "E4",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "B",
+        "pitch": "C3",
+        "measure": 1,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "G2",
+        "measure": 1,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "A2",
+        "measure": 2,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "F2",
+        "measure": 2,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "C3",
+        "measure": 3,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "G2",
+        "measure": 3,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "C3",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      }
+    ]
+  },
+  {
+    "id": "astra-02",
+    "measures": [
+      {
+        "measure": 1,
+        "duration": "4"
+      },
+      {
+        "measure": 2,
+        "duration": "4"
+      },
+      {
+        "measure": 3,
+        "duration": "4"
+      },
+      {
+        "measure": 4,
+        "duration": "4"
+      }
+    ],
+    "events": [
+      {
+        "voice": "S",
+        "pitch": "G4",
+        "measure": 1,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "A4",
+        "measure": 1,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "B4",
+        "measure": 2,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "C5",
+        "measure": 2,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "D5",
+        "measure": 3,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "C5",
+        "measure": 3,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "C5",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "A",
+        "pitch": "E4",
+        "measure": 1,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "F4",
+        "measure": 1,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "G4",
+        "measure": 2,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "G4",
+        "measure": 2,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "A4",
+        "measure": 3,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "G4",
+        "measure": 3,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "G4",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "T",
+        "pitch": "C4",
+        "measure": 1,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "C4",
+        "measure": 1,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "D4",
+        "measure": 2,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "E4",
+        "measure": 2,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "F4",
+        "measure": 3,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "E4",
+        "measure": 3,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "E4",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "B",
+        "pitch": "C3",
+        "measure": 1,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "D3",
+        "measure": 1,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "G2",
+        "measure": 2,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "C3",
+        "measure": 2,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "F2",
+        "measure": 3,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "G2",
+        "measure": 3,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "C3",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      }
+    ]
+  },
+  {
+    "id": "astra-03",
+    "measures": [
+      {
+        "measure": 1,
+        "duration": "4"
+      },
+      {
+        "measure": 2,
+        "duration": "4"
+      },
+      {
+        "measure": 3,
+        "duration": "4"
+      },
+      {
+        "measure": 4,
+        "duration": "4"
+      }
+    ],
+    "events": [
+      {
+        "voice": "S",
+        "pitch": "C5",
+        "measure": 1,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "B4",
+        "measure": 1,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "A4",
+        "measure": 2,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "G4",
+        "measure": 2,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "D5",
+        "measure": 3,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "B4",
+        "measure": 3,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "C5",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "A",
+        "pitch": "G4",
+        "measure": 1,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "A4",
+        "measure": 1,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "B4",
+        "measure": 2,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "A4",
+        "measure": 2,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "C5",
+        "measure": 3,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "G4",
+        "measure": 3,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "G4",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "T",
+        "pitch": "E4",
+        "measure": 1,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "F4",
+        "measure": 1,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "D4",
+        "measure": 2,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "E4",
+        "measure": 2,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "F4",
+        "measure": 3,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "D4",
+        "measure": 3,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "E4",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "B",
+        "pitch": "C3",
+        "measure": 1,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "F3",
+        "measure": 1,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "G3",
+        "measure": 2,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "C3",
+        "measure": 2,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "F3",
+        "measure": 3,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "G3",
+        "measure": 3,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "C3",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      }
+    ]
+  },
+  {
+    "id": "astra-04",
+    "measures": [
+      {
+        "measure": 1,
+        "duration": "4"
+      },
+      {
+        "measure": 2,
+        "duration": "4"
+      },
+      {
+        "measure": 3,
+        "duration": "4"
+      },
+      {
+        "measure": 4,
+        "duration": "4"
+      }
+    ],
+    "events": [
+      {
+        "voice": "S",
+        "pitch": "A5",
+        "measure": 1,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "S",
+        "pitch": "G5",
+        "measure": 2,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "E5",
+        "measure": 2,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "F5",
+        "measure": 3,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "S",
+        "pitch": "E5",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "A",
+        "pitch": "G4",
+        "measure": 1,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "A",
+        "pitch": "B4",
+        "measure": 2,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "C5",
+        "measure": 2,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "A",
+        "pitch": "C5",
+        "measure": 3,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "A",
+        "pitch": "G4",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "T",
+        "pitch": "C4",
+        "measure": 1,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "T",
+        "pitch": "D4",
+        "measure": 2,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "E4",
+        "measure": 2,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "T",
+        "pitch": "F4",
+        "measure": 3,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "T",
+        "pitch": "E4",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "B",
+        "pitch": "C3",
+        "measure": 1,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "B",
+        "pitch": "D3",
+        "measure": 2,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "E3",
+        "measure": 2,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "B",
+        "pitch": "D3",
+        "measure": 3,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "B",
+        "pitch": "C3",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      }
+    ]
+  },
+  {
+    "id": "astra-05",
+    "measures": [
+      {
+        "measure": 1,
+        "duration": "4"
+      },
+      {
+        "measure": 2,
+        "duration": "4"
+      },
+      {
+        "measure": 3,
+        "duration": "4"
+      },
+      {
+        "measure": 4,
+        "duration": "4"
+      }
+    ],
+    "events": [
+      {
+        "voice": "RH",
+        "pitch": "E4",
+        "measure": 1,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "RH",
+        "pitch": "G4",
+        "measure": 1,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "RH",
+        "pitch": "C5",
+        "measure": 1,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "RH",
+        "pitch": "F4",
+        "measure": 2,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "RH",
+        "pitch": "A4",
+        "measure": 2,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "RH",
+        "pitch": "C5",
+        "measure": 2,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "RH",
+        "pitch": "F4",
+        "measure": 3,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "RH",
+        "pitch": "G4",
+        "measure": 3,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "RH",
+        "pitch": "B4",
+        "measure": 3,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "RH",
+        "pitch": "E4",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "RH",
+        "pitch": "G4",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "RH",
+        "pitch": "C5",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "LH",
+        "pitch": "C3",
+        "measure": 1,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "LH",
+        "pitch": "F2",
+        "measure": 2,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "LH",
+        "pitch": "G2",
+        "measure": 3,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "LH",
+        "pitch": "C3",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      }
+    ]
+  },
+  {
+    "id": "astra-06",
+    "measures": [
+      {
+        "measure": 1,
+        "duration": "4"
+      },
+      {
+        "measure": 2,
+        "duration": "4"
+      },
+      {
+        "measure": 3,
+        "duration": "4"
+      },
+      {
+        "measure": 4,
+        "duration": "4"
+      }
+    ],
+    "events": [
+      {
+        "voice": "U",
+        "pitch": "E4",
+        "measure": 1,
+        "offset": "0",
+        "duration": "1"
+      },
+      {
+        "voice": "U",
+        "pitch": "F4",
+        "measure": 1,
+        "offset": "1",
+        "duration": "1"
+      },
+      {
+        "voice": "U",
+        "pitch": "G4",
+        "measure": 1,
+        "offset": "2",
+        "duration": "1"
+      },
+      {
+        "voice": "U",
+        "pitch": "E4",
+        "measure": 1,
+        "offset": "3",
+        "duration": "1"
+      },
+      {
+        "voice": "U",
+        "pitch": "D4",
+        "measure": 2,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "U",
+        "pitch": "G4",
+        "measure": 2,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "U",
+        "pitch": "E4",
+        "measure": 3,
+        "offset": "0",
+        "duration": "1"
+      },
+      {
+        "voice": "U",
+        "pitch": "F4",
+        "measure": 3,
+        "offset": "1",
+        "duration": "1"
+      },
+      {
+        "voice": "U",
+        "pitch": "D4",
+        "measure": 3,
+        "offset": "2",
+        "duration": "1"
+      },
+      {
+        "voice": "U",
+        "pitch": "B3",
+        "measure": 3,
+        "offset": "3",
+        "duration": "1"
+      },
+      {
+        "voice": "U",
+        "pitch": "C4",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "L",
+        "pitch": "C3",
+        "measure": 1,
+        "offset": "0",
+        "duration": "4"
+      },
+      {
+        "voice": "L",
+        "pitch": "B2",
+        "measure": 2,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "L",
+        "pitch": "G2",
+        "measure": 2,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "L",
+        "pitch": "C3",
+        "measure": 3,
+        "offset": "0",
+        "duration": "2"
+      },
+      {
+        "voice": "L",
+        "pitch": "G3",
+        "measure": 3,
+        "offset": "2",
+        "duration": "2"
+      },
+      {
+        "voice": "L",
+        "pitch": "C3",
+        "measure": 4,
+        "offset": "0",
+        "duration": "4"
+      }
+    ]
+  }
+]

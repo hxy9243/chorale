@@ -1,0 +1,88 @@
+{
+  "head": "920c1346815c9d6b33d48f7cceecc7e5feb6ea88",
+  "corePythonTests": {
+    "music21_10_5_0": {
+      "groupsPassed": 4,
+      "groupsFailed": 0,
+      "skipped": 0,
+      "log": "verification-core-10.5.0.log"
+    },
+    "music21_9_9_2": {
+      "groupsPassed": 4,
+      "groupsFailed": 0,
+      "skipped": 0,
+      "log": "verification-core-9.9.2.log"
+    }
+  },
+  "desktopToolAndPromptTests": {
+    "filesPassed": 3,
+    "testsPassed": 29
+  },
+  "fullNodeSuite": {
+    "passed": 255,
+    "failed": 0,
+    "skipped": 0
+  },
+  "typecheck": "passed",
+  "lint": {
+    "status": "passed",
+    "warnings": "Existing unrelated warnings remain; no errors."
+  },
+  "electronBuild": "passed",
+  "fullVitestAttempts": [
+    {
+      "command": "npm test (Vitest stage)",
+      "passed": 988,
+      "failed": 4,
+      "filesFailed": [
+        "src/components/__tests__/AbcEditor.test.tsx",
+        "src/components/__tests__/AudioPlayer.test.tsx"
+      ]
+    },
+    {
+      "command": "npx vitest run --maxWorkers=4",
+      "passed": 991,
+      "failed": 1,
+      "filesFailed": [
+        "src/App.test.tsx"
+      ]
+    }
+  ],
+  "affectedUiRetest": {
+    "command": "npx vitest run src/App.test.tsx src/components/__tests__/AbcEditor.test.tsx src/components/__tests__/AudioPlayer.test.tsx --maxWorkers=1",
+    "passed": 130,
+    "failed": 0
+  },
+  "fullSerializedVitest": {
+    "command": "npx vitest run --maxWorkers=1",
+    "status": "passed",
+    "filesPassed": 106,
+    "testsPassed": 994,
+    "failed": 0,
+    "log": "verification-unit-serial.log"
+  },
+  "sharedCheckout": "Unrelated UI source/tests changed concurrently during verification. Those edits were preserved; this work did not edit those files.",
+  "livePilot": {
+    "completedPairs": 6,
+    "model": "gpt-6.1-sol",
+    "reasoning": "low",
+    "generator": "gpt-6-astra",
+    "generatorReasoning": "high",
+    "engine": "10.5.0",
+    "credentialsLogged": false,
+    "complete": true
+  },
+  "implementationHashes": {
+    "server/python/music21_core.py": "bdda1ca79b812ab86012c97b3ff963c2c5a5beb950b75cd0f7f314d6e2f410d7",
+    "server/python/music21_analysis.py": "259873dc8954e39515b3f87ec09c289fd14c3c057c04c33e98da087961ba0f4b",
+    "server/music21-python.mjs": "85010e50021f13da0f639226000f71729aed21cc631fd0270655a4a0e54761e1",
+    "electron/ai/sheetTools.ts": "4f0a8bbc07d7a6563fec8f4bb80a549bb78d77c42213c400efd36a0fae79075e",
+    "electron/ai/systemPrompt.ts": "ba8783234ae49e73aee0cefaad0035c6a3f968f647fffb3dfa476e90c40dc7c7",
+    "electron/ai/agentProfiles.ts": "c2dcc7691ae3ed2fd28932657f88616a4771c47bcb07bfb41ca3f29e3890790a",
+    "skills/chorale-score/references/music21-python.md": "ece356f0403e17afb1cde4a48dc0808b7e4c32324e5e786fab190f1ce64aab47",
+    "spec/deterministic-analysis-core.md": "4ed4cf90cdb95270058edec9ff09be18fbf8f7e49d2e660693f8fe28d8e6097f",
+    "test/music21-core.node.mjs": "2e26c3563baf2737a080f85252e25dd496854eedd675cb0ff555dabb1c5e6816",
+    "scripts/core-analysis-pilot.cjs": "8943a884638cbd10f51be2bb6d01c7b76cc3637d3187af1a2a9fdcda4e90e625",
+    "scripts/core-analysis-report.mjs": "438b1ac4d56d4340c97f4a5a991626401b46e2a4b72208ce8d6d2960554d83df"
+  }
+}

@@ -31,7 +31,9 @@ export const AGENT_PROFILE_REGISTRY: Readonly<
     name: 'Voice-leading analysis',
     prompt: [
       'Analyze multi-voice motion across [V:voiceId] lines: detect parallel 5ths/8ves, contrary/oblique motion, voice crossings, and spacing.',
+      'For computed core facts use analyze_music21: result=analyze(voice_order=[high-to-low IDs], profile="chorale" or "free"). Groups: parallels, crossing, overlap, spacing, ranges, melodic; checks=[...] selects a subset. Crossing/overlap require explicit order; SATB spacing/ranges require four ordered voices and chorale. Report chordal/repeat diagnostics and coverage.',
       'Track tendency-tone resolutions (7->1, chordal 7th 4->3) and suspensions (4-3, 7-6, 9-8) citing concrete voices and pitches.',
+      'Tendency-tone and suspension interpretations are not certified by the core helper.',
     ].join(' '),
   }),
   'form-phrase': Object.freeze({

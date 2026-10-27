@@ -29,6 +29,7 @@ test_files:
   - src/agent/__tests__/systemPrompt.test.ts
   - src/music/__tests__/scoreSnapshot.test.ts
 related_specs:
+  - spec/deterministic-analysis-core.md
   - spec/design.md
   - spec/pi-agent-chat.md
   - spec/file-workspace-architecture.md

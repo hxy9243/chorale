@@ -37,6 +37,7 @@ test_files:
   - src/music/__tests__/annotationLayout.test.ts
   - src/music/__tests__/documentSchema.test.ts
 related_specs:
+  - spec/deterministic-analysis-core.md
   - spec/design.md
   - spec/workspace-layout.md
   - spec/score-surface.md

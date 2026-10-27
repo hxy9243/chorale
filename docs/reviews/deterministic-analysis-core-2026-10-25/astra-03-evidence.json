@@ -1,0 +1,453 @@
+{
+  "arguments": {
+    "startMeasure": 1,
+    "endMeasure": 4,
+    "code": "result=analyze(voice_order=[\"S\",\"A\",\"T\",\"B\"], profile=\"chorale\")"
+  },
+  "response": {
+    "documentId": "astra-03",
+    "revision": 1,
+    "range": {
+      "startMeasure": 1,
+      "endMeasure": 4
+    },
+    "engine": {
+      "name": "music21",
+      "version": "10.5.0",
+      "pythonVersion": "3.12.3"
+    },
+    "sandbox": {
+      "backend": "bubblewrap",
+      "network": "isolated",
+      "hostHome": "unmounted",
+      "runtime": "read-only",
+      "syscalls": "seccomp",
+      "childProcesses": "blocked",
+      "scratchMiB": 64,
+      "cpuSeconds": 5,
+      "memoryMiB": 768
+    },
+    "durationMs": 996,
+    "inputSummary": {
+      "pitchedEvents": 28,
+      "measures": 4,
+      "voices": [
+        "S",
+        "A",
+        "T",
+        "B"
+      ]
+    },
+    "result": {
+      "schemaVersion": 1,
+      "profile": "chorale",
+      "findings": [
+        {
+          "rule": "crossing",
+          "voices": [
+            "S",
+            "A"
+          ],
+          "from": {
+            "measure": 2,
+            "offsetQuarterLength": "0"
+          },
+          "to": {
+            "measure": 2,
+            "offsetQuarterLength": "0"
+          },
+          "pitches": [
+            "A4",
+            "B4"
+          ],
+          "intervals": [
+            "M-2"
+          ],
+          "motion": null,
+          "sourceEventIds": [
+            "S@125:129#0",
+            "A@161:165#0"
+          ],
+          "id": "vl-8b9544e48572258087fce638",
+          "severity": "warning"
+        },
+        {
+          "rule": "overlap",
+          "voices": [
+            "S",
+            "A"
+          ],
+          "from": {
+            "measure": 2,
+            "offsetQuarterLength": "0"
+          },
+          "to": {
+            "measure": 2,
+            "offsetQuarterLength": "2"
+          },
+          "pitches": [
+            "A4",
+            "B4",
+            "G4",
+            "A4"
+          ],
+          "intervals": [
+            "M-2",
+            "M-2"
+          ],
+          "motion": null,
+          "sourceEventIds": [
+            "S@125:129#0",
+            "A@161:165#0",
+            "S@129:132#0",
+            "A@165:168#0"
+          ],
+          "id": "vl-9ff7c0a6767fa4d266c20195",
+          "severity": "warning"
+        },
+        {
+          "rule": "crossing",
+          "voices": [
+            "S",
+            "A"
+          ],
+          "from": {
+            "measure": 2,
+            "offsetQuarterLength": "2"
+          },
+          "to": {
+            "measure": 2,
+            "offsetQuarterLength": "2"
+          },
+          "pitches": [
+            "G4",
+            "A4"
+          ],
+          "intervals": [
+            "M-2"
+          ],
+          "motion": null,
+          "sourceEventIds": [
+            "S@129:132#0",
+            "A@165:168#0"
+          ],
+          "id": "vl-16ade91e2b7684108709be32",
+          "severity": "warning"
+        },
+        {
+          "rule": "overlap",
+          "voices": [
+            "S",
+            "A"
+          ],
+          "from": {
+            "measure": 2,
+            "offsetQuarterLength": "2"
+          },
+          "to": {
+            "measure": 3,
+            "offsetQuarterLength": "0"
+          },
+          "pitches": [
+            "G4",
+            "A4",
+            "D5",
+            "C5"
+          ],
+          "intervals": [
+            "M-2",
+            "M2"
+          ],
+          "motion": null,
+          "sourceEventIds": [
+            "S@129:132#0",
+            "A@165:168#0",
+            "S@133:137#0",
+            "A@169:173#0"
+          ],
+          "id": "vl-0c2508b76d7cb5dc3a09f720",
+          "severity": "warning"
+        },
+        {
+          "rule": "overlap",
+          "voices": [
+            "S",
+            "A"
+          ],
+          "from": {
+            "measure": 3,
+            "offsetQuarterLength": "0"
+          },
+          "to": {
+            "measure": 3,
+            "offsetQuarterLength": "2"
+          },
+          "pitches": [
+            "D5",
+            "C5",
+            "B4",
+            "G4"
+          ],
+          "intervals": [
+            "M2",
+            "M3"
+          ],
+          "motion": null,
+          "sourceEventIds": [
+            "S@133:137#0",
+            "A@169:173#0",
+            "S@137:140#0",
+            "A@173:176#0"
+          ],
+          "id": "vl-5885827d9b6eea49f050bad3",
+          "severity": "warning"
+        }
+      ],
+      "diagnostics": [],
+      "totalFindings": 5,
+      "truncated": false,
+      "coverage": {
+        "requestedChecks": [
+          "parallels",
+          "crossing",
+          "overlap",
+          "spacing",
+          "ranges",
+          "melodic"
+        ],
+        "executedChecks": [
+          "parallels",
+          "crossing",
+          "overlap",
+          "spacing",
+          "ranges",
+          "melodic"
+        ],
+        "analyzedVoices": [
+          "S",
+          "A",
+          "T",
+          "B"
+        ],
+        "excludedVoices": [],
+        "skippedTransitions": 0,
+        "complete": true,
+        "limitations": [
+          "Selected written measures only; no playback unfolding or outside-range successions.",
+          "Interval facts and profile conventions do not establish overall musical correctness."
+        ]
+      }
+    },
+    "stdout": "",
+    "warning": "Read-only computed evidence; verify interpretation against the written score. Rest gaps are silence, and tied notes are merged pitched events."
+  },
+  "suppliedEvidence": {
+    "engine": {
+      "name": "music21",
+      "version": "10.5.0",
+      "pythonVersion": "3.12.3"
+    },
+    "range": {
+      "startMeasure": 1,
+      "endMeasure": 4
+    },
+    "schemaVersion": 1,
+    "profile": "chorale",
+    "findings": [
+      {
+        "rule": "crossing",
+        "voices": [
+          "S",
+          "A"
+        ],
+        "from": {
+          "measure": 2,
+          "offsetQuarterLength": "0"
+        },
+        "to": {
+          "measure": 2,
+          "offsetQuarterLength": "0"
+        },
+        "pitches": [
+          "A4",
+          "B4"
+        ],
+        "intervals": [
+          "M-2"
+        ],
+        "motion": null,
+        "sourceEventIds": [
+          "S@125:129#0",
+          "A@161:165#0"
+        ],
+        "id": "vl-8b9544e48572258087fce638",
+        "severity": "warning"
+      },
+      {
+        "rule": "overlap",
+        "voices": [
+          "S",
+          "A"
+        ],
+        "from": {
+          "measure": 2,
+          "offsetQuarterLength": "0"
+        },
+        "to": {
+          "measure": 2,
+          "offsetQuarterLength": "2"
+        },
+        "pitches": [
+          "A4",
+          "B4",
+          "G4",
+          "A4"
+        ],
+        "intervals": [
+          "M-2",
+          "M-2"
+        ],
+        "motion": null,
+        "sourceEventIds": [
+          "S@125:129#0",
+          "A@161:165#0",
+          "S@129:132#0",
+          "A@165:168#0"
+        ],
+        "id": "vl-9ff7c0a6767fa4d266c20195",
+        "severity": "warning"
+      },
+      {
+        "rule": "crossing",
+        "voices": [
+          "S",
+          "A"
+        ],
+        "from": {
+          "measure": 2,
+          "offsetQuarterLength": "2"
+        },
+        "to": {
+          "measure": 2,
+          "offsetQuarterLength": "2"
+        },
+        "pitches": [
+          "G4",
+          "A4"
+        ],
+        "intervals": [
+          "M-2"
+        ],
+        "motion": null,
+        "sourceEventIds": [
+          "S@129:132#0",
+          "A@165:168#0"
+        ],
+        "id": "vl-16ade91e2b7684108709be32",
+        "severity": "warning"
+      },
+      {
+        "rule": "overlap",
+        "voices": [
+          "S",
+          "A"
+        ],
+        "from": {
+          "measure": 2,
+          "offsetQuarterLength": "2"
+        },
+        "to": {
+          "measure": 3,
+          "offsetQuarterLength": "0"
+        },
+        "pitches": [
+          "G4",
+          "A4",
+          "D5",
+          "C5"
+        ],
+        "intervals": [
+          "M-2",
+          "M2"
+        ],
+        "motion": null,
+        "sourceEventIds": [
+          "S@129:132#0",
+          "A@165:168#0",
+          "S@133:137#0",
+          "A@169:173#0"
+        ],
+        "id": "vl-0c2508b76d7cb5dc3a09f720",
+        "severity": "warning"
+      },
+      {
+        "rule": "overlap",
+        "voices": [
+          "S",
+          "A"
+        ],
+        "from": {
+          "measure": 3,
+          "offsetQuarterLength": "0"
+        },
+        "to": {
+          "measure": 3,
+          "offsetQuarterLength": "2"
+        },
+        "pitches": [
+          "D5",
+          "C5",
+          "B4",
+          "G4"
+        ],
+        "intervals": [
+          "M2",
+          "M3"
+        ],
+        "motion": null,
+        "sourceEventIds": [
+          "S@133:137#0",
+          "A@169:173#0",
+          "S@137:140#0",
+          "A@173:176#0"
+        ],
+        "id": "vl-5885827d9b6eea49f050bad3",
+        "severity": "warning"
+      }
+    ],
+    "diagnostics": [],
+    "totalFindings": 5,
+    "truncated": false,
+    "coverage": {
+      "requestedChecks": [
+        "parallels",
+        "crossing",
+        "overlap",
+        "spacing",
+        "ranges",
+        "melodic"
+      ],
+      "executedChecks": [
+        "parallels",
+        "crossing",
+        "overlap",
+        "spacing",
+        "ranges",
+        "melodic"
+      ],
+      "analyzedVoices": [
+        "S",
+        "A",
+        "T",
+        "B"
+      ],
+      "excludedVoices": [],
+      "skippedTransitions": 0,
+      "complete": true,
+      "limitations": [
+        "Selected written measures only; no playback unfolding or outside-range successions.",
+        "Interval facts and profile conventions do not establish overall musical correctness."
+      ]
+    }
+  }
+}

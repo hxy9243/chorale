@@ -1,0 +1,103 @@
+{
+  "protocolChecks": {
+    "matchedBasePrompts": true,
+    "matchedModelsAndSettings": true,
+    "allBaselinesPersistedBeforeFirstEvidence": true
+  },
+  "targetCount": 10,
+  "targetLocatedPatternBefore": 7,
+  "targetLocatedPatternAfter": 10,
+  "targetExactBefore": 4,
+  "targetExactAfter": 10,
+  "cleanControlsWithInventedCoreWarningsBefore": 0,
+  "cleanControlsWithInventedCoreWarningsAfter": 1,
+  "cleanControlCount": 2,
+  "rows": [
+    {
+      "id": "astra-01",
+      "beforePromptTokens": 311,
+      "afterPromptTokens": 518,
+      "addedPromptTokens": 207,
+      "beforeOutputTokens": 996,
+      "afterOutputTokens": 859,
+      "beforeLatencyMs": 44250,
+      "afterLatencyMs": 62062,
+      "beforeCatalogCostEstimate": 0.010582,
+      "afterCatalogCostEstimate": 0.009626000000000001
+    },
+    {
+      "id": "astra-02",
+      "beforePromptTokens": 311,
+      "afterPromptTokens": 643,
+      "addedPromptTokens": 332,
+      "beforeOutputTokens": 1037,
+      "afterOutputTokens": 672,
+      "beforeLatencyMs": 44027,
+      "afterLatencyMs": 32938,
+      "beforeCatalogCostEstimate": 0.010992,
+      "afterCatalogCostEstimate": 0.008006000000000001
+    },
+    {
+      "id": "astra-03",
+      "beforePromptTokens": 310,
+      "afterPromptTokens": 1112,
+      "addedPromptTokens": 802,
+      "beforeOutputTokens": 992,
+      "afterOutputTokens": 668,
+      "beforeLatencyMs": 38955,
+      "afterLatencyMs": 35109,
+      "beforeCatalogCostEstimate": 0.01054,
+      "afterCatalogCostEstimate": 0.008904
+    },
+    {
+      "id": "astra-04",
+      "beforePromptTokens": 298,
+      "afterPromptTokens": 1001,
+      "addedPromptTokens": 703,
+      "beforeOutputTokens": 1056,
+      "afterOutputTokens": 467,
+      "beforeLatencyMs": 33126,
+      "afterLatencyMs": 19287,
+      "beforeCatalogCostEstimate": 0.011156000000000001,
+      "afterCatalogCostEstimate": 0.006672000000000001
+    },
+    {
+      "id": "astra-05",
+      "beforePromptTokens": 247,
+      "afterPromptTokens": 514,
+      "addedPromptTokens": 267,
+      "beforeOutputTokens": 815,
+      "afterOutputTokens": 728,
+      "beforeLatencyMs": 35839,
+      "afterLatencyMs": 33465,
+      "beforeCatalogCostEstimate": 0.008644,
+      "afterCatalogCostEstimate": 0.008308000000000001
+    },
+    {
+      "id": "astra-06",
+      "beforePromptTokens": 249,
+      "afterPromptTokens": 481,
+      "addedPromptTokens": 232,
+      "beforeOutputTokens": 852,
+      "afterOutputTokens": 744,
+      "beforeLatencyMs": 36317,
+      "afterLatencyMs": 34097,
+      "beforeCatalogCostEstimate": 0.009018000000000002,
+      "afterCatalogCostEstimate": 0.008402
+    }
+  ],
+  "totals": {
+    "beforePromptTokens": 1726,
+    "afterPromptTokens": 4269,
+    "addedPromptTokens": 2543,
+    "beforeOutputTokens": 5748,
+    "afterOutputTokens": 4138,
+    "beforeLatencyMs": 232514,
+    "afterLatencyMs": 216958,
+    "beforeCatalogCostEstimate": 0.060932,
+    "afterCatalogCostEstimate": 0.049918000000000004
+  },
+  "billedCost": null,
+  "costNote": "SDK catalog estimates, not invoices or actual OAuth charges.",
+  "sampling": "Provider default, one observation per arm; internal SDK retries were not individually instrumented."
+}

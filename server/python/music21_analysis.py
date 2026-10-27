@@ -3,6 +3,7 @@ import contextlib
 import ctypes
 from fractions import Fraction
 import io
+import importlib.util
 import json
 import resource
 import re
@@ -19,6 +20,10 @@ for path in json.loads(sys.argv[1]):
         sys.path.append(path)
 
 import music21
+
+core_spec = importlib.util.spec_from_file_location('chorale_music21_core', '/core.py')
+core_module = importlib.util.module_from_spec(core_spec)
+core_spec.loader.exec_module(core_module)
 
 
 class SandboxUnavailable(Exception):
@@ -89,7 +94,8 @@ def analyze(payload):
             by_number[event['measure']].insert(Fraction(event['measureOffsetQuarterLength']), note)
         score.insert(0, part)
     namespace = {'music21': music21, 'score': score, 'events': payload['events'],
-                 'measures': payload['measures']}
+                 'measures': payload['measures'],
+                 'analyze': core_module.build_analyzer(payload['events'], payload['measures'], payload.get('boundaries', []))}
     captured = BoundedOutput()
     lock_syscalls()
     with contextlib.redirect_stdout(captured), contextlib.redirect_stderr(captured):

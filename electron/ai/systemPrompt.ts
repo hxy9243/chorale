@@ -5,7 +5,7 @@ export const SHEET_AGENT_BASE_INSTRUCTIONS = [
   'Ground every score-specific answer in the supplied CHORALE_MUSIC_CONTEXT and the immutable read-only score tools.',
   'Before making any score-specific claim, call select_analysis_profile, then inspect the relevant score data with get_score_summary, read_measure_range, or get_annotations.',
   'Select multiple analysis profiles when the question crosses musical domains.',
-  'After reading a passage, use analyze_music21 for computed evidence. Write short Python using music21, score, events and measures; assign JSON to result. It analyzes the captured revision in a read-only sandbox. Verify interpretations; report unavailable or failed analysis honestly.',
+  'After reading a passage, use analyze_music21 for computed evidence. The analyze() helper provides core checks; custom Python still has music21, score, events and measures. Assign JSON to result. Use explicit voice roles, report diagnostics/coverage, and verify interpretation. The captured revision is immutable; unavailable isolation fails closed.',
   'Explain theory terms in concrete context: identify the relevant chord or notes, Roman numeral or voice motion when applicable, resolution, and musical role.',
   'If the inspected notation does not support a claim, state the uncertainty instead of inventing notes, chords, keys, voices, or measures.',
   'Cite passage-specific claims only with valid written-measure Markdown links: [m. N](#measure-N) or [mm. N–M](#measure-N-M).',

@@ -1,0 +1,76 @@
+[
+  {
+    "id": "astra-01",
+    "title": "Morning Walk",
+    "abc": "X:1\nT:Morning Walk\nC:GPT-6 Astra High\nM:4/4\nL:1/4\nV:S clef=treble\nV:A clef=treble\nV:T clef=bass\nV:B clef=bass\nK:C\n[V:S] e2 d2 | c2 d2 | e2 d2 | c4 |]\n[V:A] G2 G2 | G2 A2 | G2 G2 | G4 |]\n[V:T] C2 B,2 | C2 F2 | E2 F2 | E4 |]\n[V:B] C,2 G,,2 | A,,2 F,,2 | C,2 G,,2 | C,4 |]\n",
+    "style": "satb",
+    "voiceOrder": [
+      "S",
+      "A",
+      "T",
+      "B"
+    ],
+    "question": "Analyze the voice leading in this passage. Locate concrete issues with voices, measure/beat positions and exact pitches. Separate musical facts from style-dependent advice, and mention limitations."
+  },
+  {
+    "id": "astra-02",
+    "title": "At the Window",
+    "abc": "X:2\nT:At the Window\nC:GPT-6 Astra High\nM:4/4\nL:1/4\nV:S clef=treble\nV:A clef=treble\nV:T clef=bass\nV:B clef=bass\nK:C\n[V:S] G2 A2 | B2 c2 | d2 c2 | c4 |]\n[V:A] E2 F2 | G2 G2 | A2 G2 | G4 |]\n[V:T] C2 C2 | D2 E2 | F2 E2 | E4 |]\n[V:B] C,2 D,2 | G,,2 C,2 | F,,2 G,,2 | C,4 |]\n",
+    "style": "satb",
+    "voiceOrder": [
+      "S",
+      "A",
+      "T",
+      "B"
+    ],
+    "question": "Analyze the voice leading in this passage. Locate concrete issues with voices, measure/beat positions and exact pitches. Separate musical facts from style-dependent advice, and mention limitations."
+  },
+  {
+    "id": "astra-03",
+    "title": "Late Light",
+    "abc": "X:3\nT:Late Light\nC:GPT-6 Astra High\nM:4/4\nL:1/4\nV:S clef=treble\nV:A clef=treble\nV:T clef=bass\nV:B clef=bass\nK:C\n[V:S] c2 B2 | A2 G2 | d2 B2 | c4 |]\n[V:A] G2 A2 | B2 A2 | c2 G2 | G4 |]\n[V:T] E2 F2 | D2 E2 | F2 D2 | E4 |]\n[V:B] C,2 F,2 | G,2 C,2 | F,2 G,2 | C,4 |]\n",
+    "style": "satb",
+    "voiceOrder": [
+      "S",
+      "A",
+      "T",
+      "B"
+    ],
+    "question": "Analyze the voice leading in this passage. Locate concrete issues with voices, measure/beat positions and exact pitches. Separate musical facts from style-dependent advice, and mention limitations."
+  },
+  {
+    "id": "astra-04",
+    "title": "Evening Air",
+    "abc": "X:4\nT:Evening Air\nC:GPT-6 Astra High\nM:4/4\nL:1/4\nV:S clef=treble\nV:A clef=treble\nV:T clef=bass\nV:B clef=bass\nK:C\n[V:S] a2- a2 | g2 e2 | z2 f2 | e4 |]\n[V:A] G4 | B2 c2 | c4 | G4 |]\n[V:T] C4 | D2 E2 | F4 | E4 |]\n[V:B] C,4 | D,2 E,2 | D,4 | C,4 |]\n",
+    "style": "satb",
+    "voiceOrder": [
+      "S",
+      "A",
+      "T",
+      "B"
+    ],
+    "question": "Analyze the voice leading in this passage. Locate concrete issues with voices, measure/beat positions and exact pitches. Separate musical facts from style-dependent advice, and mention limitations."
+  },
+  {
+    "id": "astra-05",
+    "title": "Small Prelude",
+    "abc": "X:5\nT:Small Prelude\nC:GPT-6 Astra High\nM:4/4\nL:1/4\nV:RH clef=treble\nV:LH clef=bass\nK:C\n[V:RH] [EGc]4 | [FAc]4 | [FGB]4 | [EGc]4 |]\n[V:LH] C,4 | F,,4 | G,,4 | C,4 |]\n",
+    "style": "keyboard",
+    "voiceOrder": [
+      "RH",
+      "LH"
+    ],
+    "question": "Analyze the voice leading in this passage. Locate concrete issues with voices, measure/beat positions and exact pitches. Separate musical facts from style-dependent advice, and mention limitations."
+  },
+  {
+    "id": "astra-06",
+    "title": "Two Paths",
+    "abc": "X:6\nT:Two Paths\nC:GPT-6 Astra High\nM:4/4\nL:1/4\nV:U clef=treble\nV:L clef=bass\nK:C\n[V:U] E F G E | D2 G2 | E F D B, | C4 |]\n[V:L] C,4 | B,,2 G,,2 | C,2 G,2 | C,4 |]\n",
+    "style": "two-part-counterpoint",
+    "voiceOrder": [
+      "U",
+      "L"
+    ],
+    "question": "Analyze the voice leading in this passage. Locate concrete issues with voices, measure/beat positions and exact pitches. Separate musical facts from style-dependent advice, and mention limitations."
+  }
+]

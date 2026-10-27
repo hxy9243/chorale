@@ -7,20 +7,24 @@ source_files:
   - server/music21.mjs
   - server/daemon-mutations.mjs
   - server/python/music21_analysis.py
+  - server/python/music21_core.py
   - electron/ai/sheetTools.ts
   - electron/ai/systemPrompt.ts
+  - electron/ai/agentProfiles.ts
   - electron/ai/toolEvents.ts
   - vite.main.config.ts
   - server/mcp/tools/sheet-management.mjs
   - skills/chorale-score/SKILL.md
 test_files:
   - test/music21-python.node.mjs
+  - test/music21-core.node.mjs
   - src/agent/__tests__/music21Tool.test.ts
   - scripts/music21-examples.mjs
   - scripts/electron-music21-smoke.mjs
 related_specs:
   - spec/music21-harmony-evidence.md
   - spec/desktop-chat-restoration.md
+  - spec/deterministic-analysis-core.md
 ---
 
 # Sandboxed music21 Python analysis
@@ -36,10 +40,16 @@ The desktop tool uses its immutable prompt-time snapshot. MCP resolves the
 authoritative document revision before extracting input. Chorale's shared score
 semantics supplies pitch spelling, voice identity, exact rational offsets and
 durations; music21 receives a constructed Score, not a reparsed ABC excerpt.
-Provide `score`, `events`, `measures`, `music21` and `result`; code sets `result`
+Provide `score`, `events`, `measures`, `music21`, `analyze` and `result`; code sets `result`
 to a JSON-serializable value. Measure numbers and provenance refer to the original
 written score, including pickups and carry-in notes. Analysis can mutate its
 private in-memory score without changing the document.
+
+The single `analyze_music21` interface also provides the trusted
+`analyze(checks=None, voice_order=None, profile='free', max_findings=100)` helper.
+It returns deterministic, located core interval/voice-leading findings and
+explicit coverage/diagnostics. See `spec/deterministic-analysis-core.md` for
+rule semantics, implementation sequencing, limits and paired evaluation.
 
 On Linux, execution requires Bubblewrap with user, PID, mount and network
 namespaces; drop capabilities, isolate the session, clear the host environment,

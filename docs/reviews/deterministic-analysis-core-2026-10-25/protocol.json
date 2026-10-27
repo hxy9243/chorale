@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "inputSha256": "aa656d39c627f3571be84b022b091796a5eb4e0f6975d61f700842f2dd490cd4",
+  "system": "You are a careful music tutor helping a student inspect a short score. Analyze only the supplied notation and any supplied computed evidence. Locate concrete claims with voices, exact pitches, and original measure/beat positions. Separate geometric interval/motion facts from style-dependent advice. Do not invent missing data or label intentional keyboard texture as SATB errors. If evidence has incomplete coverage, say exactly what cannot be concluded. Respond in at most 400 words.",
+  "model": "gpt-6.1-sol",
+  "provider": "openai-codex",
+  "settings": {
+    "reasoning": "low",
+    "maxTokens": 6000
+  },
+  "author": "GPT-6 Astra High subagent",
+  "arms": "Same model/base prompt; after adds actual helper evidence. All baselines finish before evidence is computed.",
+  "scope": "Supplied-evidence pilot, not autonomous tool-selection or desktop end-to-end quality.",
+  "references": "AI-authored provisional labels excluded from both prompts; require independent musical review.",
+  "sampling": "Provider default; Codex rejects explicit temperature. Same settings in both arms.",
+  "cost": "SDK catalog estimates are not billed costs; OAuth account usage does not provide an invoice here."
+}

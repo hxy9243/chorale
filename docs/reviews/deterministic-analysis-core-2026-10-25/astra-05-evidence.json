@@ -1,0 +1,155 @@
+{
+  "arguments": {
+    "startMeasure": 1,
+    "endMeasure": 4,
+    "code": "result=analyze(voice_order=[\"RH\",\"LH\"], profile=\"free\")"
+  },
+  "response": {
+    "documentId": "astra-05",
+    "revision": 1,
+    "range": {
+      "startMeasure": 1,
+      "endMeasure": 4
+    },
+    "engine": {
+      "name": "music21",
+      "version": "10.5.0",
+      "pythonVersion": "3.12.3"
+    },
+    "sandbox": {
+      "backend": "bubblewrap",
+      "network": "isolated",
+      "hostHome": "unmounted",
+      "runtime": "read-only",
+      "syscalls": "seccomp",
+      "childProcesses": "blocked",
+      "scratchMiB": 64,
+      "cpuSeconds": 5,
+      "memoryMiB": 768
+    },
+    "durationMs": 1511,
+    "inputSummary": {
+      "pitchedEvents": 16,
+      "measures": 4,
+      "voices": [
+        "RH",
+        "LH"
+      ]
+    },
+    "result": {
+      "schemaVersion": 1,
+      "profile": "free",
+      "findings": [],
+      "diagnostics": [
+        {
+          "code": "POLYPHONIC_VOICE",
+          "voices": [
+            "RH"
+          ],
+          "message": "Overlapping/chordal events do not establish independent melodic lines; this voice is excluded."
+        },
+        {
+          "code": "SATB_PROFILE_REQUIRED",
+          "checks": [
+            "spacing",
+            "ranges"
+          ],
+          "message": "SATB spacing/ranges require the chorale profile and four explicitly ordered voices."
+        }
+      ],
+      "totalFindings": 0,
+      "truncated": false,
+      "coverage": {
+        "requestedChecks": [
+          "parallels",
+          "crossing",
+          "overlap",
+          "spacing",
+          "ranges",
+          "melodic"
+        ],
+        "executedChecks": [
+          "parallels",
+          "crossing",
+          "overlap",
+          "melodic"
+        ],
+        "analyzedVoices": [
+          "LH"
+        ],
+        "excludedVoices": [
+          "RH"
+        ],
+        "skippedTransitions": 0,
+        "complete": false,
+        "limitations": [
+          "Selected written measures only; no playback unfolding or outside-range successions.",
+          "Interval facts and profile conventions do not establish overall musical correctness."
+        ]
+      }
+    },
+    "stdout": "",
+    "warning": "Read-only computed evidence; verify interpretation against the written score. Rest gaps are silence, and tied notes are merged pitched events."
+  },
+  "suppliedEvidence": {
+    "engine": {
+      "name": "music21",
+      "version": "10.5.0",
+      "pythonVersion": "3.12.3"
+    },
+    "range": {
+      "startMeasure": 1,
+      "endMeasure": 4
+    },
+    "schemaVersion": 1,
+    "profile": "free",
+    "findings": [],
+    "diagnostics": [
+      {
+        "code": "POLYPHONIC_VOICE",
+        "voices": [
+          "RH"
+        ],
+        "message": "Overlapping/chordal events do not establish independent melodic lines; this voice is excluded."
+      },
+      {
+        "code": "SATB_PROFILE_REQUIRED",
+        "checks": [
+          "spacing",
+          "ranges"
+        ],
+        "message": "SATB spacing/ranges require the chorale profile and four explicitly ordered voices."
+      }
+    ],
+    "totalFindings": 0,
+    "truncated": false,
+    "coverage": {
+      "requestedChecks": [
+        "parallels",
+        "crossing",
+        "overlap",
+        "spacing",
+        "ranges",
+        "melodic"
+      ],
+      "executedChecks": [
+        "parallels",
+        "crossing",
+        "overlap",
+        "melodic"
+      ],
+      "analyzedVoices": [
+        "LH"
+      ],
+      "excludedVoices": [
+        "RH"
+      ],
+      "skippedTransitions": 0,
+      "complete": false,
+      "limitations": [
+        "Selected written measures only; no playback unfolding or outside-range successions.",
+        "Interval facts and profile conventions do not establish overall musical correctness."
+      ]
+    }
+  }
+}

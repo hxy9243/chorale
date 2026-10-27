@@ -1,0 +1,12 @@
+✔ adapter preserves repeat and ending boundaries without changing authoritative event facts (53.303413ms)
+✔ real sandbox core checks: exact located facts, negative controls, coverage and immutable helper input (53829.890916ms)
+✔ core results match exactly through HTTP and the stdio daemon proxy (10710.808533ms)
+✔ same public analysis tool forwards core code and keeps revision validation (58.929668ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 65851.491944

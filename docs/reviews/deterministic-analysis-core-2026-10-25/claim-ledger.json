@@ -1,0 +1,225 @@
+{
+  "status": "exploratory-agent-audited; not independent human ground truth",
+  "rubric": "Credit requires correct kind, voice pair, written locations and exact pitches. Pattern-only credit ignores pitch octave errors. Missed means the response does not state the target fact. Scores concern these ten selected core facts, not all prose.",
+  "targets": [
+    {
+      "id": "p02-fifth",
+      "case": "astra-02",
+      "fact": "S/B m1 b1→b3: G4/C3→A4/D3, parallel perfect twelfths",
+      "before": {
+        "locatedPattern": true,
+        "exactPitches": true
+      },
+      "after": {
+        "locatedPattern": true,
+        "exactPitches": true
+      }
+    },
+    {
+      "id": "p03-cross-1",
+      "case": "astra-03",
+      "fact": "S/A m2 b1: A4 below B4",
+      "before": {
+        "locatedPattern": true,
+        "exactPitches": true
+      },
+      "after": {
+        "locatedPattern": true,
+        "exactPitches": true
+      }
+    },
+    {
+      "id": "p03-cross-2",
+      "case": "astra-03",
+      "fact": "S/A m2 b3: G4 below A4",
+      "before": {
+        "locatedPattern": true,
+        "exactPitches": true
+      },
+      "after": {
+        "locatedPattern": true,
+        "exactPitches": true
+      }
+    },
+    {
+      "id": "p03-overlap-1",
+      "case": "astra-03",
+      "fact": "S/A m2 b1→b3: S A4→G4 falls below previous A B4",
+      "before": {
+        "locatedPattern": false,
+        "exactPitches": false
+      },
+      "after": {
+        "locatedPattern": true,
+        "exactPitches": true
+      }
+    },
+    {
+      "id": "p03-overlap-2",
+      "case": "astra-03",
+      "fact": "S/A m2 b3→m3 b1: A A4→C5 rises above previous S G4",
+      "before": {
+        "locatedPattern": false,
+        "exactPitches": false
+      },
+      "after": {
+        "locatedPattern": true,
+        "exactPitches": true
+      }
+    },
+    {
+      "id": "p03-overlap-3",
+      "case": "astra-03",
+      "fact": "S/A m3 b1→b3: S D5→B4 falls below previous A C5",
+      "before": {
+        "locatedPattern": false,
+        "exactPitches": false
+      },
+      "after": {
+        "locatedPattern": true,
+        "exactPitches": true
+      }
+    },
+    {
+      "id": "p04-spacing",
+      "case": "astra-04",
+      "fact": "S/A m1: A5/G4, major ninth",
+      "before": {
+        "locatedPattern": true,
+        "exactPitches": true
+      },
+      "after": {
+        "locatedPattern": true,
+        "exactPitches": true
+      }
+    },
+    {
+      "id": "p04-octave-1",
+      "case": "astra-04",
+      "fact": "T/B m1 b1→m2 b1: C4/C3→D4/D3, parallel octave",
+      "before": {
+        "locatedPattern": true,
+        "exactPitches": false,
+        "note": "Response lowers both lines an octave: C3/C2→D3/D2."
+      },
+      "after": {
+        "locatedPattern": true,
+        "exactPitches": true
+      }
+    },
+    {
+      "id": "p04-octave-2",
+      "case": "astra-04",
+      "fact": "T/B m2 b1→b3: D4/D3→E4/E3, parallel octave",
+      "before": {
+        "locatedPattern": true,
+        "exactPitches": false,
+        "note": "Response says D3/D2→E3/E2."
+      },
+      "after": {
+        "locatedPattern": true,
+        "exactPitches": true
+      }
+    },
+    {
+      "id": "p04-octave-3",
+      "case": "astra-04",
+      "fact": "S/T m3 b3→m4 b1: F5/F4→E5/E4, parallel octave",
+      "before": {
+        "locatedPattern": true,
+        "exactPitches": false,
+        "note": "Response says F5/F3→E5/E3 and calls it double octaves."
+      },
+      "after": {
+        "locatedPattern": true,
+        "exactPitches": true
+      }
+    }
+  ],
+  "controls": [
+    {
+      "case": "astra-01",
+      "expected": "No core findings; upper spacing is within an octave.",
+      "before": {
+        "inventedCoreWarning": false
+      },
+      "after": {
+        "inventedCoreWarning": true,
+        "note": "Invents seven A/T spacing warnings by reading tenor C4..F4 as C3..F3; also lowers bass an octave. Conflicts with empty evidence."
+      }
+    },
+    {
+      "case": "astra-06",
+      "expected": "No core findings; two-part profile has no SATB range/spacing policy.",
+      "before": {
+        "inventedCoreWarning": false
+      },
+      "after": {
+        "inventedCoreWarning": false,
+        "note": "Still introduces an out-of-core false direct-octave explanation by reading m3 bass G3 as G2; m2 B2/G2 become B1/G1."
+      }
+    }
+  ],
+  "unsupportedTexture": {
+    "case": "astra-05",
+    "before": "Explicitly labels RH strands as inferred and avoids SATB errors.",
+    "after": "Explicitly explains RH exclusion and that zero findings cannot certify RH/LH counterpoint; inferred strands remain labeled."
+  },
+  "referenceAmendment": {
+    "case": "astra-04",
+    "original": "Astra's author notes choose soprano ceiling G5 and call A5 out of range.",
+    "contract": "Existing Chorale profile permits C4–A5 (bass E2–D4); A5 is not an out-of-range event in this implementation.",
+    "scoring": "Exclude the author-specific range advisory from deterministic error scoring; preserve original reference unchanged."
+  },
+  "extraProseErrors": [
+    {
+      "case": "astra-01",
+      "arm": "after",
+      "claim": "Tenor begins C3 and bass C2.",
+      "correction": "ABC uppercase C is C4 and C, is C3; bass clef alone is not an octave transposition."
+    },
+    {
+      "case": "astra-03",
+      "arm": "before",
+      "claim": "Alto/tenor spacing exceeds an octave throughout.",
+      "correction": "Tenor E/F/D/C uppercase notes are in octave 4, not 3. The seven alleged gaps are false."
+    },
+    {
+      "case": "astra-04",
+      "arm": "before",
+      "claim": "Alto/tenor spacing exceeds an octave throughout.",
+      "correction": "Tenor notes are C4,D4,E4,F4,E4, so these gaps are within an octave."
+    },
+    {
+      "case": "astra-04",
+      "arm": "after",
+      "claim": "G4 forms a compound seventh against soprano A5.",
+      "correction": "G4→A5 is a major ninth. The nearby correct S/A spacing fact does not make this sentence correct."
+    },
+    {
+      "case": "astra-05",
+      "arm": "after",
+      "claim": "B4→C5 and F4→E4 resolve the tritone inward.",
+      "correction": "F4–B4 expands to E4–C5; the tendency-tone resolutions are correct, but inward is the wrong direction."
+    },
+    {
+      "case": "astra-06",
+      "arm": "after",
+      "claim": "m3 b4→m4 b1: B3/G2→C4/C3, similar motion to a direct octave.",
+      "correction": "The actual lower G3 falls to C3 while upper B3 rises to C4: contrary motion, not a direct octave."
+    },
+    {
+      "case": "astra-06",
+      "arm": "after",
+      "claim": "m2 b3 G4/G1 spans three octaves, reached from D4/B1.",
+      "correction": "Lower notes are G2 and B2; the destination spans two octaves."
+    }
+  ],
+  "limitations": [
+    "Not an exhaustive atomic scoring of every sentence.",
+    "No independently calibrated LLM judge or human gold labels.",
+    "One run per arm; same model/settings but provider-default sampling.",
+    "Synthetic passages were held out from implementation, not a frozen external benchmark.",
+    "Do not infer net pedagogical quality or universal accuracy from selected target reconstruction."
+  ]
+}

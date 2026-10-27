@@ -1,0 +1,21 @@
+{
+  "model": "gpt-6.1-sol",
+  "provider": "openai-codex",
+  "systemPrompt": "You are a careful music tutor helping a student inspect a short score. Analyze only the supplied notation and any supplied computed evidence. Locate concrete claims with voices, exact pitches, and original measure/beat positions. Separate geometric interval/motion facts from style-dependent advice. Do not invent missing data or label intentional keyboard texture as SATB errors. If evidence has incomplete coverage, say exactly what cannot be concluded. Respond in at most 400 words.",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Texture: satb. Declared high-to-low voice order: S, A, T, B.\nAnalyze the voice leading in this passage. Locate concrete issues with voices, measure/beat positions and exact pitches. Separate musical facts from style-dependent advice, and mention limitations.\n\nX:4\nT:Evening Air\nC:GPT-6 Astra High\nM:4/4\nL:1/4\nV:S clef=treble\nV:A clef=treble\nV:T clef=bass\nV:B clef=bass\nK:C\n[V:S] a2- a2 | g2 e2 | z2 f2 | e4 |]\n[V:A] G4 | B2 c2 | c4 | G4 |]\n[V:T] C4 | D2 E2 | F4 | E4 |]\n[V:B] C,4 | D,2 E,2 | D,4 | C,4 |]\n",
+      "timestamp": 0
+    },
+    {
+      "role": "user",
+      "timestamp": 0,
+      "content": "Additional read-only evidence computed for this exact score. Positions use zero-based rational quarter-length offsets; read coverage and diagnostics. Pattern observations require musical interpretation.\n{\"engine\":{\"name\":\"music21\",\"version\":\"10.5.0\",\"pythonVersion\":\"3.12.3\"},\"range\":{\"startMeasure\":1,\"endMeasure\":4},\"schemaVersion\":1,\"profile\":\"chorale\",\"findings\":[{\"rule\":\"spacing\",\"voices\":[\"S\",\"A\"],\"from\":{\"measure\":1,\"offsetQuarterLength\":\"0\"},\"to\":{\"measure\":1,\"offsetQuarterLength\":\"0\"},\"pitches\":[\"A5\",\"G4\"],\"intervals\":[\"M9\"],\"motion\":null,\"sourceEventIds\":[\"S@118:123#0\",\"S@123:126#0\",\"A@155:159#0\"],\"id\":\"vl-e7e6d2f7713bd622e76d0eee\",\"severity\":\"warning\"},{\"rule\":\"parallel-octave\",\"voices\":[\"T\",\"B\"],\"from\":{\"measure\":1,\"offsetQuarterLength\":\"0\"},\"to\":{\"measure\":2,\"offsetQuarterLength\":\"0\"},\"pitches\":[\"C4\",\"C3\",\"D4\",\"D3\"],\"intervals\":[\"P8\",\"P8\"],\"motion\":\"similar\",\"sourceEventIds\":[\"T@185:189#0\",\"B@215:220#0\",\"T@190:194#0\",\"B@221:226#0\"],\"id\":\"vl-f17a18c287f6ee812318ce1c\",\"severity\":\"warning\"},{\"rule\":\"parallel-octave\",\"voices\":[\"T\",\"B\"],\"from\":{\"measure\":2,\"offsetQuarterLength\":\"0\"},\"to\":{\"measure\":2,\"offsetQuarterLength\":\"2\"},\"pitches\":[\"D4\",\"D3\",\"E4\",\"E3\"],\"intervals\":[\"P8\",\"P8\"],\"motion\":\"similar\",\"sourceEventIds\":[\"T@190:194#0\",\"B@221:226#0\",\"T@194:197#0\",\"B@226:230#0\"],\"id\":\"vl-e42df89d2159ed338ddb34b1\",\"severity\":\"warning\"},{\"rule\":\"parallel-octave\",\"voices\":[\"S\",\"T\"],\"from\":{\"measure\":3,\"offsetQuarterLength\":\"2\"},\"to\":{\"measure\":4,\"offsetQuarterLength\":\"0\"},\"pitches\":[\"F5\",\"F4\",\"E5\",\"E4\"],\"intervals\":[\"P8\",\"P8\"],\"motion\":\"similar\",\"sourceEventIds\":[\"S@139:142#0\",\"T@198:202#0\",\"S@143:147#0\",\"T@203:207#0\"],\"id\":\"vl-46986459811332934e1666f3\",\"severity\":\"warning\"}],\"diagnostics\":[],\"totalFindings\":4,\"truncated\":false,\"coverage\":{\"requestedChecks\":[\"parallels\",\"crossing\",\"overlap\",\"spacing\",\"ranges\",\"melodic\"],\"executedChecks\":[\"parallels\",\"crossing\",\"overlap\",\"spacing\",\"ranges\",\"melodic\"],\"analyzedVoices\":[\"S\",\"A\",\"T\",\"B\"],\"excludedVoices\":[],\"skippedTransitions\":0,\"complete\":true,\"limitations\":[\"Selected written measures only; no playback unfolding or outside-range successions.\",\"Interval facts and profile conventions do not establish overall musical correctness.\"]}}"
+    }
+  ],
+  "settings": {
+    "reasoning": "low",
+    "maxTokens": 6000
+  }
+}
