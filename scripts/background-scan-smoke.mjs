@@ -98,7 +98,7 @@ try {
   const queued = await queue('Cancelled chorale.pdf');
   assert.equal((await page.evaluate(() => window.choraleScan.listJobs())).find((job) => job.id === queued.id).state, 'queued');
   await page.getByRole('button', { name: 'Cancel import', exact: true }).click();
-  await page.getByText('Import cancelled. Your original file is preserved.', { exact: true }).waitFor();
+  await page.getByRole('main', { name: 'Background score import' }).getByText('Import cancelled. Your original file is preserved.', { exact: true }).waitFor();
   await page.getByRole('button', { name: 'Remove entry', exact: true }).click();
   await page.locator(`[data-import-id="${queued.id}"]`).waitFor({ state: 'hidden' });
   assert.equal((await page.evaluate(() => window.choraleScan.listJobs())).find((job) => job.id === first.id).state, 'importing');
@@ -121,7 +121,9 @@ try {
   assert.ok(await page.locator('.abcjs-note').count());
   const notice = await page.locator('.scan-completed-notice').boundingBox();
   const zoom = await page.getByRole('group', { name: 'Score display options' }).boundingBox();
-  assert.ok(notice.y >= zoom.y + zoom.height, 'The scan notice must not overlap the zoom controls');
+  assert.ok(notice.y + notice.height <= zoom.y || zoom.y + zoom.height <= notice.y
+    || notice.x + notice.width <= zoom.x || zoom.x + zoom.width <= notice.x,
+  'The scan notice must not overlap the zoom controls');
   await page.screenshot({ path: join(artifacts, 'completed-score.png') });
   const failed = await queue('Failed scan.pdf');
   await writeFile(join(home, 'imports', failed.id, 'fixture-release'), 'release');

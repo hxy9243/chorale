@@ -53,6 +53,27 @@ describe('FileRail Component', () => {
     return { fileList, listTop, rowHeight, rowGap };
   };
 
+  it('keeps pending and failed imports selectable alongside scores and filters both by search', () => {
+    const onSelectImport = vi.fn();
+    const imports = [
+      { id: 'scan-1', title: 'Scanned Bach', sourceName: 'bach.pdf', engine: 'copisteria' as const,
+        pages: [1], state: 'queued' as const, createdAt: '2026-10-27', sourceAvailable: true },
+      { id: 'scan-2', title: 'Scanned Mozart', sourceName: 'mozart.pdf', engine: 'copisteria' as const,
+        pages: [1], state: 'failed' as const, createdAt: '2026-10-27', sourceAvailable: true, error: 'Recognition failed' },
+    ];
+    render(<FileRail {...defaultProps} imports={imports} activeFileId="scan-1" onSelectImport={onSelectImport} />);
+    const pending = screen.getByRole('button', { name: 'Open import Scanned Bach' });
+    expect(pending.getAttribute('aria-current')).toBe('true');
+    expect(pending.textContent).toContain('Queued');
+    fireEvent.click(pending);
+    expect(onSelectImport).toHaveBeenCalledWith('scan-1');
+    expect(screen.getByText('Recognition failed')).toBeDefined();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search scores' }), { target: { value: 'Scanned Bach' } });
+    expect(screen.getByRole('button', { name: 'Open import Scanned Bach' })).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Open import Scanned Mozart' })).toBeNull();
+    expect(screen.queryByText(/No scores match/)).toBeNull();
+  });
+
   it('renders labeled work tabs and opens settings directly', () => {
     const onOpenSettings = vi.fn();
     render(<FileRail {...defaultProps} onOpenSettings={onOpenSettings} />);

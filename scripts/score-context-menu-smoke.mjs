@@ -76,6 +76,7 @@ try {
   assert.match(await page.locator('.agent-composer').innerText(), /mm\. 1–3/);
   await measure(4).click({ button: 'right' });
   await menuItem('Ask about selection in new chat…').click();
+  await page.waitForFunction(() => document.querySelector('textarea[aria-label="Ask about the current sheet"]')?.value === '');
   assert.equal(await composer.inputValue(), '');
   await page.getByLabel('Conversation history', { exact: true }).click();
   assert.equal(await page.getByRole('listbox', { name: 'Conversation threads' }).getByRole('option').count(), 2);

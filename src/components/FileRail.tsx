@@ -39,6 +39,7 @@ import {
   X,
 } from 'lucide-react';
 import type { FileDocument } from '../types/document';
+import type { ScoreImportJob } from '../types/scoreScan';
 import type { ScoreExportFormat } from '../hooks/useScoreExport';
 import { DeleteFileConfirmModal } from './DeleteFileConfirmModal';
 
@@ -80,6 +81,8 @@ interface ContextMenuState {
 interface FileRailProps {
 
   documents: FileDocument[];
+  imports?: ScoreImportJob[];
+  onSelectImport?: (jobId: string) => void;
   activeFileId: string;
   onSelectDocument: (fileId: string) => void;
   onFileLoaded: (fileData: ArrayBuffer | string, fileName: string) => void;
@@ -407,6 +410,8 @@ const FileItemContextMenu: React.FC<FileItemContextMenuProps> = ({
 
 export const FileRail: React.FC<FileRailProps> = ({
   documents,
+  imports = [],
+  onSelectImport,
   activeFileId,
   onSelectDocument,
   onFileLoaded,
@@ -772,6 +777,21 @@ export const FileRail: React.FC<FileRailProps> = ({
               strategy={verticalListSortingStrategy}
             >
               <div className={`file-list ${activeDragId ? 'is-dragging' : ''}`}>
+                {imports.filter((job) => job.title.toLowerCase().includes(searchQuery.trim().toLowerCase())).map((job) => (
+                  <div key={job.id} data-import-id={job.id} className={`file-item ${job.id === activeFileId ? 'active' : ''}`}>
+                    <button type="button" className="file-item-select" onClick={() => onSelectImport?.(job.id)}
+                      aria-label={`Open import ${job.title}`} aria-current={job.id === activeFileId ? 'true' : undefined}>
+                      <span className="file-item-info">
+                        <span className="file-item-name">{job.title}
+                          <span className={['queued', 'importing', 'recognized'].includes(job.state) ? 'scan-importing-label' : undefined}>
+                            {job.state === 'failed' ? ' (failed)' : job.state === 'cancelled' ? ' (cancelled)' : ' (importing...)'}
+                          </span>
+                        </span>
+                        <span className="file-item-meta">{job.error || (job.state === 'queued' ? 'Queued · recognition may take several minutes' : 'Recognition may take several minutes')}</span>
+                      </span>
+                    </button>
+                  </div>
+                ))}
                 {filteredDocuments.map((document, index) => (
                   <SortableFileItem
                     key={document.id}
@@ -789,7 +809,7 @@ export const FileRail: React.FC<FileRailProps> = ({
                     }}
                   />
                 ))}
-                {filteredDocuments.length === 0 && searchQuery.trim() && (
+                {filteredDocuments.length === 0 && !imports.some((job) => job.title.toLowerCase().includes(searchQuery.trim().toLowerCase())) && searchQuery.trim() && (
                   <div className="file-search-empty" role="status">
                     <span>No scores match &ldquo;{searchQuery}&rdquo;</span>
                   </div>

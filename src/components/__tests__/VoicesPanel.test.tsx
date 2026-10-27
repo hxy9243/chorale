@@ -70,7 +70,7 @@ describe('Voices panel', () => {
     view.unmount();
     expect(synth.stop).toHaveBeenCalledTimes(2);
   });
-  it('shows both staff rows for a shared label and dismisses on outside pointer or focus only', () => {
+  it('shows both staff rows for a shared label and dismisses on outside pointer, focus, or window blur', () => {
     const onClose = vi.fn();
     const view = render(<><button>Outside</button><svg><text className="staff-sound-label">Other staff</text></svg>
       <VoicesPanel voices={voices} settings={{}} activeStaffId="S" visibleStaffIds={['S', 'B']} title="Piano"
@@ -91,8 +91,12 @@ describe('Voices panel', () => {
     onClose.mockClear();
     fireEvent.focusIn(screen.getByRole('button', { name: 'Outside' }));
     expect(onClose).toHaveBeenCalledWith(false);
+    onClose.mockClear();
+    fireEvent(window, new Event('blur'));
+    expect(onClose).toHaveBeenCalledWith(false);
     view.unmount();
     onClose.mockClear();
+    fireEvent(window, new Event('blur'));
     fireEvent.pointerDown(document.body);
     expect(onClose).not.toHaveBeenCalled();
   });

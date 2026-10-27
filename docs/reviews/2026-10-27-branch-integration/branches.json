@@ -1,0 +1,332 @@
+[
+  {
+    "ref": "agent/annotation-ui-redesign",
+    "sha": "876a613a4b0075ac9ba41080fa5f334636861ebb",
+    "disposition": "Previously merged PR #12; branch tip covered by PR head"
+  },
+  {
+    "ref": "agent/file-editing-history",
+    "sha": "82fadf779ff1652a59394a1ac5a1796e9bf8e172",
+    "disposition": "Previously merged PR #21; branch tip covered by PR head"
+  },
+  {
+    "ref": "agent/refine-workspace-chrome",
+    "sha": "ba7812f0ff5d966899feb139a2d9f27a8577a4ba",
+    "disposition": "Previously merged PR #10; branch tip covered by PR head"
+  },
+  {
+    "ref": "agent/sheet-zoom-performance",
+    "sha": "61e3e2a7d7cff37207e062b2c5bf40ba4ed2ad1d",
+    "disposition": "Previously merged PR #20; branch tip covered by PR head"
+  },
+  {
+    "ref": "agent/spec-parity-review",
+    "sha": "ea2c442f9c67760579b17313054454f49f68089a",
+    "disposition": "Previously merged PR #3; branch tip covered by PR head"
+  },
+  {
+    "ref": "agent/visual-file-metadata",
+    "sha": "9d5effd3ddd9d60bc951b5f700c066c5f01c7935",
+    "disposition": "Previously merged PR #19; branch tip covered by PR head"
+  },
+  {
+    "ref": "backup/local-main-before-pull",
+    "sha": "7d19599f738f9466aa650c441d44b72ce3505b4a",
+    "disposition": "Archival backup retained; not an active working branch"
+  },
+  {
+    "ref": "backup/pr27-pre-rebase-20260829",
+    "sha": "bb083b16201a6b662a8abcc98f80e17976040865",
+    "disposition": "Archival backup retained; not an active working branch"
+  },
+  {
+    "ref": "backup/pr27-pre-ship-squash-20260830",
+    "sha": "8d19b5aa4c8821ae8405dddfd63870e812baedde",
+    "disposition": "Archival backup retained; not an active working branch"
+  },
+  {
+    "ref": "chore/checkpoint-main-2026-10-24",
+    "sha": "4f8f09b7e327650cbad7517b44da2397cf452cea",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "chore/checkpoint-score-scan-background-import-2026-10-24",
+    "sha": "6501fd0896e3383f0e79ac8a04f67824b4c9e307",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "chore/merge-all-20261027",
+    "sha": "820a4d71756595e0eee20741d743a8d4e25d972e",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "electron",
+    "sha": "dfb7a87677f9bfa6b38ed57decd094e989385372",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "experiment/dcml-analysis-eval",
+    "sha": "52bcec956ae019955d5839b98d91f9674c8a9ce7",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "feat/focused-conservatory-ui",
+    "sha": "62d1e4357db777b1f60e44ebae206f2b2dcf91f4",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "feat/recital-visual-language",
+    "sha": "ccadd30c9f7fd28033ca1ee488f25d55ed867582",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "feat/restore-electron-chat",
+    "sha": "a30c12b081c9ef9676e759ee82b3819ba07f8de9",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "feat/score-selection-menu",
+    "sha": "16b1b56d64010fb0bb2ef05a6215cfc5b73c6f72",
+    "disposition": "Previously merged PR #94; branch tip covered by PR head"
+  },
+  {
+    "ref": "feat/spec-annotations-agent",
+    "sha": "0c8840ae322511bbbb070515c95089f15488ab9d",
+    "disposition": "Previously merged PR #9; branch tip covered by PR head"
+  },
+  {
+    "ref": "feature/auto-center-playing-line",
+    "sha": "748534ccb6aba8a603d65ec8e3fbb6d545e251b9",
+    "disposition": "Previously merged PR #6; branch tip covered by PR head"
+  },
+  {
+    "ref": "fix/cross-staff-sync",
+    "sha": "5b4b6a9ea96d78991ada05eb3d8975d80415bf7d",
+    "disposition": "Previously merged PR #8; branch tip covered by PR head"
+  },
+  {
+    "ref": "fix/dependency-conflicts",
+    "sha": "ac7aa4a03dd3fc4ce5cbd94f25a8be64ac539f12",
+    "disposition": "Superseded by merged Vite PR #66 and dependency refresh #93"
+  },
+  {
+    "ref": "fix/filerail-html5-drag",
+    "sha": "13dd65b7ab3a03868bdd2ad64515c0c36865d890",
+    "disposition": "Patch-equivalent to main (git cherry reports minus)"
+  },
+  {
+    "ref": "fix/jsdom30-ci",
+    "sha": "bcafd72f12d7be93ed8607bb758b6abaf84503db",
+    "disposition": "Superseded by merged jsdom PR #65 and dependency refresh #93"
+  },
+  {
+    "ref": "fix/mediabunny-ci",
+    "sha": "794b5c03f3b37e5d041a007d2dad007933ab1115",
+    "disposition": "Same dependency tree as merged mediabunny PR #71"
+  },
+  {
+    "ref": "fix/ux-bugs",
+    "sha": "ff54c029f6110c8210f209af5e2266892b492b4a",
+    "disposition": "Previously merged PR #4; branch tip covered by PR head"
+  },
+  {
+    "ref": "main",
+    "sha": "3519ce71ebb110d7ae06ee707ed7315839a63c41",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "refactor/architecture-cleanup",
+    "sha": "1148b2c159c04208cd64744a9ead0325c9eb0dc6",
+    "disposition": "Previously merged PR #11; branch tip covered by PR head"
+  },
+  {
+    "ref": "spike/pi-sheet-chat",
+    "sha": "e85889f7181dd46b521cc66fba7f6949a3d546d7",
+    "disposition": "Previously merged PR #2; branch tip covered by PR head"
+  },
+  {
+    "ref": "origin/agent/allow-empty-workspace",
+    "sha": "659a073f886eac3a8b92e70fda96b4cfbda766a6",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/agent/annotation-ui-redesign",
+    "sha": "876a613a4b0075ac9ba41080fa5f334636861ebb",
+    "disposition": "Previously merged PR #12; branch tip covered by PR head"
+  },
+  {
+    "ref": "origin/agent/file-editing-history",
+    "sha": "82fadf779ff1652a59394a1ac5a1796e9bf8e172",
+    "disposition": "Previously merged PR #21; branch tip covered by PR head"
+  },
+  {
+    "ref": "origin/agent/music-understanding-redesign",
+    "sha": "52b380ae65310e7dc8f88af6b5fd9fbb35e6cc90",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/agent/refine-workspace-chrome",
+    "sha": "ba7812f0ff5d966899feb139a2d9f27a8577a4ba",
+    "disposition": "Previously merged PR #10; branch tip covered by PR head"
+  },
+  {
+    "ref": "origin/agent/score-drafting-mvp",
+    "sha": "8c837e9b11bfb0e4a14f9216a0e02062c7e033cd",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/agent/sheet-zoom-performance",
+    "sha": "61e3e2a7d7cff37207e062b2c5bf40ba4ed2ad1d",
+    "disposition": "Previously merged PR #20; branch tip covered by PR head"
+  },
+  {
+    "ref": "origin/agent/spec-parity-review",
+    "sha": "ea2c442f9c67760579b17313054454f49f68089a",
+    "disposition": "Previously merged PR #3; branch tip covered by PR head"
+  },
+  {
+    "ref": "origin/agent/visual-file-metadata",
+    "sha": "9d5effd3ddd9d60bc951b5f700c066c5f01c7935",
+    "disposition": "Previously merged PR #19; branch tip covered by PR head"
+  },
+  {
+    "ref": "origin/chore/checkpoint-main-2026-10-24",
+    "sha": "4f8f09b7e327650cbad7517b44da2397cf452cea",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/chore/dependency-refresh-2026-10-24",
+    "sha": "34f4eb9357789dfa2162d1c345144bcdf810216c",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/docs/chorale-score-skill-guidance",
+    "sha": "1949a741664f6ff3b96fbdfb98880ca826df74ef",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/feat/abc-formatting",
+    "sha": "21660c1c06b5ef6ef64f36926e909d842ba218ab",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/feat/assistant-ui-chat",
+    "sha": "6fa9a3dc2ae69d85a0a13141035c9866fc209f8e",
+    "disposition": "Previously merged PR #32; branch tip covered by PR head"
+  },
+  {
+    "ref": "origin/feat/design-revamp",
+    "sha": "8775e0ba172d5d01cfd10b437b4bf4321b7dd9de",
+    "disposition": "Previously merged PR #33; branch tip covered by PR head"
+  },
+  {
+    "ref": "origin/feat/elastic-annotation-rail",
+    "sha": "5d416e2cecbb878358dd7dfa1613fb09d41aef09",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/feat/export-musicxml",
+    "sha": "f40ad17f191c5ceac6801313fb8a12aaaddd7a69",
+    "disposition": "Previously merged PR #25; branch tip covered by PR head"
+  },
+  {
+    "ref": "origin/feat/focused-conservatory-ui",
+    "sha": "62d1e4357db777b1f60e44ebae206f2b2dcf91f4",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/feat/mcp-server-redesign",
+    "sha": "6a7887e047c3ef4f76991771e254aca49414f334",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/feat/music21-harmony-analysis",
+    "sha": "a51d1afd45b31e9c8c0694fc6b761e4e038f476b",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/feat/pdf-score-export",
+    "sha": "b458ac2a03a4ed40b4bfb890c18358ef72adc7ca",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/feat/piano-waterfall",
+    "sha": "257246a0e63fe72e65b05ca3f2a7e036826bf29b",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/feat/score-selection-menu",
+    "sha": "16b1b56d64010fb0bb2ef05a6215cfc5b73c6f72",
+    "disposition": "Previously merged PR #94; branch tip covered by PR head"
+  },
+  {
+    "ref": "origin/feat/score-video-export",
+    "sha": "be69c1006b013734bbe01b97b1a2bed8670f512f",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/feat/spec-annotations-agent",
+    "sha": "82b641e037107d077db6fe23d7c88f4016bd1c46",
+    "disposition": "Previously merged PR #9; branch tip covered by PR head"
+  },
+  {
+    "ref": "origin/feat/vertical-pane-layout",
+    "sha": "491ad4a6e686a63807f9361eadfde5ecae504644",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/feature/auto-center-playing-line",
+    "sha": "ced720973b0b908cf2f5a958c1bcf783f1f7dfcf",
+    "disposition": "Previously merged PR #6; branch tip covered by PR head"
+  },
+  {
+    "ref": "origin/feature/right-sidebar-chat",
+    "sha": "e5aab17e38c5e4fa852640b6ef206a35eb7feba3",
+    "disposition": "Previously merged PR #22; branch tip covered by PR head"
+  },
+  {
+    "ref": "origin/fix/cross-staff-sync",
+    "sha": "5b4b6a9ea96d78991ada05eb3d8975d80415bf7d",
+    "disposition": "Previously merged PR #8; branch tip covered by PR head"
+  },
+  {
+    "ref": "origin/fix/mvp-install-readiness",
+    "sha": "7658f1afd68384ab375c8cb5500c4443085a4d88",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/fix/repeats-selection",
+    "sha": "e67e823e0d6f831756f340011069d6595af5a084",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/fix/tempo-sync",
+    "sha": "6ae031b773d5cc9a256e2fb279074023694fbaa7",
+    "disposition": "Previously merged PR #7; branch tip covered by PR head"
+  },
+  {
+    "ref": "origin/fix/ux-bugs",
+    "sha": "daa90efffd2ba3fe0d215be6fef82ef39e0e8fc7",
+    "disposition": "Previously merged PR #4; branch tip covered by PR head"
+  },
+  {
+    "ref": "origin/main",
+    "sha": "9443dfc2ffb0fa7879128f3236115471d11c1823",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/refactor/architecture-cleanup",
+    "sha": "f77b9a346b5307b82dc22912820392235910024b",
+    "disposition": "Previously merged PR #11; branch tip covered by PR head"
+  },
+  {
+    "ref": "origin/sidebar-improvements",
+    "sha": "e2611909b4154df9d4ff131f51118963eabceb02",
+    "disposition": "Contained in integration history"
+  },
+  {
+    "ref": "origin/spike/pi-sheet-chat",
+    "sha": "e85889f7181dd46b521cc66fba7f6949a3d546d7",
+    "disposition": "Previously merged PR #2; branch tip covered by PR head"
+  }
+]

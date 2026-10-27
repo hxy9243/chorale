@@ -1,0 +1,21 @@
+{
+  "type": "controlled-engine desktop UX",
+  "checks": [
+    "all seven pages selected",
+    "red time notice",
+    "immediate popup close",
+    "animated list entry",
+    "selected background stage",
+    "reduced motion",
+    "serialized queue",
+    "queued cancellation",
+    "renderer reload reattachment",
+    "completion without focus theft",
+    "stable document ID",
+    "save before job acknowledgement",
+    "preserved originals",
+    "failure recovery"
+  ],
+  "noSandbox": true,
+  "errors": []
+}
