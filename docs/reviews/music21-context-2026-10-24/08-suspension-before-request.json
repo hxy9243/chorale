@@ -1,0 +1,21 @@
+{
+  "model": "z-ai/glm-5.3",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a careful music tutor helping a student revise a short score. Analyze only the supplied notation. Be concrete about measure numbers, pitches and bass. Separate literal sonorities, harmonic interpretation, and aesthetic judgment. Computed root/quality guesses may be wrong around non-chord tones. Respond in at most 400 words. Do not invent missing information."
+    },
+    {
+      "role": "user",
+      "content": "Analyze this 8-measure score. Explain the event across measures 4-5, identify the harmony and inversion in measures 5-7, and give one student revision suggestion without treating every vertical slice as a new functional chord.\n\nX:1\nT:Suspension study\nM:4/4\nL:1/4\nK:C\nV:1\ne4 | f4 | e4 | c4- | c B3 | e4 | d4 | c4 |]\nV:2\nG4 | A4 | G4 | A4 | D4 | c4 | B4 | G4 |]\nV:3\nE4 | F4 | E4 | F4 | G,4 | E4 | F4 | E4 |]\nV:4 clef=bass\nC,4 | F,4 | C,4 | F,4 | G,,4 | A,,4 | G,,4 | C,4 |]"
+    }
+  ],
+  "temperature": 0,
+  "max_tokens": 4500,
+  "reasoning": {
+    "effort": "low"
+  },
+  "provider": {
+    "allow_fallbacks": false
+  }
+}

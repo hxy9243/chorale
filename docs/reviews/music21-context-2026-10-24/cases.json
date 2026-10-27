@@ -1,0 +1,72 @@
+{
+  "createdAt": "2026-10-24T09:32:13.866Z",
+  "cases": [
+    {
+      "id": "04-cadence",
+      "bars": 4,
+      "abc": "X:1\nT:Four-bar cadence\nM:4/4\nL:1/4\nK:G\nV:1\nB4 | c4 | A4 | G4 |]\nV:2\nG4 | G4 | ^F4 | D4 |]\nV:3\nD4 | E4 | D4 | B,4 |]\nV:4 clef=bass\nG,,4 | C,4 | D,4 | G,,4 |]",
+      "focus": "Identify the four harmonies and their basses; does the final cadence meet the strict soprano-and-bass condition for a perfect authentic cadence?",
+      "checks": [
+        {
+          "id": "harmonies",
+          "expected": "G major, C major, D major, G major, all root position"
+        },
+        {
+          "id": "cadence",
+          "expected": "Final V-I has D3-G2 in bass and A4-G4 in soprano: root-position dominant and tonic, soprano ends on tonic; PAC in this schematic metrical context."
+        }
+      ]
+    },
+    {
+      "id": "08-suspension",
+      "bars": 8,
+      "abc": "X:1\nT:Suspension study\nM:4/4\nL:1/4\nK:C\nV:1\ne4 | f4 | e4 | c4- | c B3 | e4 | d4 | c4 |]\nV:2\nG4 | A4 | G4 | A4 | D4 | c4 | B4 | G4 |]\nV:3\nE4 | F4 | E4 | F4 | G,4 | E4 | F4 | E4 |]\nV:4 clef=bass\nC,4 | F,4 | C,4 | F,4 | G,,4 | A,,4 | G,,4 | C,4 |]",
+      "focus": "Explain the event across measures 4-5, identify the harmony and inversion in measures 5-7, and give one student revision suggestion without treating every vertical slice as a new functional chord.",
+      "checks": [
+        {
+          "id": "suspension",
+          "expected": "C5 is prepared in m4, tied over G bass on beat1 m5, resolves downward to B4 on beat2: 4-3 suspension."
+        },
+        {
+          "id": "harmony",
+          "expected": "m5 dominant G after suspension; m6 A minor root position; m7 G7 root position."
+        },
+        {
+          "id": "revision",
+          "expected": "Keep the expressive suspension; treat any revision as an optional student choice, with concrete location and purpose."
+        }
+      ]
+    },
+    {
+      "id": "20-secondary",
+      "bars": 20,
+      "abc": "X:1\nT:Twenty-bar sketch\nM:4/4\nL:1/4\nK:C\nV:1\ne4 | f4 | e4 | d4 | d4 | e4 | f4 | d4 | e4 | f4 | f4 | e4 | f4 | e4 | d4 | e4 | f4 | f4 | e4 | e4 |]\nV:2\nc4 | c4 | c4 | B4 | B4 | c4 | d4 | B4 | c4 | d4 | B4 | c4 | c4 | c4 | B4 | c4 | d4 | B4 | c4 | c4 |]\nV:3\nG4 | A4 | G4 | G4 | ^G4 | A4 | A4 | G4 | A4 | A4 | D4 | G4 | A4 | G4 | G4 | A4 | A4 | D4 | G4 | G4 |]\nV:4 clef=bass\nC,4 | F,4 | E,4 | G,,4 | E,4 | A,,4 | F,4 | G,,4 | A,,4 | D,4 | G,,4 | C,4 | F,4 | C,4 | G,,4 | A,,4 | D,4 | G,,4 | C,4 | C,4 |]",
+      "focus": "Give a basic harmonic and phrase overview. Identify any applied dominant and resolution, inversions in measures 3 and 7, the sonority in measure 11, and whether G-sharp from measure 5 affects measure 13. Distinguish score facts from tentative formal or aesthetic judgments.",
+      "checks": [
+        {
+          "id": "applied-dominant",
+          "expected": "m5 E7 (E3 G#4 B4 D5), V7/vi, resolves to Am in m6."
+        },
+        {
+          "id": "inversions",
+          "expected": "m3 C/E first inversion; m7 Dm/F first inversion."
+        },
+        {
+          "id": "dominant-seventh",
+          "expected": "m11 G7, not F major or a root-position B diminished chord."
+        },
+        {
+          "id": "accidental",
+          "expected": "G# in m5 is local to the bar; m13 contains F A C, no G/G# at all. No cross-bar sharp inference."
+        },
+        {
+          "id": "form",
+          "expected": "Any phrase grouping such as 4+4+4+4+4 is tentative from notation; lack of rhythm variety makes strong narrative judgments unsupported."
+        }
+      ]
+    }
+  ],
+  "system": "You are a careful music tutor helping a student revise a short score. Analyze only the supplied notation. Be concrete about measure numbers, pitches and bass. Separate literal sonorities, harmonic interpretation, and aesthetic judgment. Computed root/quality guesses may be wrong around non-chord tones. Respond in at most 400 words. Do not invent missing information.",
+  "code": "chords = []\nfor c in score.chordify().recurse().getElementsByClass('Chord'):\n    chords.append({'m': c.measureNumber, 't': str(c.offset), 'p': [p.nameWithOctave for p in c.pitches], 'b': c.bass().nameWithOctave, 'r': c.root().name, 'q': c.quality, 'i': c.inversion()})\nranges = []\nfor part in score.parts:\n    pitches = [n.pitch for n in part.recurse().notes if n.isNote]\n    if pitches:\n        ranges.append({'voice': part.id, 'low': min(pitches).nameWithOctave, 'high': max(pitches).nameWithOctave})\nresult = {'sonorities': chords, 'ranges': ranges}\n",
+  "protocol": "Three independent paired calls, all baselines frozen before computing evidence. Same model/settings/base messages. Evidence arm receives fixed real music21 results as an additional user message. This tests supplied evidence, not autonomous tool selection. Checks are author-generated, reviewable expectations; not an external gold dataset."
+}
