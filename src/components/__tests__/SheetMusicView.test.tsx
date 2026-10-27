@@ -27,6 +27,12 @@ vi.mock('abcjs', () => ({
 
 describe('SheetMusicView Component', () => {
   const sampleAbc = 'X:1\nT:Test Melody\nM:4/4\nL:1/4\nK:C\nC D E F |';
+  const sceneRangeNote = {
+    id: 'scene-range-note', kind: 'explanation' as const,
+    span: { startMeasure: 1, endMeasure: 1 },
+    label: 'Opening phrase', body: 'The phrase begins here.', source: 'user' as const,
+    createdAt: '2026-10-26T00:00:00.000Z', updatedAt: '2026-10-26T00:00:00.000Z',
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -451,6 +457,19 @@ describe('SheetMusicView Component', () => {
     expect(screen.queryByLabelText('Label')).toBeNull();
     expect(screen.queryByLabelText('Explanation')).toBeNull();
 
+    fireEvent.change(screen.getByLabelText('Chord symbol'), { target: { value: 'Unsaved chord' } });
+    const outsideControl = screen.getByTitle('Zoom In');
+    fireEvent.pointerDown(outsideControl);
+    act(() => outsideControl.focus());
+    expect(screen.queryByLabelText('Chord symbol')).toBeNull();
+    await act(async () => {
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    });
+    expect(document.activeElement).toBe(outsideControl);
+    expect(onUpdateAnnotation).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Dominant annotation' }));
+    expect((screen.getByLabelText('Chord symbol') as HTMLInputElement).value).toBe('G7');
     fireEvent.change(screen.getByLabelText('Chord symbol'), { target: { value: 'D7' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save chord' }));
     await waitFor(() => expect(onUpdateAnnotation).toHaveBeenCalledWith(expect.objectContaining({
@@ -1424,6 +1443,54 @@ describe('SheetMusicView Component', () => {
     expect(wrapper.getAttribute('data-score-zoom')).toBe('50');
   });
 
+  it('reserves side tracks only when range annotations need them, without replacing notation or selection', () => {
+    const props = {
+      abcCode: sampleAbc,
+      activeAnchor: { startMeasure: 1, endMeasure: 1 },
+      onSelectAnchor: vi.fn(),
+    };
+    const { container, rerender } = render(<SheetMusicView {...props} />);
+    const paper = container.querySelector('#paper svg');
+    const layout = container.querySelector<HTMLElement>('.sheet-annotation-layout')!;
+    const rail = container.querySelector<HTMLElement>('.annotation-rail-viewport')!;
+    const expectCompact = () => {
+      expect(rail.hidden).toBe(true);
+      expect(layout.style.getPropertyValue('--score-balance-width')).toBe('0px');
+      expect(layout.style.getPropertyValue('--score-annotation-width')).toBe('0px');
+      expect(layout.style.getPropertyValue('--score-scene-gap')).toBe('0rem');
+      expect(container.querySelector('#paper svg')).toBe(paper);
+      expect(props.onSelectAnchor).not.toHaveBeenCalled();
+    };
+    expectCompact();
+    const chord = {
+      ...sceneRangeNote, id: 'scene-chord', kind: 'chord' as const,
+      chordSymbol: 'C', position: { measure: 1, offset: { numerator: 0, denominator: 1 } },
+    };
+    rerender(<SheetMusicView {...props} annotations={[chord]} />);
+    expectCompact();
+    rerender(<SheetMusicView {...props} annotations={[chord, sceneRangeNote]} />);
+    expect(rail.hidden).toBe(false);
+    expect(layout.style.getPropertyValue('--score-annotation-width')).toBe('24rem');
+    expect(layout.style.getPropertyValue('--score-scene-gap')).toBe('0.5rem');
+    expect(container.querySelector('#paper svg')).toBe(paper);
+    rerender(<SheetMusicView {...props} annotations={[]} />);
+    expectCompact();
+  });
+
+  it('returns focus to the sheet after deleting the last range annotation collapses its rail', async () => {
+    const props = { abcCode: sampleAbc, onDeleteAnnotation: vi.fn() };
+    const { container, rerender } = render(<SheetMusicView {...props} annotations={[sceneRangeNote]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit annotation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete annotation' }));
+    expect(props.onDeleteAnnotation).toHaveBeenCalledWith(sceneRangeNote.id);
+    rerender(<SheetMusicView {...props} annotations={[]} />);
+    await act(async () => {
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    });
+    expect(container.querySelector<HTMLElement>('.annotation-rail-viewport')?.hidden).toBe(true);
+    expect(document.activeElement).toBe(container.querySelector('#paper'));
+  });
+
   it('projects viewport and zoom changes into the score scene grid tracks', () => {
     const observers: Array<{
       callback: ResizeObserverCallback;
@@ -1446,7 +1513,7 @@ describe('SheetMusicView Component', () => {
     };
 
     const { container, rerender, unmount } = render(
-      <SheetMusicView abcCode={sampleAbc} zoom={100} onZoomChange={vi.fn()} />,
+      <SheetMusicView abcCode={sampleAbc} annotations={[sceneRangeNote]} zoom={100} onZoomChange={vi.fn()} />,
     );
     const viewport = container.querySelector<HTMLElement>('.sheet-viewport')!;
     const layout = container.querySelector<HTMLElement>('.sheet-annotation-layout')!;
@@ -1478,7 +1545,7 @@ describe('SheetMusicView Component', () => {
 
     resizeViewport(1_552);
     rerender(
-      <SheetMusicView abcCode={sampleAbc} zoom={200} onZoomChange={vi.fn()} />,
+      <SheetMusicView abcCode={sampleAbc} annotations={[sceneRangeNote]} zoom={200} onZoomChange={vi.fn()} />,
     );
     expect(layout.style.getPropertyValue('--score-balance-width')).toBe('0px');
     expect(layout.style.getPropertyValue('--score-annotation-width')).toBe('256px');
@@ -1488,6 +1555,7 @@ describe('SheetMusicView Component', () => {
     rerender(
       <SheetMusicView
         abcCode={sampleAbc}
+        annotations={[sceneRangeNote]}
         zoom={100}
         interfaceZoom={150}
         onZoomChange={vi.fn()}

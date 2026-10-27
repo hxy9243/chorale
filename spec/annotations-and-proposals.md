@@ -207,8 +207,13 @@ body, and any chord fields introduced by a kind change remain editable.
 Activating a chord badge opens a compact editor over the notation near that badge. It edits only the
 chord symbol and optional Roman numeral and also offers Delete; its kind, span, position, label, and
 body remain unchanged. Save is silent, keeps the passage selected, and reports failures inline.
-Escape cancels. Save, Cancel, and Delete return focus to the initiating badge or range-card control
-when it still exists, or to the rail when the annotation was deleted or moved out of the rail.
+The compact form keeps its fields and wrapping action row within its border. Moving pointer
+interaction or keyboard focus outside the chord editor, or leaving the application window,
+cancels the unsaved draft and collapses it without reclaiming focus. Internal interaction keeps
+it open. A pending save or delete keeps the editor mounted until it finishes, so failures remain
+visible. Escape cancels. Save, Cancel, and Delete return focus to the initiating badge or range-card control
+when it still exists, or to the visible rail when the annotation was deleted or moved out of the
+rail. If the empty rail has collapsed, return focus to the sheet instead.
 
 ## 6. Overlay architecture
 

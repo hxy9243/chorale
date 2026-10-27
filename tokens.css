@@ -1,176 +1,398 @@
-/* Chorale Design Language Tokens
- * Source of truth: DESIGN.md (2026-09-05)
- * Desk: #e9e5dc · Paper: #f6f3ec · Raised: #fffdfa · Ink: #292824 · Rust: #ad503b
- */
+/* Recital visual roles. DESIGN.md and spec/recital-visual-language.md own this palette. */
 :root {
-  color-scheme: light;
-
-  /* Canonical DESIGN.md surfaces */
-  --surface-desk: #e9e5dc;
-  --surface-paper: #f6f3ec;
-  --surface-raised: #fffdfa;
-  --surface-chat: #f0ece4;
-  --surface-tabs: #eae5dc;
-  --surface-hover: #ece7dd;
-  --surface-selected: #e9e1d4;
-  --surface-file-active: #ebe4d8;
-
-  /* Canonical typography */
-  --text-primary: #292824;
-  --text-secondary: #716d65;
-  --font-ui: 'DM Sans', Arial, sans-serif;
+  color-scheme: dark;
+  --theme-color-scheme: dark;
+  --surface-frame: #1B1A18;
+  --surface-wing: #24221F;
+  --surface-raised: #2E2C28;
+  --wing-raised: var(--surface-raised);
+  --surface-backdrop: #3A3833;
+  --surface-stage: #FFFDF8;
+  --surface-dock: #191816;
+  --surface-source: #1F1E1B;
+  --line: #34312C;
+  --line-control: #45413A;
+  --line-pane: color-mix(in srgb, var(--text-muted) 55%, var(--surface-backdrop));
+  --text: #ECE7DD;
+  --text-muted: #A39D91;
+  --rail-active: #302E2A;
+  --rail-icon: #9C968B;
+  --segment-on: #3A3732;
+  --frame-text: #ECE7DD;
+  --frame-muted: #A39D91;
+  --frame-raised: #2E2C28;
+  --frame-line: #45413A;
+  --signal-sound: #E2805F;
+  --signal-context: #8DB3DB;
+  --status-pending: #E3B062;
+  --status-settled: #93C19A;
+  --frame-sound: #E2805F;
+  --frame-context: #8DB3DB;
+  --frame-pending: #E3B062;
+  --frame-settled: #93C19A;
+  --stage-ink: #1E1D1A;
+  --stage-muted: #6B675F;
+  --stage-rule: #E8E2D7;
+  --stage-card: #F6F3EC;
+  --stage-hover: #ECE7DD;
+  --stage-sound: #B4472F;
+  --stage-context: #2D5B88;
+  --stage-pending: #8E5F12;
+  --stage-settled: #3D6A4C;
+  --stage-selection: rgba(225, 233, 242, .85);
+  --stage-selection-line: rgba(45, 91, 136, .35);
+  --voice-soprano: #B0436A;
+  --voice-alto: #C47F1E;
+  --voice-tenor: #2C8072;
+  --voice-bass: #6B4FA0;
+  --voice-fifth: #947132;
+  --voice-sixth: #7B5B72;
+  --voice-soprano-night: #E07CA0;
+  --voice-alto-night: #E3A94B;
+  --voice-tenor-night: #5EC0AE;
+  --voice-bass-night: #A88FE0;
+  --voice-fifth-night: #C6B078;
+  --voice-sixth-night: #CDA0BC;
+  --harmony-tonic: #E2EBDF;
+  --harmony-tonic-ink: #2F5A3B;
+  --harmony-predominant: #F3E5C8;
+  --harmony-predominant-ink: #74520F;
+  --harmony-dominant: #F3DCD3;
+  --harmony-dominant-ink: #8A3522;
+  --keyboard-white: #F4F0E8;
+  --keyboard-black: #1E1D1A;
+  --overlay: rgba(0, 0, 0, .58);
   --font-title: 'Instrument Serif', Georgia, serif;
+  --font-ui: 'DM Sans', system-ui, sans-serif;
   --font-meta: 'DM Mono', ui-monospace, monospace;
-
-  /* Canonical borders & accents */
-  --border-subtle: #dcd8ce;
-  --border-selected: #b7aa96;
-  --accent-rust: #ad503b;
-  --context-blue: #dce5ef;
-  --status-sage: #d8e2d7;
-  --status-rose: #f1d8d0;
-
-  /* Geometry (DESIGN.md Section 2: 3px controls, 5px panels) */
-  --radius-control: 3px;
-  --radius-panel: 5px;
-  --radius-card: 5px;
-  --radius-small: 3px;
-  --radius-round: 999rem;
-
-  /* Directional paper elevations (DESIGN.md Section 2 & 5) */
+  --radius-chip: 4px;
+  --radius-control: 8px;
+  --radius-panel: 12px;
+  --radius-float: 16px;
+  --radius-pill: 999px;
+  --shadow-stage: 0 2px 4px rgba(0,0,0,.25), 0 24px 60px rgba(0,0,0,.35);
+  --shadow-float: 0 2px 6px rgba(0,0,0,.22), 0 18px 44px rgba(0,0,0,.32);
   --shadow-sidebar: none;
-  --shadow-sheet: 0 1px 3px #42341e18, 0 9px 20px #42341e12;
-  --shadow-workspace: 0 10px 25px #4c402c0b;
-  --shadow-menu: 0 8px 24px #29282420;
-
-  /* Spacing Scale (DESIGN.md Section 3: 4, 8, 12, 16, 20, 24, 32, 40, 48px) */
-  --space-3xs: 0.125rem;  /* 2px */
-  --space-2xs: 0.25rem;   /* 4px */
-  --space-xs: 0.5rem;     /* 8px */
-  --space-sm: 0.75rem;    /* 12px */
-  --space-md: 1rem;       /* 16px */
-  --space-lg: 1.25rem;    /* 20px */
-  --space-xl: 1.5rem;     /* 24px */
-  --space-2xl: 2rem;      /* 32px */
-  --space-3xl: 2.5rem;    /* 40px */
-  --space-4xl: 3rem;      /* 48px */
-
-  /* Font size scale */
-  --text-xs: 0.75rem;     /* 12px */
-  --text-sm: 0.875rem;    /* 14px */
-  --text-base: 1rem;      /* 16px */
-  --text-md: 1.125rem;    /* 18px */
-  --text-lg: 1.25rem;     /* 20px */
-  --text-xl: 1.5rem;      /* 24px */
-  --text-2xl: 1.875rem;   /* 30px */
-  --text-title: 2.5rem;   /* 40px */
-
-  /* Motion */
+  --space-3xs: .125rem;
+  --space-2xs: .25rem;
+  --space-xs: .5rem;
+  --space-sm: .75rem;
+  --space-md: 1rem;
+  --space-lg: 1.25rem;
+  --space-xl: 1.5rem;
+  --space-2xl: 2rem;
+  --space-3xl: 2.5rem;
+  --space-4xl: 3rem;
+  --text-2xs: .6875rem;
+  --text-xs: .75rem;
+  --text-sm: .875rem;
+  --text-base: 1rem;
+  --text-md: 1.0625rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.75rem;
+  --text-2xl: 2.125rem;
+  --text-title: 2.5rem;
   --dur-micro: 90ms;
   --dur-short: 150ms;
   --dur-long: 260ms;
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
-  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-
-  /* Shared stacking scale (DESIGN.md Section 5) */
-  --z-base: 1;
+  --dur-theme: 180ms;
+  --ease-out: cubic-bezier(.16,1,.3,1);
+  --ease-in: cubic-bezier(.7,0,.84,0);
+  --ease-in-out: cubic-bezier(.65,0,.35,1);
+  --rule-thin: 1px;
+  --rule-active: 2px;
   --z-content: 0;
+  --z-base: 1;
   --z-raised: 10;
+  --z-sticky: 20;
   --z-sidebar: 30;
   --z-siderail: 40;
   --z-popover: 100;
   --z-dropdown: 100;
-  --z-sticky: 20;
   --z-modal: 200;
   --z-toast: 300;
   --z-tooltip: 400;
+}
 
-  /* Backward compatibility mappings for existing codebase */
+:root[data-theme='recital'][data-hall='walnut'] {
+  --surface-frame: #1C1712;
+  --surface-wing: #261F18;
+  --surface-raised: #31281F;
+  --line: #3A3027;
+  --line-control: #4E4135;
+  --surface-backdrop: #46392C;
+  --text-muted: #B3A591;
+  --rail-active: #352B21;
+  --rail-icon: #A49684;
+  --segment-on: #45392C;
+  --surface-dock: #19140F;
+  --frame-muted: var(--text-muted);
+  --frame-raised: var(--surface-raised);
+  --frame-line: var(--line-control);
+  --surface-source: var(--surface-frame);
+}
+
+:root[data-theme='recital'][data-hall='velvet'] {
+  --surface-frame: #1B1315;
+  --surface-wing: #25191C;
+  --surface-raised: #302227;
+  --line: #3A2A2F;
+  --line-control: #503B42;
+  --surface-backdrop: #46313A;
+  --text-muted: #B5A2A8;
+  --rail-active: #36252A;
+  --rail-icon: #A69398;
+  --segment-on: #47333A;
+  --surface-dock: #181113;
+  --frame-muted: var(--text-muted);
+  --frame-raised: var(--surface-raised);
+  --frame-line: var(--line-control);
+  --surface-source: var(--surface-frame);
+}
+
+:root[data-theme='recital'][data-hall='conservatory'] {
+  --surface-frame: #131916;
+  --surface-wing: #1A221E;
+  --surface-raised: #232D28;
+  --line: #2B3731;
+  --line-control: #3B4A42;
+  --surface-backdrop: #34433B;
+  --text-muted: #A0B1A6;
+  --rail-active: #24302A;
+  --rail-icon: #8E9F95;
+  --segment-on: #34433B;
+  --surface-dock: #111613;
+  --frame-muted: var(--text-muted);
+  --frame-raised: var(--surface-raised);
+  --frame-line: var(--line-control);
+  --surface-source: var(--surface-frame);
+}
+
+:root[data-theme='studio'] {
+  color-scheme: light;
+  --theme-color-scheme: light;
+  --surface-frame: #292824;
+  --surface-wing: #F4F1EA;
+  --surface-raised: #FFFEFB;
+  --surface-backdrop: #D6D0C4;
+  --surface-stage: #FFFEFB;
+  --surface-dock: #191816;
+  --surface-source: #F4F1EA;
+  --line: #E0DAD0;
+  --line-control: #C3BBAE;
+  --text: #1E1D1A;
+  --text-muted: #6B675F;
+  --signal-sound: #B4472F;
+  --signal-context: #2D5B88;
+  --status-pending: #8E5F12;
+  --status-settled: #3D6A4C;
+  --segment-on: #E0DAD0;
+  --studio-accent: #766956;
+  --studio-accent-soft: #E9E3D7;
+  --shadow-stage: 0 1px 2px rgba(40,30,15,.10), 0 16px 40px rgba(40,30,15,.18);
+}
+
+:root[data-theme='studio'][data-studio-accent='sage'] {
+  --surface-wing: #F0F3EE;
+  --surface-backdrop: #D4DED1;
+  --surface-source: #F0F3EE;
+  --line: #DBE3D7;
+  --line-control: #AEBEAA;
+  --studio-accent: #4E6A50;
+  --studio-accent-soft: #E1E9DC;
+}
+:root[data-theme='studio'][data-studio-accent='clay'] {
+  --surface-wing: #F7F0EB;
+  --surface-backdrop: #E4D1C5;
+  --surface-source: #F7F0EB;
+  --line: #E9DBD2;
+  --line-control: #C9B3A4;
+  --studio-accent: #925B43;
+  --studio-accent-soft: #EFDED2;
+}
+:root[data-theme='studio'][data-studio-accent='lavender'] {
+  --surface-wing: #F3F0F6;
+  --surface-backdrop: #DCD3E6;
+  --surface-source: #F3F0F6;
+  --line: #E3DCEA;
+  --line-control: #BAAFC8;
+  --studio-accent: #76608A;
+  --studio-accent-soft: #E7DFF0;
+}
+
+/* Legacy component names resolve to roles here, at every surface boundary.
+   Keeping these bridges in one place lets existing components migrate independently. */
+:root,
+:where(.file-rail-tabs, .right-rail, .playback-dock-container, .pane-layout-segmented,
+       .sheet-zoom-wrapper, .score-display-options, .waterfall-viewport, .abc-editor-card,
+       .voices-panel, .ai-settings-modal, .ai-connection-modal, .file-context-menu,
+       .presentation-menu-popover, .workspace-pane-menu, .abc-completion-menu) {
+  --text-primary: var(--local-text, var(--text));
+  --text-secondary: var(--local-muted, var(--text-muted));
+  --border-subtle: var(--local-line, var(--line));
+  --border-selected: var(--local-control-line, var(--line-control));
+  --surface-desk: var(--surface-backdrop);
+  --surface-paper: var(--local-surface, var(--surface-wing));
+  --surface-chat: var(--surface-wing);
+  --surface-tabs: var(--local-surface, var(--surface-wing));
+  --surface-hover: var(--local-hover, var(--surface-raised));
+  --surface-selected: var(--local-hover, var(--segment-on));
+  --surface-file-active: var(--surface-raised);
+  --surface-siderail: var(--surface-frame);
+  --accent-rust: var(--local-sound, var(--signal-sound));
+  --context-blue: color-mix(in srgb, var(--local-context, var(--signal-context)) 16%, transparent);
+  --status-sage: color-mix(in srgb, var(--local-settled, var(--status-settled)) 14%, transparent);
+  --status-rose: color-mix(in srgb, var(--local-pending, var(--status-pending)) 14%, transparent);
   --color-paper: var(--surface-paper);
   --color-paper-2: var(--surface-desk);
   --color-paper-3: var(--surface-hover);
   --color-paper-raised: var(--surface-raised);
   --color-ink: var(--text-primary);
-  --color-ink-2: #3a3832;
+  --color-ink-2: var(--text-primary);
   --color-neutral: var(--text-secondary);
   --color-muted: var(--text-secondary);
   --color-rule: var(--border-subtle);
   --color-rule-2: var(--border-selected);
-
-  --color-accent: var(--accent-rust);
-  --color-accent-strong: #8c3f2e;
-  --color-accent-soft: var(--status-rose);
-  --color-accent-ink: #ffffff;
-  --color-focus: var(--accent-rust);
-
+  --color-accent: var(--local-context, var(--signal-context));
+  --color-accent-strong: var(--color-accent);
+  --color-accent-soft: var(--context-blue);
+  --color-accent-ink: var(--surface-frame);
+  --color-focus: var(--text-primary);
   --color-file-paper: var(--surface-paper);
   --color-file-rule: var(--border-subtle);
-  --color-score-paper: var(--surface-raised);
-  --color-score-paper-2: var(--surface-paper);
-  --color-score-ink: var(--text-primary);
-  --color-score-muted: var(--text-secondary);
-  --color-assistant-paper: var(--surface-chat);
+  --color-score-paper: var(--surface-stage);
+  --color-score-paper-2: var(--stage-card);
+  --color-score-ink: var(--stage-ink);
+  --color-score-muted: var(--stage-muted);
+  --color-assistant-paper: var(--surface-wing);
   --color-assistant-rule: var(--border-subtle);
-
   --color-citron: var(--context-blue);
   --color-citron-ink: var(--text-primary);
-  --color-vermilion: var(--accent-rust);
-  --color-vermilion-soft: var(--status-rose);
-  --color-vermilion-ink: #ffffff;
-
-  /* Siderail dark ink colors */
-  --color-graphite: #292824;
-  --color-graphite-2: #383630;
-  --color-graphite-3: #4a4842;
-  --color-graphite-rule: #3d3b35;
-  --color-on-graphite: #f6f3ec;
-  --color-on-graphite-muted: #b6afa4;
-  --color-on-graphite-faint: #716d65;
-
-  --color-success: #436d41;
+  --color-vermilion: var(--local-sound, var(--signal-sound));
+  --color-vermilion-soft: color-mix(in srgb, var(--color-vermilion) 16%, transparent);
+  --color-vermilion-ink: var(--surface-frame);
+  --color-graphite: var(--surface-frame);
+  --color-graphite-2: var(--frame-raised);
+  --color-graphite-3: var(--rail-active);
+  --color-graphite-4: var(--frame-line);
+  --color-graphite-rule: var(--frame-line);
+  --color-on-graphite: var(--frame-text);
+  --color-on-graphite-bright: var(--frame-text);
+  --color-on-graphite-muted: var(--frame-muted);
+  --color-on-graphite-faint: var(--frame-muted);
+  --color-success: var(--local-settled, var(--status-settled));
   --color-success-soft: var(--status-sage);
-  --color-warning: #946019;
-  --color-warning-soft: #f4e8d3;
-  --color-error: #ad503b;
-  --color-error-soft: var(--status-rose);
-
-  /* Annotations */
-  --color-annotation-chord-surface: var(--context-blue);
-  --color-annotation-chord-ink: var(--text-primary);
-  --color-annotation-chord-selected: var(--border-selected);
-  --color-annotation-chord-selected-ink: var(--text-primary);
-  --color-annotation-modulation-surface: #f4e8d3;
-  --color-annotation-modulation-ink: #6d4b14;
-  --color-annotation-modulation-selected: #946019;
-  --color-annotation-modulation-selected-ink: #ffffff;
-  --color-annotation-voice-surface: var(--status-sage);
-  --color-annotation-voice-ink: #2b4d29;
-  --color-annotation-voice-selected: #436d41;
-  --color-annotation-voice-selected-ink: #ffffff;
-  --color-annotation-explanation-surface: #eae3f0;
-  --color-annotation-explanation-ink: #483454;
-  --color-annotation-explanation-selected: #674c77;
-  --color-annotation-explanation-selected-ink: #ffffff;
-
-  --color-chat-user-surface: #e4ded2;
+  --color-warning: var(--local-pending, var(--status-pending));
+  --color-warning-soft: var(--status-rose);
+  --color-error: var(--color-warning);
+  --color-error-soft: var(--color-warning-soft);
+  --color-chat-user-surface: var(--surface-raised);
   --color-chat-user-ink: var(--text-primary);
   --color-chat-user-muted: var(--text-secondary);
-  --color-overlay: rgba(41, 40, 36, 0.4);
-  --color-shadow: rgba(66, 52, 30, 0.08);
-  --color-shadow-deep: rgba(41, 40, 36, 0.16);
+  --color-overlay: var(--overlay);
+  --color-shadow: transparent;
+  --color-shadow-deep: transparent;
   --color-transparent: transparent;
-
-  /* Font mapping */
-  --font-display: var(--font-ui);
-  --font-body: var(--font-ui);
-  --font-serif: var(--font-title);
-  --font-mono: var(--font-meta);
-  --font-main: var(--font-ui);
-  --font-code: var(--font-meta);
-
-  --rule-thin: 1px;
-  --rule-active: 2px;
-  --shadow-whisper: 0 1px 2px rgba(66, 52, 30, 0.06);
-  --shadow-modal: var(--shadow-menu);
+  --color-annotation-chord-surface: var(--harmony-tonic);
+  --color-annotation-chord-ink: var(--harmony-tonic-ink);
+  --color-annotation-chord-selected: var(--stage-context);
+  --color-annotation-chord-selected-ink: var(--surface-stage);
+  --color-annotation-modulation-surface: var(--harmony-predominant);
+  --color-annotation-modulation-ink: var(--harmony-predominant-ink);
+  --color-annotation-modulation-selected: var(--harmony-predominant-ink);
+  --color-annotation-modulation-selected-ink: var(--surface-stage);
+  --color-annotation-voice-surface: var(--harmony-tonic);
+  --color-annotation-voice-ink: var(--harmony-tonic-ink);
+  --color-annotation-voice-selected: var(--harmony-tonic-ink);
+  --color-annotation-voice-selected-ink: var(--surface-stage);
+  --color-annotation-explanation-surface: var(--stage-card);
+  --color-annotation-explanation-ink: var(--stage-ink);
+  --color-annotation-explanation-selected: var(--stage-context);
+  --color-annotation-explanation-selected-ink: var(--surface-stage);
+  --color-border: var(--border-subtle);
+  --color-danger: var(--color-warning);
+  --color-ink-muted: var(--text-secondary);
+  --color-paper-highlight: var(--surface-hover);
+  --color-paper-muted: var(--surface-paper);
+  --color-rule-soft: var(--border-subtle);
+  --color-rule-strong: var(--border-selected);
+  --color-surface: var(--surface-paper);
+  --color-surface-hover: var(--surface-hover);
+  --color-text-primary: var(--text-primary);
+  --focus-ring: var(--color-focus);
+  --motion-fast: var(--dur-micro);
+  --radius-card: var(--radius-panel);
+  --radius-small: var(--radius-chip);
+  --radius-round: var(--radius-pill);
+  --radius-lg: var(--radius-float);
+  --radius-md: var(--radius-panel);
+  --radius-sm: var(--radius-control);
+  --radius-xl: var(--radius-float);
+  --shadow-sheet: var(--shadow-stage);
+  --shadow-workspace: none;
+  --shadow-menu: var(--shadow-float);
+  --shadow-modal: var(--shadow-float);
+  --shadow-whisper: none;
+  --shadow-low: none;
+  --shadow-small: none;
+  --shadow-soft: none;
+  --shadow-offset-accent: none;
+  --bg-primary: var(--surface-backdrop);
+  --bg-secondary: var(--surface-wing);
+  --glass-bg: var(--surface-paper);
+  --glass-border: var(--border-subtle);
+  --glass-border-hover: var(--border-selected);
+  --glass-shadow: none;
+  --accent-emerald: var(--color-success);
+  --accent-emerald-light: var(--color-success);
+  --accent-cyan: var(--color-accent);
+  --accent-purple: var(--color-accent);
+  --figma-coral: var(--color-vermilion);
+  --figma-coral-soft: var(--color-vermilion-soft);
+  --figma-teal: var(--color-accent);
+  --figma-teal-soft: var(--color-accent-soft);
+  --figma-ink: var(--color-ink);
+  --figma-muted: var(--color-muted);
+  --figma-border: var(--color-rule);
+  --figma-workspace: var(--surface-backdrop);
+  --figma-rail: var(--surface-frame);
+  --figma-rail-active: var(--rail-active);
+  --figma-dock: var(--surface-dock);
 }
+
+@media (prefers-contrast: more) {
+  :root, :root[data-theme][data-hall] { --text-muted: var(--text); --line: var(--line-control); --frame-muted: var(--frame-text); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-micro: 0ms; --dur-short: 0ms; --dur-long: 0ms; --dur-theme: 0ms; }
+}
+
+.appearance-hall-option[data-hall="charcoal"] {
+  --preview-frame: #1B1A18;
+  --preview-wing: #24221F;
+  --preview-backdrop: #3A3833;
+}
+
+.appearance-hall-option[data-hall="walnut"] {
+  --preview-frame: #1C1712;
+  --preview-wing: #261F18;
+  --preview-backdrop: #46392C;
+}
+
+.appearance-hall-option[data-hall="velvet"] {
+  --preview-frame: #1B1315;
+  --preview-wing: #25191C;
+  --preview-backdrop: #46313A;
+}
+
+.appearance-hall-option[data-hall="conservatory"] {
+  --preview-frame: #131916;
+  --preview-wing: #1A221E;
+  --preview-backdrop: #34433B;
+}
+
+.appearance-accent-option { --preview-frame: #292824; }
+.appearance-accent-option[data-studio-accent='linen'] { --preview-wing: #F4F1EA; --preview-backdrop: #D6D0C4; }
+.appearance-accent-option[data-studio-accent='sage'] { --preview-wing: #F0F3EE; --preview-backdrop: #D4DED1; }
+.appearance-accent-option[data-studio-accent='clay'] { --preview-wing: #F7F0EB; --preview-backdrop: #E4D1C5; }
+.appearance-accent-option[data-studio-accent='lavender'] { --preview-wing: #F3F0F6; --preview-backdrop: #DCD3E6; }

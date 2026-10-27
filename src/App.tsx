@@ -905,7 +905,7 @@ export const App: React.FC = () => {
               className="stack-divider stack-row-divider" style={{ gridColumn: splitStack.stackColumn, gridRow: 2 }}
               onPointerDown={splitStack.beginRowResize} onKeyDown={splitStack.onRowKeyDown}
             ><span /></button>}
-            {draggingPane && <PaneSnapOverlay activeSnapTarget={activeSnapTarget} />}
+            {draggingPane && <PaneSnapOverlay activeSnapTarget={activeSnapTarget} paneCount={visiblePanes.length} />}
           </div>
           </div>
 

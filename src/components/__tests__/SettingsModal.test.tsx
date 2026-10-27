@@ -144,7 +144,7 @@ describe('SettingsModal', () => {
     const aboutPanel = screen.getByRole('tabpanel', { name: 'About' });
     expect(aboutPanel.textContent).toContain('Chorale');
     expect(aboutPanel.textContent).toContain('Music score workspace and agent skill.');
-    expect(screen.getByRole('img', { name: 'Chorale logo' }).getAttribute('src')).toBe('/chorale-logo.svg');
+    expect(screen.getByRole('img', { name: 'Chorale logo' }).getAttribute('src')).toMatch(/^data:image\/svg\+xml/);
     expect(screen.getByText('Release')).toBeDefined();
     expect(screen.getByText(/v\d+/)).toBeDefined();
     expect(screen.getByText('Runtime')).toBeDefined();

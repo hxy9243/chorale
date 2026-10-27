@@ -1,7 +1,9 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { contactSparks, WATERFALL_TAIL_STOPS } from '../music/waterfallVisuals';
 import type { WaterfallPlayback } from '../music/waterfallPlayback';
-import { indexNoteWindow, noteGeometry, pianoKeys, pitchLabel, visibleNotes, WATERFALL_COLORS } from '../music/waterfallLayout';
+import { indexNoteWindow, noteGeometry, pianoKeys, pitchLabel, visibleNotes } from '../music/waterfallLayout';
+
+const WATERFALL_COLORS = ['soprano', 'alto', 'tenor', 'bass', 'fifth', 'sixth'].map((voice) => 'var(--voice-' + voice + '-night)');
 
 export function WaterfallView({ playback }: { playback: WaterfallPlayback | null }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -74,7 +76,7 @@ export function WaterfallView({ playback }: { playback: WaterfallPlayback | null
               <stop offset="0%" stopColor={voiceColor} stopOpacity={0} />
               <stop offset="55%" stopColor={voiceColor} stopOpacity={0.28} />
               <stop offset="85%" stopColor={voiceColor} stopOpacity={0.72} />
-              <stop offset="100%" stopColor="#fffdfa" stopOpacity={0.98} />
+              <stop offset="100%" stopColor="var(--keyboard-white)" stopOpacity={0.98} />
             </linearGradient>
           ))}
           {renderedNotes.map(({ note, geometry, gradientId }) => (
@@ -93,7 +95,7 @@ export function WaterfallView({ playback }: { playback: WaterfallPlayback | null
                 height={geometry.bottom - geometry.top + (isMerging ? noteWidth : 0)}
                 rx={radius} fill={`url(#${gradientId})`} className="waterfall-note-body" />
               {!isMerging && noteWidth >= 4 && geometry.height >= 4 && (
-                <line x1={x + radius} x2={x + noteWidth - radius} y1={geometry.bottom - 1.2} y2={geometry.bottom - 1.2} stroke="#fffdfa" strokeWidth={1} strokeLinecap="round" opacity={0.45} />
+                <line x1={x + radius} x2={x + noteWidth - radius} y1={geometry.bottom - 1.2} y2={geometry.bottom - 1.2} stroke="var(--keyboard-white)" strokeWidth={1} strokeLinecap="round" opacity={0.45} />
               )}
             </g>;
           })}
@@ -102,7 +104,7 @@ export function WaterfallView({ playback }: { playback: WaterfallPlayback | null
         {[...keys.filter((key) => !key.black), ...keys.filter((key) => key.black)].map((key) => {
           const voice = active.get(key.midiPitch);
           return <g key={key.midiPitch} data-pitch={key.midiPitch} data-active={voice !== undefined}>
-            <rect x={key.x * keyWidth} y={keyboardY} width={key.width * keyWidth} height={key.black ? keyboardHeight * 0.62 : keyboardHeight} rx={2} fill={voice !== undefined ? color(voice) : key.black ? '#454540' : '#faf9f5'} stroke="#b8b6ae" strokeWidth={0.8} />
+            <rect x={key.x * keyWidth} y={keyboardY} width={key.width * keyWidth} height={key.black ? keyboardHeight * 0.62 : keyboardHeight} rx={2} fill={voice !== undefined ? color(voice) : key.black ? 'var(--keyboard-black)' : 'var(--keyboard-white)'} stroke="var(--stage-rule)" strokeWidth={0.8} />
             {keyboardHeight >= 30 && key.midiPitch % 12 === 0 && <text x={(key.x + 0.5) * keyWidth} y={height - 10} textAnchor="middle" className="waterfall-key-label">{pitchLabel(key.midiPitch)}</text>}
           </g>;
         })}
@@ -119,11 +121,11 @@ export function WaterfallView({ playback }: { playback: WaterfallPlayback | null
               {contactSparks(age, noteWidth, note.midiPitch * 97 + note.voice * 41 + note.onsetSeconds * 13).map((spark) => (
                 <line key={spark.id} x1={x + spark.x} x2={x + spark.x}
                   y1={keyboardY + spark.y} y2={keyboardY + spark.y - spark.length}
-                  stroke={spark.white ? '#fffdfa' : color(note.voice)}
+                  stroke={spark.white ? 'var(--keyboard-white)' : color(note.voice)}
                   strokeWidth={spark.width} strokeLinecap="round" opacity={spark.opacity} className="waterfall-splash-particle" />
               ))}
               <rect x={x} y={keyboardY - 1.4} width={noteWidth} height={1.4}
-                fill="#fffdfa" opacity={0.8 + attack * 0.2} className="waterfall-contact-seam" />
+                fill="var(--keyboard-white)" opacity={0.8 + attack * 0.2} className="waterfall-contact-seam" />
             </g>;
           })}
         </g>

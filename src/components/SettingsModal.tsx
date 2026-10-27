@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { McpIntegrationSettings } from './McpIntegrationSettings';
+import { useAppearance } from '../hooks/useAppearance';
+import { HALLS, THEMES, STUDIO_ACCENTS } from '../utils/appearance';
+import choraleLogo from '../assets/chorale-logo.svg?inline';
 
 export interface SettingsModalProps {
   open: boolean;
@@ -33,6 +36,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   interfaceZoom,
   onInterfaceZoomChange,
 }) => {
+  const appearance = useAppearance();
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -150,6 +154,54 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 role="tabpanel"
                 aria-labelledby="settings-tab-appearance"
               >
+                <div className="appearance-preferences">
+                  <div className="appearance-intro"><h3>Appearance</h3><p>Choose a theme and the color around your score.</p></div>
+                  <fieldset className="appearance-theme-fieldset">
+                    <legend>Theme</legend>
+                    <div className="appearance-theme-options">
+                      {THEMES.map((theme) => (
+                        <label className="appearance-theme-option" key={theme}>
+                          <input type="radio" name="chorale-theme" value={theme}
+                            checked={appearance.theme === theme} onChange={() => appearance.changeTheme(theme)} />
+                          <span><strong>{theme === 'recital' ? 'Recital' : theme === 'studio' ? 'Studio' : 'Match system'}</strong>
+                            <small>{theme === 'recital' ? 'Dark hall' : theme === 'studio' ? 'Light workspace' : 'Follow your device'}</small></span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                  {appearance.resolvedTheme === 'studio' ? (
+                    <fieldset aria-describedby="hall-color-help">
+                      <legend>Accent color</legend>
+                      <div className="appearance-hall-options">
+                        {STUDIO_ACCENTS.map((accent) => (
+                          <label className="appearance-hall-option appearance-accent-option" data-studio-accent={accent} key={accent}>
+                            <input type="radio" name="chorale-studio-accent" value={accent}
+                              checked={appearance.studioAccent === accent} onChange={() => appearance.changeStudioAccent(accent)} />
+                            <span className="appearance-hall-swatch" aria-hidden="true"><i /><i /><i /></span>
+                            <span>{accent[0].toUpperCase() + accent.slice(1)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                  ) : (
+                  <fieldset className="appearance-hall-fieldset" aria-describedby="hall-color-help">
+                    <legend>Hall color</legend>
+                    <div className="appearance-hall-options">
+                      {HALLS.map((hall) => (
+                        <label className="appearance-hall-option" data-hall={hall} key={hall}>
+                          <input type="radio" name="chorale-hall" value={hall}
+                            checked={appearance.hall === hall} onChange={() => appearance.changeHall(hall)} />
+                          <span className="appearance-hall-swatch" aria-hidden="true"><i /><i /><i /></span>
+                          <span>{hall[0].toUpperCase() + hall.slice(1)}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                  )}
+                  <p className="appearance-help" id="hall-color-help">{appearance.resolvedTheme === 'studio'
+                    ? 'Adds a subtle tint around the score. Sound and context colors stay consistent.'
+                    : 'Changes the hall around the score. Sound and context colors stay consistent.'}</p>
+                </div>
                 <h3>Interface scale</h3>
                 <p>Increase text and controls throughout Chorale. You can also use Ctrl/Cmd + scroll.</p>
                 <div className="ai-interface-scale-control">
@@ -179,7 +231,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 aria-labelledby="settings-tab-about"
               >
                 <div className="ai-about-brand">
-                  <img className="ai-about-logo" src="/chorale-logo.svg" alt="Chorale logo" />
+                  <img className="ai-about-logo" src={choraleLogo} alt="Chorale logo" />
                   <div>
                     <h3>Chorale</h3>
                     <p>Music score workspace and agent skill.</p>

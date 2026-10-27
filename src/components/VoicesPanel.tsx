@@ -75,7 +75,13 @@ export function VoicesPanel({ voices, settings, disabled, volume, stopSignal, ma
     };
     document.addEventListener('pointerdown', outside, true);
     document.addEventListener('focusin', outside, true);
-    return () => { document.removeEventListener('pointerdown', outside, true); document.removeEventListener('focusin', outside, true); };
+    const dismiss = () => closeRef.current(false);
+    window.addEventListener('blur', dismiss);
+    return () => {
+      document.removeEventListener('pointerdown', outside, true);
+      document.removeEventListener('focusin', outside, true);
+      window.removeEventListener('blur', dismiss);
+    };
   }, [activeStaffId]);
   const previewRef = useRef<any>(null);
   const previewOperation = useRef(0);

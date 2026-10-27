@@ -37,7 +37,7 @@ React never owns children of the abcjs SVG container. Existing SVG labels receiv
 accessible button attributes and managed DOM listeners. The popup is a fixed
 portal at the document level, above annotation editors and outside score clipping.
 It follows its label during resize, scrolling and zoom. Clicking outside the
-popup and its trigger, or moving keyboard focus outside, dismisses it. Pointer
+popup and its trigger, moving keyboard focus outside, or losing window focus dismisses it. Pointer
 interaction inside and moving the mouse across it keep it open. Escape and close
 restore focus to the label; outside clicks keep focus on their chosen target.
 

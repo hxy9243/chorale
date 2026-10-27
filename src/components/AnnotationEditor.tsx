@@ -22,6 +22,7 @@ interface AnnotationEditorProps {
   meter?: string;
   onSave(annotation: Annotation): void | Promise<void>;
   onCancel(): void;
+  onDismiss?(): void;
   onDelete?(): void | Promise<void>;
 }
 
@@ -48,6 +49,7 @@ export const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
   meter,
   onSave,
   onCancel,
+  onDismiss = onCancel,
   onDelete,
 }) => {
   const grid = useMemo(() => parseMeterBeatGrid(meter), [meter]);
@@ -81,13 +83,30 @@ export const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
   );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const firstFieldRef = useRef<HTMLSelectElement>(null);
   const chordSymbolRef = useRef<HTMLInputElement>(null);
+  const inlineChordEditor = variant === 'chord-inline' && initialAnnotation?.kind === 'chord';
 
   useEffect(() => {
     if (variant === 'chord-inline' || defaultKind === 'chord') chordSymbolRef.current?.focus();
     else firstFieldRef.current?.focus();
   }, [variant, defaultKind]);
+
+  useEffect(() => {
+    if (!inlineChordEditor || saving) return;
+    const dismissOutside = (event: Event) => {
+      if (event.target instanceof Node && !formRef.current?.contains(event.target)) onDismiss();
+    };
+    document.addEventListener('pointerdown', dismissOutside, true);
+    document.addEventListener('focusin', dismissOutside, true);
+    window.addEventListener('blur', onDismiss);
+    return () => {
+      document.removeEventListener('pointerdown', dismissOutside, true);
+      document.removeEventListener('focusin', dismissOutside, true);
+      window.removeEventListener('blur', onDismiss);
+    };
+  }, [inlineChordEditor, onDismiss, saving]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -146,17 +165,16 @@ export const AnnotationEditor: React.FC<AnnotationEditorProps> = ({
     }
   };
 
-  const inlineChordEditor = variant === 'chord-inline' && initialAnnotation?.kind === 'chord';
-
   return (
     <form
+      ref={formRef}
       className={`annotation-editor ${inlineChordEditor ? 'annotation-chord-inline-form' : ''}`}
       aria-label={`${mode === 'manual' ? 'Create' : 'Edit'} annotation`}
       onSubmit={(event) => void handleSubmit(event)}
       onKeyDown={(event) => {
         if (event.key !== 'Escape') return;
         event.preventDefault();
-        onCancel();
+        if (!saving) onCancel();
       }}
     >
       {inlineChordEditor ? (

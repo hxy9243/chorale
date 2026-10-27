@@ -653,7 +653,7 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
       ? layout.systems.find(({ id }) => id === placement.systemId)
       : undefined;
     if (!placement || !badge || !system) return null;
-    const width = 240;
+    const width = Math.min(288, system.width);
     const rawLeft = localXToWrapperX(system, badge.left);
     return {
       left: Math.max(system.left, Math.min(rawLeft, system.left + system.width - width)),

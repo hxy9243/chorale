@@ -1,8 +1,77 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AnnotationEditor } from '../AnnotationEditor';
 
 describe('AnnotationEditor', () => {
+  const inlineChord = {
+    id: 'dismiss-chord',
+    kind: 'chord' as const,
+    span: { startMeasure: 1, endMeasure: 1 },
+    position: { measure: 1, offset: { numerator: 0, denominator: 1 } },
+    chordSymbol: 'C',
+    romanNumeral: 'I',
+    label: 'Tonic',
+    body: 'Opening harmony.',
+    source: 'user' as const,
+    createdAt: '2026-10-26T00:00:00.000Z',
+    updatedAt: '2026-10-26T00:00:00.000Z',
+  };
+
+  it.each(['pointer', 'focus', 'window'] as const)('dismisses an inline draft on outside %s while allowing internal interaction', (interaction) => {
+    const onCancel = vi.fn();
+    const onSave = vi.fn();
+    render(<><input aria-label="Outside control" /><AnnotationEditor
+      mode="accepted" variant="chord-inline" initialAnnotation={inlineChord}
+      defaultSpan={inlineChord.span} onSave={onSave} onCancel={onCancel}
+    /></>);
+    const roman = screen.getByLabelText('Roman numeral (optional)');
+    act(() => roman.focus());
+    fireEvent.pointerDown(roman);
+    fireEvent.change(screen.getByLabelText('Chord symbol'), { target: { value: 'Unsaved draft' } });
+    expect(onCancel).not.toHaveBeenCalled();
+    const outside = screen.getByLabelText('Outside control');
+    if (interaction === 'pointer') fireEvent.pointerDown(outside);
+    else if (interaction === 'focus') act(() => outside.focus());
+    else fireEvent(window, new Event('blur'));
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('keeps an inline save mounted until its result can be shown', async () => {
+    let rejectSave!: (error: Error) => void;
+    const onCancel = vi.fn();
+    const onSave = vi.fn(() => new Promise<void>((_resolve, reject) => { rejectSave = reject; }));
+    render(<><input aria-label="Outside control" /><AnnotationEditor
+      mode="accepted" variant="chord-inline" initialAnnotation={inlineChord}
+      defaultSpan={inlineChord.span} onSave={onSave} onCancel={onCancel}
+    /></>);
+    fireEvent.click(screen.getByRole('button', { name: 'Save chord' }));
+    expect(screen.getByRole('button', { name: 'Saving…' }).hasAttribute('disabled')).toBe(true);
+    const outside = screen.getByLabelText('Outside control');
+    fireEvent.pointerDown(outside);
+    act(() => outside.focus());
+    fireEvent(window, new Event('blur'));
+    fireEvent.keyDown(screen.getByRole('form'), { key: 'Escape' });
+    expect(onCancel).not.toHaveBeenCalled();
+    await act(async () => rejectSave(new Error('Save failed; draft retained.')));
+    expect((await screen.findByRole('alert')).textContent).toContain('Save failed; draft retained.');
+    fireEvent.pointerDown(outside);
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it('keeps full annotation forms open when focus moves outside', () => {
+    const onCancel = vi.fn();
+    render(<><input aria-label="Outside control" /><AnnotationEditor
+      mode="manual" defaultSpan={{ startMeasure: 1, endMeasure: 1 }}
+      onSave={vi.fn()} onCancel={onCancel}
+    /></>);
+    const outside = screen.getByLabelText('Outside control');
+    fireEvent.pointerDown(outside);
+    act(() => outside.focus());
+    fireEvent(window, new Event('blur'));
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
   it('creates a validated manual annotation and focuses the first field', async () => {
     const onSave = vi.fn();
     render(

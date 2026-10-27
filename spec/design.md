@@ -3,7 +3,7 @@ title: "Chorale Design Spec Index"
 description: "Index and high-level architectural overview of Chorale specifications and implemented features"
 category: "overview"
 date: 2026-08-05
-updated: 2026-09-03
+updated: 2026-10-25
 status: "implemented"
 source_files:
   - src/App.tsx
@@ -61,6 +61,10 @@ Source: Figma file `Chorale — Chat with Music Sheet · V1`
 
 This directory splits the design into category-specific specs instead of keeping the entire workspace design in one file.
 
+## Adopted visual language
+
+[Recital visual foundation](./recital-visual-language.md) and the root [DESIGN.md](../DESIGN.md) own colors, type, surfaces, controls, and theme preferences. Existing feature specs below retain ownership of behavior. The conversation surface is named Chat.
+
 ## Core design specs
 
 - [workspace-layout.md](./workspace-layout.md): top-level workspace structure, 3-column header with undo/redo and status capsules, file rail, resizable sidebars, and central layout
@@ -96,7 +100,7 @@ The design direction is a file-owned music workspace where score viewing, ABC ed
 - auto-centering playback line with user scroll pause behavior
 - repeat-aware measure selection avoiding unnecessary DOM re-renders
 - line-start measure numbers and smooth score transition rendering
-- visual score metadata header (`ScoreMetadataHeader`) with classical serif typography (`--font-serif`), right-aligned score taglines, and validated interactive Key/Meter/Tempo chips with inline ABC editing
+- visual score metadata header (`ScoreMetadataHeader`) with classical serif typography (`--font-title`), right-aligned score taglines, and validated interactive Key/Meter/Tempo chips with inline ABC editing
 - persistent 3-column top header with consolidated score title, header undo/redo actions, and save/SVG/audio status indicators
 - floating score display options (`ScoreCardHeader`) with scroll-reactive translucency and synchronized zoom controls
 - a React-owned chord overlay plus a score-aligned rail for modulation, voice leading, and explanations
@@ -112,7 +116,7 @@ The design direction is a file-owned music workspace where score viewing, ABC ed
 - [x] Resizable assistant-ui chat panel with per-file v4 thread persistence, structured reasoning and tool parts, durable queued follow-ups, priority steering, token usage, and configurable thinking level
 - [x] Persistent top header with consolidated score title, undo/redo buttons, and status pills (`Auto-saved`, `SVG ready`, `Music ready`)
 - [x] Floating score display options with scroll-reactive translucency and synchronized sheet zoom controls
-- [x] Visual score metadata header (`ScoreMetadataHeader`) with serif typography (`--font-serif`), right-aligned attribution, Add Field (`+`) menu, and interactive Key/Meter/Tempo metadata chips with inline ABC editing and validation
+- [x] Visual score metadata header (`ScoreMetadataHeader`) with serif typography (`--font-title`), right-aligned attribution, Add Field (`+`) menu, and interactive Key/Meter/Tempo metadata chips with inline ABC editing and validation
 - [x] Split ABC editor pane with draggable divider, status chrome (`Valid · r{revision}`, `Rebuilding`, `Invalid ABC`), and local storage persistence
 - [x] Continuous written-measure range selection and chat context chip (`m. N` or `mm. N–M`)
 - [x] Shared score anchor selection and repeat-pass resolution (`selectMeasureWithRepeats`)

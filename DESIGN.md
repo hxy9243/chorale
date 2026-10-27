@@ -1,412 +1,410 @@
-# Chorale design language
+---
+title: "Chorale Design Language: Recital"
+description: "Visual design spec for the Recital theme: lit sheet in a dark hall, user-selectable hall colors, fixed signal colors for sound and Chat, stage inks, and the token model that implements them"
+category: "design-language"
+date: 2026-10-25
+updated: 2026-10-25
+status: "adopted-visual-foundation"
+source_files:
+  - tokens.css
+  - src/chorale-theme.css
+  - src/index.css
+  - src/styles/controls.css
+  - src/styles/waterfall.css
+  - src/main.tsx
+related_specs:
+  - DESIGN.md
+  - spec/design.md
+  - spec/workspace-layout.md
+  - spec/score-surface.md
+  - spec/abc-editor.md
+  - spec/playback-dock.md
+  - spec/pi-agent-chat.md
+  - spec/piano-waterfall.md
+  - spec/voices-panel.md
+  - spec/settings-and-auth.md
+---
 
-> A quiet music workspace built from warm paper surfaces, fine rules, dark ink, and restrained color. Structure should feel precise; the material should feel welcoming.
+# Chorale Design Language: Recital
 
-Status: reference specification, 2026-09-05. Based on the implemented Chorale component concept, not a description of the production Chorale application.
+> The score is the stage. Everything around it is the hall: dark, quiet, and organized by function. Only the sheet is bright, so the eye lands on the music first.
 
-Visual reference: [Component workspace](https://chorale-music-workspace-concept.kevinhu92.chatgpt.site/#components). Supporting reference: [Landing concept](https://chorale-music-workspace-concept.kevinhu92.chatgpt.site/).
+Status: visual foundation adopted, 2026-10-26. This spec defines the visual language only. Layout and behavior stay owned by the specs in `spec/`, chiefly [workspace-layout.md](spec/workspace-layout.md). This file supersedes the [previous design](docs/design/recital/previous-design-2026-09-05.md) for color, typography and elevation. The archived version preserves the earlier paper materials and component recipes.
 
-Use this file at the root of a product repository to guide human and AI implementation. The values marked **reference** reproduce the component mockup. Rules marked **production recommendation** improve behavior without changing its visual language. The CSS recipes are reusable patterns, not a complete stylesheet or component library.
+The concept pictures below are rendered from the design canvas. The music on them is an eight-bar SATB study written for the mockups (a parallel period in G, half cadence in m. 4, perfect authentic cadence in m. 8, checked for parallels, spacing and doubling).
 
-## 1. Design intent
+Implementation scope: [Recital visual foundation](spec/recital-visual-language.md). This pass applies the visual system to existing features. Analysis lenses, source diagnostics, agent selection, and Practice behaviors shown in the concept images remain separate feature work. Chat is the generic conversation surface; Tutor is an agent role. The original imported reference and concept images are preserved in `docs/design/recital/`.
 
-Chorale is a place to read, understand, edit, and discuss music. The workspace should support sustained concentration and make the relationship between the score, source, and conversation legible.
+## 1. Goals
 
-- **Paper through structure.** Use warm flat fills, thin edges, slight tonal differences, and soft directional shadows. The current design has no bitmap paper texture. Do not add grain, torn edges, distressed lettering, or parchment effects by default.
-- **Quiet chrome, clear work.** Navigation and controls should remain easy to find while letting notation and text carry attention.
-- **Purposeful depth.** A sidebar is a sheet above the desk; a score is a sheet within the workspace; a menu floats above both. Elevation communicates those relationships.
-- **Small, deliberate accents.** Use rust for emphasis and active markers, pale blue for context, and sage for positive feedback. Large surfaces remain neutral.
-- **Precise controls, expressive titles.** Sans-serif handles everyday tasks, monospace handles small structural metadata, and serif gives music titles a literary character.
-- **Equal access to different representations.** Score, ABC, and conversation are useful working views. Their placement should be adjustable; chat should not be permanently treated as an accessory.
+1. **The sheet stands out.** Today the desk (`#e9e5dc`) and the sheet (`#fffdfa`) differ by a contrast ratio of 1.24, so the score barely separates from the app. In Recital the ratio between backdrop and sheet is 11.5.
+2. **Function is readable from color.** A student should know, without reading labels, which parts of the screen make sound and which parts talk to Chat.
+3. **One coherent, designed theme.** The current CSS carries 188 distinct hex values, 11 font aliases across two sans and two mono families, 16 corner radii and about 250 `!important` overrides. Recital replaces that with a small token set that every surface uses.
 
-Avoid a generic dashboard of rounded cards, saturated gradients, glass blur, large colored navigation blocks, or shadows around every control. Avoid copying a marketing hero into the actual editor.
+## 2. Principles
 
-## 2. Material and color system
+- **Light is hierarchy.** Brightness, not color, says what matters. Each step up in light is a step closer to the music.
+- **Two signal hues, fixed meanings.** Vermilion is sound. Blue is Chat and context. Nothing else in the chrome gets a hue.
+- **Inks stay on the stage.** Voice colors and harmony tints appear only where music is drawn: the sheet, the waterfall and source rows.
+- **Status is small.** Amber and sage are dots and pills, never panel fills.
+- **The theme is a choice, the meanings are not.** Users can pick a theme and a hall color. Signal colors, status colors and stage inks never change.
 
-### Reference palette
+## 3. Theme structure: four tiers of light
 
-| Role | Value | Use |
+![Recital theme board: tiers of light, zone map, signal colors, stage inks and wing controls](docs/design/recital/images/recital-theme.png)
+
+Every screen is built from four tiers. Recital is the default theme; Studio is the light variant.
+
+| Tier | Holds | Recital (default) | Studio (light) |
+| --- | --- | --- | --- |
+| Frame | Rail, dock, menus, popovers | `#1B1A18` | `#292824` |
+| Wings | Files, Tools and Chat panels; header | `#24221F` | `#F4F1EA` |
+| Backdrop | The space around the sheet and panes | `#3A3833` | `#D6D0C4` |
+| Stage | The score sheet, and nothing else | `#FFFDF8` | `#FFFEFB` |
+
+Rules:
+
+- The jump from Backdrop to Stage is the largest brightness step on screen. No other surface may be brighter than the sheet.
+- Wings sit directly on the frame. Raised elements inside wings (inputs, cards, the composer) use `raised`, one step lighter than the wing.
+- In Studio, the sheet separates from the backdrop by shadow more than luminance (ratio 1.5), so Studio keeps the deeper sheet shadow from §9 and must not flatten it.
+
+## 4. Hall colors (user-selectable)
+
+![Hall color board: Appearance settings and the Study screen in Charcoal, Walnut, Velvet and Conservatory](docs/design/recital/images/hall-colors.png)
+
+In Recital, the hall around the stage can be tinted. Every hall keeps the same brightness steps as Charcoal and stays low in saturation, so none competes with the page. **Charcoal is the default.**
+
+| Token | Charcoal | Walnut | Velvet | Conservatory |
+| --- | --- | --- | --- | --- |
+| `frame` | `#1B1A18` | `#1C1712` | `#1B1315` | `#131916` |
+| `wing` | `#24221F` | `#261F18` | `#25191C` | `#1A221E` |
+| `raised` | `#2E2C28` | `#31281F` | `#302227` | `#232D28` |
+| `line` | `#34312C` | `#3A3027` | `#3A2A2F` | `#2B3731` |
+| `control-line` | `#45413A` | `#4E4135` | `#503B42` | `#3B4A42` |
+| `backdrop` | `#3A3833` | `#46392C` | `#46313A` | `#34433B` |
+| `muted` (text) | `#A39D91` | `#B3A591` | `#B5A2A8` | `#A0B1A6` |
+| `rail-active` | `#302E2A` | `#352B21` | `#36252A` | `#24302A` |
+| `rail-icon` | `#9C968B` | `#A49684` | `#A69398` | `#8E9F95` |
+| `segment-on` | `#3A3732` | `#45392C` | `#47333A` | `#34433B` |
+| `dock` | `#191816` | `#19140F` | `#181113` | `#111613` |
+
+Character and caveats:
+
+- **Charcoal**: neutral. Nothing competes with the page.
+- **Walnut**: warm wood, like a practice room; the softest at night.
+- **Velvet**: concert-hall seats. Vermilion reads slightly warmer here but stays distinct.
+- **Conservatory**: chalkboard green. Sage status is quieter against it, so status pills must keep their text labels (they always should; see §11).
+- **No blue or slate hall.** Blue chrome would swallow Chat color. New halls must pass the same checks: wing text at least 12:1, muted text at least 4.5:1, every signal and status color at least 4.5:1 on the wing.
+
+Primary text on all halls is `#ECE7DD`. Studio keeps its own accent selection independently of the hall setting. Linen is the default light palette; Sage, Clay and Lavender add subtle tint to the wings, backdrop and active controls while leaving the sheet, Sound and context colors consistent.
+
+### Appearance settings
+
+Settings gains an **Appearance** section:
+
+- **Theme**: Recital (dark), Studio (light), Match system. Match system maps a dark OS preference to Recital and a light one to Studio.
+- **Hall color** in Recital: four swatch radio buttons, each showing frame, wing and backdrop.
+- **Accent color** in Studio: Linen, Sage, Clay and Lavender swatches. The active theme shows its own palette controls and preserves the other theme's selection.
+- **Lights down while practicing**: on by default; dims the sheet itself when the Practice tools are open (§8.8).
+
+Theme, hall and Studio accent are local display preferences, stored under `chorale.workspace.*` and applied as `data-theme`, `data-hall` and `data-studio-accent` on the document root. Lights-down remains separate Practice feature work.
+
+## 5. Signal and status colors
+
+Signal and status colors are identical across halls. Each has a value for dark surfaces (frame, wings, dock) and a value for paper (the sheet, Studio wings).
+
+| Role | On dark | On paper | Meaning and uses |
+| --- | --- | --- | --- |
+| **Sound** | `#E2805F` | `#B4472F` | Anything that plays or marks time: play button, progress fill, playhead, loop range, waterfall hit line, metronome beat, speed trainer current step |
+| **Chat and context** | `#8DB3DB` | `#2D5B88` | Chat: panel marker, send button, measure citations, attached-context chips, and the score selection (selecting music means "selected score context") |
+| **Pending** (amber) | `#E3B062` | `#8E5F12` | Needs the user: proposals to review, source issues, "showing last valid version" |
+| **Settled** (sage) | `#93C19A` | `#3D6A4C` | Done: saved, valid, applied |
+
+Tints for chips and selections are the dark value at 14 to 18% alpha on dark surfaces (for example `rgba(141,179,219,0.16)`) and fixed paper tints on the sheet (selection fill `rgba(225,233,242,0.85)` with a `rgba(45,91,136,0.35)` inset ring).
+
+Rules:
+
+- If it makes sound, it is vermilion. If it talks or points, it is blue. Files, Tools, the header and Settings are neutral; their active states use a brighter tile, never a hue.
+- Errors are pending (amber) plus an icon or message. The terracotta currently used for errors (`--color-error: #ad503b`) is retired as an error color because it collides with Sound.
+- Vermilion and blue never fill a panel. Their largest use is the 42px play button and the selection rectangle.
+- The play button carries a dark glyph (`#1B1A18`) on vermilion (6.2:1).
+
+## 6. Stage inks
+
+Stage inks appear only on the sheet, in the waterfall, and on source rows. They never appear in rails, panels or the header.
+
+### Voices
+
+| Voice | Paper | Night (dark sheet, waterfall, dark ABC strip) |
 | --- | --- | --- |
-| Desk | `#e9e5dc` | Background behind the work surface |
-| Paper | `#f6f3ec` | Sidebar, header, active tab and workspace |
-| Raised paper | `#fffdfa` | Score sheet, inputs, buttons, menus |
-| Ink | `#292824` | Main text, primary actions, dark siderail |
-| Muted ink | `#716d65` | Supporting copy and metadata |
-| Rule | `#dcd8ce` | Standard separators and quiet borders |
-| Rust | `#ad503b` | Accent actions, section identifiers, active file rule |
-| Context blue | `#dce5ef` | Selected context and informational badges |
-| Sage | `#d8e2d7` | Positive status background |
-| Rose | `#f1d8d0` | Draft/attention background in the reference |
-| Hover paper | `#ece7dd` | Neutral button hover |
-| Selected control | `#e9e1d4` | Pressed controls |
-| Selected border | `#b7aa96` | Pressed-control outline |
-| Active file | `#ebe4d8` | Selected sidebar row |
-| Tab strip | `#eae5dc` | Background behind document tabs |
-| Conversation surface | `#f0ece4` | Chat pane |
-| User message | `#e4ded2` | User message background |
-| Rail active | `#4a4842` | Selected tool on the dark rail |
-| Switch on | `#6d8067` | Enabled switch track |
-| Switch off | `#b6afa4` | Disabled-state switch track, meaning “off” |
+| Soprano | `#B0436A` berry | `#E07CA0` |
+| Alto | `#C47F1E` ochre | `#E3A94B` |
+| Tenor | `#2C8072` teal | `#5EC0AE` |
+| Bass | `#6B4FA0` violet | `#A88FE0` |
 
-Use pale colors as backgrounds with ink text, not as small text on paper. The reference does not define a complete warning/error palette. **Production recommendation:** introduce semantic warning and error tokens deliberately, test contrast, and pair color with text or icons. A rose draft badge is not automatically an error.
+- One voice keeps one color in notation (when voice inks are on), the waterfall, the ABC measure rows and the Voices mixer. Today these surfaces use unrelated palettes.
+- Bass is violet, not indigo, so it is never read as context blue.
+- The four inks also step in lightness, so they remain distinguishable in grayscale and for common color vision deficiencies. Noteheads stay ink black unless the "Voice inks" lens is on.
 
-The landing page uses slightly darker ink (`#20201e`) and brighter rust (`#ba563d`). For a unified application, use the component values above as the canonical tokens instead of mixing variants arbitrarily.
+### Harmony function
 
-### Transferable tokens
+| Function | Tint (field) | Ink (label) | Examples |
+| --- | --- | --- | --- |
+| Tonic | `#E2EBDF` | `#2F5A3B` | I, vi, I6 |
+| Predominant | `#F3E5C8` | `#74520F` | IV, ii, ii6 |
+| Dominant | `#F3DCD3` | `#8A3522` | V, V7, cadential I6/4 |
+
+- Function tints are fields: chord badges and optional bands behind the staff. They are never used for text on their own.
+- Roman numerals are set in the serif (§7), the way a theory textbook prints them. Chord symbols use the UI sans at 600.
+- On narrow systems, chord badges shrink to the beat spacing and never overlap their neighbors.
+
+### Quoting the score outside the stage
+
+When a panel quotes the score (for example harmony evidence in a Tutor reply, or the form summary in Tools), the quote is drawn as a small paper card (`#FFFDF8`, 6px radius, light shadow) and may use stage inks inside it. This is the only way stage inks enter the wings.
+
+## 7. Typography
+
+Three families, three jobs. IBM Plex Sans and IBM Plex Mono are removed from `src/main.tsx`.
+
+| Role | Family | Use |
+| --- | --- | --- |
+| Title | Instrument Serif 400 (italic for subtitles) | Score titles, the header title, roman numerals, panel display titles such as the form name |
+| Interface | DM Sans 400, 500, 600 | Everything interactive and all running text |
+| Music meta | DM Mono 400, 500 | Measure references (`m. 3`), time, revision, ABC source, tracked uppercase section labels |
+
+Scale (px): 11, 12, 13, 14, 15, 17, 20, 28, 34, 40. Running text in Chat transcript is 14/1.6. Recurring labels never drop below 11px; uppercase mono labels use 0.06em tracking. The eleven `--font-*` aliases collapse to three: `--font-title`, `--font-ui`, `--font-meta`.
+
+## 8. Surfaces
+
+The layout itself (columns, minimum widths, persistence keys) is defined in [workspace-layout.md](spec/workspace-layout.md). This section defines how each region looks.
+
+![Study with Chat open, Recital theme](docs/design/recital/images/study-recital.png)
+
+![The same screen in the Studio light variant](docs/design/recital/images/study-studio.png)
+
+### 8.1 Left rail (frame)
+
+- Frame color, 56px wide, full height. Panel toggle at the top, Settings at the bottom.
+- Panel tabs (Files, Tools, Chat, in the order the workspace spec defines) are 48 by 52 with an 11px label under the icon, so students do not have to learn icons.
+- Panel tabs stay flat with transparent backgrounds. The active tab uses bright text and a small underline, neutral for Files and Tools and context blue for Chat. Keyboard focus uses a thin neutral outline; there are no raised active tiles or inset shadows.
+- A blue dot on the Chat tab means Chat has an unread reply.
+- The concept pictures show the tabs as Files, Tutor, Tools; the implemented order and the "Chat" label in the workspace spec take precedence.
+
+### 8.2 Header (wing)
+
+- Three regions as in the workspace spec: Undo and Redo on the left, breadcrumb plus serif title in the center, pane toggles and one status label on the right.
+- Pane toggles (Sheet, ABC, Waterfall) are a segmented control: frame-colored track, `segment-on` tiles for open panes.
+- Each pane has a visible one-pixel boundary. Its active tab joins the top edge, with a defined outline and square bottom corners.
+- Status uses settled for "Saved", muted text for "Saving", pending for "N changes to review".
+- Export is not in the header. It stays in the file context menu defined by [score-export.md](spec/score-export.md).
+
+### 8.3 Stage
+
+- Backdrop fills the workspace. The notation column sits on it with the Stage shadow (§9) and square corners: it is paper. Use one narrow gutter around the scene; avoid nested padded mats and wide blank paper margins.
+- The zoom control is a small translucent pill at the bottom center of the sheet viewport, drawn in paper tones without reserving layout space. It fades while idle or scrolling and becomes clear on hover or keyboard focus. Its compact bar is about 20% smaller than the earlier control, with 26px buttons and 11px labels.
+- The annotation rail sits beside the sheet on the backdrop, aligned to its measures. Empty annotation tracks collapse so unannotated scores and scores with chord badges only have no reserved blank columns. Margin notes are paper cards (`#F6F3EC`, 1px `#E8E2D7` rule, 5px radius) with the measure reference in paper blue. The user's own notes use a dashed amber outline on `#FBF4E4`, so they read as handwritten and distinct from Chat's.
+- Score selection uses the context tint. The playhead is a 2px Sound line with an 8px cap.
+
+### 8.4 Playback dock (frame, floating)
+
+- The dock is always dark, in both themes, so it reads as hardware. It floats over the backdrop, centered, at most 760px wide, with 16px radius and the Float shadow.
+- Vermilion play button; progress track `#3A3732` with a vermilion fill; loop range drawn as a vermilion tint bracket on the track.
+- Measure and selected-passage pills keep dark backgrounds in Studio. Measure text uses the dark-surface Sound accent; passage text uses the dark-surface context accent.
+- Measure position in DM Mono; the current selection as a blue chip; Voices button with the four voice ink dots; speed and volume in neutral.
+- The dock never covers notation. When the lower ABC strip is open, the dock sits in the backdrop between the sheet and the strip.
+
+### 8.5 Chat panel (wing)
+
+See the Study pictures at the top of §8.
+
+- A blue dot beside the panel title marks Chat zone.
+- User messages sit in `raised` bubbles; the attached range appears above as a blue context chip.
+- Reasoning and tool progress collapse to one muted line with a chevron.
+- Measure links in replies are context blue with a tinted underline.
+- Score evidence is quoted as a paper card (§6).
+- Proposal cards use `raised` with a `control-line` border, an amber "to review" pill, rows keyed by blue measure references, and actions "Preview" (secondary) and "Apply all" (primary).
+- Composer: `raised` box with the context chip, model and thinking selectors in muted text, and a blue send button. Sending is Chat's primary action, so it is the one blue-filled button in the app.
+
+### 8.6 Tools panel (wing)
+
+![Tools panel with form summary and analysis lenses](docs/design/recital/images/tools-panel.png)
+
+- Analysis lenses live in Tools: harmonic function bands, roman numerals, voice inks, non-chord tones, voice-leading scan.
+- Lens switches are neutral. On is a light track (`#ECE7DD`) with a dark knob; off is `control-line`. They do not use sage, because a lens being on is not a status.
+- The form summary (for example "Parallel period", phrase map, cadences) is a quoted paper card.
+- Editing history and Transpose sit below as neutral `raised` rows.
+
+### 8.7 Lower ABC strip
+
+![Edit with the lower ABC strip and a source issue](docs/design/recital/images/edit-abc-strip.png)
+
+- The strip is a darker wing (`#1F1E1B` in Charcoal; `#F4F1EA` in Studio) docked below the stage, with a centered grip.
+- Measure view draws one card per measure on `raised`, one row per voice. Each row starts with its voice ink dot; code is DM Mono 13.5.
+- The measure synced with the score selection gets a blue outline and blue measure label.
+- A source issue underlines the offending row with an amber wave and opens an inline card with the musical explanation ("Alto has 4 beats; the meter is 3/4") and one-click fixes. The header's ABC-level status shows "1 issue" in amber.
+- While the source is invalid, the sheet shows the last valid revision and says so in amber.
+
+### 8.8 Practice, lights down
+
+![Practice with lights down: dimmed sheet, waterfall and practice tools](docs/design/recital/images/practice-lights-down.png)
+
+- With "Lights down while practicing" on, the sheet switches to the night stage (`#201F1B`, ink `#E6E0D4`) and voice inks use their night values.
+- The waterfall uses the same voice inks as the sheet. Notes the student plays themself ("I play the Alto") are drawn as outlines and dimmed on the sheet.
+- The hit line is Sound with a soft glow; lit keys take the voice ink of the note sounding.
+- Practice tools (speed trainer, voices mixer, metronome) use wing styling. The speed trainer's current step is Sound; completed steps are settled.
+
+## 9. Shape, elevation and motion
+
+| Element | Radius | Elevation |
+| --- | --- | --- |
+| Sheet | 0 | Stage: `0 2px 4px rgba(0,0,0,.25), 0 24px 60px rgba(0,0,0,.35)` (Studio: `0 1px 2px rgba(40,30,15,.10), 0 16px 40px rgba(40,30,15,.18)`) |
+| Wings, panels, cards in panels | 8 to 12 | Flat, 1px `line` |
+| Chips, badges | 4, or pill | Flat |
+| Controls | 8 | Flat |
+| Dock, menus, popovers, dialogs | 12 to 16 | Float: `0 2px 6px rgba(0,0,0,.22), 0 18px 44px rgba(0,0,0,.32)` |
+
+Four radii (4, 8, 12, pill) replace the current sixteen. Nothing else casts a shadow.
+
+Motion keeps the existing durations (90ms for hover and press, 150 to 260ms for panels and switching). Switching theme or hall cross-fades colors over 180ms. The playhead moves with the music, never on an easing curve.
+
+## 10. Do and don't
+
+- Do use light (a brighter tile) for active states in neutral zones. Don't color them.
+- Do use stage inks only on the sheet, waterfall and source rows. Don't tint chrome with voice or harmony colors.
+- Do keep vermilion for sound and blue for Chat everywhere. Don't use either for decoration, focus rings or links that are not Chat references.
+- Don't add gradients, glass blur or a texture to the hall. The contrast between hall and paper is the effect.
+
+## 11. Accessibility
+
+Measured contrast (WCAG 2.x):
+
+| Pair | Charcoal | Walnut | Velvet | Conservatory | Studio |
+| --- | --- | --- | --- | --- | --- |
+| Text on wing | 12.9 | 13.2 | 13.8 | 13.2 | 14.9 |
+| Muted on wing | 5.9 | 6.7 | 7.0 | 7.2 | 5.0 |
+| context blue on wing | 7.3 | 7.4 | 7.8 | 7.4 | 6.3 |
+| Pending on wing | 8.0 | 8.2 | 8.6 | 8.2 | 4.9 |
+| Settled on wing | 7.8 | 8.0 | 8.4 | 8.0 | 5.5 |
+| Sound on frame | 6.2 | 6.3 | 6.5 | 6.4 | n/a |
+
+On paper: Sound 5.3, context blue 7.0, muted text 5.5.
+
+- Color never carries meaning alone: status pills keep their text, the selection has a ring as well as a fill, proposals say "to review", issues say what is wrong.
+- Focus rings use a 2px `#ECE7DD` ring on dark and `#1E1D1A` on paper, offset 2px. They are not blue, so focus is never confused with Chat context.
+- Hit targets stay at least 32px in dense rows and 44px for primary controls.
+- "Match system" respects `prefers-color-scheme`; Recital also respects `prefers-contrast: more` by raising `muted` to the text color and `line` to `control-line`.
+
+## 12. Token model
+
+Tokens move to role names that do not encode a color. Hall and theme are switched by attributes on `<html>`; components read only the role tokens.
 
 ```css
-:root {
-  color-scheme: light;
-  --surface-desk: #e9e5dc;
-  --surface-paper: #f6f3ec;
-  --surface-raised: #fffdfa;
-  --surface-chat: #f0ece4;
-  --surface-tabs: #eae5dc;
-  --surface-hover: #ece7dd;
-  --surface-selected: #e9e1d4;
-  --surface-file-active: #ebe4d8;
-  --text-primary: #292824;
-  --text-secondary: #716d65;
-  --border-subtle: #dcd8ce;
-  --border-selected: #b7aa96;
-  --accent-rust: #ad503b;
-  --context-blue: #dce5ef;
-  --status-sage: #d8e2d7;
-  --status-rose: #f1d8d0;
-  --font-ui: 'DM Sans', Arial, sans-serif;
+:root,
+:root[data-theme='recital'] {
+  color-scheme: dark;
+  /* tiers: Charcoal hall by default */
+  --surface-frame: #1B1A18;
+  --surface-wing: #24221F;
+  --surface-raised: #2E2C28;
+  --surface-backdrop: #3A3833;
+  --surface-stage: #FFFDF8;
+  --surface-dock: #191816;
+  --line: #34312C;
+  --line-control: #45413A;
+  --rail-icon: #9C968B;
+  --rail-active: #302E2A;
+  --segment-on: #3A3732;
+  --text: #ECE7DD;
+  --text-muted: #A39D91;
+
+  /* signals and status, dark surfaces */
+  --signal-sound: #E2805F;
+  --signal-context: #8DB3DB;
+  --status-pending: #E3B062;
+  --status-settled: #93C19A;
+
+  /* paper values used on the stage in every theme */
+  --stage-ink: #1E1D1A;
+  --stage-sound: #B4472F;
+  --stage-context: #2D5B88;
+  --voice-soprano: #B0436A;
+  --voice-alto: #C47F1E;
+  --voice-tenor: #2C8072;
+  --voice-bass: #6B4FA0;
+  --harmony-tonic: #E2EBDF;
+  --harmony-predominant: #F3E5C8;
+  --harmony-dominant: #F3DCD3;
+
   --font-title: 'Instrument Serif', Georgia, serif;
+  --font-ui: 'DM Sans', system-ui, sans-serif;
   --font-meta: 'DM Mono', ui-monospace, monospace;
-  --radius-control: 3px;
-  --radius-panel: 5px;
-  --shadow-sidebar:
-    1px 0 #ccc6bb,
-    5px 0 0 -1px #efebe2,
-    6px 0 0 -1px #d9d2c6,
-    12px 0 24px #55482d12;
-  --shadow-sheet: 0 1px 3px #42341e18, 0 9px 20px #42341e12;
-  --shadow-workspace: 0 10px 25px #4c402c0b;
-  --shadow-menu: 0 8px 24px #29282420;
+  --radius-chip: 4px;
+  --radius-control: 8px;
+  --radius-panel: 12px;
+  --radius-pill: 999px;
+}
+
+:root[data-theme='recital'][data-hall='walnut'] {
+  --surface-frame: #1C1712;
+  --surface-wing: #261F18;
+  --surface-raised: #31281F;
+  --surface-backdrop: #46392C;
+  --surface-dock: #19140F;
+  --line: #3A3027;
+  --line-control: #4E4135;
+  --rail-icon: #A49684;
+  --rail-active: #352B21;
+  --segment-on: #45392C;
+  --text-muted: #B3A591;
+}
+/* velvet and conservatory follow the same pattern with the values in §4 */
+
+:root[data-theme='studio'] {
+  color-scheme: light;
+  --surface-frame: #292824;
+  --surface-wing: #F4F1EA;
+  --surface-raised: #FFFEFB;
+  --surface-backdrop: #D6D0C4;
+  --surface-stage: #FFFEFB;
+  --line: #E0DAD0;
+  --line-control: #D3CCBF;
+  --text: #1E1D1A;
+  --text-muted: #6B675F;
+  --signal-context: #2D5B88;
+  --status-pending: #8E5F12;
+  --status-settled: #3D6A4C;
+}
+
+:root[data-lights='down'] .stage {
+  --surface-stage: #201F1B;
+  --stage-ink: #E6E0D4;
+  --voice-soprano: #E07CA0;
+  --voice-alto: #E3A94B;
+  --voice-tenor: #5EC0AE;
+  --voice-bass: #A88FE0;
 }
 ```
 
-The token names are normalized here for portability; the mockup uses shorter names such as `--paper`, `--white`, and `--ink`. There is no approved dark theme yet. Do not mechanically invert the colors.
+Migration from current tokens:
 
-## 3. Typography and rhythm
-
-| Element | Reference treatment |
+| Current | Becomes |
 | --- | --- |
-| Main body | DM Sans, 16px, regular |
-| Buttons, files, chat | DM Sans, 14px |
-| Supporting descriptions | 13px, only when secondary |
-| Structural metadata | DM Mono, 12px |
-| Section identifier | 12px mono, uppercase, 0.06–0.08em tracking |
-| Workspace introduction | Instrument Serif, 40px; 34px on small screens |
-| Score title | Instrument Serif, 30px, regular, centered |
-| Wordmark | DM Sans, 24px, weight 600, -1.4px tracking |
-| Chat/body reading rhythm | About 1.6 line height |
-| Source editor | DM Mono, 14px, 1.8 line height |
+| `--surface-desk`, `--color-paper-2` | `--surface-backdrop` |
+| `--surface-paper`, `--surface-chat`, `--surface-tabs` | `--surface-wing` |
+| `--surface-raised`, `--color-score-paper` | `--surface-stage` (sheet) or `--surface-raised` (controls in wings) |
+| `--color-graphite*`, `--color-on-graphite*` | `--surface-frame`, `--rail-*`, `--text*` |
+| `--accent-rust` for playback and grips | `--signal-sound` |
+| `--accent-rust` for errors, `--color-error` | `--status-pending` plus an icon |
+| `--context-blue`, `--color-annotation-chord-surface` | `--signal-context` tint, or `--harmony-*` for chord badges |
+| `--status-sage`, `--color-success*` | `--status-settled` |
+| `--color-warning*` | `--status-pending` |
+| Waterfall and ABC voice colors (`waterfall.css`, ABC measure rows) | `--voice-*` |
+| `--font-display`, `--font-body`, `--font-main`, `--font-serif`, `--font-mono`, `--font-code` | `--font-ui`, `--font-title`, `--font-meta` |
 
-Use serif for titles, not buttons or navigation. Reserve uppercase mono for short labels, not paragraphs. Keep tight tracking confined to display titles or the wordmark.
+Implementation order once this spec is accepted: introduce the role tokens alongside the old names, move surfaces tier by tier (frame, wings, backdrop, stage), then remove the compatibility aliases and the `!important` overrides they required. Hex values outside `tokens.css` should trend to zero.
 
-**Production recommendation:** use rem-based typography, retain at least 14px-equivalent recurring labels, and keep long-form body copy around 16px. Preserve usability at enlarged text sizes. Load fonts centrally; local font assets can avoid dependency on an external font request.
+## 13. Out of scope
 
-Use a practical spacing scale of **4, 8, 12, 16, 20, 24, 32, 40, 48px**. This scale is a recommended normalization: the reference also uses optical values such as 14, 17, 22, 25, 28, and 30px. Prefer consistent relationships over copying every incidental offset.
-
-## 4. Workspace layout
-
-### Reference geometry
-
-| Region | Desktop reference | Role |
-| --- | --- | --- |
-| Siderail | 56px wide | Global tools, compact icons |
-| Paper sidebar | 228px wide | Files and score-local views |
-| Header | 76px high | Sidebar control, current score, actions |
-| Page inset | 30px | Space around workspace |
-| Main pane | `minmax(0, 1fr)` | Active score/source/notes |
-| Chat pane | 310px wide | Conversation; 360px at very wide viewports |
-| Workspace | 5px radius, 1px border | Shared container for tabs, views and player |
-| Score sheet | 650px max width | Raised readable document |
-| Player | Content-sized; 14px vertical padding | Playback controls below views |
-
-```css
-.app-shell {
-  display: grid;
-  grid-template-columns: 56px 228px minmax(0, 1fr);
-  min-height: 100dvh;
-  background: var(--surface-desk);
-}
-.app-shell.is-sidebar-collapsed {
-  grid-template-columns: 56px minmax(0, 1fr);
-}
-.app-shell.is-sidebar-collapsed .paper-sidebar { display: none; }
-.workspace-content, .pane { min-width: 0; }
-.panes { display: grid; grid-template-columns: minmax(0, 1fr) 310px; }
-.panes[data-layout='single'],
-.panes[data-layout='stack'] { grid-template-columns: minmax(0, 1fr); }
-.panes[data-layout='single'] .chat-pane { display: none; }
-.panes[data-layout='stack'] .chat-pane {
-  border-left: 0;
-  border-top: 1px solid var(--border-subtle);
-}
-```
-
-The component demonstration includes a title, numbered specimen sections, and explanatory demo labels. Those are documentation chrome. Omit them from the production editor unless they serve a real workflow.
-
-**Production recommendation:** bound the editor to the viewport with a flex/grid column for header, workspace and transport; use `min-height: 0` and intentional `overflow: auto` on scrollable panes. Preserve each pane's scroll and edit state during rearrangement. Let the player remain visible while content scrolls. Do not apply the reference's 650px sheet limit to raw ABC or conversation panes.
-
-### Responsive behavior
-
-| Width | Existing mockup behavior | Production recommendation |
-| --- | --- | --- |
-| Above 1600px | 1450px content maximum, 36px/45px page insets, 360px chat | Keep useful line lengths; avoid a huge chat column |
-| 901–1150px | 52px rail, 190px sidebar, 22px inset, 260px chat | Collapse sidebar before squeezing editors too far |
-| 900px and below | 48px rail, sidebar hidden, panes stacked, 14px horizontal inset | Provide a reachable file drawer; do not simply remove file access |
-| Small touch screens | Wrapped tabs and fewer header metadata items | Use horizontally scrollable tabs or an overflow menu and larger hit areas |
-
-Prefer content-driven breakpoints when porting. Keep essential controls available; hide decorative metadata first. A layout change must not discard unsaved source, chat drafts, selected measures, or notes.
-
-## 5. Paper, edges, and elevation
-
-### Paper sidebar — reference recipe
-
-```css
-.paper-sidebar {
-  position: relative;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  padding: 25px 17px;
-  background: var(--surface-paper);
-  box-shadow: var(--shadow-sidebar);
-}
-```
-
-The first shadow makes the paper edge. Two offset hard shadows suggest a second sheet. The final blurred shadow separates the sidebar from the desk. Keep the shadow directional and faint. Do not add a floating-card radius to the sidebar or rotate it. Avoid ancestor clipping that cuts off its right-hand shadow.
-
-### Score sheet — reference recipe
-
-```css
-.score-sheet {
-  width: calc(100% - 54px);
-  max-width: 650px;
-  margin: 24px auto 32px;
-  padding: 24px 28px 20px;
-  background: var(--surface-raised);
-  border: 1px solid #e6e0d6;
-  box-shadow: var(--shadow-sheet);
-}
-.workspace {
-  overflow: hidden;
-  border: 1px solid #cbc5ba;
-  border-radius: var(--radius-panel);
-  background: var(--surface-paper);
-  box-shadow: var(--shadow-workspace);
-}
-```
-
-Keep score-sheet corners square. Use borders rather than shadows for sections within a pane. Menus can use `--shadow-menu`, but should be portaled outside clipped pane containers when necessary.
-
-**Production recommendation:** define a small shared stacking scale: content 0, sidebar 30, siderail 40, popovers 100, dialogs 200, notifications 300. These numbers normalize the reference's local z-index values; avoid unrelated arbitrary z-index escalation.
-
-## 6. Siderail, sidebar, and header
-
-**Siderail:** charcoal background, paper-colored icons, 40px reference buttons, about 20px line icons with 1.5px stroke. Active buttons use `#4a4842`, not a bright accent. Place settings at the bottom. Use a coherent icon set such as the application's existing Lucide icons; the mockup's mixed text symbols are placeholders, not a canonical icon system.
-
-**Sidebar:** selected file combines a 2px rust left edge, warm selected fill, and ink text. Files are plain rows rather than independent cards. Group labels use muted uppercase mono. Add/new actions are compact and aligned with the wordmark.
-
-```css
-.file-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 12px 10px;
-  border: 0;
-  border-left: 2px solid transparent;
-  border-radius: 0;
-  background: transparent;
-  text-align: left;
-}
-.file-row[aria-current='page'] {
-  background: var(--surface-file-active);
-  border-left-color: var(--accent-rust);
-}
-```
-
-**Header:** paper background, bottom rule, current document on the left, limited document-level actions on the right. The avatar is incidental to the mockup; do not introduce user accounts just to reproduce it. Put score-view controls in the pane toolbar, not the global header.
-
-## 7. Tabs and pane controls
-
-Tabs should feel attached to the paper beneath them. Inactive tabs sit on the darker strip. The active tab uses the same paper as its panel and covers the separator below it.
-
-```css
-.tab-strip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 8px 0;
-  background: var(--surface-tabs);
-  border-bottom: 1px solid var(--border-subtle);
-}
-.document-tab {
-  position: relative;
-  display: flex;
-  align-items: center;
-  border: 1px solid transparent;
-  border-bottom: 0;
-  border-radius: 5px 5px 0 0;
-}
-.document-tab[data-active='true'] {
-  background: var(--surface-paper);
-  border-color: var(--border-subtle);
-}
-.document-tab[data-active='true']::after {
-  content: '';
-  position: absolute;
-  inset: auto 0 -1px;
-  height: 2px;
-  background: var(--surface-paper);
-}
-```
-
-- Keep the tab trigger and close button as sibling buttons; never nest buttons.
-- Active state must remain visually distinct from hover and keyboard focus.
-- Include a plus menu for opening views and an accessible alternative to dragging.
-- Support left/right arrow selection and Home/End through a proper tab implementation.
-- Closing the active tab selects a nearby tab and moves focus predictably. Closing the last tab shows a useful reopen action.
-- **Production recommendation:** protect unsaved work, provide a visible drag target, and preserve underlying view state when moving tabs. Do not use DOM recreation as the state model.
-
-The Single/Split/Stack control is a compact segmented control: 3px group padding and gaps, neutral track, raised paper selected segment, tiny shadow. Pane arrangement is separate from choosing the active tab.
-
-## 8. Buttons and interaction states
-
-| Variant | Resting appearance | Role |
-| --- | --- | --- |
-| Primary | Ink fill and border, white text | Main action within the current task |
-| Secondary | Raised paper, subtle border, ink text | Ordinary actions |
-| Quiet | Transparent fill and border | Toolbar actions and less prominent commands |
-| Accent | Rust fill, white text | Selective emphasis, not every action |
-| Icon | Compact, consistent line icon | Actions with an accessible label |
-
-Reference dimensions: 14px label, 8px/12px padding, 3px radius. Primary hover is `#49463e`; neutral hover is `#ece7dd`. Pressed controls use selected paper and selected border. The mockup uses opacity 0.4 for disabled buttons.
-
-```css
-.button {
-  padding: 8px 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
-  background: var(--surface-raised);
-  color: var(--text-primary);
-  font: 0.875rem var(--font-ui);
-  cursor: pointer;
-}
-.button:hover:not(:disabled) { background: var(--surface-hover); }
-.button--primary {
-  color: #fff;
-  background: var(--text-primary);
-  border-color: var(--text-primary);
-}
-.button--primary:hover:not(:disabled) { background: #49463e; }
-.button[aria-pressed='true'] {
-  background: var(--surface-selected);
-  border-color: var(--border-selected);
-  color: var(--text-primary);
-}
-.button:disabled { opacity: 0.4; cursor: not-allowed; }
-/* Production addition: the mockup only specifies an outline offset. */
-:where(button, a, input, textarea, select, [tabindex]):focus-visible {
-  outline: 2px solid var(--accent-rust);
-  outline-offset: 3px;
-}
-```
-
-Use component-specific selectors so global pressed or hover rules do not overwrite the siderail, segmented controls, or accent buttons. Keep disabled labels understandable and provide a reason for unavailable actions when needed. **Production recommendation:** keep touch targets about 44px while retaining the compact visual control, using surrounding padding where appropriate.
-
-## 9. Inputs, widgets, and feedback
-
-**Text fields and composer:** raised paper, 1px warm border, 3px or square corners, comfortable inset. Textarea should visibly belong to its pane. Use a persistent label or accessible name; placeholder text is supporting guidance.
-
-**ABC editor:** mono text, generous line height, readable selection and cursor, minimal chrome. In production, use real ABC parsing/rendering; the reference's illustrative notation is not synchronized with source edits.
-
-**Switch:** reference track is 34×21px, with 3px padding, a 15px white thumb, 13px thumb translation, and a 150ms transition. Use sage-gray on and neutral off. Preserve `role="switch"`, `aria-checked`, keyboard operation, and a visible label. Increase the interaction target independently of the track size.
-
-**Range/tempo:** use rust for the progress accent and mono for time/tempo. Clearly separate playback position from volume. Numeric inputs need validated limits. Stop, pause, mute, and seek must reflect actual state.
-
-**Badges:** compact rectangular pills with 3px corners; 12px text; 6px/8px padding. Pair semantic text with pale fill. Do not make a badge look clickable unless it acts as a control.
-
-**Menus:** raised paper, thin rule, 6px inset, 180px reference minimum width, `--shadow-menu`. Use a menu primitive with focus management and Escape/outside dismissal.
-
-**Notifications:** brief ink-colored surface with paper text and a soft shadow. Use a live status region for nonurgent confirmation. Preserve important errors until users can act; do not hide them in a short-lived toast alone.
-
-**Dialogs and resizable splitters — production extensions:** the mockup does not define these. Carry forward the paper palette, restrained radius, fine rules, and clear action hierarchy. Use an accessible dialog primitive. Splitters need a visible hover/focus affordance and keyboard resizing; do not rely on a nearly invisible drag line.
-
-## 10. Conversation and music context
-
-Chat uses a slightly darker surface than the score. Its header has a fine bottom rule. User messages use a warm inset rectangle; assistant replies can use a 2px sage vertical rule rather than another bubble. Blue context chips identify the score or measure selection to which a message refers.
-
-Keep contextual information precise: file, selected measures, current revision when relevant. Do not use decorative statuses that imply analysis or validation has occurred. The reference's “ABC valid,” sample conversation, and illustrative score are demonstration content, not production truth.
-
-Music must remain the source of visual attention. Use actual notation output for real scores; do not copy the mockup's hand-drawn note positions into the application. Selected measures should remain readable under any selection tint.
-
-## 11. Motion and accessibility
-
-Use motion only to explain state changes: around 120–180ms for small hover, switch, and disclosure transitions. The 150ms switch is the only specifically timed interaction in the reference. Avoid bouncy controls or animated paper shadows.
-
-```css
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation: none !important;
-    transition: none !important;
-    scroll-behavior: auto !important;
-  }
-}
-```
-
-Production acceptance requirements:
-
-- All core actions work with keyboard input; focus remains visible and predictable.
-- Tabs, menus, switches and dialogs expose their names, roles, and actual state.
-- Normal text targets 4.5:1 contrast; large text and essential nontext indicators target 3:1. Verify actual foreground/background combinations; this reference is not a contrast certification.
-- Color is never the sole signal for active, error, modified, or success states.
-- Long titles, translated labels, narrow screens, and enlarged text do not overlap controls.
-- Sidebar collapse does not remove the only route to files or settings.
-- Focus rings and menus are not clipped by the workspace's overflow boundary.
-- Real playback does not start without a user action.
-
-## 12. Porting this language into Chorale
-
-1. Place this document in `DESIGN.md`. Put semantic tokens in one shared stylesheet, imported before component styles.
-2. Apply desk/paper/ink surfaces and typography first. This establishes most of the visual character.
-3. Style the app shell, directional sidebar shadow, header, and siderail.
-4. Style tabs and pane boundaries, then buttons, fields, menus, switches and badges.
-5. Connect every state to real application behavior. Preserve score/source/chat state independently of layout.
-6. Check a real score, long ABC source, a long conversation, an empty document, an error, and unsaved edits.
-7. Compare at wide desktop, compact desktop, and narrow widths, including keyboard and enlarged-text use.
-
-Suggested responsibility split (adapt to the existing repository):
-
-```text
-DESIGN.md                 Design intent and rules
-styles/tokens.css         Shared colors, type, radii, elevations
-styles/workspace.css      Shell, panes, sidebar, header, transport
-styles/controls.css       Buttons, tabs, fields, switches, menus
-```
-
-Reuse existing React components and accessible UI primitives. Keep the existing state model and rendering tools; this document does not require a framework change. Avoid generic global selectors such as `.active`, `button`, or `.selected` for component-specific appearances.
-
-### Instruction for a coding agent
-
-> Read DESIGN.md before making UI changes. Preserve the warm paper surfaces, charcoal siderail, attached document tabs, fine rules, restrained rust accents, and the three-font hierarchy. Reuse semantic tokens and existing accessible primitives. Treat the reference mockup as visual guidance, not production behavior or architecture. Keep score, source and conversation state stable across layout changes. Explain any intentional deviation from these rules.
-
-## 13. Review checklist
-
-- Does the surface read as paper through tone, edges and elevation, without decorative texture?
-- Are sidebar, document and popover shadows serving different structural roles?
-- Does the active tab visually connect to its panel?
-- Are primary, secondary, quiet, selected, hover and focus states distinguishable?
-- Are large surfaces neutral, with color concentrated in useful small signals?
-- Are typography, spacing, radii and icon strokes consistent?
-- Can users immediately work with music rather than navigate presentation chrome?
-- Do small screens retain file access, readable content and usable controls?
-- Does every status and action describe real behavior?
-- Have implementation changes preserved the existing product's capabilities?
+- First run and the library home are parked for a dedicated design pass. Their concept board still uses the v1 palette and is not part of this spec.
+- Engraving colors inside abcjs output (staff lines, noteheads in their default state) stay ink on paper.
+- Mobile layouts.

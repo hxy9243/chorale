@@ -3,7 +3,7 @@ title: "Workspace Layout Spec"
 description: "Specification for the top-level desktop workspace structure, header, file rail, central score workspace, and chat panel"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-10-25
+updated: 2026-10-26
 status: "implemented"
 source_files:
   - src/App.tsx
@@ -146,7 +146,7 @@ The launcher menu renders above pane clipping boundaries, stays beside its launc
 
 Opening the launcher moves keyboard focus into its menu. Arrow keys and Home/End navigate pane and layout actions; Escape dismisses the menu and returns focus to the launcher. Selecting an action also restores launcher focus when it remains mounted, while clicking outside preserves the user's new focus target.
 
-With three panes open, dragging a tab into a workspace corner previews and selects that half-column slot. The dragged pane takes the selected top/bottom slot, the next remaining pane fills the other stacked slot, and the last remaining pane fills the opposite column. Existing edge-center targets return to a single row or column. Two-pane drag behavior is unchanged.
+With three panes open, a visible 3-by-3 target map separates four corner stacks from the four edge-center row/column arrangements. Corner targets occupy the outer 40% on each axis; only the central 20% edge bands select a full row or column layout. The center 20% by 20% region preserves the current arrangement on release. The target map uses the same proportions as hit testing, and active edge labels explicitly say Rows or Columns. Two-pane dragging retains its existing four edge targets. Dragging a tab into a workspace corner previews and selects that half-column slot. The dragged pane takes the selected top/bottom slot, the next remaining pane fills the other stacked slot, and the last remaining pane fills the opposite column. Existing edge-center targets return to a single row or column. Two-pane drag behavior is unchanged.
 
 Two independent keyboard/pointer resize handles adjust column widths and stacked heights. Proportions persist as `chorale.workspace.stackColumns` and `chorale.workspace.stackRows`; `paneOrientation` additionally accepts `split-left` and `split-right`, preserving existing horizontal/vertical settings and `paneSequence`/legacy `paneOrder`. Resize calculations use the rendered content box and account for interface zoom. Each column retains a 240px minimum and each stacked row a 180px minimum; undersized workspaces scroll to keep all panes and handles reachable.
 
