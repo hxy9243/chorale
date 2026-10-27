@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["case_id", "spans"],
+  "properties": {
+    "case_id": {"type": "string"},
+    "spans": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["start", "end", "local_key", "roman", "root", "quality", "inversion", "confidence", "evidence"],
+        "properties": {
+          "start": {"$ref": "#/$defs/position"},
+          "end": {"$ref": "#/$defs/position"},
+          "local_key": {"type": "string"},
+          "roman": {"type": "string"},
+          "root": {"type": "string"},
+          "quality": {"type": "string"},
+          "inversion": {"enum": ["root", "first", "second", "third", "unknown"]},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["measure", "offset_qb", "pitches", "bass"],
+              "properties": {
+                "measure": {"type": "integer", "minimum": 1},
+                "offset_qb": {"type": "string", "pattern": "^-?[0-9]+(?:/[1-9][0-9]*)?$"},
+                "pitches": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+                "bass": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measure", "offset_qb"],
+      "properties": {
+        "measure": {"type": "integer", "minimum": 1},
+        "offset_qb": {"type": "string", "pattern": "^-?[0-9]+(?:/[1-9][0-9]*)?$"}
+      }
+    }
+  }
+}
+

@@ -1,0 +1,27 @@
+diff --git a/inference.py b/inference.py
+index af29bb2..6871b2f 100644
+--- a/inference.py
++++ b/inference.py
+@@ -66,11 +66,14 @@ def extract_pianoroll(score_path: Path, resolution: int = 12) -> Optional[np.nda
+-                        continue
+-                    # Check name as fallback
+-                    name = inst.bestName if hasattr(inst, 'bestName') else ''
++                        continue
++                    # Check name as fallback
++                    name = inst.bestName if hasattr(inst, 'bestName') else ''
++                    if callable(name):
++                        name = name()
+-                    if name and ('drum' in name.lower() or 'percussion' in name.lower()):
+-                        continue
+-                
+-                # Extract notes from this part
+-                for el in part.flat.notes:
++                    if name and ('drum' in name.lower() or 'percussion' in name.lower()):
++                        continue
++                
++                # Extract notes from this part
++                flattened = part.flatten() if hasattr(part, 'flatten') else part.flat
++                for el in flattened.notes:
+                     dur = float(el.quarterLength)
+                     start_qb = float(el.offset)
+                     end_qb = start_qb + dur

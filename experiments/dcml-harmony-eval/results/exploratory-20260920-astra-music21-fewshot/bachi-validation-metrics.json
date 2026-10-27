@@ -1,0 +1,205 @@
+{
+  "duration_weighted": {
+    "bass": 0.6225,
+    "boundary_f1": 0.6348161125659785,
+    "boundary_precision": 0.6172821185438192,
+    "boundary_recall": 0.6608170548778455,
+    "chord": 0.5360714285714285,
+    "covered": 1.0,
+    "quality": 0.6742857142857143,
+    "root": 0.6303571428571428
+  },
+  "macro": {
+    "bass": 0.7949680656442251,
+    "boundary_f1": 0.7693043709215572,
+    "boundary_precision": 0.7513644360988007,
+    "boundary_recall": 0.8119159549600715,
+    "chord": 0.7386017766251852,
+    "covered": 1.0,
+    "quality": 0.8163549740508036,
+    "root": 0.7926032856622817
+  },
+  "official_split": {
+    "note": "Reproduces BACHI dataset.py piece-level shuffle and 90/10 split.",
+    "piece_seed": 42,
+    "train_fraction": 0.9,
+    "validation_piece_count": 152
+  },
+  "pieces": [
+    {
+      "duration_qb": 192.0,
+      "gold_spans": 138,
+      "metrics": {
+        "bass": 0.6067708333333334,
+        "boundary_f1": 0.5405405405405406,
+        "boundary_precision": 0.5737704918032787,
+        "boundary_recall": 0.5109489051094891,
+        "chord": 0.5078125,
+        "covered": 1.0,
+        "quality": 0.7057291666666666,
+        "root": 0.546875
+      },
+      "piece_id": "Chamber_Other_Corelli_Op4No10_5",
+      "predicted_spans": 123,
+      "score_file": "Chamber_Other_Corelli_Op4No10_5.musicxml"
+    },
+    {
+      "duration_qb": 48.0,
+      "gold_spans": 41,
+      "metrics": {
+        "bass": 1.0,
+        "boundary_f1": 0.9620253164556962,
+        "boundary_precision": 0.9743589743589743,
+        "boundary_recall": 0.95,
+        "chord": 0.96875,
+        "covered": 1.0,
+        "quality": 0.9895833333333334,
+        "root": 0.9791666666666666
+      },
+      "piece_id": "Early_Choral_Bach_Chorales_080",
+      "predicted_spans": 40,
+      "score_file": "Early_Choral_Bach_Chorales_080.xml"
+    },
+    {
+      "duration_qb": 44.0,
+      "gold_spans": 52,
+      "metrics": {
+        "bass": 1.0,
+        "boundary_f1": 0.98,
+        "boundary_precision": 1.0,
+        "boundary_recall": 0.9607843137254902,
+        "chord": 0.9886363636363636,
+        "covered": 1.0,
+        "quality": 0.9886363636363636,
+        "root": 1.0
+      },
+      "piece_id": "Early_Choral_Bach_Chorales_186",
+      "predicted_spans": 50,
+      "score_file": "Early_Choral_Bach_Chorales_186.xml"
+    },
+    {
+      "duration_qb": 48.0,
+      "gold_spans": 49,
+      "metrics": {
+        "bass": 0.9791666666666666,
+        "boundary_f1": 0.9896907216494846,
+        "boundary_precision": 0.9795918367346939,
+        "boundary_recall": 1.0,
+        "chord": 0.96875,
+        "covered": 1.0,
+        "quality": 0.9895833333333334,
+        "root": 0.9895833333333334
+      },
+      "piece_id": "Early_Choral_Bach_Chorales_292",
+      "predicted_spans": 50,
+      "score_file": "Early_Choral_Bach_Chorales_292.xml"
+    },
+    {
+      "duration_qb": 52.0,
+      "gold_spans": 58,
+      "metrics": {
+        "bass": 1.0,
+        "boundary_f1": 0.9824561403508771,
+        "boundary_precision": 0.9824561403508771,
+        "boundary_recall": 0.9824561403508771,
+        "chord": 0.9711538461538461,
+        "covered": 1.0,
+        "quality": 0.9711538461538461,
+        "root": 0.9711538461538461
+      },
+      "piece_id": "Early_Choral_Bach_Chorales_357",
+      "predicted_spans": 58,
+      "score_file": "Early_Choral_Bach_Chorales_357.xml"
+    },
+    {
+      "duration_qb": 438.0,
+      "gold_spans": 298,
+      "metrics": {
+        "bass": 0.2796803652968037,
+        "boundary_f1": 0.48684210526315785,
+        "boundary_precision": 0.4758842443729904,
+        "boundary_recall": 0.4983164983164983,
+        "chord": 0.1461187214611872,
+        "covered": 1.0,
+        "quality": 0.3264840182648402,
+        "root": 0.2968036529680365
+      },
+      "piece_id": "Keyboard_Other_Grieg_Lyric_Pieces_Op57_No1",
+      "predicted_spans": 312,
+      "score_file": "Keyboard_Other_Grieg_Lyric_Pieces_Op57_No1.musicxml"
+    },
+    {
+      "duration_qb": 534.0,
+      "gold_spans": 203,
+      "metrics": {
+        "bass": 0.7668539325842697,
+        "boundary_f1": 0.6744186046511628,
+        "boundary_precision": 0.6359649122807017,
+        "boundary_recall": 0.7178217821782178,
+        "chord": 0.6985018726591761,
+        "covered": 1.0,
+        "quality": 0.8323970037453183,
+        "root": 0.795880149812734
+      },
+      "piece_id": "beethoven_piano_sonatas_09-2",
+      "predicted_spans": 229,
+      "score_file": "beethoven_piano_sonatas_09-2.musicxml"
+    },
+    {
+      "duration_qb": 44.0,
+      "gold_spans": 17,
+      "metrics": {
+        "bass": 0.7272727272727273,
+        "boundary_f1": 0.5384615384615385,
+        "boundary_precision": 0.3888888888888889,
+        "boundary_recall": 0.875,
+        "chord": 0.6590909090909091,
+        "covered": 1.0,
+        "quality": 0.7272727272727273,
+        "root": 0.7613636363636364
+      },
+      "piece_id": "rachmaninoff_piano_op42_05",
+      "predicted_spans": 37,
+      "score_file": "rachmaninoff_piano_op42_05.musicxml"
+    }
+  ],
+  "sample": {
+    "count": 8,
+    "pieces": [
+      {
+        "piece_id": "Chamber_Other_Corelli_Op4No10_5",
+        "score_file": "Chamber_Other_Corelli_Op4No10_5.musicxml"
+      },
+      {
+        "piece_id": "Early_Choral_Bach_Chorales_080",
+        "score_file": "Early_Choral_Bach_Chorales_080.xml"
+      },
+      {
+        "piece_id": "Early_Choral_Bach_Chorales_186",
+        "score_file": "Early_Choral_Bach_Chorales_186.xml"
+      },
+      {
+        "piece_id": "Early_Choral_Bach_Chorales_292",
+        "score_file": "Early_Choral_Bach_Chorales_292.xml"
+      },
+      {
+        "piece_id": "Early_Choral_Bach_Chorales_357",
+        "score_file": "Early_Choral_Bach_Chorales_357.xml"
+      },
+      {
+        "piece_id": "Keyboard_Other_Grieg_Lyric_Pieces_Op57_No1",
+        "score_file": "Keyboard_Other_Grieg_Lyric_Pieces_Op57_No1.musicxml"
+      },
+      {
+        "piece_id": "beethoven_piano_sonatas_09-2",
+        "score_file": "beethoven_piano_sonatas_09-2.musicxml"
+      },
+      {
+        "piece_id": "rachmaninoff_piano_op42_05",
+        "score_file": "rachmaninoff_piano_op42_05.musicxml"
+      }
+    ],
+    "population": "official classical validation partition",
+    "seed": 20260920
+  }
+}

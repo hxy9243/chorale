@@ -1,0 +1,51 @@
+{
+  "seed": 20260921,
+  "dcml": {
+    "corpus": {
+      "repository": "https://github.com/DCMLab/mozart_piano_sonatas.git",
+      "commit": "5337257a5318711e6302cfe85c3f1a6ade3c6271",
+      "release": "v2.3",
+      "license": "CC BY-NC-SA 4.0"
+    },
+    "windows": [
+      {"case_id": "wide-a01", "movement": "K279-3", "start_mc": 44, "end_mc": 51, "rationale": "seeded fresh eight-measure window"},
+      {"case_id": "wide-a02", "movement": "K545-3", "start_mc": 8, "end_mc": 15, "rationale": "seeded fresh eight-measure window"},
+      {"case_id": "wide-a03", "movement": "K545-2", "start_mc": 18, "end_mc": 25, "rationale": "seeded fresh eight-measure window"},
+      {"case_id": "wide-a04", "movement": "K282-3", "start_mc": 68, "end_mc": 75, "rationale": "seeded fresh eight-measure window"},
+      {"case_id": "wide-a05", "movement": "K282-2", "start_mc": 42, "end_mc": 49, "rationale": "seeded fresh eight-measure window"},
+      {"case_id": "wide-a06", "movement": "K332-2", "start_mc": 26, "end_mc": 33, "rationale": "seeded fresh eight-measure window"},
+      {"case_id": "wide-a07", "movement": "K281-3", "start_mc": 98, "end_mc": 105, "rationale": "seeded fresh eight-measure window"},
+      {"case_id": "wide-a08", "movement": "K283-3", "start_mc": 12, "end_mc": 19, "rationale": "seeded fresh eight-measure window"},
+      {"case_id": "wide-a09", "movement": "K280-3", "start_mc": 40, "end_mc": 47, "rationale": "seeded fresh eight-measure window"},
+      {"case_id": "wide-a10", "movement": "K576-3", "start_mc": 50, "end_mc": 57, "rationale": "seeded fresh eight-measure window"}
+    ]
+  },
+  "bachi": {
+    "source": {
+      "repository": "Itsuki-music/BACHI_Chord_Recognition",
+      "revision": "7fd45be21b2b917d0a3fc349b6f48e9486f6ad19",
+      "collection": "unique_data_collection"
+    },
+    "official_split": {"piece_seed": 42, "train_fraction": 0.9, "validation_piece_count": 152},
+    "selection": {"seed": 20260921, "excluded_prior_pieces": 8, "requires_musicxml": true},
+    "pieces": [
+      {"case_id": "wide-b01", "piece_id": "schumann_liederkreis_op39n03", "score_file": "schumann_liederkreis_op39n03.musicxml"},
+      {"case_id": "wide-b02", "piece_id": "Quartets_Haydn_Op20_No3_3", "score_file": "Quartets_Haydn_Op20_No3_3.xml"},
+      {"case_id": "wide-b03", "piece_id": "Chamber_Other_Corelli_Op3No11_1", "score_file": "Chamber_Other_Corelli_Op3No11_1.musicxml"},
+      {"case_id": "wide-b04", "piece_id": "schumann_liederkreis_op39n12", "score_file": "schumann_liederkreis_op39n12.musicxml"},
+      {"case_id": "wide-b05", "piece_id": "Early_Choral_Bach_Chorales_353", "score_file": "Early_Choral_Bach_Chorales_353.xml"},
+      {"case_id": "wide-b06", "piece_id": "scarlatti_sonatas_K057", "score_file": "scarlatti_sonatas_K057.musicxml"},
+      {"case_id": "wide-b07", "piece_id": "scarlatti_sonatas_K050", "score_file": "scarlatti_sonatas_K050.musicxml"},
+      {"case_id": "wide-b08", "piece_id": "Keyboard_Other_Liszt_Années_de_pèlerinage_S162_2_Canzone", "score_file": "Keyboard_Other_Liszt_Années_de_pèlerinage_S162_2_Canzone.musicxml"},
+      {"case_id": "wide-b09", "piece_id": "Variations_and_Grounds_Beethoven___WoO_77", "score_file": "Variations_and_Grounds_Beethoven___WoO_77.musicxml"},
+      {"case_id": "wide-b10", "piece_id": "Early_Choral_Bach_Chorales_284", "score_file": "Early_Choral_Bach_Chorales_284.xml"}
+    ]
+  },
+  "models": [
+    {"model": "gpt-5.6-luna", "effort": "xhigh"},
+    {"model": "gpt-5.6-terra", "effort": "xhigh"},
+    {"model": "gpt-5.6-sol", "effort": "high"},
+    {"model": "gpt-6-astra", "effort": "medium"}
+  ],
+  "condition": "model_skill_evidence"
+}

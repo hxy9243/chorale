@@ -1,0 +1,29 @@
+{
+  "source": {
+    "repository": "Itsuki-music/BACHI_Chord_Recognition",
+    "revision": "7fd45be21b2b917d0a3fc349b6f48e9486f6ad19",
+    "collection": "unique_data_collection",
+    "license": "MIT for BACHI code; individual source-corpus terms continue to apply"
+  },
+  "official_split": {
+    "piece_seed": 42,
+    "train_fraction": 0.9,
+    "validation_piece_count": 152,
+    "note": "Reproduces BACHI dataset.py piece-level shuffle and 90/10 split."
+  },
+  "sample": {
+    "seed": 20260920,
+    "count": 8,
+    "population": "official classical validation partition",
+    "pieces": [
+      {"piece_id": "Chamber_Other_Corelli_Op4No10_5", "score_file": "Chamber_Other_Corelli_Op4No10_5.musicxml"},
+      {"piece_id": "Early_Choral_Bach_Chorales_080", "score_file": "Early_Choral_Bach_Chorales_080.xml"},
+      {"piece_id": "Early_Choral_Bach_Chorales_186", "score_file": "Early_Choral_Bach_Chorales_186.xml"},
+      {"piece_id": "Early_Choral_Bach_Chorales_292", "score_file": "Early_Choral_Bach_Chorales_292.xml"},
+      {"piece_id": "Early_Choral_Bach_Chorales_357", "score_file": "Early_Choral_Bach_Chorales_357.xml"},
+      {"piece_id": "Keyboard_Other_Grieg_Lyric_Pieces_Op57_No1", "score_file": "Keyboard_Other_Grieg_Lyric_Pieces_Op57_No1.musicxml"},
+      {"piece_id": "beethoven_piano_sonatas_09-2", "score_file": "beethoven_piano_sonatas_09-2.musicxml"},
+      {"piece_id": "rachmaninoff_piano_op42_05", "score_file": "rachmaninoff_piano_op42_05.musicxml"}
+    ]
+  }
+}
