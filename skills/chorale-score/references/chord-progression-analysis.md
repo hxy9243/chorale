@@ -212,14 +212,17 @@ Complete this audit before calling `add_notation` or `edit_notations`:
 
 When several short-lived slices elaborate one function, the annotation may summarize the function, but its body must distinguish structural harmonies from passing or neighboring sonorities. Prefer an `explanation` notation for unresolved ambiguity.
 
-### Regression Example: BWV 371
+### Regression Example: BWV 269 (formerly mislabeled BWV 371)
 
-For the bundled BWV 371 score, a correct review must detect the pickup and any layout-only MCP measure, preserve the sounding-measure indices, and distinguish the following sonorities in G major:
+The bundled score is *Aus meines Herzens Grunde*, BWV 269, Riemenschneider 1; 371 is the collection size. A correct review must detect the pickup and any layout-only MCP measure, preserve the sounding-measure indices, and distinguish the following sonorities in G major:
 
 - `Em/G` = `vi6`.
 - `Em7/G` = `vi6/5`.
 - `Am7/C` = `ii6/5`.
 - `D7/A` = `V4/3`.
-- The later progression `vi - vi4/2 - ii6/5 - V7` must not be collapsed to `ii7 - V7`.
+- `F#dim/A` = `vii°6`. In mm. 5 and 15, beat 3 contains no D: `V4/3` is an explicitly rootless alternative, whereas m. 9 beat 2-and contains complete `D7/A`.
+- The later progression is `vi - vi4/2 (passing) - ii6/5 - V - V7`; it must not be mislabeled `ii7 - V7`. A structural reduction may omit the passing `vi4/2` if the explanation identifies that choice.
+
+Cross-reference [Andrew Jones's human analysis in music21, proofread by Dmitri Tymoczko and Hamish Robb](https://github.com/cuthbertLab/music21/blob/master/music21/corpus/bach/choraleAnalyses/riemenschneider001.rntxt). It prolongs I into m. 1 beat 1 and gives IV6 at beat 2; the literal Em/G and later Em7 slice should be distinguished from that reduction. It treats m. 2 beat 2 as V and m. 12 beats 1–2 as I6, without promoting every surface sonority to an independent harmony. Its m. 11 variant explicitly permits I6/4 instead of iii6 at the middle stage. These are interpretive choices, not a claim that one analysis is definitive.
 
 Do not label the alleged m. 6 tenor event as a 4-3 suspension unless the individual measure read proves all three phases: consonant preparation, retention as a dissonance over the new bass, and stepwise resolution in that same voice.

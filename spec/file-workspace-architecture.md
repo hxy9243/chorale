@@ -204,7 +204,8 @@ The same canonical `Annotation` type crosses document, context, IPC validation, 
 
 - `storageAdapter.getDocuments()` invokes pure `normalizeFileDocument` for service responses.
 - `useDocumentStore` owns UI state and mutations, not schema migration.
-- Fresh workspace installations without existing documents initialize with **J.S. Bach BWV 371** (`bwv-371-abc`, `public/samples/bwv_371.abc`) as the default preset sample, pre-populated with 22 structured harmonic annotations (`src/data/defaultScore.ts`).
+- Fresh workspace installations without existing documents initialize with **Aus meines Herzens Grunde, BWV 269** (J.S. Bach; Riemenschneider 1) as the default preset sample, pre-populated with 25 structured annotations: pickup, 21 measure summaries, and three passage explanations (`src/data/defaultScore.ts`). The legacy ID `bwv-371-abc` and asset URL `public/samples/bwv_371.abc` remain stable for compatibility; 371 refers to the collection size, not this work's BWV number.
+- The example's independent note-level analysis is cross-checked against [Andrew Jones's analysis, proofread by Dmitri Tymoczko and Hamish Robb](https://github.com/cuthbertLab/music21/blob/master/music21/corpus/bach/choraleAnalyses/riemenschneider001.rntxt). Differences in harmonic reduction are explicit, particularly m. 1; brief passing sonorities are distinguished from structural chords. Annotation changes do not change the written musical notes or migrate user-edited documents.
 - Standalone CLI/MCP daemon startups (`LocalDocumentStore`) automatically seed the same default score and annotations (`server/default-score.mjs`) when the database is empty (`seedDefault: true`).
 - Legacy annotation kinds normalize to the canonical four-kind model.
 - Conversation v4 data is normalized when loaded from SQLite, including stopped

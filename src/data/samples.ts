@@ -1,10 +1,11 @@
 import type { MusicSample } from '../types/music';
-import { DEFAULT_SCORE_ANNOTATIONS } from './defaultScore';
+import { DEFAULT_SCORE_ANNOTATIONS, DEFAULT_SCORE_TITLE } from './defaultScore';
 
 export const PRESET_SAMPLES: MusicSample[] = [
   {
+    // Retain the legacy ID and asset URL for existing sample links.
     id: 'bwv-371-abc',
-    title: 'J.S. Bach BWV 371',
+    title: DEFAULT_SCORE_TITLE,
     composer: 'J.S. Bach',
     filename: 'samples/bwv_371.abc',
     type: 'abc',
