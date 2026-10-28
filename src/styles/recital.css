@@ -134,14 +134,14 @@ button, input, textarea, select { accent-color: var(--text-primary); }
   background: var(--surface-wing); color: var(--text); border-color: var(--line-control); border-radius: var(--radius-float); box-shadow: var(--shadow-float);
 }
 
-/* One compact gutter surrounds the paper; annotation cards sit on the backdrop. */
+/* One gutter frames the paper; an inner margin gives notation room to breathe. */
 .workspace-pane.score-pane .score-canvas,
 .workspace-pane.score-pane .score-sheet { padding: 0; }
 .sheet-music-card, .sheet-viewport { background: var(--surface-backdrop); border: 0; box-shadow: none; }
-.sheet-viewport { padding: 16px 12px 56px; }
+.sheet-viewport { padding: 24px 20px 64px; }
 .sheet-scene-positioner { padding: 0; }
 .sheet-zoom-wrapper { padding: 0; border-radius: 0; background: transparent; color: var(--stage-ink); box-shadow: none; }
-.sheet-notation-column { background: var(--surface-stage); box-shadow: var(--shadow-stage); }
+.sheet-notation-column { padding: 64px; background: var(--surface-stage); box-shadow: var(--shadow-stage); }
 .abcjs-paper-container, .abcjs-paper-container svg { background: transparent; color: var(--stage-ink); }
 .score-metadata-header, .score-title-text { color: var(--stage-ink); }
 .score-title-text { font-family: var(--font-title); font-weight: 400; }

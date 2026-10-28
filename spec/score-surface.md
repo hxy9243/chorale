@@ -3,7 +3,7 @@ title: "Score Surface Spec"
 description: "Specification for score rendering, continuous range selection, chord overlays, range annotation rail, line measure numbers, and auto-centering playback"
 category: "core-workspace"
 date: 2026-08-05
-updated: 2026-10-26
+updated: 2026-10-27
 status: "implemented"
 source_files:
   - src/App.tsx
@@ -106,10 +106,12 @@ This document specifies rendering, layout, interaction, and accessibility behavi
 - Floating score display options (`ScoreCardHeader`) overlay the bottom-center of the score viewport with scroll-reactive translucency (`is-scrolling`), providing synchronized zoom controls (−, %, +, Fit) without covering the title or reserving layout space.
 - Score zoom remains independently persisted and centered without clipping.
 - Line-start measure numbers (`.chorale-line-measure-number`) are rendered above the start of each staff system except the opening system, including scores with an opening pickup (measure 0). Later systems display the canonical measure number at their start. A split-measure continuation retains the number of the measure begun on the previous system; it must not advance to the next complete measure. This display rule does not change measure identity, selection, or playback numbering.
-- The sheet has one compact backdrop gutter. The notation column alone owns the paper surface
-  and shadow; the zoom wrapper and annotation tracks are transparent. Workspace wrappers do not
-  add further sheet padding. Space below the scene keeps the floating zoom control clear of the
-  last staff at the end of scrolling.
+- The sheet has one backdrop gutter: 24px above the paper, 20px at its sides, and 64px below
+  the scene to keep the floating zoom control clear of the last staff. The notation column
+  alone owns the paper surface and shadow, with 64px of inner padding around the metadata
+  and notation. This padding stays within the existing notation track and scales with score
+  zoom. The zoom wrapper and annotation tracks are transparent; workspace wrappers do not
+  add further sheet padding.
 - Playback auto-centering and its manual-scroll pause behavior remain intact.
 - Existing transpose, playback cursor, repeat selection, and first-click hit-area behavior must not regress.
 
