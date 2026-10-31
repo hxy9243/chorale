@@ -27,6 +27,84 @@ K:C
       onSelectAnchor={(next) => { setAnchor(next); onSelect(next); }} onPreviewMeasure={onPreview} />;
   }
 
+  it('shares onset columns across voices, including subdivisions and sustained notes', () => {
+    const source = formattedAbc.replace('C D E F |', '!fermata!C/ D/ E F G |');
+    const onAbcChange = vi.fn();
+    const { container } = render(<AbcEditor abcCode={source} onAbcChange={onAbcChange} />);
+    const columns = (voice: string) => Array.from(container.querySelectorAll<HTMLElement>(
+      `[data-cell-text="${voice}:1"] .abc-source-beat-display`,
+    ));
+    expect(columns('upper').map((column) => Number(column.dataset.onset)))
+      .toEqual([0, 0.125, 0.25, 0.5, 0.75]);
+    expect(columns('lower').map((column) => Number(column.dataset.onset)))
+      .toEqual([0, 0.125, 0.25, 0.5, 0.75]);
+    expect(columns('upper').map((column) => column.textContent?.trim()))
+      .toEqual(['!fermata!C/', 'D/', 'E', 'F', 'G']);
+    expect(columns('lower').map((column) => column.textContent?.trim()))
+      .toEqual(['C,4', '', '', '', '']);
+    expect(container.querySelector('[data-cell-text="lower:1"] .abc-source-barline')?.textContent).toBe('|');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 1' }));
+    expect((screen.getByRole('textbox', { name: /^Edit/ }) as HTMLInputElement).value).toBe(' !fermata!C/ D/ E F G |');
+    expect(container.querySelector('[data-cell-text="upper:1"] .abc-source-beats')?.getAttribute('aria-hidden')).toBe('true');
+    expect(onAbcChange).not.toHaveBeenCalled();
+  });
+
+  it('aligns actual onsets in short voices, tuplets, pickups, and changed meters', () => {
+    const source = `X:1
+M:4/4
+L:1/8
+V:upper
+V:lower
+K:C
+[V:upper] C D | (3CDE F2 G2 A2 | [M:3/4] C D E F G A |
+[V:lower] C,2 | C,2 D,2 | [M:3/4] C,2 D,2 E,2 |
+`;
+    const { container } = render(<AbcEditor abcCode={source} onAbcChange={vi.fn()} />);
+    const values = (voice: string, measure: number) => Array.from(container.querySelectorAll<HTMLElement>(
+      `[data-cell-text="${voice}:${measure}"] .abc-source-beat-display`,
+    ));
+    // The short lower voice still puts D on beat 2, without stretching its timing.
+    const secondBeat = values('lower', 1).find((column) => column.textContent?.trim() === 'D,2');
+    expect(Number(secondBeat?.dataset.onset)).toBe(0.25);
+    expect(values('upper', 1).slice(0, 3).map((column) => Number(column.dataset.onset)))
+      .toEqual([0, 1 / 12, 1 / 6]);
+    expect(values('upper', 0).map((column) => Number(column.dataset.onset))).toEqual([0, 0.125]);
+    expect(values('lower', 0).map((column) => Number(column.dataset.onset))).toEqual([0, 0.125]);
+    expect(values('upper', 2).map((column) => Number(column.dataset.onset)))
+      .toEqual([0, 0.125, 0.25, 0.375, 0.5, 0.625]);
+    expect(values('lower', 2).map((column) => column.textContent?.trim()))
+      .toEqual(['[M:3/4] C,2', '', 'D,2', '', 'E,2', '']);
+  });
+
+  it('separates closing boundaries from timed notes without changing source or inventing bars', () => {
+    const source = `X:1
+M:4/4
+L:1/4
+V:upper
+V:lower
+K:C
+[V:upper] C/ D/ E F G   |   A4 |] B4
+[V:lower] C,4|  C,2   D,2  || E,4
+`;
+    const onAbcChange = vi.fn();
+    const { container } = render(<AbcEditor abcCode={source} onAbcChange={onAbcChange} />);
+    const bar = (voice: string, measure: number) => container.querySelector(
+      `[data-cell-text="${voice}:${measure}"] .abc-source-barline`,
+    )?.textContent;
+    expect([bar('upper', 1), bar('lower', 1)]).toEqual(['|', '|']);
+    expect([bar('upper', 2), bar('lower', 2)]).toEqual(['|]', '||']);
+    expect([bar('upper', 3), bar('lower', 3)]).toEqual(['', '']);
+    expect(container.querySelector('[data-cell-text="upper:2"] .abc-source-beat-display')?.textContent).toBe('A4');
+    expect(container.querySelector('[data-cell-text="lower:2"] .abc-source-beat-display')?.textContent).toBe('C,2');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit upper, measure 2' }));
+    const input = screen.getByRole('textbox', { name: /^Edit/ }) as HTMLInputElement;
+    expect(input.value).toBe('   A4 |]');
+    fireEvent.keyDown(input, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw Source' }));
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe(source);
+    expect(onAbcChange).not.toHaveBeenCalled();
+  });
+
   it('opens Measure Source and focuses the requested voice without collapsing the range', async () => {
     const anchor = { startMeasure: 1, endMeasure: 2, voiceId: 'lower' };
     const props = { abcCode: formattedAbc, documentId: 'score', revision: 1, activeAnchor: anchor,

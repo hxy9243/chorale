@@ -25,6 +25,22 @@ K:C
 `;
 
 describe('ABC presentation feasibility contract', () => {
+  it.each(['|', '||', '|]', ':|', ':|2', '|:'])(
+    'identifies the parsed closing boundary %s separately from note source', (boundary) => {
+      const source = `X:1\nM:4/4\nL:1/4\nK:C\n|: "C|G"[CEG]4  ${boundary}\n`;
+      const cell = buildAbcPresentation(source).voices[0].cells[0];
+      expect(cell.closingBarRange).not.toBeNull();
+      expect(source.slice(cell.closingBarRange!.start, cell.closingBarRange!.end)).toBe(boundary);
+      expect(cell.text).toBe(`|: "C|G"[CEG]4  ${boundary}`);
+    },
+  );
+
+  it('keeps an opening repeat with the notes when there is no closing boundary', () => {
+    const cell = buildAbcPresentation('X:1\nM:4/4\nL:1/4\nK:C\n|: "C|G"C4\n').voices[0].cells[0];
+    expect(cell.closingBarRange).toBeNull();
+    expect(cell.text).toBe('|: "C|G"C4');
+  });
+
   it('projects literal headers and aligned written measures for every voice', () => {
     const presentation = buildAbcPresentation(multiVoiceAbc);
 

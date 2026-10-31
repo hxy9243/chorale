@@ -38,6 +38,7 @@ export type AbcMeasureCell = Readonly<{
   text: string;
   duration: number;
   events: readonly AbcMeasureEvent[];
+  closingBarRange: AbcTextRange | null;
   editable: boolean;
 }>;
 
@@ -93,6 +94,7 @@ type MutableCell = {
   maxEnd: number;
   ranges: AbcTextRange[];
   events: Array<{ range: AbcTextRange; start: number; duration: number }>;
+  lastBarRange?: AbcTextRange;
   isMultimeasure?: boolean;
 };
 
@@ -248,6 +250,7 @@ export const buildAbcPresentation = (abc: string): AbcPresentation => {
       cell.ranges.push(range);
       cell.minStart = Math.min(cell.minStart, range.start);
       cell.maxEnd = Math.max(cell.maxEnd, range.end);
+      if (element.el_type === 'bar') cell.lastBarRange = range;
       if (element.rest?.type === 'multimeasure' || element.rest?.type === 'invisible-multimeasure') {
         if (Number(element.rest.text) > 1) cell.isMultimeasure = true;
       }
@@ -282,6 +285,10 @@ export const buildAbcPresentation = (abc: string): AbcPresentation => {
         text,
         duration: Math.max(0, ...events.map((event) => event.start + event.duration)),
         events,
+        closingBarRange: cell.lastBarRange
+          && cell.lastBarRange.end === range.end
+          && cell.lastBarRange.start >= (events.at(-1)?.range.end ?? range.start)
+          ? cell.lastBarRange : null,
         editable: Boolean(text.trim()) && sameLine(abc, range) && !text.includes('%') && !cell.isMultimeasure && !/^[ZX]\d+[\s|]*$/.test(text.trim()),
       };
     });

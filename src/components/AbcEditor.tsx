@@ -74,36 +74,27 @@ const escapeSelector = (value: string) =>
     ? globalThis.CSS.escape(value)
     : value.replace(/[^a-zA-Z0-9_-]/g, "\\$&");
 
-const meterBeatCount = (meter: string | undefined) => {
-  if (meter === "C") return 4;
-  if (meter === "C|") return 2;
-  const numerator = Number(meter?.match(/^(\d+)\s*\//)?.[1]);
-  return Number.isInteger(numerator) && numerator > 0
-    ? Math.min(numerator, 16)
-    : 4;
-};
-
-const splitCellSourceByBeat = (
-  cell: AbcMeasureCell,
-  beatCount: number,
-): string[] => {
-  const duration = Math.max(cell.duration, Number.EPSILON);
-  const boundaries = [0];
-  for (let beat = 1; beat < beatCount; beat += 1) {
-    const threshold = (duration * beat) / beatCount;
-    const nextEvent = cell.events.find(
-      (event) => event.start >= threshold - Number.EPSILON,
-    );
-    boundaries.push(
-      nextEvent ? nextEvent.range.start - cell.range.start : cell.text.length,
-    );
-  }
-  boundaries.push(cell.text.length);
-  return boundaries
-    .slice(0, -1)
-    .map((start, index) =>
-      cell.text.slice(start, Math.max(start, boundaries[index + 1])),
-    );
+const alignMeasureSources = (cells: readonly AbcMeasureCell[]) => {
+  // Use parsed timing, including tuplets, rather than stretching each voice to
+  // the header meter. Near-equal floating point representations share a column.
+  const sameOnset = (left: number, right: number) => Math.abs(left - right) < 1e-9;
+  const onsets = [0, ...cells.flatMap((cell) => cell.events.map((event) => event.start))]
+    .sort((left, right) => left - right)
+    .filter((start, index, starts) => index === 0 || !sameOnset(start, starts[index - 1]));
+  const sources = new Map(cells.map((cell) => {
+    const columns = onsets.map(() => "");
+    const bodyEnd = cell.closingBarRange?.start ?? cell.range.end;
+    if (!cell.events.length) columns[0] = cell.text.slice(0, bodyEnd - cell.range.start);
+    cell.events.forEach((event, index) => {
+      const column = onsets.findIndex((start) => sameOnset(start, event.start));
+      const start = index === 0 ? 0 : event.range.start - cell.range.start;
+      const end = cell.events[index + 1]?.range.start ?? bodyEnd;
+      // Keep source fragments intact; the closing boundary has its own column.
+      columns[column] += cell.text.slice(start, end - cell.range.start);
+    });
+    return [cell.id, columns] as const;
+  }));
+  return { onsets, sources };
 };
 
 const fractionFromText = (value: string | undefined, fallback: [number, number]) => {
@@ -349,9 +340,6 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
     }
     return Array.from(measureNumbers).sort((a, b) => a - b);
   }, [presentation]);
-  const beatCount = meterBeatCount(
-    presentation?.headers.find(({ tag }) => tag === "M")?.value,
-  );
   const playingMeasure =
     presentation && playbackSourceRanges
       ? resolvePlaybackMeasure(
@@ -958,9 +946,10 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
     cell: AbcMeasureCell,
     colorIndex: number,
     voiceLabel: string,
+    onsets: readonly number[],
+    sourceColumns: readonly string[],
   ) => {
     const editing = draft?.cellId === cell.id;
-    const beatValues = splitCellSourceByBeat(cell, beatCount);
     const ghostText = editing
       ? `${draft.value.length >= cell.text.length ? draft.value : cell.text} `
       : "";
@@ -1002,7 +991,23 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
             }
           }}
         >
-          {editing ? (
+          <div className="abc-source-beats" aria-hidden={editing || undefined}>
+            {sourceColumns.map((value, index) => (
+              <span
+                key={onsets[index]}
+                className="abc-source-beat-display"
+                data-onset={onsets[index]}
+              >
+                {value.trim()}
+              </span>
+            ))}
+            <span className="abc-source-barline">
+              {cell.closingBarRange
+                ? cell.text.slice(cell.closingBarRange.start - cell.range.start).trim()
+                : ""}
+            </span>
+          </div>
+          {editing && (
             <div className="abc-measure-edit-wrapper" role="combobox" aria-label="ABC suggestions"
               aria-expanded={Boolean(completion && completion.cellId === cell.id)}
               aria-haspopup="listbox" aria-controls={completion ? completionId : undefined}>
@@ -1079,18 +1084,6 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
                   }
                 }}
               />
-            </div>
-          ) : (
-            <div className="abc-source-beats">
-              {beatValues.map((value, beatIndex) => (
-                <span
-                  key={beatIndex}
-                  className="abc-source-beat-display"
-                  data-beat={beatIndex + 1}
-                >
-                  {value}
-                </span>
-              ))}
             </div>
           )}
         </div>
@@ -1362,6 +1355,7 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
                       measure >= activeAnchor.startMeasure &&
                       measure <= activeAnchor.endMeasure,
                     );
+                    const { onsets, sources } = alignMeasureSources(measureCells.map(({ cell }) => cell));
                   return (
                     <section
                         className={`abc-timeline-measure${focusedMeasure === measure ? " is-edit-focused" : ""}${selected ? " is-selected" : ""}${playingMeasure === measure ? " is-playing" : ""}`}
@@ -1380,12 +1374,15 @@ export const AbcEditor: React.FC<AbcEditorProps> = ({
                       >
                         Measure {measure}
                       </button>
-                      <div className="abc-timeline-voice-stack">
+                      <div className="abc-timeline-voice-stack"
+                        style={{ gridTemplateColumns: `4.5rem repeat(${onsets.length}, max-content) minmax(max-content, 1fr)` }}>
                           {measureCells.map(({ cell, voice }) =>
                             renderTimelineCell(
                               cell,
                               voice.colorIndex,
                               voice.label,
+                              onsets,
+                              sources.get(cell.id)!,
                             ),
                           )}
                       </div>

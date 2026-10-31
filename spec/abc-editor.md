@@ -3,7 +3,7 @@ title: "ABC Editor Spec"
 description: "Specification for the ABC code editor pane, split view, draggable divider, and score/playback synchronization"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-10-23
+updated: 2026-10-31
 status: "implemented"
 source_files:
   - src/components/AbcEditor.tsx
@@ -90,6 +90,19 @@ The pane provides three views over one canonical ABC string:
   the matching source measure into view. Playback automatically scrolls the active playing measure
   into view along the horizontal timeline. Vertical wheel movement traverses the horizontal source,
   and a persistent bottom navigator scrubs the same timeline.
+
+  All voices in a measure share source columns derived from their parsed event onsets,
+  including subdivisions and tuplets. Sustained notes leave the later onset columns
+  empty; columns grow together to fit the longest source fragment in any voice.
+  Alignment uses actual timing rather than dividing each voice's duration by the
+  header meter, so pickups, short voices, and meter changes retain their positions.
+  Closing barlines occupy a separate shared column at the right edge of each
+  measure, including repeat, double, final, and numbered-ending boundaries.
+  Opening repeats stay before the notes; no closing barline is invented for an
+  unterminated measure. Display fragments omit surrounding source whitespace so
+  incidental spaces do not shift simultaneous events or the barline alignment.
+  This spacing is a display projection: source bytes and editing inputs retain the
+  original ABC. Opening an input keeps the aligned display's width reserved.
 
 - **Formatted** is a text-focused, voice-colored projection. It preserves literal header
   fields, adds dim human-readable field labels, and lays each voice's measures out using
