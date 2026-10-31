@@ -22,8 +22,13 @@ source_files:
   - server/utils/measure-ops.mjs
   - server/utils/music-xml.mjs
   - src/hooks/usePluginMcpBridge.ts
+  - skills/chorale-score/SKILL.md
+  - skills/chorale-score/references/basic-usage.md
+  - skills/chorale-score/references/voice-leading-and-general-analysis.md
 test_files:
   - test/mcp-server.node.mjs
+  - test/mcp-regressions.node.mjs
+  - test/codex-package.node.mjs
   - test/music21.node.mjs
   - test/cli-runtime.node.mjs
   - test/measure-ops.node.mjs
@@ -154,6 +159,29 @@ server/
 - `edit_notations`: Edits existing annotations by ID.
 - `delete_notations`: Deletes annotations by ID.
 - `list_notations`: Lists annotations on a score or measure span.
+
+#### Passage and annotation integrity
+
+Implicit selection ranges are used only when the view belongs to the resolved
+document and its revision matches the stored score. A stale selection returns
+`REVISION_CONFLICT`; an explicit range reads the current stored revision.
+`read_measure` slices authoritative stored ABC, never the view's cached excerpt.
+The same selection resolution applies to both analysis tools, and an explicit
+voice or end measure overrides the selection's corresponding value.
+
+Saved annotation spans start at measure 1, matching the renderer's persisted
+annotation contract. Pickup reads and analysis still support measure 0; pickup
+commentary can be explicitly saved beside measure 1. Chord additions and edits
+accept `position: { measure, offset: { numerator, denominator } }`, with offsets
+in whole-note units. Moving a chord span without an explicit position translates
+its onset measure by the same amount, retaining the beat offset. Invalid spans,
+blank chord symbols or labels, and positions outside the span fail atomically.
+
+MusicXML import rejects malformed XML before conversion, runs with a server-side
+DOM parser, and consumes the converter's `result` text. Plain XML, compressed MXL and explicit format hints work without
+browser globals; the temporary synchronous converter adapter restores any prior
+global descriptor even on failure. A stdio adapter registers proxied tools
+without opening or initializing a separate document database.
 
 ### 3.3 Workspace Tools
 - `open_ui`: Launches the browser to `http://127.0.0.1:1685/?file=<documentId>`, preferring agent harness webviews.

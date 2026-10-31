@@ -42,7 +42,7 @@ For detailed rules, standards, and musical examples, consult the topic-specific 
 2. If `open_ui` has not been called in this agent session, call it once with `{ documentId: score.documentId }`. Otherwise, reuse the existing connected view.
 3. Inspect measures using `read_measure`.
 4. For harmonic analysis, call `analyze_harmony` on the same bounded range. Treat its chordification and written-key context as fallible candidates, not final answers.
-5. Formulate harmonic, motivic, and voice-leading analysis using the [Chord Progression Analysis Guide](references/chord-progression-analysis.md), [Voice Leading & General Analysis Guide](references/voice-leading-and-general-analysis.md), and [Counterpoint & Forms Guide](references/counterpoint-and-forms.md). Call `add_notation` with `{ startMeasure, endMeasure, label, body, kind, chordSymbol, romanNumeral }`.
+5. Formulate harmonic, motivic, and voice-leading analysis using the [Chord Progression Analysis Guide](references/chord-progression-analysis.md), [Voice Leading & General Analysis Guide](references/voice-leading-and-general-analysis.md), and [Counterpoint & Forms Guide](references/counterpoint-and-forms.md). Call `add_notation` with `{ startMeasure, endMeasure, label, body, kind, chordSymbol, romanNumeral, position }`. Chord `position` uses `{ measure, offset: { numerator, denominator } }` in whole-note units; see [Basic MCP Usage](references/basic-usage.md) for pickup limits and exact onsets.
 6. Return a clear analytical summary grounded in exact measure numbers and voice parts.
 
 ---

@@ -42,6 +42,7 @@ Use `read_measure` to inspect score notation:
   }
   ```
 - **Active Canvas Selection**: If `documentId`, `startMeasure`, and `endMeasure` are omitted and a browser view is connected, `read_measure` automatically returns the measures currently selected by the user on the sheet canvas.
+- Selection ranges apply only to their own document at the stored revision. Stale selections return `REVISION_CONFLICT`; refresh the selection or provide an explicit range. Returned ABC always comes from the stored score.
 - **Specific Voice**: Pass `voiceId: "Soprano"` or `voiceId: "1"` to isolate a single vocal or instrumental line.
 
 ### C. Reading Annotations
@@ -132,9 +133,20 @@ Annotations enrich the score with harmonic, motivic, and structural insights dis
 
 ### Supported Annotation Kinds
 - `chord`: Harmonic identification with `chordSymbol` (e.g. `G7`, `C#dim`) and `romanNumeral` (e.g. `V7`, `vii°6`).
-- `analysis`: General music theory explanation, non-chord tone analysis, or motivic observation.
+- `explanation`: General music theory explanation, phrase/form observations, non-chord tone analysis, or motivic observation.
 - `voice-leading`: Discussion of melodic motion, suspensions, voice crossings, or cadence preparation.
-- `form`: Phrase markings (antecedent, consequent, sentence, episode, coda, cadence type).
+- `modulation`: Key changes and tonicization observations.
+
+Saved spans start at measure 1. Measure 0 remains available for pickup inspection
+and analysis; describe a pickup beside measure 1 only when the note explicitly
+identifies it as a pickup. For chords, supply `position` to preserve the exact
+onset: `{ "measure": 4, "offset": { "numerator": 1, "denominator": 4 } }`
+means one quarter note into measure 4. Offsets use whole-note units, so divide a
+music21 quarter-length offset by four before converting it to a rational value.
+Omitted chord positions default to the start of the span. `edit_notations`
+accepts the same position; moving a span without one translates the onset measure
+and preserves its offset. Positions outside the span and blank labels or chord
+symbols are rejected without changing the score revision.
 
 ### Example: Adding Roman Numeral Analysis
 ```json
@@ -148,13 +160,14 @@ Annotations enrich the score with harmonic, motivic, and structural insights dis
       "kind": "chord",
       "chordSymbol": "D7",
       "romanNumeral": "V7",
+      "position": { "measure": 4, "offset": { "numerator": 0, "denominator": 1 } },
       "label": "Dominant Seventh",
       "body": "Root position dominant seventh resolving to tonic G in m. 5 (PAC)."
     },
     {
       "startMeasure": 1,
       "endMeasure": 4,
-      "kind": "form",
+      "kind": "explanation",
       "label": "Antecedent Phrase",
       "body": "Four-measure opening phrase ending on half cadence in m. 4."
     }

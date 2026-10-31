@@ -158,7 +158,7 @@ When returning analytical insights or adding annotations via the Chorale MCP ser
     {
       "startMeasure": 1,
       "endMeasure": 8,
-      "kind": "form",
+      "kind": "explanation",
       "label": "Parallel Period",
       "body": "Antecedent phrase (mm. 1-4) concludes on HC in m. 4; Consequent phrase (mm. 5-8) repeats opening motive and achieves PAC in m. 8."
     }

@@ -16,7 +16,10 @@ export const createMcpServer = (
   port = 1685,
   handlersOverride = null,
 ) => {
-  store.setViews(views);
+  // A stdio adapter registers the same schemas but delegates all operations.
+  // It must not initialize a second database merely to advertise the tools.
+  if (!store && !handlersOverride) throw new Error('A store or daemon tool proxy is required.');
+  store?.setViews(views);
   const server = new McpServer({ name: 'Chorale', version: CHORALE_VERSION });
 
   // Workspace UI Resource

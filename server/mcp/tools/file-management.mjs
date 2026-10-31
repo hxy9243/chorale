@@ -58,14 +58,17 @@ export const createFileManagementTools = (store) => {
 
         if (filePath) {
           const lower = filePath.toLowerCase();
-          if (lower.endsWith('.xml') || lower.endsWith('.musicxml') || lower.endsWith('.mxl') || format === 'musicxml') {
+          if (format === 'musicxml' || format === 'mxl' || (format === 'auto' && /\.(xml|musicxml|mxl)$/.test(lower))) {
             abcSource = await musicXmlToAbc(filePath);
           } else {
             const { readFile } = await import('node:fs/promises');
             abcSource = await readFile(filePath, 'utf8');
           }
         } else if (content) {
-          if (format === 'musicxml' || content.trim().startsWith('<') || content.includes('score-partwise')) {
+          if (format === 'mxl') {
+            throw new Error('Compressed MusicXML requires filePath; use musicxml for uncompressed XML text.');
+          }
+          if (format === 'musicxml' || (format === 'auto' && content.trim().startsWith('<'))) {
             abcSource = await musicXmlToAbc(content);
           } else {
             abcSource = content;

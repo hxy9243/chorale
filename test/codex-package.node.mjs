@@ -65,6 +65,11 @@ test('fresh Codex package uses the browser service and current library', async (
     assert.ok(names.includes('list_files'));
     assert.ok(names.includes('analyze_harmony'));
     assert.ok(!names.includes('create_score'));
+    const importedXml = await client.callTool({ name: 'import_file', arguments: {
+      format: 'musicxml', content: '<score-partwise version="3.1"><part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list><part id="P1"><measure number="1"><attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes><note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><type>whole</type></note></measure></part></score-partwise>',
+    } });
+    assert.ok(!importedXml.isError, JSON.stringify(importedXml));
+    assert.equal(importedXml.structuredContent.measureCount, 1, 'Bundled Node XML conversion must work through stdio');
     const created = await client.callTool({ name: 'create_new_file', arguments: {
       title: 'Package check', abcSource: 'X:1\nT:Package check\nM:2/4\nL:1/8\nK:A\nAc ec | A4 |]',
     } });

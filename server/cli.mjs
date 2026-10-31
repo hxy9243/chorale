@@ -342,9 +342,8 @@ export const runCli = async (options = {}) => {
 
   if (command === 'mcp' || args.includes('--stdio')) {
     await ensure({ ...options, port, entrypoint });
-    const store = new LocalDocumentStore();
     const views = new ViewSnapshotStore();
-    const { server } = createMcpServer(store, views, port, (handlers) => proxyDaemonTools(handlers, port));
+    const { server } = createMcpServer(null, views, port, (handlers) => proxyDaemonTools(handlers, port));
     await server.connect(new StdioServerTransport());
     return;
   }

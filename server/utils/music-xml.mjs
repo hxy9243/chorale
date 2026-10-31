@@ -1,5 +1,7 @@
 import { convertMusicXmlToAbc } from '@educandu/abc-tools';
 import JSZip from 'jszip';
+import { DOMParser } from 'linkedom/worker';
+import { SaxesParser } from 'saxes';
 import { readFile } from 'node:fs/promises';
 
 /**
@@ -9,7 +11,7 @@ import { readFile } from 'node:fs/promises';
 export const extractMusicXmlString = async (input) => {
   let buffer;
   if (typeof input === 'string') {
-    if (input.trim().startsWith('<') || input.includes('score-partwise') || input.includes('score-timewise')) {
+    if (input.trim().startsWith('<')) {
       return input;
     }
     // Path on disk
@@ -26,9 +28,10 @@ export const extractMusicXmlString = async (input) => {
     const container = zip.file('META-INF/container.xml');
     if (container) {
       const containerText = await container.async('text');
-      const rootMatch = containerText.match(/full-path="([^"]+)"/);
-      if (rootMatch && zip.file(rootMatch[1])) {
-        return await zip.file(rootMatch[1]).async('text');
+      const rootPath = new DOMParser().parseFromString(containerText, 'text/xml')
+        .getElementsByTagName('rootfile')[0]?.getAttribute('full-path');
+      if (rootPath && zip.file(rootPath)) {
+        return await zip.file(rootPath).async('text');
       }
     }
 
@@ -42,7 +45,7 @@ export const extractMusicXmlString = async (input) => {
     // Not a zip file, parse as utf-8 string
   }
 
-  return Buffer.isBuffer(buffer) ? buffer.toString('utf8') : String(input);
+  return Buffer.from(buffer).toString('utf8');
 };
 
 /**
@@ -50,6 +53,25 @@ export const extractMusicXmlString = async (input) => {
  */
 export const musicXmlToAbc = async (input) => {
   const xmlContent = await extractMusicXmlString(input);
-  const abcResult = convertMusicXmlToAbc(xmlContent);
-  return typeof abcResult === 'string' ? abcResult : (abcResult?.abc || String(abcResult));
+  // LinkeDOM supplies query selectors for the converter but recovers malformed
+  // XML. Reject truncated or mismatched input before that recovery can hide it.
+  new SaxesParser({ xmlns: true }).write(xmlContent).close();
+  const root = new DOMParser().parseFromString(xmlContent, 'text/xml').documentElement;
+  if (!['score-partwise', 'score-timewise'].includes(root?.localName)) {
+    throw new Error('Expected a MusicXML score document.');
+  }
+  // abc-tools' public converter expects window.DOMParser. Keep its browser
+  // adapter strictly synchronous and restore the host's globals even on error.
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  try {
+    Object.defineProperty(globalThis, 'window', { value: { DOMParser }, configurable: true });
+    const converted = convertMusicXmlToAbc(xmlContent);
+    if (typeof converted.result !== 'string' || !converted.result.trim()) {
+      throw new Error('MusicXML conversion did not produce ABC notation.');
+    }
+    return converted.result;
+  } finally {
+    if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow);
+    else delete globalThis.window;
+  }
 };
