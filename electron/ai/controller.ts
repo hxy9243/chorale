@@ -1,3 +1,4 @@
+import { ScoreAnalysisCoordinator } from './scoreAnalysis';
 import { randomUUID } from 'node:crypto';
 import type {
   AIConnectionPublic,
@@ -42,6 +43,7 @@ const sanitizeConnectionInput = (input: SaveAIConnectionInput): SaveAIConnection
 };
 
 export class AIController {
+  readonly analysis: ScoreAnalysisCoordinator;
   private readonly activeRuns = new Map<string, SheetAgentRun>();
   private readonly oauthFlows = new Map<string, OAuthFlow>();
 
@@ -57,6 +59,7 @@ export class AIController {
     openDirectory?: (directory: string) => Promise<string>,
   ) {
     this.store = store;
+    this.analysis = new ScoreAnalysisCoordinator(store);
     this.codexOAuth = codexOAuth;
     this.traceStore = traceStore;
     this.openDirectory = openDirectory;
@@ -106,6 +109,7 @@ export class AIController {
 
   async deleteConnection(id: string) {
     this.assertConnectionId(id);
+    this.analysis.stopAll();
     await this.store.deleteConnection(id);
   }
 
@@ -128,6 +132,17 @@ export class AIController {
       await this.store.markStatus(id, 'invalid');
       throw error;
     }
+  }
+
+  getAnalysisSelection() { return this.store.getAnalysisSelection(); }
+
+  async setAnalysisSelection(selection: AISelection | null) {
+    if (selection) {
+      this.assertConnectionId(selection.connectionId);
+      if (!selection.modelId || selection.modelId.length > 300) throw new Error('Select a valid analysis model.');
+    }
+    await this.store.setAnalysisSelection(selection);
+    this.analysis.stopAll();
   }
 
   getSelection() {
@@ -155,6 +170,7 @@ export class AIController {
 
   async logoutConnection(id: string) {
     this.assertConnectionId(id);
+    this.analysis.stopAll();
     await this.store.deleteConnection(id);
   }
 
@@ -263,6 +279,7 @@ export class AIController {
   }
 
   abortAll() {
+    this.analysis.stopAll();
     for (const run of this.activeRuns.values()) run.abort();
     for (const flow of this.oauthFlows.values()) flow.controller.abort();
     this.activeRuns.clear();

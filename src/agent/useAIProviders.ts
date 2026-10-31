@@ -19,6 +19,8 @@ export type AIProviderState = {
   loading: boolean;
   connections: AIConnectionPublic[];
   selection: AISelection | null;
+  analysisSelection?: AISelection | null;
+  setAnalysisSelection?(selection: AISelection | null): Promise<void>;
   modelsByConnection: Record<string, AIModelOption[]>;
   oauth: OAuthState | null;
   error: string | null;
@@ -43,6 +45,7 @@ export const useAIProviders = (): AIProviderState => {
   const [loading, setLoading] = useState(Boolean(bridge));
   const [connections, setConnections] = useState<AIConnectionPublic[]>([]);
   const [selection, setSelectionState] = useState<AISelection | null>(null);
+  const [analysisSelection, setAnalysisSelectionState] = useState<AISelection | null>(null);
   const [modelsByConnection, setModelsByConnection] = useState<Record<string, AIModelOption[]>>({});
   const [oauth, setOAuth] = useState<OAuthState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,15 +60,17 @@ export const useAIProviders = (): AIProviderState => {
     if (!bridge) return;
     setLoading(true);
     try {
-      const [nextConnections, nextSelection] = await Promise.all([
+      const [nextConnections, nextSelection, nextAnalysisSelection] = await Promise.all([
         bridge.listConnections(),
         bridge.getSelection(),
+        bridge.getAnalysisSelection?.() ?? null,
       ]);
       const modelEntries = await Promise.all(nextConnections.map(async (connection) => (
         [connection.id, await bridge.getCachedModels(connection.id)] as const
       )));
       setConnections(nextConnections);
       setSelectionState(nextSelection);
+      setAnalysisSelectionState(nextAnalysisSelection);
       setModelsByConnection(Object.fromEntries(modelEntries));
       setError(null);
     } catch (caught) {
@@ -119,6 +124,12 @@ export const useAIProviders = (): AIProviderState => {
     setSelectionState(nextSelection);
   }, [bridge]);
 
+  const setAnalysisSelection = useCallback(async (nextSelection: AISelection | null) => {
+    if (!bridge?.setAnalysisSelection) throw new Error('Sheet analysis requires an updated Chorale desktop app.');
+    await bridge.setAnalysisSelection(nextSelection);
+    setAnalysisSelectionState(nextSelection);
+  }, [bridge]);
+
   const openTraceDirectory = useCallback(async () => {
     if (!bridge) throw new Error('Agent traces require the Chorale desktop app.');
     await bridge.openTraceDirectory();
@@ -145,6 +156,8 @@ export const useAIProviders = (): AIProviderState => {
     loading,
     connections,
     selection,
+    analysisSelection,
+    setAnalysisSelection,
     modelsByConnection,
     oauth,
     error,
@@ -161,6 +174,8 @@ export const useAIProviders = (): AIProviderState => {
     loading,
     connections,
     selection,
+    analysisSelection,
+    setAnalysisSelection,
     modelsByConnection,
     oauth,
     error,

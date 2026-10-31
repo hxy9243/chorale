@@ -3,13 +3,14 @@ title: "Workspace Layout Spec"
 description: "Specification for the top-level desktop workspace structure, header, file rail, central score workspace, and chat panel"
 category: "core-workspace"
 date: 2026-07-28
-updated: 2026-10-26
+updated: 2026-10-28
 status: "implemented"
 source_files:
   - src/App.tsx
   - src/main.tsx
   - src/components/Header.tsx
   - src/components/FileRail.tsx
+  - src/components/AnalysisPanel.tsx
   - src/components/DeleteFileConfirmModal.tsx
   - src/components/AgentChatPanel.tsx
   - src/components/ScoreMetadataHeader.tsx
@@ -32,6 +33,7 @@ source_files:
 test_files:
   - src/App.test.tsx
   - src/components/__tests__/FileRail.test.tsx
+  - src/components/__tests__/AnalysisPanel.test.tsx
   - src/components/__tests__/Header.test.tsx
   - src/components/__tests__/ScoreMetadataHeader.test.tsx
   - src/components/__tests__/EditingHistoryModal.test.tsx
@@ -91,7 +93,7 @@ The Electron window and renderer document title are exactly `Chorale`. Save and 
 
 ## 3. Left work rail
 
-The left rail uses a persistent narrow vertical selection bar (`3.5rem` / `56px`) rendered in deep warm charcoal (`#292824`) with warm parchment icons (`#b8b2a6`, active `#f5f2eb` on `#3a3832` with a terracotta accent indicator) that remains visible at all times and spans the entire page height to switch between **Files**, **Tools**, and desktop **Chat** panels. Each selection is one icon with a tooltip and accessible name. Clicking the currently active panel icon collapses the secondary content panel stack; clicking an icon while collapsed expands the rail with that panel active.
+The left rail uses a persistent narrow vertical selection bar (`3.5rem` / `56px`) rendered in deep warm charcoal (`#292824`) with warm parchment icons (`#b8b2a6`, active `#f5f2eb` on `#3a3832` with a terracotta accent indicator) that remains visible at all times and spans the entire page height to switch between **Files**, **Analysis**, and desktop **Chat** panels. Each selection is one icon with a tooltip and accessible name. Clicking the currently active panel icon collapses the secondary content panel stack; clicking an icon while collapsed expands the rail with that panel active.
 
 A dedicated **toggle expansion** icon sits at the very top of the selection bar (typical sidebar-toggle glyph: `PanelLeftClose` when expanded, `PanelLeft` when collapsed). Clicking it collapses the rail or re-expands it restoring the **last focused panel tab**. The last focused panel persists across refreshes as `chorale.workspace.fileRailActivePanel`.
 
@@ -104,7 +106,8 @@ Required content:
   import accepts `.xml`, `.musicxml`, `.mxl`, and `.abc`, while New Score opens the fixed two-staff
   piano-score builder. The panel also contains the active and available file list with format badge
   (MXL, ABC, MusicXML) and state indicator (`original`, `edited`)
-- **Tools**: an `Editing history` button to open the score history timeline modal; future score tools join this panel rather than the score header
+- **Analysis**: automatic sheet analysis lenses, the default analysis model notice, and refresh controls; see `spec/automatic-score-analysis.md`. A legacy saved `tools` panel selection opens Analysis.
+- **History**: a separate rail action opens the existing score history timeline modal.
 - **Settings**: its action icon anchors to the bottom of the selection bar and opens application settings directly
 - icon-only panel selections expose hover titles and accessible names
 - dedicated top-anchored toggle expansion icon (`PanelLeftClose` / `PanelLeft`) that collapses the rail and re-expands it to the last focused panel; last focused panel persists as `chorale.workspace.fileRailActivePanel`
@@ -157,7 +160,7 @@ The score and editor panes present clean physical paper depth above the desk sur
 
 ## 5. Chat in the left work rail
 
-Desktop Chat is the third tab in the left work rail, alongside Files and Tools. Only the selected panel is visible. Chat uses the shared sidebar width and right-edge resize handle; there is no right rail, independent chat width, or chat overlay. There is no fixed maximum width on the shared rail. Its maximum follows the logical viewport width after reserving the central workspace minimum (560px), any side-by-side ABC editor minimum (320px), and any side-by-side Waterfall minimum (140px), plus dividers. Vertically stacked panes share the same width reservation; split stacks reserve their two 240px grid-column minimums. Chat retains a 336px rail minimum so the transcript has at least 280px beside the 56px icon bar. If the viewport cannot fit all minimums, the rail keeps its usable minimum and the existing pane scrolling handles the constrained center.
+Desktop Chat is the third tab in the left work rail, alongside Files and Analysis. Only the selected panel is visible. Chat uses the shared sidebar width and right-edge resize handle; there is no right rail, independent chat width, or chat overlay. There is no fixed maximum width on the shared rail. Its maximum follows the logical viewport width after reserving the central workspace minimum (560px), any side-by-side ABC editor minimum (320px), and any side-by-side Waterfall minimum (140px), plus dividers. Vertically stacked panes share the same width reservation; split stacks reserve their two 240px grid-column minimums. Chat retains a 336px rail minimum so the transcript has at least 280px beside the 56px icon bar. If the viewport cannot fit all minimums, the rail keeps its usable minimum and the existing pane scrolling handles the constrained center.
 
 The shared collapse control and clicking the active Chat tab collapse the left panel. Reopening restores Chat. The assistant close button also collapses the shared rail and exits any score preview. Dragging starts from the displayed width, including after viewport or interface scale changes. A wider saved preference survives reload and temporarily smaller windows, then fits the available space as panes open, close, or rearrange. The active panel and collapsed state persist using `chorale.workspace.fileRailActivePanel` and `chorale.workspace.fileRailCollapsed`; the retired `chatOpen` and `chatWidth` preferences no longer affect the layout. Files remains the default panel. When desktop chat is unavailable, a saved Chat selection falls back to Files and the Chat tab is omitted.
 

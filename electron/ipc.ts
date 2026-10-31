@@ -1,3 +1,4 @@
+import { validateAnalysisPreferences } from '../src/analysis/types';
 import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 import type { AIEvent } from '../src/agent/aiTypes';
 import type { AIController } from './ai/controller';
@@ -6,6 +7,7 @@ import {
   assertShortId,
   isAllowedRendererUrl,
   validateChatRequest,
+  validateMusicContext,
   validateSaveInput,
   validateSelection,
   validateSteerRequest,
@@ -57,6 +59,19 @@ export const registerAIIPC = (
   handle(AI_IPC.getCachedModels, 1, (_event, id: unknown) => (
     controller.getCachedModels(assertShortId(id, 'connection ID'))
   ));
+  handle(AI_IPC.getAnalysisSelection, 0, () => controller.getAnalysisSelection());
+  handle(AI_IPC.setAnalysisSelection, 1, (_event, selection: unknown) => controller.setAnalysisSelection(validateSelection(selection)));
+  handle(AI_IPC.getAnalysis, 1, (_event, id: unknown) => controller.analysis.get(assertShortId(id, 'document ID')));
+  handle(AI_IPC.observeAnalysis, 1, (_event, context: unknown) => controller.analysis.observe(validateMusicContext(context)));
+  handle(AI_IPC.setAnalysisPreferences, 2, (_event, id: unknown, preferences: unknown) => controller.analysis.preferences(assertShortId(id, 'document ID'), validateAnalysisPreferences(preferences)));
+  handle(AI_IPC.requestAnalysis, 1, (_event, value: unknown) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid analysis request.');
+    const request = value as Record<string, unknown>;
+    if (request.force !== undefined && typeof request.force !== 'boolean') throw new Error('Invalid analysis request.');
+    return controller.analysis.request({ context: validateMusicContext(request.context), force: request.force });
+  });
+  handle(AI_IPC.stopAnalysis, 1, (_event, id: unknown) => controller.analysis.stop(assertShortId(id, 'document ID')));
+  handle(AI_IPC.removeAnalysis, 1, (_event, id: unknown) => controller.analysis.remove(assertShortId(id, 'document ID')));
   handle(AI_IPC.getSelection, 0, () => controller.getSelection());
   handle(AI_IPC.setSelection, 1, (_event, selection: unknown) => (
     controller.setSelection(validateSelection(selection))

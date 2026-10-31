@@ -87,8 +87,8 @@ try {
   await chatInput.fill('Keep this draft while navigating');
   await page.getByRole('tab', { name: 'Files', exact: true }).click();
   await page.getByRole('button', { name: 'Import score', exact: true }).waitFor();
-  await page.getByRole('tab', { name: 'Tools', exact: true }).click();
-  await page.getByRole('button', { name: 'Open file editing history popup', exact: true }).waitFor();
+  await page.getByRole('tab', { name: 'Analysis', exact: true }).click();
+  await page.getByRole('button', { name: 'History', exact: true }).waitFor();
   await page.getByRole('tab', { name: 'Chat', exact: true }).click();
   assert.equal(await chatInput.inputValue(), 'Keep this draft while navigating', 'Switching tabs preserves the draft');
   await chatInput.fill('');

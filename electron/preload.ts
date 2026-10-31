@@ -48,6 +48,14 @@ const bridge: ChoraleAIBridge = {
   getCachedModels: (connectionId: string) => (
     ipcRenderer.invoke(AI_IPC.getCachedModels, connectionId)
   ),
+  getAnalysisSelection: () => ipcRenderer.invoke(AI_IPC.getAnalysisSelection),
+  setAnalysisSelection: selection => ipcRenderer.invoke(AI_IPC.setAnalysisSelection, selection),
+  getAnalysis: documentId => ipcRenderer.invoke(AI_IPC.getAnalysis, documentId),
+  observeAnalysis: context => ipcRenderer.invoke(AI_IPC.observeAnalysis, context),
+  setAnalysisPreferences: (documentId, preferences) => ipcRenderer.invoke(AI_IPC.setAnalysisPreferences, documentId, preferences),
+  requestAnalysis: request => ipcRenderer.invoke(AI_IPC.requestAnalysis, request),
+  stopAnalysis: documentId => ipcRenderer.invoke(AI_IPC.stopAnalysis, documentId),
+  removeAnalysis: documentId => ipcRenderer.invoke(AI_IPC.removeAnalysis, documentId),
   getSelection: () => ipcRenderer.invoke(AI_IPC.getSelection),
   setSelection: (selection: AISelection | null) => (
     ipcRenderer.invoke(AI_IPC.setSelection, selection)

@@ -37,6 +37,7 @@ test_files:
   - src/music/__tests__/annotationLayout.test.ts
   - src/music/__tests__/documentSchema.test.ts
 related_specs:
+  - spec/automatic-score-analysis.md
   - spec/deterministic-analysis-core.md
   - spec/design.md
   - spec/workspace-layout.md
@@ -510,7 +511,7 @@ Model accuracy evaluation remains a next-phase project and is not a release gate
 - Graphical note-to-note voice-leading arrows.
 - Chord inversion and figured bass.
 - Disconnected measure selections.
-- Whole-score automatic analysis.
+- Whole-score automatic analysis is owned by [Automatic score analysis](automatic-score-analysis.md), with a separate read-only runner and explicit default model. It does not extend the passage chat agent with mutation permissions.
 - Custom user-authored agents or prompts.
 - Collaboration, annotation import/export, or cross-file analysis.
 - Model certification or a fixed accuracy threshold.

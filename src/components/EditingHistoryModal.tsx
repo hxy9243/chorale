@@ -93,7 +93,7 @@ export const EditingHistoryModal: React.FC<EditingHistoryModalProps> = ({
             </div>
             <div>
               <h2 id="history-modal-title" className="history-modal-heading">
-                Editing History
+                History
               </h2>
               <p id="history-modal-subtitle" className="history-modal-subheading">
                 {scoreTitle || 'Untitled score'} · {history.length} {history.length === 1 ? 'step' : 'steps'} from origin

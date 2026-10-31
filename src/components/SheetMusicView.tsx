@@ -1,3 +1,6 @@
+import type { AnalysisDisplay, AnalysisFinding } from '../analysis/types';
+import { parseMeterBeatGrid } from '../music/meterPosition';
+import { keepAnalysisFinding } from '../analysis/scoreAnalysis';
 import React, { useEffect, useRef, useState } from 'react';
 import type abcjs from 'abcjs';
 import { StaffInstruments, type StaffSoundTarget } from './StaffInstruments';
@@ -36,7 +39,7 @@ import {
 } from '../utils/scoreSceneSizing';
 import { AnnotationRail } from './AnnotationRail';
 import type { MeasureSystemsSnapshot } from '../music/abcPresentation';
-import { getScoreMeasureMappingAbc, type ScoreMeasureMapping } from '../music/scoreSnapshot';
+import { extractScore, getScoreMeasureMappingAbc, type ScoreMeasureMapping } from '../music/scoreSnapshot';
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const AUTO_SCROLL_DURATION_MS = 200;
@@ -518,6 +521,7 @@ interface SheetMusicViewProps {
   activeStaffSoundKey?: string;
   abcCode: string;
   annotations?: readonly Annotation[];
+  automaticAnalysis?: { findings: AnalysisFinding[]; modelName: string; providerName: string; display?: AnalysisDisplay };
   activeAnchor?: ScoreAnchor | null;
   navigationAnchor?: ScoreAnchor | null;
   editorFocusMeasure?: number | null;
@@ -547,6 +551,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   activeStaffSoundKey,
   abcCode,
   annotations = [],
+  automaticAnalysis,
   activeAnchor = null,
   navigationAnchor = null,
   editorFocusMeasure = null,
@@ -568,6 +573,17 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   onUpdateAnnotation,
   onDeleteAnnotation,
 }) => {
+  const automaticById = React.useMemo(() => new Map(automaticAnalysis?.findings.map(f => [f.annotation.id, f]) ?? []), [automaticAnalysis?.findings]);
+  const automaticIds = React.useMemo(() => new Set(automaticById.keys()), [automaticById]);
+  const allAnnotations = React.useMemo(() => [...annotations, ...[...automaticById.values()].map(f => f.annotation)], [annotations, automaticById]);
+  const [inspectedAnalysisId, setInspectedAnalysisId] = useState<string | null>(null);
+  const inspectedAnalysis = inspectedAnalysisId ? automaticById.get(inspectedAnalysisId) : undefined;
+  const analysisMeters = React.useMemo(() => {
+    if (!inspectedAnalysis) return new Map<number, string>();
+    try { return new Map(extractScore(abcCode).measures.map(m => [m.measureNumber, m.activeMeter])); }
+    catch { return new Map<number, string>(); }
+  }, [abcCode, inspectedAnalysis]);
+  const inspectAnalysis = (annotation: Annotation) => { setInspectedAnalysisId(annotation.id); onSelectAnchor?.(annotation.span); };
   const measureMapping = React.useMemo(() => getScoreMeasureMappingAbc(abcCode), [abcCode]);
   const firstMeasureNumber = measureMapping.firstMeasureNumber;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -605,7 +621,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
       ? parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16
       : 16
   ));
-  const hasAnnotationRail = annotations.some(({ kind }) => kind !== 'chord')
+  const hasAnnotationRail = allAnnotations.some(({ kind }) => kind !== 'chord')
     || annotationEditor?.mode === 'manual';
   const sceneTracks = !hasAnnotationRail
     ? { balanceWidth: 0, annotationWidth: 0 }
@@ -1351,6 +1367,20 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         </div>
       )}
 
+      {inspectedAnalysis && <section className="automatic-analysis-detail" aria-label="Automatic analysis detail">
+        <strong>{inspectedAnalysis.annotation.label}</strong><p>{inspectedAnalysis.annotation.body}</p>
+        <small>{automaticAnalysis?.providerName} · {automaticAnalysis?.modelName} · Suggested analysis</small>
+        <p>Evidence: {inspectedAnalysis.evidence.map(e => {
+          const grid = parseMeterBeatGrid(analysisMeters.get(e.measure) || meter);
+          const beat = 1 + e.offset.numerator * grid.beatDuration.denominator / (e.offset.denominator * grid.beatDuration.numerator);
+          return `m. ${e.measure}, ${e.voiceId}, beat ${Number.isInteger(beat) ? beat : `≈${Number(beat.toFixed(3))}`}`;
+        }).join('; ')}</p>
+        <footer><button type="button" onClick={() => setInspectedAnalysisId(null)}>Close</button>
+          {onCreateAnnotation && <button type="button" onClick={() => {
+            onCreateAnnotation(keepAnalysisFinding(inspectedAnalysis, automaticAnalysis!.providerName, automaticAnalysis!.modelName));
+            setInspectedAnalysisId(null);
+          }}>{inspectedAnalysis.annotation.span.startMeasure === 0 ? 'Keep pickup note at m. 1' : 'Keep as annotation'}</button>}</footer>
+      </section>}
       <div ref={sheetViewportRef} className="sheet-viewport">
         <div className="sheet-scene-positioner">
           <div
@@ -1421,7 +1451,9 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                   {!renderError && <AnnotationOverlay
                     paperRef={containerRef}
                     abcCode={abcCode}
-                    annotations={annotations}
+                    annotations={allAnnotations}
+                    automaticIds={automaticIds}
+                    automaticDisplay={automaticAnalysis?.display}
                     tune={renderedTuneRef.current}
                     renderGeneration={renderGeneration}
                     activeAnnotationId={
@@ -1430,6 +1462,7 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                     inlineChordEditor={editedAnnotation?.kind === 'chord' ? annotationEditorNode : null}
                     onRangeGeometry={handleAnnotationRailGeometry}
                     onActivate={(annotation) => {
+                      if (automaticById.has(annotation.id)) { inspectAnalysis(annotation); return; }
                       onSelectAnchor?.(resolvePlaybackAnchor(annotation.span));
                       setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
                     }}
@@ -1438,13 +1471,15 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                 </div>
                 <div className="annotation-rail-viewport" hidden={!hasAnnotationRail}>
                   <AnnotationRail
-                    annotations={annotations}
+                    annotations={allAnnotations}
                     editing={annotationEditor}
                     editor={editedAnnotation?.kind === 'chord' ? null : annotationEditorNode}
                     anchorYByAnnotationId={annotationRailGeometry.anchorYByAnnotationId}
                     scoreHeight={annotationRailGeometry.scoreHeight}
                     onSelect={selectRangeAnnotation}
+                    automaticIds={automaticIds}
                     onEdit={(annotation) => {
+                      if (automaticById.has(annotation.id)) { inspectAnalysis(annotation); return; }
                       onSelectAnchor?.(resolvePlaybackAnchor(annotation.span));
                       const hitArea = containerRef.current?.querySelector<SVGElement>(
                         `.abcjs-measure-hit-area[data-measure="${annotation.span.startMeasure}"]`,

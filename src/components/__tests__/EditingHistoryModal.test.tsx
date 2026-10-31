@@ -77,7 +77,7 @@ describe('EditingHistoryModal', () => {
       />
     );
 
-    expect(screen.getByRole('dialog', { name: 'Editing History' })).toBeDefined();
+    expect(screen.getByRole('dialog', { name: 'History' })).toBeDefined();
     expect(screen.getByText(/Test Score · 4 steps from origin/)).toBeDefined();
 
     // Check categories

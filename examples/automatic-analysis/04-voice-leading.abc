@@ -1,0 +1,16 @@
+X:3
+T:Auto-analysis Example 4 - SATB voice-leading diagnostic
+C:GPT-6 Astra High
+S:Chorale automatic-analysis diagnostic control-06, 2026-10-28
+N:AI-authored diagnostic fixture; may contain intentional voice-leading issues.
+M:4/4
+L:1/4
+V:S clef=treble
+V:A clef=treble
+V:T clef=bass
+V:B clef=bass
+K:C
+[V:S] c2 B2 | A2 G2 | d2 B2 | c4 |]
+[V:A] G2 A2 | B2 A2 | c2 G2 | G4 |]
+[V:T] E2 F2 | D2 E2 | F2 D2 | E4 |]
+[V:B] C,2 F,2 | G,2 C,2 | F,2 G,2 | C,4 |]

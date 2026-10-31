@@ -124,7 +124,7 @@ describe('App Integration', () => {
     expect(screen.getByText('Import score')).toBeDefined();
     expect(screen.getAllByRole('button', { name: 'New Score' }).length).toBeGreaterThan(0);
     expect(screen.getByRole('tabpanel', { name: 'Files' })).toBeDefined();
-    expect(screen.getByRole('tab', { name: 'Tools' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Analysis' })).toBeDefined();
     expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
 
     await waitFor(() => {
@@ -1029,7 +1029,7 @@ describe('App Integration', () => {
 
     // The persistent rail tabs are still visible
     expect(screen.getByRole('tab', { name: 'Files' })).toBeDefined();
-    expect(screen.getByRole('tab', { name: 'Tools' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: 'Analysis' })).toBeDefined();
 
     // Clicking 'Files' tab again expands the left sidebar
     fireEvent.click(filesTab);
@@ -1063,22 +1063,22 @@ describe('App Integration', () => {
     const toggle = screen.getByRole('button', { name: 'Collapse sidebar' });
 
     // Focus the Tools panel, then collapse via the dedicated toggle icon.
-    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Analysis' }));
     fireEvent.click(toggle);
     expect(workspaceBody.classList.contains('rail-collapsed')).toBe(true);
-    expect(localStorage.getItem(FILE_RAIL_ACTIVE_PANEL_KEY)).toBe('tools');
+    expect(localStorage.getItem(FILE_RAIL_ACTIVE_PANEL_KEY)).toBe('analysis');
 
     // Re-expanding restores the last focused icon (Tools).
     fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
     expect(workspaceBody.classList.contains('rail-collapsed')).toBe(false);
-    expect(screen.getByRole('tabpanel', { name: 'Tools' }).hasAttribute('hidden')).toBe(false);
+    expect(screen.getByRole('tabpanel', { name: 'Analysis' }).hasAttribute('hidden')).toBe(false);
   });
 
   it('persists the last focused rail panel across page refreshes', async () => {
     localStorage.setItem(FILE_RAIL_ACTIVE_PANEL_KEY, 'tools');
     const { unmount } = render(<App />);
 
-    expect(screen.getByRole('tabpanel', { name: 'Tools' }).hasAttribute('hidden')).toBe(false);
+    expect(screen.getByRole('tabpanel', { name: 'Analysis' }).hasAttribute('hidden')).toBe(false);
 
     unmount();
     localStorage.setItem(FILE_RAIL_ACTIVE_PANEL_KEY, 'files');
@@ -1196,12 +1196,12 @@ describe('App Integration', () => {
     });
 
     // Open tools panel and editing history modal
-    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
-    const historyToolBtn = screen.getByRole('button', { name: 'Open file editing history popup' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Analysis' }));
+    const historyToolBtn = screen.getByRole('button', { name: 'History' });
     fireEvent.click(historyToolBtn);
 
     // History dialog should be visible
-    expect(screen.getByRole('dialog', { name: 'Editing History' })).toBeDefined();
+    expect(screen.getByRole('dialog', { name: 'History' })).toBeDefined();
     expect(screen.getAllByText('Origin').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Metadata · title')).toBeDefined();
 
@@ -1216,7 +1216,7 @@ describe('App Integration', () => {
 
     // Close history modal
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-    expect(screen.queryByRole('dialog', { name: 'Editing History' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'History' })).toBeNull();
   });
 
   it('persists historyIndex across reloads', async () => {

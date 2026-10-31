@@ -12,6 +12,7 @@ export type AnnotationRailEditor =
 
 interface AnnotationRailProps {
   annotations: readonly Annotation[];
+  automaticIds?: ReadonlySet<string>;
   editing: AnnotationRailEditor | null;
   editor: React.ReactNode;
   anchorYByAnnotationId?: Readonly<Record<string, number>>;
@@ -53,6 +54,7 @@ const measureLabel = ({ startMeasure, endMeasure }: RangeAnnotation['span']) => 
 
 export const AnnotationRail: React.FC<AnnotationRailProps> = ({
   annotations,
+  automaticIds,
   editing,
   editor,
   anchorYByAnnotationId = {},
@@ -190,7 +192,7 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({
                         <span className="annotation-card-label">{annotation.label}</span>
                       </span>
                       <span className="annotation-card-meta">
-                        <span>{KIND_LABEL[annotation.kind]}</span>
+                        <span>{automaticIds?.has(annotation.id) ? 'AI analysis' : KIND_LABEL[annotation.kind]}</span>
                         <span>{measureLabel(annotation.span)}</span>
                         {expanded && (
                           <span className="annotation-card-selected">
@@ -226,7 +228,7 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({
                       className="annotation-card-edit"
                       data-edit-annotation={annotation.id}
                       data-tooltip-dismissed={dismissedTooltipId === annotation.id ? 'true' : 'false'}
-                      aria-label="Edit annotation"
+                      aria-label={automaticIds?.has(annotation.id) ? 'Inspect analysis' : 'Edit annotation'}
                       onFocus={() => setDismissedTooltipId(null)}
                       onMouseLeave={() => setDismissedTooltipId(null)}
                       onKeyDown={(event) => {
@@ -235,7 +237,7 @@ export const AnnotationRail: React.FC<AnnotationRailProps> = ({
                       onClick={(event) => onEdit(annotation, event.currentTarget)}
                     >
                       <PenLine aria-hidden="true" />
-                      <span className="annotation-edit-tooltip" role="tooltip">Edit annotation</span>
+                      <span className="annotation-edit-tooltip" role="tooltip">{automaticIds?.has(annotation.id) ? 'Inspect analysis' : 'Edit annotation'}</span>
                     </button>
                   </div>
                 )}

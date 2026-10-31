@@ -11,7 +11,7 @@ import type { ScoreExportState } from '../../hooks/useScoreExport';
 export interface WorkspaceModalsProps {
   aiProviders?: AIProviderState;
   settingsOpen?: boolean;
-  settingsInitialTab?: 'integration';
+  settingsInitialTab?: 'integration' | 'providers';
   settingsRequestId?: number;
   onCloseSettings?: () => void;
   interfaceZoom?: number;
@@ -84,7 +84,7 @@ export const WorkspaceModals: React.FC<WorkspaceModalsProps> = ({
         interfaceZoom={interfaceZoom}
         onInterfaceZoomChange={onInterfaceZoomChange || (() => {})}
       /> : <SettingsModal
-        initialTab={settingsInitialTab}
+        initialTab={settingsInitialTab === 'providers' ? undefined : settingsInitialTab}
         settingsRequestId={settingsRequestId}
         open={settingsOpen}
         onClose={onCloseSettings || (() => {})}

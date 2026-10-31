@@ -40,6 +40,7 @@ type StoredConnection = {
 type StoredFile = {
   version: 1;
   selection: AISelection | null;
+  analysisSelection: AISelection | null;
   connections: StoredConnection[];
 };
 
@@ -51,6 +52,7 @@ type ConnectionRecord = StoredConnection & {
 const EMPTY_FILE: StoredFile = {
   version: 1,
   selection: null,
+  analysisSelection: null,
   connections: [],
 };
 
@@ -125,6 +127,7 @@ const parseStoredFile = (raw: string): StoredFile => {
   return {
     version: 1,
     selection: isSelection(parsed.selection) ? parsed.selection : null,
+    analysisSelection: isSelection(parsed.analysisSelection) ? parsed.analysisSelection : null,
     connections,
   };
 };
@@ -132,6 +135,7 @@ const parseStoredFile = (raw: string): StoredFile => {
 export class AIConnectionStore {
   private readonly records = new Map<string, ConnectionRecord>();
   private selection: AISelection | null = null;
+  private analysisSelection: AISelection | null = null;
   private writeChain: Promise<unknown> = Promise.resolve();
   private encryptionAvailable = false;
   private readonly dataDirectory: string;
@@ -164,6 +168,7 @@ export class AIConnectionStore {
     }
 
     this.selection = stored.selection;
+    this.analysisSelection = stored.analysisSelection;
     let needsRewrite = false;
     for (const connection of stored.connections) {
       let secret: ConnectionSecret | undefined;
@@ -200,6 +205,10 @@ export class AIConnectionStore {
       )
     ) {
       this.selection = null;
+      needsRewrite = true;
+    }
+    if (this.analysisSelection && !this.records.get(this.analysisSelection.connectionId)?.models.some(model => model.id === this.analysisSelection?.modelId)) {
+      this.analysisSelection = null;
       needsRewrite = true;
     }
     if (needsRewrite) await this.persist();
@@ -344,6 +353,23 @@ export class AIConnectionStore {
     });
   }
 
+  get analysisDirectory() { return this.dataDirectory; }
+
+  getAnalysisSelection(): AISelection | null { return this.analysisSelection ? { ...this.analysisSelection } : null; }
+
+  async setAnalysisSelection(selection: AISelection | null) {
+    return this.enqueue(async () => {
+      if (selection) {
+        const record = this.records.get(selection.connectionId);
+        if (!record || record.status !== 'ready' || !record.models.some(model => model.id === selection.modelId)) {
+          throw new Error('The analysis provider or model is unavailable.');
+        }
+      }
+      this.analysisSelection = selection ? { ...selection } : null;
+      await this.persist();
+    });
+  }
+
   getSelection(): AISelection | null {
     return this.selection ? { ...this.selection } : null;
   }
@@ -366,6 +392,7 @@ export class AIConnectionStore {
     return this.enqueue(async () => {
       this.records.delete(id);
       if (this.selection?.connectionId === id) this.selection = null;
+      if (this.analysisSelection?.connectionId === id) this.analysisSelection = null;
       await this.persist();
     });
   }
@@ -397,6 +424,7 @@ export class AIConnectionStore {
     const file: StoredFile = {
       version: 1,
       selection: this.selection,
+      analysisSelection: this.analysisSelection,
       connections,
     };
     const temporaryPath = `${this.filePath}.tmp`;

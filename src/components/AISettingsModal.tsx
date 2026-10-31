@@ -3,10 +3,11 @@ import { ExternalLink, FolderOpen, KeyRound, RefreshCw, Trash2, X } from 'lucide
 import type { AIConnectionPublic, AIProviderKind, SaveAIConnectionInput } from '../agent/aiTypes';
 import type { AIProviderState } from '../agent/useAIProviders';
 import { McpIntegrationSettings } from './McpIntegrationSettings';
+import { DefaultAnalysisModel } from './DefaultAnalysisModel';
 
 type AISettingsModalProps = {
   open: boolean;
-  initialTab?: 'integration';
+  initialTab?: 'integration' | 'providers';
   settingsRequestId?: number;
   onClose(): void;
   ai: AIProviderState;
@@ -255,6 +256,7 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({
               </div>
             ) : (
               <div className="ai-settings-layout">
+            <DefaultAnalysisModel ai={ai} />
             <section className="ai-connections" aria-labelledby="connections-title">
               <div className="ai-section-heading">
                 <h3 id="connections-title">Connections</h3>
@@ -305,6 +307,7 @@ export const AISettingsModal: React.FC<AISettingsModalProps> = ({
               <label>
                 Provider
                 <select
+                  aria-label="Provider"
                   value={kind}
                   disabled={Boolean(editing)}
                   onChange={(event) => resetForm(event.target.value as AIProviderKind)}

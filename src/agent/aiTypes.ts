@@ -1,3 +1,4 @@
+import type { AnalysisPreferences, AnalysisRequest, AnalysisState } from '../analysis/types';
 import type { ChatMessage, MusicContextSnapshot, RoundUsage } from './types';
 import type { AgentProfileId, AnnotationProposal, ScoreChangeProposal } from '../types/document';
 
@@ -147,6 +148,14 @@ export type ChoraleAIBridge = {
   deleteConnection(connectionId: string): Promise<void>;
   refreshModels(connectionId: string): Promise<AIModelOption[]>;
   getCachedModels(connectionId: string): Promise<AIModelOption[]>;
+  getAnalysisSelection?(): Promise<AISelection | null>;
+  setAnalysisSelection?(selection: AISelection | null): Promise<void>;
+  getAnalysis?(documentId: string): Promise<AnalysisState>;
+  observeAnalysis?(context: MusicContextSnapshot): Promise<AnalysisState>;
+  setAnalysisPreferences?(documentId: string, preferences: AnalysisPreferences): Promise<AnalysisState>;
+  requestAnalysis?(request: AnalysisRequest): Promise<AnalysisState>;
+  stopAnalysis?(documentId: string): Promise<void>;
+  removeAnalysis?(documentId: string): Promise<void>;
   getSelection(): Promise<AISelection | null>;
   setSelection(selection: AISelection | null): Promise<void>;
   openTraceDirectory(): Promise<void>;

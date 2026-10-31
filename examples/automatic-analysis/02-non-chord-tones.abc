@@ -1,0 +1,14 @@
+X:1
+T:Auto-analysis Example 2 - Neighbor and passing tones
+C:Codex-authored evaluation fixture (2026-10-28)
+S:Chorale automatic-analysis diagnostic control-03, 2026-10-28
+N:AI-authored diagnostic fixture; may contain intentional voice-leading issues.
+M:4/4
+L:1/4
+V:S clef=treble
+V:A clef=treble
+V:B clef=bass
+K:C
+[V:S] E D E G | A G A c | e d c B | c4 |]
+[V:A] C4 | F4 | E4 | E4 |]
+[V:B] C,4 | F,4 | C,4 | C,4 |]

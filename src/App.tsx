@@ -1,3 +1,5 @@
+import { AnalysisPanel } from './components/AnalysisPanel';
+import { useScoreAnalysis } from './analysis/useScoreAnalysis';
 import type abcjs from 'abcjs';
 import type { StaffSoundTarget } from './components/StaffInstruments';
 import { setStaffInstrument } from './music/staffInstruments';
@@ -235,7 +237,7 @@ export const App: React.FC = () => {
   };
 
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<'integration' | undefined>();
+  const [settingsInitialTab, setSettingsInitialTab] = useState<'integration' | 'providers' | undefined>();
   const [settingsRequestId, setSettingsRequestId] = useState(0);
   const [mcpSetupDeferred, setMcpSetupDeferred] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
@@ -253,6 +255,9 @@ export const App: React.FC = () => {
   const openSettings = useCallback(() => {
     setSettingsInitialTab(undefined);
     setSettingsOpen(true);
+  }, []);
+  const openAnalysisSettings = useCallback(() => {
+    setSettingsInitialTab('providers'); setSettingsRequestId(value => value + 1); setSettingsOpen(true);
   }, []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   useEffect(() => {
@@ -336,6 +341,8 @@ export const App: React.FC = () => {
   // A closed score pane must not leave the shared transport on a previous
   // revision. Reuse its prepared synthesis pipeline, without creating audio.
   const renderedSourceRef = useRef('');
+  const scoreAnalysis = useScoreAnalysis(activeDocument, buildStatus !== 'invalid' && canRenderScore, aiProviders.analysisSelection);
+
   const displayPlaybackSourceKey = JSON.stringify([activeDocument?.id, displayAbc]);
   const [renderedPlaybackSourceKey, setRenderedPlaybackSourceKey] = useState<string | null>(null);
   const [measurePreviewRequest, setMeasurePreviewRequest] = useState<MeasurePreviewRequest | null>(null);
@@ -542,6 +549,7 @@ export const App: React.FC = () => {
           onOpenSettings={openSettings}
           onOpenHistory={openHistoryModal}
           historyCount={editingHistory.length}
+          analysisPanel={<AnalysisPanel analysis={scoreAnalysis} ai={aiProviders} hasScore={Boolean(activeDocument)} onSettings={openAnalysisSettings} />}
           chatPanel={aiProviders.desktopAvailable ? (
             <AgentChatPanel
               // The rail hides the panel without unmounting its composer or cancelling a response.
@@ -718,6 +726,9 @@ export const App: React.FC = () => {
                           soundEditingDisabled={Boolean(scorePreview || draftSheetSource || displayAbc !== abcCode || !canRenderScore)}
                           abcCode={canRenderScore ? (draftSheetSource ?? displayAbc) : ''}
                           annotations={activeDocument?.annotations || []}
+                          automaticAnalysis={!scorePreview && !draftSheetSource && displayAbc === abcCode && scoreAnalysis.result ? {
+                            findings: scoreAnalysis.findings, modelName: scoreAnalysis.result.modelName, providerName: scoreAnalysis.result.providerName, display: scoreAnalysis.display,
+                          } : undefined}
                           activeAnchor={activeAnchor}
                           navigationAnchor={scoreNavigationAnchor}
                           editorFocusMeasure={editorVisible ? editorFocusMeasure : null}

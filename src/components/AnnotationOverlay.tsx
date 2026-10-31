@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import abcjs from 'abcjs';
 import type { Annotation } from '../types/document';
+import type { AnalysisDisplay } from '../analysis/types';
 import { extractScore, type MeasuredScoreEvent } from '../music/scoreSnapshot';
 import {
   projectAnnotations,
@@ -55,6 +56,8 @@ interface AnnotationOverlayProps {
   paperRef: React.RefObject<HTMLDivElement | null>;
   abcCode: string;
   annotations: readonly Annotation[];
+  automaticIds?: ReadonlySet<string>;
+  automaticDisplay?: AnalysisDisplay;
   tune: abcjs.TuneObject | null;
   renderGeneration: number;
   activeAnnotationId?: string | null;
@@ -378,14 +381,18 @@ const handleKeyboardActivation = (
 const PlacementNode: React.FC<{
   placement: AnnotationPlacement;
   active: boolean;
+  automatic?: boolean;
+  harmonicFunction?: string;
   chordBadge?: Readonly<{ width: number; lane: number; left: number; top: number }>;
   onActivate(initiator: SVGGElement): void;
-}> = ({ placement, active, chordBadge, onActivate }) => {
+}> = ({ placement, active, automatic, harmonicFunction, chordBadge, onActivate }) => {
   const common = {
     className: `annotation-overlay-node ${placement.track} ${active ? 'active' : 'inactive'}`,
     role: 'button',
     tabIndex: 0,
-    'aria-label': `Edit ${placement.label} annotation`,
+    'aria-label': automatic ? `Inspect ${placement.label} analysis` : `Edit ${placement.label} annotation`,
+    'data-analysis-automatic': automatic ? 'true' : undefined,
+    'data-harmonic-function': harmonicFunction,
     'data-annotation-id': placement.annotationId,
     'data-edit-annotation': placement.annotationId,
     ...(placement.lineId ? { 'data-staff-line': placement.lineId } : {}),
@@ -460,6 +467,8 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
   paperRef,
   abcCode,
   annotations,
+  automaticIds,
+  automaticDisplay,
   tune,
   renderGeneration,
   activeAnnotationId = null,
@@ -472,6 +481,10 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
   const frameRef = useRef<number | null>(null);
   const measurementRefs = useRef(new Map<string, SVGGElement>());
   const hasAnnotations = annotations.length > 0;
+  const displayAnnotations = useMemo(() => annotations.map(annotation => {
+    if (annotation.kind !== 'chord' || !automaticIds?.has(annotation.id) || !automaticDisplay || automaticDisplay.labels === 'both') return annotation;
+    return { ...annotation, chordSymbol: automaticDisplay.labels === 'roman' ? annotation.romanNumeral || annotation.chordSymbol : annotation.chordSymbol, romanNumeral: undefined };
+  }), [annotations, automaticIds, automaticDisplay]);
   const layout = useMemo<OverlayLayout>(() => {
     if (!scoreGeometry || !hasAnnotations) {
       return { systems: [], measures: [], events: [], placements: [], obstacles: [] };
@@ -479,13 +492,13 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
     return {
       ...scoreGeometry,
       placements: projectAnnotations({
-        annotations,
+        annotations: displayAnnotations,
         systems: scoreGeometry.systems,
         measures: scoreGeometry.measures,
         events: scoreGeometry.events,
       }),
     };
-  }, [annotations, hasAnnotations, scoreGeometry]);
+  }, [displayAnnotations, hasAnnotations, scoreGeometry]);
 
   useEffect(() => {
     const paper = paperRef.current;
@@ -727,6 +740,12 @@ export const AnnotationOverlay: React.FC<AnnotationOverlayProps> = ({
                 key={placement.id}
                 placement={placement}
                 active={placement.annotationId === activeAnnotationId}
+                automatic={automaticIds?.has(placement.annotationId)}
+                harmonicFunction={automaticIds?.has(placement.annotationId) && automaticDisplay?.functionColors && annotation.kind === 'chord'
+                  ? (() => { const numeral = annotation.romanNumeral || ''; const degree = numeral.match(/^[#b]*(vii|vi|iv|v|iii|ii|i)/i)?.[1].toLowerCase();
+                    if (degree === 'v' || degree === 'vii' || (degree === 'i' && /6.?4|⁶₄/.test(numeral))) return 'dominant';
+                    if (degree === 'ii' || degree === 'iv') return 'predominant';
+                    if (degree === 'i' || degree === 'vi') return 'tonic'; return undefined; })() : undefined}
                 chordBadge={packedChord && {
                   width: packedChord.width,
                   lane: packedChord.lane,

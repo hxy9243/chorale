@@ -16,7 +16,7 @@ export const FILE_RAIL_COLLAPSED_KEY = 'chorale.workspace.fileRailCollapsed';
 export const FILE_RAIL_ACTIVE_PANEL_KEY = 'chorale.workspace.fileRailActivePanel';
 export const SHEET_ZOOM_KEY = 'chorale.workspace.sheetZoom';
 
-export type RailPanelId = 'files' | 'tools' | 'chat';
+export type RailPanelId = 'files' | 'analysis' | 'chat';
 
 const DEFAULT_RAIL_PANEL: RailPanelId = 'files';
 
@@ -52,7 +52,8 @@ const readStoredBool = (key: string, fallback: boolean) => {
 const readStoredRailPanel = (key: string, chatAvailable = false): RailPanelId => {
   if (typeof window === 'undefined') return DEFAULT_RAIL_PANEL;
   const stored = window.localStorage.getItem(key);
-  if (stored === 'tools' || (stored === 'chat' && chatAvailable)) return stored;
+  if (stored === 'tools' || stored === 'analysis') return 'analysis';
+  if (stored === 'chat' && chatAvailable) return stored;
   return DEFAULT_RAIL_PANEL;
 };
 

@@ -1,0 +1,14 @@
+X:1
+T:Auto-analysis Example 3 - Prepared suspensions
+C:Codex-authored evaluation fixture (2026-10-28)
+S:Chorale automatic-analysis diagnostic control-04, 2026-10-28
+N:AI-authored diagnostic fixture; may contain intentional voice-leading issues.
+M:4/4
+L:1/4
+V:S clef=treble
+V:A clef=treble
+V:B clef=bass
+K:C
+[V:S] G4- | G F3 | c4- | c B3 |]
+[V:A] E4 | C4 | A4 | D4 |]
+[V:B] C,4 | F,4 | F,4 | G,4 |]

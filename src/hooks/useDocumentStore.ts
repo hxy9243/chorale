@@ -496,6 +496,7 @@ export const useDocumentStore = () => {
   }, [hydrationStatus, activeFileId, documents, loadSample]);
 
   const handleDeleteDocument = useCallback((fileId: string) => {
+    void window.choraleAI?.removeAnalysis?.(fileId).catch(() => {});
     setDocuments((prevDocs) => {
       const nextDocs = prevDocs.filter((doc) => doc.id !== fileId);
       if (activeFileId === fileId) {

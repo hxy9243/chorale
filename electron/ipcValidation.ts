@@ -186,7 +186,7 @@ const validateAnnotation = (value: unknown): Annotation => {
   return normalized;
 };
 
-const validateMusicContext = (
+export const validateMusicContext = (
   value: unknown,
   legacyDocumentId?: string,
 ): MusicContextSnapshot => {

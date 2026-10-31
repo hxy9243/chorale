@@ -35,7 +35,7 @@ import {
   ScanLine,
   Settings,
   Trash2,
-  Wrench,
+  ScanSearch,
   X,
 } from 'lucide-react';
 import type { FileDocument } from '../types/document';
@@ -44,7 +44,7 @@ import type { ScoreExportFormat } from '../hooks/useScoreExport';
 import { DeleteFileConfirmModal } from './DeleteFileConfirmModal';
 
 
-type RailPanel = 'files' | 'tools' | 'chat';
+type RailPanel = 'files' | 'analysis' | 'chat';
 type DropPlacement = 'before' | 'after';
 
 const fileOrdersMatch = (first: string[], second: string[]) => (
@@ -107,6 +107,7 @@ interface FileRailProps {
   onOpenHistory?: () => void;
   historyCount?: number;
   chatPanel?: React.ReactNode;
+  analysisPanel?: React.ReactNode;
 }
 
 interface FileItemTextProps {
@@ -432,6 +433,7 @@ export const FileRail: React.FC<FileRailProps> = ({
   onOpenHistory,
   historyCount = 0,
   chatPanel,
+  analysisPanel,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [internalActivePanel, setInternalActivePanel] = useState<RailPanel>('files');
@@ -651,16 +653,16 @@ export const FileRail: React.FC<FileRailProps> = ({
           </button>
           <button
             type="button"
-            className={`file-rail-tab ${!collapsed && activePanel === 'tools' ? 'active' : ''}`}
+            className={`file-rail-tab ${!collapsed && activePanel === 'analysis' ? 'active' : ''}`}
             role="tab"
-            aria-selected={!collapsed && activePanel === 'tools'}
-            aria-controls="tools-panel"
-            aria-label="Tools"
-            title="Tools"
-            onClick={() => handleTabClick('tools')}
+            aria-selected={!collapsed && activePanel === 'analysis'}
+            aria-controls="analysis-panel"
+            aria-label="Analysis"
+            title="Analysis"
+            onClick={() => handleTabClick('analysis')}
           >
-            <Wrench size={18} aria-hidden="true" />
-            <span className="file-rail-tab-label">Tools</span>
+            <ScanSearch size={18} aria-hidden="true" />
+            <span className="file-rail-tab-label">Analysis</span>
           </button>
           {chatPanel && (
             <button
@@ -679,6 +681,10 @@ export const FileRail: React.FC<FileRailProps> = ({
             </button>
           )}
         </div>
+        <button type="button" className="file-rail-tab" aria-label="History" title="History" onClick={onOpenHistory} disabled={!onOpenHistory}>
+          <History size={18} aria-hidden="true" /><span className="file-rail-tab-label">History</span>
+          {historyCount > 0 && <span className="sr-only">{historyCount} revisions</span>}
+        </button>
         <button
           type="button"
           className="file-rail-tab settings"
@@ -841,29 +847,15 @@ export const FileRail: React.FC<FileRailProps> = ({
 
         <section
           className="file-rail-section"
-          id="tools-panel"
+          id="analysis-panel"
           role="tabpanel"
-          aria-labelledby="tools-tab-title"
-          hidden={collapsed || activePanel !== 'tools'}
+          aria-labelledby="analysis-tab-title"
+          hidden={collapsed || activePanel !== 'analysis'}
         >
           <div className="rail-section-header">
-            <h2 className="rail-section-title" id="tools-tab-title">Tools</h2>
+            <h2 className="rail-section-title" id="analysis-tab-title">Analysis</h2>
           </div>
-          <button
-            type="button"
-            className="rail-tool-button history"
-            onClick={onOpenHistory}
-            title="Open file editing history popup"
-            aria-label="Open file editing history popup"
-          >
-            <History size={16} aria-hidden="true" />
-            <span>Editing history</span>
-            {historyCount > 0 && (
-              <span className="rail-tool-badge" aria-label={`${historyCount} history revisions`}>
-                {historyCount}
-              </span>
-            )}
-          </button>
+          {analysisPanel ?? <p className="analysis-status">Open a score to analyze.</p>}
         </section>
         {chatPanel && (
           <section

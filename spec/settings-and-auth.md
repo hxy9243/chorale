@@ -3,11 +3,12 @@ title: "Settings & Application Configuration Spec"
 description: "Specification for application settings modal presentation, interface scaling, and system info"
 category: "configuration"
 date: 2026-07-29
-updated: 2026-10-26
+updated: 2026-10-27
 status: "implemented"
 source_files:
   - src/components/SettingsModal.tsx
   - src/components/AISettingsModal.tsx
+  - src/components/DefaultAnalysisModel.tsx
   - src/agent/useAIProviders.ts
   - electron/ai/connectionStore.ts
   - electron/ai/electronCipher.ts
@@ -25,12 +26,13 @@ test_files:
 related_specs:
   - spec/design.md
   - spec/workspace-layout.md
+  - spec/automatic-score-analysis.md
 ---
 
 # Settings & Application Configuration Spec
 
 Date: 2026-07-29  
-Updated: 2026-10-26
+Updated: 2026-10-27
 Status: Browser settings and optional desktop provider settings implemented
 
 ## 1. Goal
@@ -62,3 +64,8 @@ Provide an accessible, streamlined Settings modal for application-level preferen
 - Displays the Chorale brand logo mark and product vision ("Music score workspace and agent skill").
 - Reports the application version (`__APP_VERSION__`).
 - Reports the runtime environment (Browser or Desktop).
+
+
+### Default sheet analysis model
+
+Desktop API providers includes an explicit provider/model selection for automatic sheet analysis, saved separately from the chat selection. Saving validates a ready connection and available model; it does not select an arbitrary first provider or change chat. Analysis shows the selected model and provider with a link back to this setting. Existing enabled lenses may resume when previously missing setup is completed. Removing the selected connection clears the analysis default. Credentials remain exclusively in the main process. See [Automatic score analysis](automatic-score-analysis.md).

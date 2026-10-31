@@ -79,20 +79,20 @@ describe('FileRail Component', () => {
     render(<FileRail {...defaultProps} onOpenSettings={onOpenSettings} />);
 
     const filesTab = screen.getByRole('tab', { name: 'Files' });
-    const toolsTab = screen.getByRole('tab', { name: 'Tools' });
+    const toolsTab = screen.getByRole('tab', { name: 'Analysis' });
     const settingsButton = screen.getByRole('button', { name: 'Settings' });
 
     expect(filesTab.textContent).toBe('Files');
-    expect(toolsTab.textContent).toBe('Tools');
+    expect(toolsTab.textContent).toBe('Analysis');
     expect(settingsButton.textContent).toBe('');
     expect(filesTab.getAttribute('title')).toBe('Files');
-    expect(toolsTab.getAttribute('title')).toBe('Tools');
+    expect(toolsTab.getAttribute('title')).toBe('Analysis');
     expect(settingsButton.getAttribute('title')).toBe('Settings');
     expect(screen.getByText('Import score')).toBeDefined();
     expect(screen.getByRole('tabpanel', { name: 'Files' })).toBeDefined();
 
     fireEvent.click(toolsTab);
-    expect(screen.getByRole('tabpanel', { name: 'Tools' })).toBeDefined();
+    expect(screen.getByRole('tabpanel', { name: 'Analysis' })).toBeDefined();
     expect(screen.queryByRole('button', { name: 'ABC display' })).toBeNull();
 
     fireEvent.click(settingsButton);
@@ -126,7 +126,7 @@ describe('FileRail Component', () => {
     fireEvent.click(chat);
     expect(screen.getByRole('tabpanel', { name: 'Chat' }).contains(draft)).toBe(true);
     expect(screen.queryByRole('tabpanel', { name: 'Files' })).toBeNull();
-    fireEvent.click(screen.getByRole('tab', { name: 'Tools' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Analysis' }));
     expect(screen.queryByRole('tabpanel', { name: 'Chat' })).toBeNull();
     expect(screen.getByLabelText('Chat draft')).toBe(draft);
     fireEvent.click(chat);
@@ -401,7 +401,7 @@ describe('FileRail Component', () => {
     render(<FileRail {...defaultProps} onToggleCollapse={onToggleCollapse} onBeginResize={vi.fn()} />);
 
     const filesTab = screen.getByRole('tab', { name: 'Files' });
-    const toolsTab = screen.getByRole('tab', { name: 'Tools' });
+    const toolsTab = screen.getByRole('tab', { name: 'Analysis' });
 
     expect(filesTab.getAttribute('aria-selected')).toBe('true');
     expect(filesTab.classList.contains('active')).toBe(true);
@@ -414,7 +414,7 @@ describe('FileRail Component', () => {
     // Switching to Tools tab should not toggle collapse if sidebar is open.
     fireEvent.click(toolsTab);
     expect(onToggleCollapse).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('tabpanel', { name: 'Tools' })).toBeDefined();
+    expect(screen.getByRole('tabpanel', { name: 'Analysis' })).toBeDefined();
 
     // Clicking active Tools tab should trigger toggle collapse.
     fireEvent.click(toolsTab);
@@ -433,7 +433,7 @@ describe('FileRail Component', () => {
     );
 
     const filesTab = screen.getByRole('tab', { name: 'Files' });
-    const toolsTab = screen.getByRole('tab', { name: 'Tools' });
+    const toolsTab = screen.getByRole('tab', { name: 'Analysis' });
     const settingsButton = screen.getByRole('button', { name: 'Settings' });
 
     // Tabs remain accessible in DOM
@@ -467,7 +467,7 @@ describe('FileRail Component', () => {
       <FileRail
         {...defaultProps}
         onToggleCollapse={onToggleCollapse}
-        activePanel="tools"
+        activePanel="analysis"
         onActivePanelChange={vi.fn()}
       />,
     );
@@ -488,7 +488,7 @@ describe('FileRail Component', () => {
         {...defaultProps}
         collapsed
         onToggleCollapse={onToggleCollapse}
-        activePanel="tools"
+        activePanel="analysis"
         onActivePanelChange={vi.fn()}
       />,
     );
@@ -503,7 +503,7 @@ describe('FileRail Component', () => {
         {...defaultProps}
         collapsed
         onToggleCollapse={onToggleCollapse}
-        activePanel="tools"
+        activePanel="analysis"
         onActivePanelChange={onActivePanelChange}
       />,
     );
@@ -516,11 +516,11 @@ describe('FileRail Component', () => {
       <FileRail
         {...defaultProps}
         onToggleCollapse={onToggleCollapse}
-        activePanel="tools"
+        activePanel="analysis"
         onActivePanelChange={onActivePanelChange}
       />
     );
-    expect(screen.getByRole('tabpanel', { name: 'Tools' })).toBeDefined();
+    expect(screen.getByRole('tabpanel', { name: 'Analysis' })).toBeDefined();
   });
 
   it('renders vertically stacked New Score and Import score actions with search bar below', () => {
