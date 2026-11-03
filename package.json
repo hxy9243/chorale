@@ -51,7 +51,7 @@
     "@fontsource/dm-mono": "^5.3.0",
     "@fontsource/dm-sans": "^5.3.0",
     "@fontsource/instrument-serif": "^5.3.0",
-    "@mediabunny/aac-encoder": "^1.62.1",
+    "@mediabunny/aac-encoder": "^1.63.0",
     "@modelcontextprotocol/sdk": "^1.32.2",
     "abc-utils": "git+https://github.com/hxy9243/abc-utils.git#83b897bd2569a687c0eca0f4680c28750b7d8379",
     "abcjs": "^6.7.1",
