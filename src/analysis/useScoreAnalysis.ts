@@ -107,7 +107,7 @@ export const useScoreAnalysis = (document: FileDocument | undefined, valid: bool
   }, [bridge, context]);
   const currentState = state?.documentId === documentId ? state : null;
   const result = key && currentState?.result?.fingerprint === key ? currentState.result : undefined;
-  const findings = useMemo(() => result?.findings.filter(f => preferences.lenses.includes(f.lens)).map(f => !result.reconciled && (currentState?.totalMeasures ?? 0) > 16 && (f.lens === 'modulation' || f.lens === 'cadences')
+  const findings = useMemo(() => result?.findings.filter(f => preferences.lenses.includes(f.lens)).map(f => !result.reconciled && (f.lens === 'modulation' || f.lens === 'cadences')
     ? { ...f, annotation: { ...f.annotation, body: `Provisional across analysis windows. ${f.annotation.body}` } } : f) ?? [], [result, preferences.lenses, currentState?.totalMeasures]);
   return { available, ready: Boolean(documentId && loaded === documentId), state: currentState, preferences, display, updateDisplay, error, valid: Boolean(key), fingerprint: key, result,
     findings, updatePreferences, refresh, stop };

@@ -260,6 +260,7 @@ export class AIController {
       this.store,
       emit,
       this.traceStore,
+      this.analysis.getAnnotationReferences(request.context),
     );
     this.activeRuns.set(requestId, run);
     void run.start().finally(() => this.activeRuns.delete(requestId));

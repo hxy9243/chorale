@@ -1,0 +1,2300 @@
+{
+  "documentId": "score-b7d4137942e0457e",
+  "preferences": {
+    "lenses": [
+      "cadences",
+      "chords",
+      "modulation"
+    ],
+    "autoRefresh": false
+  },
+  "fingerprint": "v2-5a1276b8-7de4142a-34440",
+  "totalMeasures": 13,
+  "completedMeasures": 13,
+  "status": "partial",
+  "result": {
+    "version": 1,
+    "fingerprint": "v2-5a1276b8-7de4142a-34440",
+    "selection": {
+      "connectionId": "67029bc4-6423-4c25-b629-0960622c2e28",
+      "modelId": "gpt-6.1-sol"
+    },
+    "modelName": "GPT-6.1 Sol",
+    "providerName": "OpenAI Codex 2",
+    "revision": 2,
+    "updatedAt": "2026-11-02T07:59:17.737Z",
+    "coverage": {
+      "cadences": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "chords": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "modulation": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    },
+    "findings": [
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-0",
+          "span": {
+            "startMeasure": 1,
+            "endMeasure": 1
+          },
+          "label": "Cm",
+          "body": "C–E-flat–G over C establishes C minor.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 1,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "chordSymbol": "Cm"
+        },
+        "evidence": [
+          {
+            "measure": 1,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-1",
+          "span": {
+            "startMeasure": 1,
+            "endMeasure": 1
+          },
+          "label": "Fm",
+          "body": "F bass supports A-flat–C–E-flat: Fm7.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 1,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "Fm7"
+        },
+        "evidence": [
+          {
+            "measure": 1,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-2",
+          "span": {
+            "startMeasure": 1,
+            "endMeasure": 1
+          },
+          "label": "G",
+          "body": "G bass and B-natural establish the dominant of C minor; E-flat ornaments the harmony.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 1,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            }
+          },
+          "chordSymbol": "G"
+        },
+        "evidence": [
+          {
+            "measure": 1,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-3",
+          "span": {
+            "startMeasure": 1,
+            "endMeasure": 1
+          },
+          "label": "G7",
+          "body": "D–F completes G–B–D–F.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 1,
+            "offset": {
+              "numerator": 11,
+              "denominator": 16
+            }
+          },
+          "chordSymbol": "G7"
+        },
+        "evidence": [
+          {
+            "measure": 1,
+            "offset": {
+              "numerator": 11,
+              "denominator": 16
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-4",
+          "span": {
+            "startMeasure": 1,
+            "endMeasure": 1
+          },
+          "label": "Cm",
+          "body": "C bass restores C–E-flat–G.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 1,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "Cm"
+        },
+        "evidence": [
+          {
+            "measure": 1,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-5",
+          "span": {
+            "startMeasure": 2,
+            "endMeasure": 2
+          },
+          "label": "A♭",
+          "body": "A-flat–C–E-flat forms a root-position major triad.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 2,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "chordSymbol": "Ab"
+        },
+        "evidence": [
+          {
+            "measure": 2,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-6",
+          "span": {
+            "startMeasure": 2,
+            "endMeasure": 2
+          },
+          "label": "D♭",
+          "body": "D-flat bass supports F and A-flat.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 2,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "Db"
+        },
+        "evidence": [
+          {
+            "measure": 2,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-7",
+          "span": {
+            "startMeasure": 2,
+            "endMeasure": 2
+          },
+          "label": "E♭7",
+          "body": "E-flat–G–D-flat defines Eb7; C is a sixth above the bass, followed by B-flat–D-flat.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 2,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            }
+          },
+          "chordSymbol": "Eb7"
+        },
+        "evidence": [
+          {
+            "measure": 2,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-8",
+          "span": {
+            "startMeasure": 2,
+            "endMeasure": 2
+          },
+          "label": "A♭",
+          "body": "A-flat–C–E-flat returns over A-flat bass.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 2,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "Ab"
+        },
+        "evidence": [
+          {
+            "measure": 2,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-9",
+          "span": {
+            "startMeasure": 3,
+            "endMeasure": 3
+          },
+          "label": "G7",
+          "body": "G bass with B-natural–D–F redirects toward C.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 3,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "chordSymbol": "G7"
+        },
+        "evidence": [
+          {
+            "measure": 3,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-10",
+          "span": {
+            "startMeasure": 3,
+            "endMeasure": 3
+          },
+          "label": "C7",
+          "body": "C–E-natural–G–B-flat makes C7, directed toward F minor.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 3,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "C7"
+        },
+        "evidence": [
+          {
+            "measure": 3,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-11",
+          "span": {
+            "startMeasure": 3,
+            "endMeasure": 3
+          },
+          "label": "Fm",
+          "body": "F–A-flat–C supports an upper G that moves to F.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 3,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            }
+          },
+          "chordSymbol": "Fm"
+        },
+        "evidence": [
+          {
+            "measure": 3,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-12",
+          "span": {
+            "startMeasure": 3,
+            "endMeasure": 3
+          },
+          "label": "Cm",
+          "body": "C–E-flat–G restores C minor.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 3,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "Cm"
+        },
+        "evidence": [
+          {
+            "measure": 3,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-13",
+          "span": {
+            "startMeasure": 4,
+            "endMeasure": 4
+          },
+          "label": "D7",
+          "body": "D–F-sharp–A-natural–C establishes the dominant of G.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 4,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "chordSymbol": "D7"
+        },
+        "evidence": [
+          {
+            "measure": 4,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-14",
+          "span": {
+            "startMeasure": 4,
+            "endMeasure": 4
+          },
+          "label": "G",
+          "body": "G–B-natural–D resolves D7.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 4,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "G"
+        },
+        "evidence": [
+          {
+            "measure": 4,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-15",
+          "span": {
+            "startMeasure": 4,
+            "endMeasure": 4
+          },
+          "label": "D7",
+          "body": "D–F-sharp–C supports B-natural moving to A-natural above the dominant.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 4,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            }
+          },
+          "chordSymbol": "D7"
+        },
+        "evidence": [
+          {
+            "measure": 4,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "voiceId": "2"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-16",
+          "span": {
+            "startMeasure": 4,
+            "endMeasure": 4
+          },
+          "label": "G",
+          "body": "G bass and G–B-natural–D complete another dominant–tonic motion in G.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 4,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "G"
+        },
+        "evidence": [
+          {
+            "measure": 4,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-17",
+          "span": {
+            "startMeasure": 5,
+            "endMeasure": 5
+          },
+          "label": "Cm",
+          "body": "E-flat–G over C returns to C minor.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 5,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "chordSymbol": "Cm"
+        },
+        "evidence": [
+          {
+            "measure": 5,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-18",
+          "span": {
+            "startMeasure": 5,
+            "endMeasure": 5
+          },
+          "label": "Fm7/C",
+          "body": "C bass with E-flat and A-flat suggests Fm7/C with F omitted.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 5,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "Fm7/C"
+        },
+        "evidence": [
+          {
+            "measure": 5,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-19",
+          "span": {
+            "startMeasure": 5,
+            "endMeasure": 5
+          },
+          "label": "Possible B°7",
+          "body": "B-natural–D–A-flat suggests Bdim7 without F. The brief F-sharp approaches the following G.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 5,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            }
+          },
+          "chordSymbol": "Bdim7(no5)"
+        },
+        "evidence": [
+          {
+            "measure": 5,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "voiceId": "2"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-20",
+          "span": {
+            "startMeasure": 5,
+            "endMeasure": 5
+          },
+          "label": "Gm/B♭",
+          "body": "B-flat bass supports G–D.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 5,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "Gm/Bb"
+        },
+        "evidence": [
+          {
+            "measure": 5,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-21",
+          "span": {
+            "startMeasure": 6,
+            "endMeasure": 6
+          },
+          "label": "Am7(no5)",
+          "body": "A-natural–C–G outlines Am7 without E.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 6,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "chordSymbol": "Am7(no5)"
+        },
+        "evidence": [
+          {
+            "measure": 6,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-22",
+          "span": {
+            "startMeasure": 6,
+            "endMeasure": 6
+          },
+          "label": "D7(♭5)/A♭",
+          "body": "A-flat bass joins D–F-sharp–C, forming an altered dominant of G.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 6,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "D7(b5)/Ab"
+        },
+        "evidence": [
+          {
+            "measure": 6,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-23",
+          "span": {
+            "startMeasure": 6,
+            "endMeasure": 6
+          },
+          "label": "G",
+          "body": "G–B-natural–D resolves the altered dominant; C–A-natural briefly ornaments this harmony.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 6,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            }
+          },
+          "chordSymbol": "G"
+        },
+        "evidence": [
+          {
+            "measure": 6,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-24",
+          "span": {
+            "startMeasure": 6,
+            "endMeasure": 6
+          },
+          "label": "G7/F",
+          "body": "F bass beneath G–B-natural–D creates third-inversion G7.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "chord",
+          "position": {
+            "measure": 6,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "G7/F"
+        },
+        "evidence": [
+          {
+            "measure": 6,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "cadences",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-25",
+          "span": {
+            "startMeasure": 1,
+            "endMeasure": 1
+          },
+          "label": "Local authentic motion in C minor",
+          "body": "G7 resolves to root-position Cm on beat 4, with E-flat in the uppermost part. This is a local imperfect-authentic gesture, not necessarily a phrase ending.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "explanation"
+        },
+        "evidence": [
+          {
+            "measure": 1,
+            "offset": {
+              "numerator": 11,
+              "denominator": 16
+            },
+            "voiceId": "1"
+          },
+          {
+            "measure": 1,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "cadences",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-26",
+          "span": {
+            "startMeasure": 2,
+            "endMeasure": 2
+          },
+          "label": "Local authentic motion in A♭",
+          "body": "Db–Eb7–Ab supplies IV–V7–I in A-flat. The final soprano C makes the arrival imperfect-authentic if heard cadentially.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "explanation"
+        },
+        "evidence": [
+          {
+            "measure": 2,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "voiceId": "3"
+          },
+          {
+            "measure": 2,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "cadences",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-27",
+          "span": {
+            "startMeasure": 4,
+            "endMeasure": 4
+          },
+          "label": "Possible authentic cadence in G",
+          "body": "The second D7–G motion ends with root-position G and soprano G. Together with the following piano marking, this supports a possible local phrase close in G.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "explanation"
+        },
+        "evidence": [
+          {
+            "measure": 4,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "voiceId": "2"
+          },
+          {
+            "measure": 4,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "modulation",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-28",
+          "span": {
+            "startMeasure": 1,
+            "endMeasure": 3
+          },
+          "label": "C minor with local tonicizations",
+          "body": "Cm–Fm–G7–Cm establishes C-minor emphasis despite the E-flat signature. Measure 2 briefly tonicizes A-flat through Eb7–Ab; measure 3's C7–Fm tonicizes F minor before returning to Cm. These short motions do not establish sustained new keys.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "modulation"
+        },
+        "evidence": [
+          {
+            "measure": 1,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "1"
+          },
+          {
+            "measure": 2,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "voiceId": "3"
+          },
+          {
+            "measure": 3,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "modulation",
+        "annotation": {
+          "id": "auto-6a136fb9-a459-4051-a28d-67c8aa38941c-0-29",
+          "span": {
+            "startMeasure": 4,
+            "endMeasure": 6
+          },
+          "label": "G tonicization; modulation unconfirmed",
+          "body": "Repeated D7–G motions and F-sharps strongly tonicize G. However, Cm returns at measure 5, and measure 6 ends with G7/F rather than a stable G tonic. A lasting modulation to G is therefore unconfirmed.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:56:56.851Z",
+          "updatedAt": "2026-11-02T07:56:56.851Z",
+          "kind": "modulation"
+        },
+        "evidence": [
+          {
+            "measure": 4,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "3"
+          },
+          {
+            "measure": 5,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "1"
+          },
+          {
+            "measure": 6,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-0",
+          "span": {
+            "startMeasure": 7,
+            "endMeasure": 7
+          },
+          "label": "Cm/E♭",
+          "body": "C–G over E-flat gives first-inversion C minor.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 7,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "chordSymbol": "Cm/Eb",
+          "romanNumeral": "i6"
+        },
+        "evidence": [
+          {
+            "measure": 7,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-1",
+          "span": {
+            "startMeasure": 7,
+            "endMeasure": 7
+          },
+          "label": "Fm",
+          "body": "F supports A-flat–C.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 7,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "Fm",
+          "romanNumeral": "iv"
+        },
+        "evidence": [
+          {
+            "measure": 7,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-2",
+          "span": {
+            "startMeasure": 7,
+            "endMeasure": 7
+          },
+          "label": "G/B",
+          "body": "B-natural supports G–D.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 7,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            }
+          },
+          "chordSymbol": "G/B",
+          "romanNumeral": "V6"
+        },
+        "evidence": [
+          {
+            "measure": 7,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-3",
+          "span": {
+            "startMeasure": 7,
+            "endMeasure": 7
+          },
+          "label": "G7/B",
+          "body": "F joins the sustained G–B–D dominant.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 7,
+            "offset": {
+              "numerator": 11,
+              "denominator": 16
+            }
+          },
+          "chordSymbol": "G7/B",
+          "romanNumeral": "V6/5"
+        },
+        "evidence": [
+          {
+            "measure": 7,
+            "offset": {
+              "numerator": 11,
+              "denominator": 16
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-4",
+          "span": {
+            "startMeasure": 7,
+            "endMeasure": 7
+          },
+          "label": "Cm",
+          "body": "C bass supports G–C–E-flat.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 7,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "Cm",
+          "romanNumeral": "i"
+        },
+        "evidence": [
+          {
+            "measure": 7,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-5",
+          "span": {
+            "startMeasure": 8,
+            "endMeasure": 8
+          },
+          "label": "A♭",
+          "body": "A-flat–C–E-flat forms VI in C minor.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 8,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "chordSymbol": "Ab",
+          "romanNumeral": "VI"
+        },
+        "evidence": [
+          {
+            "measure": 8,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "4"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-6",
+          "span": {
+            "startMeasure": 8,
+            "endMeasure": 8
+          },
+          "label": "D♭",
+          "body": "D-flat–F–A-flat is the root-position Neapolitan.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 8,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "Db",
+          "romanNumeral": "♭II"
+        },
+        "evidence": [
+          {
+            "measure": 8,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-7",
+          "span": {
+            "startMeasure": 8,
+            "endMeasure": 8
+          },
+          "label": "G7",
+          "body": "G–B-natural–F supplies the dominant seventh; melodic E-flat moves to D at 11/16.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 8,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            }
+          },
+          "chordSymbol": "G7",
+          "romanNumeral": "V7"
+        },
+        "evidence": [
+          {
+            "measure": 8,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-8",
+          "span": {
+            "startMeasure": 8,
+            "endMeasure": 8
+          },
+          "label": "Cm",
+          "body": "C–E-flat–G resolves the dominant.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 8,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "Cm",
+          "romanNumeral": "i"
+        },
+        "evidence": [
+          {
+            "measure": 8,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-9",
+          "span": {
+            "startMeasure": 9,
+            "endMeasure": 9
+          },
+          "label": "Cm",
+          "body": "C bass supports E-flat–G.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 9,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "chordSymbol": "Cm",
+          "romanNumeral": "i"
+        },
+        "evidence": [
+          {
+            "measure": 9,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-10",
+          "span": {
+            "startMeasure": 9,
+            "endMeasure": 9
+          },
+          "label": "A♭/C",
+          "body": "A-flat–C–E-flat appears over C.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 9,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "Ab/C",
+          "romanNumeral": "VI6"
+        },
+        "evidence": [
+          {
+            "measure": 9,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-11",
+          "span": {
+            "startMeasure": 9,
+            "endMeasure": 9
+          },
+          "label": "Bdim7(no5)",
+          "body": "B-natural–D–A-flat suggests an incomplete diminished seventh; F is absent.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 9,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            }
+          },
+          "chordSymbol": "Bdim7(no5)"
+        },
+        "evidence": [
+          {
+            "measure": 9,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "voiceId": "2"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-12",
+          "span": {
+            "startMeasure": 9,
+            "endMeasure": 9
+          },
+          "label": "Bm",
+          "body": "F-sharp replaces A-flat, producing B–D–F-sharp.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 9,
+            "offset": {
+              "numerator": 11,
+              "denominator": 16
+            }
+          },
+          "chordSymbol": "Bm"
+        },
+        "evidence": [
+          {
+            "measure": 9,
+            "offset": {
+              "numerator": 11,
+              "denominator": 16
+            },
+            "voiceId": "2"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-13",
+          "span": {
+            "startMeasure": 9,
+            "endMeasure": 9
+          },
+          "label": "Gm/B♭",
+          "body": "B-flat bass supports G–D.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 9,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "Gm/Bb"
+        },
+        "evidence": [
+          {
+            "measure": 9,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-14",
+          "span": {
+            "startMeasure": 10,
+            "endMeasure": 10
+          },
+          "label": "Am7(no5)",
+          "body": "A-natural–C–G suggests A minor seventh without E.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 10,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "chordSymbol": "Am7(no5)"
+        },
+        "evidence": [
+          {
+            "measure": 10,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-15",
+          "span": {
+            "startMeasure": 10,
+            "endMeasure": 10
+          },
+          "label": "D7(♭5)/A♭",
+          "body": "D–F-sharp–A-flat–C is an altered D dominant resolving to G.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 10,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "D7(b5)/Ab"
+        },
+        "evidence": [
+          {
+            "measure": 10,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-16",
+          "span": {
+            "startMeasure": 10,
+            "endMeasure": 10
+          },
+          "label": "G",
+          "body": "G–B-natural–D arrives; the brief A–C figure at 11/16 decorates this dominant region.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 10,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            }
+          },
+          "chordSymbol": "G",
+          "romanNumeral": "V"
+        },
+        "evidence": [
+          {
+            "measure": 10,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-17",
+          "span": {
+            "startMeasure": 10,
+            "endMeasure": 10
+          },
+          "label": "G7/F",
+          "body": "F bass lies beneath G–B-natural–D.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 10,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "G7/F",
+          "romanNumeral": "V4/2"
+        },
+        "evidence": [
+          {
+            "measure": 10,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-18",
+          "span": {
+            "startMeasure": 11,
+            "endMeasure": 11
+          },
+          "label": "Cm/E♭",
+          "body": "E-flat bass supports C–G–C.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 11,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "chordSymbol": "Cm/Eb",
+          "romanNumeral": "i6"
+        },
+        "evidence": [
+          {
+            "measure": 11,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-19",
+          "span": {
+            "startMeasure": 11,
+            "endMeasure": 11
+          },
+          "label": "Fm",
+          "body": "F–A-flat–C repeats the subdominant.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 11,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "Fm",
+          "romanNumeral": "iv"
+        },
+        "evidence": [
+          {
+            "measure": 11,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-20",
+          "span": {
+            "startMeasure": 11,
+            "endMeasure": 11
+          },
+          "label": "G/B",
+          "body": "B-natural bass supports G–D.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 11,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            }
+          },
+          "chordSymbol": "G/B",
+          "romanNumeral": "V6"
+        },
+        "evidence": [
+          {
+            "measure": 11,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-21",
+          "span": {
+            "startMeasure": 11,
+            "endMeasure": 11
+          },
+          "label": "G7/B",
+          "body": "F adds the dominant seventh.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 11,
+            "offset": {
+              "numerator": 11,
+              "denominator": 16
+            }
+          },
+          "chordSymbol": "G7/B",
+          "romanNumeral": "V6/5"
+        },
+        "evidence": [
+          {
+            "measure": 11,
+            "offset": {
+              "numerator": 11,
+              "denominator": 16
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-22",
+          "span": {
+            "startMeasure": 11,
+            "endMeasure": 11
+          },
+          "label": "Cm",
+          "body": "C bass supports G–C–E-flat.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 11,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "Cm",
+          "romanNumeral": "i"
+        },
+        "evidence": [
+          {
+            "measure": 11,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-23",
+          "span": {
+            "startMeasure": 12,
+            "endMeasure": 12
+          },
+          "label": "A♭",
+          "body": "A-flat–C–E-flat repeats VI.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 12,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "chordSymbol": "Ab",
+          "romanNumeral": "VI"
+        },
+        "evidence": [
+          {
+            "measure": 12,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "4"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-24",
+          "span": {
+            "startMeasure": 12,
+            "endMeasure": 12
+          },
+          "label": "D♭",
+          "body": "D-flat–F–A-flat supplies the Neapolitan before G7.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 12,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "Db",
+          "romanNumeral": "♭II"
+        },
+        "evidence": [
+          {
+            "measure": 12,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-25",
+          "span": {
+            "startMeasure": 12,
+            "endMeasure": 12
+          },
+          "label": "G7",
+          "body": "G–B-natural–F supports melodic E-flat moving to D.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 12,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            }
+          },
+          "chordSymbol": "G7",
+          "romanNumeral": "V7"
+        },
+        "evidence": [
+          {
+            "measure": 12,
+            "offset": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "voiceId": "3"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-26",
+          "span": {
+            "startMeasure": 12,
+            "endMeasure": 12
+          },
+          "label": "Cm",
+          "body": "C–E-flat–G resolves the dominant.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 12,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            }
+          },
+          "chordSymbol": "Cm",
+          "romanNumeral": "i"
+        },
+        "evidence": [
+          {
+            "measure": 12,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "chords",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-27",
+          "span": {
+            "startMeasure": 13,
+            "endMeasure": 13
+          },
+          "label": "Cm",
+          "body": "The fermata sustains C–E-flat–G over C.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "chord",
+          "position": {
+            "measure": 13,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            }
+          },
+          "chordSymbol": "Cm",
+          "romanNumeral": "i"
+        },
+        "evidence": [
+          {
+            "measure": 13,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "cadences",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-28",
+          "span": {
+            "startMeasure": 8,
+            "endMeasure": 8
+          },
+          "label": "Perfect authentic cadence in C minor",
+          "body": "Root-position G7 resolves to root-position Cm at 3/4. The melody moves D–C, and the written slur closes at C.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "explanation"
+        },
+        "evidence": [
+          {
+            "measure": 8,
+            "offset": {
+              "numerator": 11,
+              "denominator": 16
+            },
+            "voiceId": "1"
+          },
+          {
+            "measure": 8,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "4"
+          }
+        ]
+      },
+      {
+        "lens": "cadences",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-29",
+          "span": {
+            "startMeasure": 12,
+            "endMeasure": 13
+          },
+          "label": "Final authentic cadence and tonic extension",
+          "body": "G7 resolves to Cm at measure 12, offset 3/4, with D–C in the melody and G–C in the bass. Measure 13 repeats the tonic under a fermata rather than supplying a new dominant–tonic cadence.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "explanation"
+        },
+        "evidence": [
+          {
+            "measure": 12,
+            "offset": {
+              "numerator": 11,
+              "denominator": 16
+            },
+            "voiceId": "1"
+          },
+          {
+            "measure": 12,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "4"
+          },
+          {
+            "measure": 13,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "1"
+          }
+        ]
+      },
+      {
+        "lens": "modulation",
+        "annotation": {
+          "id": "auto-d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a-6-30",
+          "span": {
+            "startMeasure": 7,
+            "endMeasure": 13
+          },
+          "label": "C minor confirmed; G briefly tonicized",
+          "body": "Repeated G7–Cm resolutions and the final C-minor fermata confirm C minor as the local tonic. The altered D dominant resolving to G in measure 10 briefly tonicizes G, but G7/F immediately returns to Cm/E-flat in measure 11. The E-flat signature alone does not establish an E-flat-major tonic or date a modulation into C minor.",
+          "source": "assistant",
+          "createdAt": "2026-11-02T07:59:17.736Z",
+          "updatedAt": "2026-11-02T07:59:17.736Z",
+          "kind": "modulation"
+        },
+        "evidence": [
+          {
+            "measure": 8,
+            "offset": {
+              "numerator": 3,
+              "denominator": 4
+            },
+            "voiceId": "4"
+          },
+          {
+            "measure": 10,
+            "offset": {
+              "numerator": 1,
+              "denominator": 4
+            },
+            "voiceId": "1"
+          },
+          {
+            "measure": 11,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "3"
+          },
+          {
+            "measure": 13,
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "voiceId": "1"
+          }
+        ]
+      }
+    ],
+    "summaries": [
+      "The E-flat signature supplies E-flat, A-flat and B-flat unless explicitly altered. Measures 1–3 emphasize C minor and A-flat, with brief dominant-directed shifts. Measures 4–6 increasingly emphasize G through D7–G motion, but do not securely establish a lasting modulation. Measure 6 ends on G7, leaving the phrase open.",
+      "C minor becomes the clear tonal center despite the E-flat signature. Measures 7–8 and 11–12 lead through G dominants to C-minor arrivals; measure 13 prolongs the final tonic under a fermata. Measures 9–10 repeat the earlier chromatic excursion toward G without establishing a lasting modulation."
+    ],
+    "diagnostics": [
+      "Unmarked pitches are interpreted using the supplied E-flat signature and written accidental carry.",
+      "Measure 5's third-beat harmony is ambiguous: B–D–A-flat suggests an incomplete diminished seventh; the brief F-sharp is treated as a chromatic approach to G rather than a separate established harmony.",
+      "Unmarked E and A are E-flat and A-flat under the supplied signature.",
+      "The sparse chromatic sonorities in measure 9 admit alternative functional readings; chord labels distinguish their actual pitch content from inferred dominant function."
+    ],
+    "chordContinuations": [
+      {
+        "measure": 2,
+        "offsets": [
+          {
+            "numerator": 11,
+            "denominator": 16
+          }
+        ]
+      },
+      {
+        "measure": 3,
+        "offsets": [
+          {
+            "numerator": 11,
+            "denominator": 16
+          }
+        ]
+      },
+      {
+        "measure": 4,
+        "offsets": [
+          {
+            "numerator": 11,
+            "denominator": 16
+          }
+        ]
+      },
+      {
+        "measure": 5,
+        "offsets": [
+          {
+            "numerator": 11,
+            "denominator": 16
+          }
+        ]
+      },
+      {
+        "measure": 6,
+        "offsets": [
+          {
+            "numerator": 11,
+            "denominator": 16
+          }
+        ]
+      },
+      {
+        "measure": 8,
+        "offsets": [
+          {
+            "numerator": 11,
+            "denominator": 16
+          }
+        ]
+      },
+      {
+        "measure": 10,
+        "offsets": [
+          {
+            "numerator": 11,
+            "denominator": 16
+          }
+        ]
+      },
+      {
+        "measure": 12,
+        "offsets": [
+          {
+            "numerator": 11,
+            "denominator": 16
+          }
+        ]
+      }
+    ],
+    "reconciled": false
+  },
+  "message": "Analysis time limit reached. Continue when ready.",
+  "runId": "d6448688-cdc4-4b6e-a4ab-ccf0dcaeb65a"
+}

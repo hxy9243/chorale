@@ -34,6 +34,7 @@ import { storageAdapter } from '../utils/storageAdapter';
 import {
   appendDocumentAnnotations,
   deleteDocumentAnnotation,
+  isDuplicateAnnotation,
   updateDocumentAnnotation,
 } from '../music/annotationMutations';
 import {
@@ -565,11 +566,12 @@ export const useDocumentStore = () => {
         const seenBatchIds = new Set<string>();
         const nonDuplicateAnnotations: Annotation[] = [];
         for (const ann of validAnnotations) {
-          if (!existingIds.has(ann.id) && !seenBatchIds.has(ann.id)) {
+          if (!existingIds.has(ann.id) && !seenBatchIds.has(ann.id)
+            && ![...document.annotations, ...nonDuplicateAnnotations].some(existing => isDuplicateAnnotation(existing, ann))) {
             seenBatchIds.add(ann.id);
             nonDuplicateAnnotations.push(ann);
           } else {
-            console.warn(`Rejected annotation with duplicate ID: ${ann.id}`);
+            console.warn(`Skipped duplicate annotation: ${ann.id}`);
           }
         }
         if (nonDuplicateAnnotations.length === 0) return document;

@@ -1,0 +1,31 @@
+{
+  "base": "1b08982",
+  "status": "current",
+  "sourceSha256": {
+    "electron/ai/scoreAnalysis.ts": "5f67a878f884c2be9012e1e7a86a60b98913ccfa687de304b2395a8a51a52748",
+    "scripts/analysis-smoke.mjs": "a0653f0bfed76267c8b442350b1d2ac47a4d3e76c962ea7d3bcddd52c02285c6",
+    "spec/automatic-score-analysis.md": "7f2c70d6d544e6a66e3e09fc21ef3056aeda1871978aa242abf694d47e3182d4",
+    "src/agent/__tests__/scoreAnalysis.test.ts": "517f423e041f227b3e7136e9e66f71044ae4e3af47efbfcab9205ae4b66020f3",
+    "src/analysis/scoreAnalysis.ts": "96e6d832e79da1b2a1883efe005888af90bdd1991e446b3ffef9723579db7f49",
+    "src/analysis/types.ts": "6de28e6fdc9ec9c567ba0907908b68f4046741b6b1662f7277c00384d6ba699e",
+    "src/analysis/useScoreAnalysis.ts": "2ea70fa638fc4c2d7618765e58a085ffef1f27586777860729fba82153ea35fd"
+  },
+  "verification": {
+    "nodeTests": 261,
+    "vitestTests": 1092,
+    "vitestFiles": 118,
+    "focusedTests": 20,
+    "lintErrors": 0,
+    "lintWarnings": 54,
+    "builds": "web and Electron passed",
+    "desktopSmoke": "passed with synthetic provider responses"
+  },
+  "liveChopin": {
+    "model": "GPT-6.1 Sol",
+    "coveredMeasures": 13,
+    "chordLabels": 53,
+    "continuedOnsets": 8,
+    "reconciled": true,
+    "cache": "isolated"
+  }
+}

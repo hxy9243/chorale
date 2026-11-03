@@ -8,6 +8,7 @@ import type {
   SheetAgentSteerRequest,
 } from '../../src/agent/aiTypes';
 import type { RoundUsage } from '../../src/agent/types';
+import type { Annotation } from '../../src/types/document';
 import type { AIConnectionStore } from './connectionStore';
 import { createProviderRuntime } from './providers';
 import { formatPrompt, toAgentHistory } from '../../src/agent/promptUtils';
@@ -137,6 +138,7 @@ export const createAssistantDeltaProjector = () => {
 };
 
 export class SheetAgentRun {
+  private readonly automaticAnnotations: readonly Annotation[];
   readonly scoreSnapshot: ScoreSnapshot;
   readonly sheetTools: ReturnType<typeof createSheetTools>;
   private agent?: Agent;
@@ -172,6 +174,7 @@ export class SheetAgentRun {
     store: AIConnectionStore,
     emit: (event: AIEvent) => void,
     traceStore?: AgentTraceStore,
+    automaticAnnotations: readonly Annotation[] = [],
   ) {
     this.requestId = requestId;
     this.request = request;
@@ -180,6 +183,7 @@ export class SheetAgentRun {
     this.store = store;
     this.emit = emit;
     this.traceStore = traceStore;
+    this.automaticAnnotations = automaticAnnotations;
     this.scoreSnapshot = createScoreSnapshot({
       snapshotId: request.context.id,
       documentId: request.context.documentId,
@@ -188,6 +192,7 @@ export class SheetAgentRun {
       annotations: request.context.annotations,
     });
     this.sheetTools = createSheetTools(this.scoreSnapshot, {
+      automaticAnnotations: this.automaticAnnotations,
       runId: this.requestId,
       selection: this.request.context.selection,
       onProfileRoute: (profiles) => {
@@ -301,7 +306,7 @@ export class SheetAgentRun {
     if (this.cancelled || !this.acceptingSteers || !this.agent?.state.isStreaming) {
       return { steered: false };
     }
-    const steerPrompt = formatPrompt(steer.question, steer.context, this.scoreSnapshot);
+    const steerPrompt = formatPrompt(steer.question, steer.context, this.scoreSnapshot, this.automaticAnnotations);
     const userMessage: AgentMessage = {
       role: 'user',
       content: steerPrompt,
@@ -321,7 +326,7 @@ export class SheetAgentRun {
     const { models, model } = createProviderRuntime(this.connection, this.modelOption, this.store);
     const thinkingLevel = model.reasoning ? this.request.thinkingLevel : 'off';
     const initialHistory = toAgentHistory(this.request.history, model);
-    const currentPrompt = formatPrompt(this.request.question, this.request.context, this.scoreSnapshot);
+    const currentPrompt = formatPrompt(this.request.question, this.request.context, this.scoreSnapshot, this.automaticAnnotations);
     let trace: AgentTraceRun | undefined;
     try {
       trace = await this.traceStore?.createRun(

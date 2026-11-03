@@ -22,16 +22,21 @@ const provider = createServer((incoming, response) => {
     const prompt = JSON.parse(payload.messages.findLast(m => m.role === 'user').content);
     const measure = prompt.measures.find(m => prompt.targetMeasures.includes(m.measureNumber));
     const event = measure.events.find(e => e.type === 'note');
-    const findings = prompt.requestedLenses.map(lens => ({ lens, annotation: {
+    const finding = (lens, measure, event) => ({ lens, annotation: {
       kind: lens === 'chords' ? 'chord' : lens === 'modulation' ? 'modulation' : lens === 'voice-leading' ? 'voice-leading' : 'explanation',
       span: { startMeasure: measure.measureNumber, endMeasure: measure.measureNumber }, label: lens === 'chords' ? 'Fixture chord' : `Fixture ${lens}`,
       body: 'Synthetic provider fixture used to verify the application flow. This is not a musical accuracy evaluation.',
       ...(lens === 'chords' ? { chordSymbol: 'C', romanNumeral: 'I', position: event.position } : {}),
-    }, evidence: [{ ...event.position, voiceId: event.voiceId }] }));
+    }, evidence: [{ ...event.position, voiceId: event.voiceId }] });
+    const findings = prompt.requestedLenses.flatMap(lens => lens === 'chords'
+      ? prompt.measures.filter(m => prompt.targetMeasures.includes(m.measureNumber)).flatMap(m => {
+        const note = m.events.find(e => e.type === 'note'); return note ? [finding(lens, m, note)] : [];
+      }) : [finding(lens, measure, event)]);
+    const chordContinuations = (prompt.chordReviewOnsets ?? []).map(m => ({ ...m, offsets: m.offsets.slice(1) }));
     setTimeout(() => {
       response.writeHead(200, { 'Content-Type': 'text/event-stream' });
       const chunk = { id: 'analysis-smoke', object: 'chat.completion.chunk', created: 1, model: payload.model,
-        choices: [{ index: 0, delta: { role: 'assistant', content: JSON.stringify({ findings, diagnostics: [], summary: 'Synthetic fixture continuity.' }) }, finish_reason: null }] };
+        choices: [{ index: 0, delta: { role: 'assistant', content: JSON.stringify({ findings, chordContinuations, diagnostics: [], summary: 'Synthetic fixture continuity.' }) }, finish_reason: null }] };
       response.write(`data: ${JSON.stringify(chunk)}\n\n`);
       response.write('data: {"id":"analysis-smoke","object":"chat.completion.chunk","created":1,"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n'); response.end('data: [DONE]\n\n');
     }, 450);
@@ -67,6 +72,25 @@ try {
   assert.equal(receivedModel,'analysis-fixture'); assert.equal(requests,1);
   console.log('Provider analysis rendered');
   await page.locator('[data-analysis-automatic="true"]').first().waitFor();
+  const paperBeforeDetails = await page.locator('#paper').boundingBox();
+  await page.locator('[data-analysis-automatic="true"]').first().click();
+  await page.locator('.chord-analysis-popover').waitFor();
+  const detailGeometry = await page.evaluate(() => {
+    const panel = document.querySelector('.chord-analysis-popover').getBoundingClientRect();
+    const viewport = document.querySelector('.sheet-viewport').getBoundingClientRect();
+    const measure = document.querySelector('.abcjs-measure-hit-area[data-measure="1"]').getBoundingClientRect();
+    return { left: panel.left, top: panel.top, bottom: panel.bottom, viewportLeft: viewport.left,
+      viewportTop: viewport.top, viewportBottom: viewport.bottom, measureTop: measure.top, height: panel.height };
+  });
+  assert.ok(Math.abs(detailGeometry.left - detailGeometry.viewportLeft - 12) <= 2,'Chord details float at the left edge of the score');
+  const expectedDetailTop = Math.max(detailGeometry.viewportTop + 8,
+    Math.min(detailGeometry.measureTop, detailGeometry.viewportBottom - 8 - detailGeometry.height));
+  assert.ok(Math.abs(detailGeometry.top - expectedDetailTop) <= 2,'Chord details align with the measure and stay in view');
+  assert.equal((await page.locator('#paper').boundingBox()).y,paperBeforeDetails.y,'Opening chord details does not move the score');
+  if (process.env.CHORALE_ANALYSIS_SCREENSHOTS) await page.screenshot({ path:join(process.env.CHORALE_ANALYSIS_SCREENSHOTS,'chord-popover.png') });
+  await page.keyboard.press('Escape');
+  await page.locator('.chord-analysis-popover').waitFor({ state:'detached' });
+  await page.waitForFunction(() => document.activeElement?.getAttribute('data-analysis-automatic') === 'true');
   await page.locator('[data-analysis-automatic="true"]').first().click();
   await page.getByRole('button',{ name:'Keep as annotation' }).click();
   assert.equal(await page.getByRole('region',{name:'Automatic analysis detail'}).count(),0);
@@ -87,7 +111,7 @@ try {
   await page.waitForFunction(() => document.querySelector('.analysis-status')?.textContent?.includes('Up to date'));
   await page.waitForFunction(() => document.querySelector('.rail-tool-button') === null);
   assert.ok(requests > before,'Musical editing refreshes analysis');
-  assert.equal(await page.locator('.chord[data-analysis-automatic="true"]').count(),1);
+  assert.equal(await page.locator('.chord[data-analysis-automatic="true"]').count(),1,'Saved chord takes precedence over its automatic copy');
   assert.ok(await page.locator('[data-annotation-id]').count() >= 2,'Kept annotation survives refresh');
   await page.getByRole('switch',{name:'Update analysis after edits'}).uncheck();
   const manualCount = requests; await page.locator('.abc-textarea').fill(abc.replace('C D E F','E F G A'));
@@ -96,6 +120,10 @@ try {
   await page.getByRole('button',{name:'Refresh analysis',exact:true}).click(); await page.getByRole('button',{name:'Stop',exact:true}).click();
   await page.locator('.analysis-status').filter({hasText:'Stopped'}).waitFor();
   await page.reload(); await page.locator('.analysis-panel[aria-busy="false"]').waitFor();
+  await page.waitForFunction(() => {
+    const toggle = document.querySelector('input[aria-label="Chords"]');
+    return toggle && !toggle.matches(':disabled');
+  });
   assert.equal(await page.getByRole('switch',{name:'Chords',exact:true}).isChecked(),true,'Lens opt-in survives reload');
   assert.equal(await page.getByRole('switch',{name:'Update analysis after edits'}).isChecked(),false,'Refresh preference survives reload');
   const pickupAbc = abc.replace('C D E F | G A B c |]', 'C | G A B c | d c B A |]');

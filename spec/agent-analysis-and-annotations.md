@@ -3,7 +3,7 @@ title: "Passage-Aware Music Tutor, Agent Tools, and Annotations"
 description: "Authoritative product specification for passage analysis, analysis profiles, score tools, proposal review, and canonical annotation overlay rendering"
 category: "core-product"
 date: 2026-08-05
-updated: 2026-10-24
+updated: 2026-11-02
 status: "implemented"
 source_files:
   - src/components/SheetMusicView.tsx
@@ -235,8 +235,8 @@ The runtime exposes one routing tool and six score tools:
 | `select_analysis_profile` | Selects one or more predefined prompt profiles and emits visible routing status |
 | `get_score_summary` | Returns title, composer, key, meter, tempo, written-measure count, and declared voices |
 | `read_measure_range` | Returns ABC source slices and local key or meter changes for a continuous written-measure range |
-| `get_annotations` | Returns canonical annotations intersecting a requested range |
-| `propose_annotations` | Validates and stages annotation proposals without mutating `FileDocument` |
+| `get_annotations` | Returns canonical annotations and separately identified current automatic references intersecting a requested range |
+| `propose_annotations` | Validates and stages new annotation proposals, skipping saved, automatic and intra-run duplicates without mutating `FileDocument` |
 | `propose_measure_replacement` | Validates and stages a source-aware replacement for a previously read measure range |
 | `propose_score_edit` | Validates and stages a complete non-destructive score replacement |
 
@@ -358,7 +358,7 @@ Apply All is atomic:
 2. Verify the active document ID and revision still match the run snapshot.
 3. Validate every eligible proposal.
 4. If any validation fails, apply none and identify the invalid cards.
-5. Otherwise append all annotations and mark all eligible proposals accepted in one renderer transaction.
+5. Otherwise append only new annotations and mark all eligible proposals accepted in one renderer transaction. Recheck the current saved annotations for duplicates because annotation-only edits do not change the music revision. Reused proposals reference the existing annotation with its authorship intact; duplicate-only applications create no document/history change. Duplicate identity and automatic-overlay precedence follow [annotations-and-proposals.md](./annotations-and-proposals.md#31-mutation-validation-and-safe-failures).
 
 If the active document ID or revision changes before application, pending proposals display an **Outdated** label and all actions are disabled. The user must rerun analysis. This is a coarse revision guard, not the deferred annotation-staleness system.
 

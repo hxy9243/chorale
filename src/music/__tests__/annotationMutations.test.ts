@@ -39,10 +39,30 @@ const annotation = (id: string, body = 'A useful explanation.'): Annotation => (
 });
 
 describe('annotation document mutations', () => {
+  it('preserves the original when the same content arrives under a fresh ID', () => {
+    const existing = { ...document, annotations: [annotation('original')] };
+    const repeated = { ...annotation('fresh'), label: '  OPENING ', body: 'A revised description.', source: 'assistant' as const };
+    expect(appendDocumentAnnotations(existing, [repeated])).toBe(existing);
+    expect(existing.annotations[0].source).toBe('user');
+  });
+  it('keeps distinct range topics but collapses copies within the same batch', () => {
+    const first = annotation('one');
+    const copy = { ...annotation('copy'), label: 'Another title' };
+    const distinct = { ...annotation('distinct', 'A separate voice-leading observation.'), label: 'Voice motion' };
+    expect(appendDocumentAnnotations(document, [first, copy, distinct]).annotations.map(a => a.id)).toEqual(['one','distinct']);
+  });
+  it('preserves an occupied chord onset while permitting other beats in the same measure', () => {
+    const chord = { ...annotation('original'), kind: 'chord' as const, chordSymbol: 'C',
+      position: { measure: 1, offset: { numerator: 0, denominator: 1 } } };
+    const existing = { ...document, annotations: [chord] };
+    const repeated = { ...chord, id: 'new', chordSymbol: 'Am', label: 'A different reading' };
+    const nextBeat = { ...repeated, id: 'next-beat', position: { measure: 1, offset: { numerator: 1, denominator: 4 } } };
+    expect(appendDocumentAnnotations(existing, [repeated, nextBeat]).annotations.map(a => a.id)).toEqual(['original','next-beat']);
+  });
   it('appends a validated batch atomically without changing ABC revision or history', () => {
     const next = appendDocumentAnnotations(
       document,
-      [annotation('annotation-1'), annotation('annotation-2')],
+      [annotation('annotation-1'), { ...annotation('annotation-2', 'A separate topic.'), label: 'Other topic' }],
       '2026-08-05T01:00:00.000Z',
     );
 

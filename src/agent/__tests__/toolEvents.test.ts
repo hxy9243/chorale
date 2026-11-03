@@ -3,6 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { projectToolLifecycleEvent } from '../../../electron/ai/toolEvents';
 
 describe('renderer-safe tool event projection', () => {
+  it('explains reused annotations without exposing their content or IDs', () => {
+    const result = projectToolLifecycleEvent('request', { type: 'tool_execution_end', toolCallId: 'call',
+      toolName: 'propose_annotations', isError: false,
+      result: { details: { proposedCount: 0, skippedCount: 2, existingAnnotationIds: ['private-id'] }, content: [] } });
+    expect(result.summary).toBe('Reused 2 existing annotations');
+    expect(JSON.stringify(result)).not.toContain('private-id');
+  });
   it('preserves request and tool-call correlation with compact start summaries', () => {
     expect(projectToolLifecycleEvent('request-1', {
       type: 'tool_execution_start',

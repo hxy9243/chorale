@@ -23,6 +23,27 @@ describe('promptUtils', () => {
     expect(formatted).toContain('abc:\nX:1\nT:Test Tune\nK:C\nCDEF|');
     expect(formatted).toContain('User question: What is the key?');
   });
+  it('includes bounded annotation identities and exact chord positions without a selection', () => {
+    const chord = { id: 'saved-chord', kind: 'chord' as const, span: { startMeasure: 1, endMeasure: 1 },
+      position: { measure: 1, offset: { numerator: 1, denominator: 2 } }, chordSymbol: 'G7', label: 'Dominant',
+      body: 'Existing reading.', source: 'user' as const, createdAt: 'now', updatedAt: 'now' };
+    const formatted = formatPrompt('Annotate the score', { ...sampleSnapshot,
+      annotations: Array.from({ length: 30 }, (_, i) => ({ ...chord, id: `saved-${i}` })) });
+    expect(formatted).toContain('existingAnnotations:');
+    expect(formatted).toContain('id="saved-0"');
+    expect(formatted).toContain('"offset":{"numerator":1,"denominator":2}');
+    expect(formatted).toContain('Annotation preview: 24 of 30');
+    expect(formatted).toContain('get_annotations');
+    expect(formatted).not.toContain('id="saved-24"');
+  });
+  it('identifies automatic references separately from saved annotation context', () => {
+    const automatic = { id: 'auto-note', kind: 'explanation' as const, span: { startMeasure: 1, endMeasure: 1 },
+      label: 'AI reading', body: 'Suggested context.', source: 'assistant' as const, createdAt: 'now', updatedAt: 'now' };
+    const formatted = formatPrompt('Annotate this measure', sampleSnapshot, undefined, [automatic]);
+    expect(formatted).toContain('automaticAnalysisReferences (read-only suggestions, separate from saved annotations; do not duplicate)');
+    expect(formatted).toContain('"id":"auto-note"');
+    expect(formatted).not.toContain('existingAnnotations:');
+  });
 
   it('formats prompt with active selection and inherited active key', () => {
     const multiMeasureSnapshot: MusicContextSnapshot = {

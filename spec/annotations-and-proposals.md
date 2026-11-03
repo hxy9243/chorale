@@ -3,7 +3,7 @@ title: "Annotations and Proposals Implementation Spec"
 description: "Specification for canonical annotation data model, storage normalization, proposal lifecycle, atomic Apply All, and overlay/rail rendering"
 category: "annotations"
 date: 2026-08-05
-updated: 2026-10-24
+updated: 2026-11-02
 status: "implemented"
 source_files:
   - src/types/document.ts
@@ -19,6 +19,15 @@ source_files:
   - src/hooks/usePluginMcpBridge.ts
   - src/agent/proposalActions.ts
   - src/agent/conversationStore.ts
+  - src/agent/promptUtils.ts
+  - electron/ai/sheetTools.ts
+  - electron/ai/systemPrompt.ts
+  - src/components/AgentChatPanel.tsx
+  - src/components/SheetMusicView.tsx
+  - electron/ai/controller.ts
+  - electron/ai/sheetAgentRuntime.ts
+  - electron/ai/scoreAnalysis.ts
+  - electron/ai/toolEvents.ts
 test_files:
   - src/music/__tests__/documentSchema.test.ts
   - src/music/__tests__/annotationLayout.test.ts
@@ -29,6 +38,13 @@ test_files:
   - src/components/__tests__/AnnotationRail.test.tsx
   - src/components/__tests__/AnnotationOverlay.test.tsx
   - src/components/__tests__/AnnotationEditor.test.tsx
+  - src/agent/__tests__/sheetTools.test.ts
+  - src/agent/__tests__/promptUtils.test.ts
+  - src/agent/__tests__/scoreAnalysis.test.ts
+  - src/agent/__tests__/sheetAgentRuntime.integration.test.ts
+  - src/components/__tests__/SheetMusicView.test.tsx
+  - scripts/analysis-smoke.mjs
+  - src/agent/__tests__/toolEvents.test.ts
 related_specs:
   - spec/design.md
   - spec/score-surface.md
@@ -148,6 +164,11 @@ All mutation entry points (`useDocumentStore`, bridge command dispatcher in `use
 
 - **Rejection of invalid annotations**: Candidates missing essential fields (invalid measure numbers, negative measures, endMeasure < startMeasure, missing chordSymbol when `kind === 'chord'`, or chord positions outside the measure span) are rejected and omitted from mutations.
 - **Duplicate ID rejection**: Incoming annotations whose IDs collide with existing annotations on the document or repeat within the same mutation batch are rejected to preserve ID uniqueness.
+- **Duplicate content prevention**: New IDs do not make repeated annotations distinct. An occupied chord onset (written measure and exact offset) reuses the existing chord, even if the model changes its label, symbol, Roman numeral or explanation; changes require explicitly editing the existing annotation. Range annotations repeat an existing annotation when their kind and exact measure span match and either their label or body matches after Unicode, case and whitespace normalization. Distinct range topics, kinds, spans and chord onsets remain allowed. Existing content and authorship are preserved.
+- **Idempotent proposals and application**: `propose_annotations` validates the entire batch before emitting anything, skips duplicates against saved annotations and earlier proposals in the same run, and reports the skipped count and matching annotation IDs. Apply All checks the current saved annotations again because annotation-only changes do not advance the musical revision. Duplicate proposals reuse the matched annotation and become accepted without appending it; valid new proposals are still applied atomically. A duplicate-only application creates no document/history change. The document append path applies the same guard as a final check.
+- **Reused authorship**: Accepted proposal records may reference an existing user-authored annotation and remain valid when conversations reload. Pending proposals must still be assistant-authored; reuse never changes the saved annotation's source, ID or timestamps.
+- **Annotation context**: Chat includes bounded annotation previews even without a selection, with IDs and exact chord positions. It reports omitted entries and directs the model to `get_annotations` for complete target-range details. The model must inspect and respect existing annotations before proposing additions.
+- **Automatic analysis**: The main process supplies current, enabled automatic findings separately as read-only references. Chat reads them through `get_annotations` and skips proposals that repeat them. Stale findings and hidden lenses are excluded. Automatic references never enter the saved-annotation snapshot or become accepted through this read path. Saved annotations take precedence over overlapping automatic findings in score presentation, including after keeping an automatic finding as an annotation.
 - **Fail-safe state execution**: React document store updaters catch any unexpected mutation errors (e.g. `AnnotationMutationError`) inside state callbacks, log a warning, and safely retain the existing document state. They never throw uncaught exceptions to the React event loop.
 - **Global Error Boundary**: The application root is wrapped in an `ErrorBoundary` component to guarantee that unexpected runtime errors never render an unrecoverable blank screen.
 

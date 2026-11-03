@@ -238,7 +238,9 @@ export const validateAnnotationProposal = (value: unknown): AnnotationProposal |
     || (value.sourceRevision as number) <= 0
     || !['proposed', 'accepted', 'rejected', 'outdated', 'unavailable'].includes(value.state as string)
     || !annotation
-    || annotation.source !== 'assistant'
+    // Accepted proposals may reference an existing user-authored annotation.
+    // Pending proposals still require application-controlled assistant authorship.
+    || (annotation.source !== 'assistant' && value.state !== 'accepted')
   ) {
     return null;
   }

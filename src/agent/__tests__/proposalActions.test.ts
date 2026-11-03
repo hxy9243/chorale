@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Annotation, AnnotationProposal } from '../../types/document';
+import { validateAnnotationProposal } from '../../music/documentSchema';
 import {
   editAnnotationProposal,
   markOutdatedProposals,
@@ -31,6 +32,23 @@ const proposal = (
 });
 
 describe('proposal review actions', () => {
+  it('reuses saved annotations at apply time while still applying distinct new topics', () => {
+    const saved = { ...annotation('saved'), source: 'user' as const };
+    const repeated = proposal('repeat');
+    const fresh = { ...proposal('fresh'), annotation: { ...annotation('new', 'A different observation.'), label: 'Voice motion' } };
+    const result = prepareApplyAll([repeated, fresh], 'document-1', 3, new Set([saved.id]), [saved]);
+    expect(result.status).toBe('ready');
+    expect(result.annotations.map(a => a.id)).toEqual(['new']);
+    expect(result.proposals[0]).toMatchObject({ state: 'accepted', annotation: saved });
+    expect(validateAnnotationProposal(result.proposals[0])).toEqual(result.proposals[0]);
+    expect(validateAnnotationProposal({ ...result.proposals[0], state: 'proposed' })).toBeNull();
+    expect(result.proposals[1].state).toBe('accepted');
+  });
+  it('does not append multiple copies of the same topic in an apply batch', () => {
+    const result = prepareApplyAll([proposal('one'), proposal('two')], 'document-1', 3);
+    expect(result.annotations).toHaveLength(1);
+    expect(result.proposals.map(p => p.annotation.id)).toEqual(['annotation-one','annotation-one']);
+  });
   it('edits staged content while preserving application-controlled identity metadata', () => {
     const [edited] = editAnnotationProposal(
       [proposal('one')],

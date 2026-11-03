@@ -1,0 +1,25 @@
+{
+  "oldClaimedMeasures": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+  ],
+  "newCoveredMeasures": [
+    13
+  ],
+  "diagnostics": [
+    "Unmarked pitches are interpreted through the supplied E-flat signature and ABC accidentals: E, A and B are normally flat.",
+    "The texture contains chordal parts and changing bass assignments rather than four consistently monophonic voices.",
+    "Chord findings select structurally clear sonorities; not every attack or chromatic aggregate is labeled."
+  ]
+}

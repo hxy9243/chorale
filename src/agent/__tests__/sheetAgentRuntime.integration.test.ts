@@ -184,6 +184,10 @@ describe('SheetAgentRun provider transport', () => {
     const { directory, store, connection, model } = await createStore(`http://127.0.0.1:${port}/v1`);
     const events: AIEvent[] = [];
     const traceDirectory = path.join(directory, 'agent-traces');
+    const automaticReference = { id: 'automatic-reference', kind: 'chord' as const,
+      span: { startMeasure: 1, endMeasure: 1 }, position: { measure: 1, offset: { numerator: 0, denominator: 1 } },
+      chordSymbol: 'C', label: 'Automatic tonic', body: 'Read-only automatic suggestion.', source: 'assistant' as const,
+      createdAt: '2026-11-02T00:00:00.000Z', updatedAt: '2026-11-02T00:00:00.000Z' };
 
     const parseOnly = vi.spyOn(abcjs, 'parseOnly');
     const run = new SheetAgentRun(
@@ -194,12 +198,14 @@ describe('SheetAgentRun provider transport', () => {
       store,
       (event) => events.push(event),
       new JSONLAgentTraceStore(traceDirectory),
+      [automaticReference],
     );
     expect(run.scoreSnapshot).toMatchObject({
       snapshotId: 'context-current',
       documentId: 'document-current',
       revision: 17,
     });
+    expect(run.scoreSnapshot.annotations).toEqual([]);
     await run.sheetTools.tools[0].execute('profile-route-test', { profiles: ['harmony'] });
     expect(events).toContainEqual({
       type: 'profile-route',
@@ -234,6 +240,8 @@ describe('SheetAgentRun provider transport', () => {
     expect(receivedBody).toContain('G,CEG|G,BDF|CEGc|');
     expect(receivedBody).toContain('What key is this in?');
     expect(receivedBody).toContain('How does this cadence resolve?');
+    expect(receivedBody).toContain('automaticAnalysisReferences');
+    expect(receivedBody).toContain('automatic-reference');
     expect(receivedBody).toContain('select_analysis_profile');
     expect(receivedBody).toContain('read_measure_range');
     expect(receivedBody).toContain('Before making any score-specific claim');

@@ -1,4 +1,5 @@
 import type { Annotation, AnnotationProposal } from '../types/document';
+import { isDuplicateAnnotation } from '../music/annotationMutations';
 import {
   validateAnnotation,
   validateAnnotationProposal,
@@ -71,6 +72,7 @@ export const prepareApplyAll = (
   documentId: string,
   sourceRevision: number,
   existingAnnotationIds: ReadonlySet<string> = new Set(),
+  existingAnnotations: readonly Annotation[] = [],
 ): ApplyAllResult => {
   const synchronized = markOutdatedProposals(proposals, documentId, sourceRevision);
   if (synchronized.some((proposal, index) => (
@@ -97,6 +99,7 @@ export const prepareApplyAll = (
   const seenIds = new Set(existingAnnotationIds);
   const invalidProposalIds: string[] = [];
   const annotations: Annotation[] = [];
+  const reusedAnnotations = new Map<string, Annotation>();
   for (const proposal of eligible) {
     const validatedProposal = validateAnnotationProposal(proposal);
     if (!validatedProposal || seenIds.has(proposal.annotation.id)) {
@@ -104,7 +107,9 @@ export const prepareApplyAll = (
       continue;
     }
     seenIds.add(validatedProposal.annotation.id);
-    annotations.push(validatedProposal.annotation);
+    const existing = [...existingAnnotations, ...annotations].find(annotation => isDuplicateAnnotation(annotation, validatedProposal.annotation));
+    if (existing) reusedAnnotations.set(proposal.id, existing);
+    else annotations.push(validatedProposal.annotation);
   }
   if (invalidProposalIds.length > 0) {
     return {
@@ -119,7 +124,7 @@ export const prepareApplyAll = (
   return {
     status: 'ready',
     proposals: synchronized.map((proposal) => (
-      acceptedIds.has(proposal.id) ? { ...proposal, state: 'accepted' } : proposal
+      acceptedIds.has(proposal.id) ? { ...proposal, state: 'accepted', annotation: reusedAnnotations.get(proposal.id) ?? proposal.annotation } : proposal
     )),
     annotations,
     invalidProposalIds: [],

@@ -52,6 +52,19 @@ describe('useDocumentStore', () => {
     expect(result.current.documents).toHaveLength(1);
     expect(result.current.documents[0].name).toBe('IDBScore.abc');
   });
+  it('does not append a fresh-ID copy or create a duplicate-only history entry', async () => {
+    const saved = { id: 'saved', kind: 'explanation' as const, span: { startMeasure: 1, endMeasure: 1 },
+      label: 'Opening', body: 'A saved observation.', source: 'user' as const, createdAt: sampleDoc.createdAt, updatedAt: sampleDoc.updatedAt };
+    vi.spyOn(storageAdapter, 'getDocuments').mockResolvedValue([{ ...sampleDoc, annotations: [saved] }]);
+    const { result } = renderHook(() => useDocumentStore());
+    await waitFor(() => expect(result.current.hydrationStatus).toBe('ready'));
+    const before = result.current.activeDocument!;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    act(() => result.current.handleAddAnnotations([{ ...saved, id: 'fresh', body: 'A new wording.', source: 'assistant' }]));
+    expect(result.current.activeDocument).toBe(before);
+    expect(result.current.activeDocument?.annotations).toEqual([saved]);
+    warn.mockRestore();
+  });
 
   it('surfaces a service outage on startup without saving an empty library', async () => {
     const read = vi.spyOn(storageAdapter, 'getDocuments').mockRejectedValue(new Error('Scores could not be loaded.'));

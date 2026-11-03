@@ -4,6 +4,7 @@ import { Type } from 'typebox';
 import type { analyzeMusic21Python } from '../../server/music21-python.mjs';
 import type {
   AgentProfileId,
+  Annotation,
   AnnotationKind,
   AnnotationProposal,
   ScoreAnchor,
@@ -14,6 +15,7 @@ import {
   type ScoreSnapshot,
 } from '../../src/music/scoreSnapshot';
 import { validateAnnotation } from '../../src/music/documentSchema';
+import { isDuplicateAnnotation } from '../../src/music/annotationMutations';
 import { selectAnalysisProfiles } from './agentProfiles';
 import {
   applyMeasureMutation,
@@ -55,6 +57,7 @@ export type SheetToolRunState = {
 };
 
 export type CreateSheetToolsOptions = Readonly<{
+  automaticAnnotations?: readonly Annotation[];
   onProfileRoute?: (profiles: readonly AgentProfileId[]) => void;
   onProposalCreated?: (proposal: AnnotationProposal) => void;
   onScoreProposalCreated?: (proposal: ScoreChangeProposal) => void;
@@ -101,6 +104,7 @@ export const createSheetTools = (
   };
   const createId = options.createId ?? randomUUID;
   const now = options.now ?? (() => new Date().toISOString());
+  const stagedAnnotations: Annotation[] = [];
 
   const requireProfile = () => {
     if (state.selectedProfiles.length === 0) {
@@ -233,7 +237,7 @@ export const createSheetTools = (
   const getAnnotationsTool: AgentTool<typeof GetAnnotationsParameters> = {
     name: 'get_annotations',
     label: 'Read annotations',
-    description: 'Read canonical annotations intersecting an optional written-measure range.',
+    description: 'Read saved annotations and separately identified automatic analysis references intersecting an optional written-measure range.',
     parameters: GetAnnotationsParameters,
     execute: async (_toolCallId, params, signal) => {
       throwIfAborted(signal);
@@ -260,14 +264,16 @@ export const createSheetTools = (
           if (!kinds || kinds.includes(annotation.kind)) annotations.set(annotation.id, annotation);
         }
       }
-      return jsonResult({ annotations: [...annotations.values()] });
+      const automaticAnnotations = (options.automaticAnnotations ?? []).filter(a => a.span.startMeasure <= endMeasure
+        && a.span.endMeasure >= startMeasure && (!kinds || kinds.includes(a.kind)));
+      return jsonResult({ annotations: [...annotations.values()], ...(automaticAnnotations.length ? { automaticAnnotations } : {}) });
     },
   };
 
   const proposeAnnotationsTool: AgentTool<typeof ProposeAnnotationsParameters> = {
     name: 'propose_annotations',
     label: 'Propose annotations',
-    description: 'Stage validated score annotations for user review without changing the score.',
+    description: 'Stage new score annotations for review. Inspect get_annotations first; existing chord onsets and repeated range topics are reused instead of duplicated.',
     parameters: ProposeAnnotationsParameters,
     executionMode: 'sequential',
     execute: async (_toolCallId, params, signal) => {
@@ -281,7 +287,7 @@ export const createSheetTools = (
       }
 
       const timestamp = now();
-      const proposals = params.annotations.map((input, index): AnnotationProposal => {
+      const candidates = params.annotations.map((input, index): AnnotationProposal => {
         const annotation = validateAnnotation({
           ...input,
           id: createId(),
@@ -311,11 +317,21 @@ export const createSheetTools = (
         };
       });
 
+      const proposals: AnnotationProposal[] = [];
+      const existingAnnotationIds: string[] = [];
+      for (const proposal of candidates) {
+        const existing = [...snapshot.annotations, ...(options.automaticAnnotations ?? []), ...stagedAnnotations, ...proposals.map(p => p.annotation)]
+          .find(annotation => isDuplicateAnnotation(annotation, proposal.annotation));
+        if (existing) existingAnnotationIds.push(existing.id);
+        else proposals.push(proposal);
+      }
+      stagedAnnotations.push(...proposals.map(p => p.annotation));
       state.proposedCount += proposals.length;
       for (const proposal of proposals) options.onProposalCreated?.(proposal);
       return jsonResult({
         proposedCount: proposals.length,
         proposalIds: proposals.map(({ id }) => id),
+        ...(existingAnnotationIds.length ? { skippedCount: existingAnnotationIds.length, existingAnnotationIds } : {}),
       });
     },
   };

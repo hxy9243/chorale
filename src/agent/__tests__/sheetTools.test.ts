@@ -25,6 +25,34 @@ const createSnapshot = () => createScoreSnapshot({
 });
 
 describe('sheet tools', () => {
+  it('skips saved and repeated proposals before emitting new cards', async () => {
+    const created = vi.fn();
+    const registry = createSheetTools(createSnapshot(), { onProposalCreated: created });
+    await registry.tools[0].execute('route', { profiles: ['harmony'] });
+    const saved = createSnapshot().annotations[0];
+    const fresh = { kind: 'explanation', span: { startMeasure: 1, endMeasure: 1 }, label: 'New topic', body: 'A new observation.' };
+    const first = await registry.tools[4].execute('first', { annotations: [{ ...saved, label: ' OPENING ', body: 'Reworded.' }, fresh, fresh] } as any);
+    expect(created).toHaveBeenCalledTimes(1);
+    expect(first.details).toMatchObject({ proposedCount: 1, skippedCount: 2 });
+    const second = await registry.tools[4].execute('again', { annotations: [fresh] } as any);
+    expect(second.details).toMatchObject({ proposedCount: 0, skippedCount: 1 });
+    expect(registry.state.proposedCount).toBe(1);
+    expect(created).toHaveBeenCalledTimes(1);
+  });
+  it('reads automatic references separately and does not propose copies of their chord onsets', async () => {
+    const snapshot = createSnapshot();
+    const automatic = { ...snapshot.annotations[0], id: 'automatic-chord', kind: 'chord' as const,
+      span: { startMeasure: 1, endMeasure: 1 }, position: { measure: 1, offset: { numerator: 0, denominator: 1 } }, chordSymbol: 'C' };
+    const created = vi.fn();
+    const registry = createSheetTools(snapshot, { automaticAnnotations: [automatic], onProposalCreated: created });
+    await registry.tools[0].execute('route', { profiles: ['harmony'] });
+    const read = await registry.tools[3].execute('read', { startMeasure: 1, endMeasure: 1, kinds: ['chord'] });
+    expect(read.details).toEqual({ annotations: [], automaticAnnotations: [automatic] });
+    const proposed = await registry.tools[4].execute('copy', { annotations: [{ ...automatic, chordSymbol: 'Am', body: 'Reworded reading.' }] } as any);
+    expect(proposed.details).toMatchObject({ proposedCount: 0, skippedCount: 1, existingAnnotationIds: ['automatic-chord'] });
+    expect(created).not.toHaveBeenCalled();
+    expect(snapshot.annotations).toHaveLength(1); expect(snapshot.annotations[0].kind).toBe('explanation');
+  });
   it('requires and supports multiple analysis profiles before score reads', async () => {
     const routed = vi.fn();
     const registry = createSheetTools(createSnapshot(), { onProfileRoute: routed });

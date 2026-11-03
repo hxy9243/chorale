@@ -3,7 +3,7 @@ title: "Automatic Score Analysis"
 description: "Score analysis lenses, a default analysis model, and automatic refresh after edits"
 category: "analysis"
 date: 2026-10-27
-updated: 2026-10-28
+updated: 2026-11-02
 status: "implemented"
 source_files:
   - src/components/FileRail.tsx
@@ -24,12 +24,14 @@ source_files:
   - electron/ipc.ts
   - electron/preload.ts
   - src/components/analysis.css
+  - src/components/ChordAnalysisPopover.tsx
 test_files:
   - src/agent/__tests__/scoreAnalysis.test.ts
   - src/analysis/__tests__/useScoreAnalysis.test.tsx
   - src/components/__tests__/AnalysisPanel.test.tsx
   - src/components/__tests__/FileRail.test.tsx
   - scripts/analysis-smoke.mjs
+  - src/components/__tests__/ChordAnalysisPopover.test.tsx
 related_specs:
   - spec/agent-analysis-and-annotations.md
   - spec/settings-and-auth.md
@@ -80,6 +82,8 @@ Switching on requests missing or outdated analysis immediately, even when **Upda
 
 Chord symbols, Roman numerals and harmonic function colors derive from the same harmony result. Turning those display options on and off does not reanalyze the score. Chord-label display options choose symbols, Roman numerals or both. Function colors tint these labels from the Roman numeral; they do not claim a unique functional interpretation. Voice colors are outside this change.
 
+The chords lens requests the complete written progression, including changes within a measure, repeated passages and the final chord. It must not select only representative sonorities. Establish a chord at the first sounding onset of each measure, then label every harmonic change. Other note onsets may explicitly continue the most recent chord in that measure (for example, passing notes, repeated attacks or an arpeggio); they do not require additional visible labels. Responses declare these positions in `chordContinuations: [{ measure, offsets: [{ numerator, denominator }] }]`. Continuations must refer to existing note onsets after an actual chord label, and cannot overlap labels or duplicate positions. Coverage is complete only when every distinct note onset has a label or a validated continuation. Silent measures need no chord. This checks completeness of the submitted interpretation, not its musical correctness. Unresolved or omitted onsets leave the measure incomplete, preserve supported findings and offer **Continue**. Retrying replaces that window's chord findings instead of accumulating duplicates. Earlier selective caches cannot satisfy this contract.
+
 ### Default model setting
 
 Add **Default sheet analysis model** to Settings → API providers, adjacent to the existing connection management:
@@ -117,6 +121,8 @@ Automatic results are an owned analysis layer, separate from accepted annotation
 
 Clicking a result reveals its location, score evidence, interpretation, model and run provenance. **Keep as annotation** explicitly copies that finding into the existing annotation workflow at the current revision. It then survives automatic refresh under the normal annotation contract and retains provider/model attribution in its body. Pickup findings use their real written location, m. 0, in the automatic layer. Because the existing saved-annotation contract starts at m. 1, their explicit action is **Keep pickup note at m. 1**; this creates a commentary note beside the first full measure and preserves the original pickup reference and chord reading in its body. No automatic run changes notes, rhythms, existing annotations or chat history.
 
+Automatic chord details float at the left edge of the score panel beside the selected measure, rather than occupying a row above the score. Opening them does not move or resize the notation. The popover tracks the measure during scrolling, zoom and panel resizing; it stays inside the visible score/window bounds and scrolls internally when necessary. Escape, Close, outside pointer/focus interaction, or scrolling the measure out of view dismisses it. Close and Escape restore focus to the initiating chord badge; outside interaction preserves the user's new focus. Switching chord badges switches the details. Range-analysis details and accepted chord editing retain their existing workflows.
+
 Reuse rational `MusicalPosition` and measure spans. Project chord labels and markers through the existing sibling-overlay geometry; never inject React elements into the abcjs SVG. Key-area and phrase summaries stay compact and expose their exact spans on inspection.
 
 Computed facts and model interpretation remain distinct. For example, show “Possible modulation to D” when the evidence does not settle a key change. A key signature or a secondary dominant alone is insufficient proof of modulation. Do not invent numeric confidence percentages. Unsupported texture, missing voices and incomplete coverage receive diagnostics rather than “all clear.”
@@ -127,7 +133,7 @@ Computed facts and model interpretation remain distinct. For example, show “Po
 2. After a valid musical edit, hide automatic findings for the old musical revision, mark the layer outdated and wait approximately 1.5 seconds after the last edit. Layout, playback, selection and annotation-only changes do not schedule analysis.
 3. Resolve reusable results by document identity, normalized musical-content fingerprint, analysis/schema version, model selection, relevant model settings and requested analysis coverage. Preserve document revision and snapshot identity on each run for publication guards. Undoing to identical musical content may reuse prior results after validating current anchors.
 4. Plan one job for the enabled lenses using the existing authenticated provider runtime and a fixed structured-output prompt. Materialize immutable score facts and bounded ABC context before the request. The model receives no mutation tools. Voice-leading can include evidence from the existing sandboxed music21 core; no new public analysis tools are introduced.
-5. Read musical facts in bounded windows, honoring the existing music21 call limits. Analyze all written measures requested for the sheet, not only the viewport. Carry wider tonal/phrase context across windows and reconcile boundaries. A modulation result remains provisional until the required wider context is covered.
+5. Read musical facts in bounded windows, honoring the existing music21 call limits. Windows contain at most 16 measures; when chords are requested, also target at most 32 distinct note onsets, without splitting a measure. Analyze all written measures requested for the sheet, not only the viewport. Carry wider tonal/phrase context across windows and reconcile boundaries, including scores shorter than 16 measures split by onset density. A modulation result remains provisional until the required wider context is covered.
 6. Validate structured results, anchors, evidence references and coverage before publication. Reject unsupported note/measure references. Treat model output as untrusted data.
 7. Publish only if the open document, musical fingerprint, run generation and selected analysis configuration still match. If any changes during a request, cancel where supported and discard late output. Cancellation may not undo provider usage already incurred.
 8. Debounce subsequent edits and run only the newest pending snapshot. Use one coordinator for all renderer windows; claim jobs through shared run metadata so multiple windows cannot duplicate the same paid work.

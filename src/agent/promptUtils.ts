@@ -7,6 +7,7 @@ import type {
   Usage,
 } from '@earendil-works/pi-ai';
 import type { ChatMessage, MusicContextSnapshot } from './types';
+import type { Annotation } from '../types/document';
 
 import {
   describeKeySignature,
@@ -36,6 +37,7 @@ export const formatPrompt = (
   question: string,
   snapshot: MusicContextSnapshot,
   extracted?: ExtractedScore,
+  automaticAnnotations: readonly Annotation[] = [],
 ): string => {
   const parts: string[] = [
     CONTEXT_START,
@@ -43,6 +45,26 @@ export const formatPrompt = (
     `revision=${snapshot.revision}`,
     `capturedAt=${snapshot.capturedAt}`,
   ];
+
+  const relevantAnnotations = snapshot.annotations.filter(a => !snapshot.selection
+    || (a.span.startMeasure <= snapshot.selection.endMeasure && a.span.endMeasure >= snapshot.selection.startMeasure));
+  if (relevantAnnotations.length) {
+    const annotationLines = relevantAnnotations.slice(0, 24).map(a => {
+      const details = a.kind === 'chord'
+        ? `[m. ${a.position.measure}] chord: ${a.chordSymbol}${a.romanNumeral ? ` (${a.romanNumeral})` : ''} - ${a.label}`
+        : `[mm. ${a.span.startMeasure}–${a.span.endMeasure}] ${a.kind}: ${a.label}`;
+      return `- ${details} [id=${JSON.stringify(a.id)}, source=${a.source}${a.kind === 'chord' ? `, position=${JSON.stringify(a.position)}` : ''}] - ${a.body.slice(0, 200)}`;
+    });
+    parts.push(`${snapshot.selection ? 'existingAnnotationsInSelection' : 'existingAnnotations'}:\n${annotationLines.join('\n')}`);
+    parts.push(`Annotation preview: ${annotationLines.length} of ${relevantAnnotations.length}. Call get_annotations for complete details in the target range before proposing additions.`);
+  }
+  const automaticReferences = automaticAnnotations.filter(a => !snapshot.selection
+    || (a.span.startMeasure <= snapshot.selection.endMeasure && a.span.endMeasure >= snapshot.selection.startMeasure));
+  if (automaticReferences.length) parts.push(`automaticAnalysisReferences (read-only suggestions, separate from saved annotations; do not duplicate):\n${
+    JSON.stringify(automaticReferences.slice(0, 24).map(a => ({ id: a.id, kind: a.kind, span: a.span, label: a.label,
+      ...(a.kind === 'chord' ? { position: a.position, chordSymbol: a.chordSymbol, romanNumeral: a.romanNumeral } : {}),
+    })))
+  }\nAutomatic reference preview: ${Math.min(24, automaticReferences.length)} of ${automaticReferences.length}. Use get_annotations for the full target range.`);
 
   try {
     const score = extracted ?? extractScore(snapshot.abc);
@@ -70,19 +92,6 @@ export const formatPrompt = (
       parts.push(
         `selection: mm. ${startMeasure}–${endMeasure} | activeKey="${activeKey}" (${activeKeyInfo.description}) | activeMeter="${activeMeter}"`,
       );
-
-      const relevantAnnotations = snapshot.annotations.filter(
-        (a) => a.span.startMeasure <= endMeasure && a.span.endMeasure >= startMeasure,
-      );
-      if (relevantAnnotations.length > 0) {
-        const annotationLines = relevantAnnotations.map((a) => {
-          if (a.kind === 'chord') {
-            return `- [m. ${a.span.startMeasure}] chord: ${a.chordSymbol}${a.romanNumeral ? ` (${a.romanNumeral})` : ''} - ${a.label}`;
-          }
-          return `- [mm. ${a.span.startMeasure}–${a.span.endMeasure}] ${a.kind}: ${a.label} - ${a.body}`;
-        });
-        parts.push(`existingAnnotationsInSelection:\n${annotationLines.join('\n')}`);
-      }
 
       const measureSlices = selected.map((m) => `[m. ${m.measureNumber}]\n${m.abcSlice}`).join('\n');
       parts.push(`selectedMeasuresAbc:\n${measureSlices}`);

@@ -38,11 +38,17 @@ export const summarizeToolDone = (event: ToolDoneEvent): string => {
     const count = Array.isArray(event.result?.details?.annotations)
       ? event.result.details.annotations.length
       : undefined;
+    const automaticCount = Array.isArray(event.result?.details?.automaticAnnotations) ? event.result.details.automaticAnnotations.length : 0;
+    if (automaticCount) return `Found ${count ?? 0} saved annotation${count === 1 ? '' : 's'} and ${automaticCount} automatic suggestion${automaticCount === 1 ? '' : 's'}`;
     return count === undefined ? 'Annotations ready' : `Found ${count} annotation${count === 1 ? '' : 's'}`;
   }
   if (event.toolName === 'analyze_music21') return 'music21 analysis ready';
   if (event.toolName === 'propose_annotations') {
     const count = integer(event.result?.details?.proposedCount);
+    const skipped = integer(event.result?.details?.skippedCount);
+    if (skipped && skipped > 0) return count === 0
+      ? `Reused ${skipped} existing annotation${skipped === 1 ? '' : 's'}`
+      : `Proposed ${count ?? 0} new annotation${count === 1 ? '' : 's'} · skipped ${skipped} duplicate${skipped === 1 ? '' : 's'}`;
     return count === undefined
       ? 'Annotation proposals ready'
       : `Proposed ${count} annotation${count === 1 ? '' : 's'}`;

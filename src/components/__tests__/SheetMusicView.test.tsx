@@ -51,6 +51,17 @@ describe('SheetMusicView Component', () => {
     expect(screen.getByTestId('mock-svg-paper')).toBeDefined();
     expect(abcjs.renderAbc).toHaveBeenCalled();
   });
+  it('shows a saved range note once when automatic analysis repeats it', () => {
+    render(<SheetMusicView abcCode={sampleAbc} annotations={[sceneRangeNote]} automaticAnalysis={{
+      modelName: 'Fixture', providerName: 'Fixture', findings: [{ lens: 'cadences',
+        annotation: { ...sceneRangeNote, id: 'auto-copy', source: 'assistant' },
+        evidence: [{ measure: 1, offset: { numerator: 0, denominator: 1 }, voiceId: 'voice-1' }],
+      }],
+    }} />);
+    expect(document.querySelectorAll('[data-annotation-id="scene-range-note"]').length).toBeGreaterThan(0);
+    expect(document.querySelector('[data-annotation-id="auto-copy"]')).toBeNull();
+    expect(screen.getAllByText('Opening phrase')).toHaveLength(1);
+  });
 
   function contextTarget(measure: number) {
     const target = document.createElementNS('http://www.w3.org/2000/svg', 'rect');

@@ -2,12 +2,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { AIConnectionStore } from '../../../electron/ai/connectionStore';
 import { ScoreAnalysisCoordinator, type AnalysisCompletion } from '../../../electron/ai/scoreAnalysis';
 import { createScoreSnapshot } from '../../music/scoreSnapshot';
+import { createRationalDuration } from '../../music/rational';
 import { keepAnalysisFinding, musicalAnalysisKey, parseAnalysisResponse } from '../../analysis/scoreAnalysis';
 import { validateAnnotation } from '../../music/documentSchema';
 import type { MusicContextSnapshot } from '../types';
@@ -20,11 +21,24 @@ const abc = 'X:1\nT:Study\nM:4/4\nL:1/4\nK:C\nC4 | D4 | E4 | F4 |]';
 const context = (source = abc, revision = 1): MusicContextSnapshot => ({ id: `ctx-${revision}`, documentId: 'score-1', revision,
   abc: source, fileName: 'Study', annotations: [], capturedAt: new Date().toISOString() });
 const empty = { findings: [], diagnostics: [], summary: 'C major context; no supported findings in this fixture.' };
-const response: AnalysisCompletion = async () => ({ text: JSON.stringify(empty), tokens: 100 });
 const chord = { lens: 'chords', annotation: { kind: 'chord', span: { startMeasure: 1, endMeasure: 1 },
   label: 'C major', body: 'The opening C supports this proposed C-major reading.', chordSymbol: 'C', romanNumeral: 'I',
   position: { measure: 1, offset: { numerator: 0, denominator: 1 } } },
   evidence: [{ measure: 1, offset: { numerator: 0, denominator: 1 }, voiceId: 'voice-1' }] };
+// Provider fixture: a label at each measure's first note, with the remaining
+// onsets explicitly continuing it. These are protocol fixtures, not gold harmony.
+const response: AnalysisCompletion = async input => {
+  const prompt = JSON.parse(input.prompt);
+  const targets = prompt.measures.filter((m: { measureNumber: number }) => prompt.targetMeasures?.includes(m.measureNumber));
+  const findings = prompt.requestedLenses.includes('chords') ? targets.flatMap((m: { measureNumber: number; events: { type: string; position: { offset: { numerator: number; denominator: number } }; voiceId: string }[] }) => {
+    const event = m.events.find(e => e.type === 'note');
+    return event ? [{ ...chord, annotation: { ...chord.annotation, span: { startMeasure: m.measureNumber, endMeasure: m.measureNumber },
+      position: { measure: m.measureNumber, offset: event.position.offset } },
+      evidence: [{ measure: m.measureNumber, offset: event.position.offset, voiceId: event.voiceId }] }] : [];
+  }) : [];
+  const chordContinuations = prompt.requestedLenses.includes('chords') ? prompt.chordReviewOnsets.map((m: { measure: number; offsets: unknown[] }) => ({ ...m, offsets: m.offsets.slice(1) })) : [];
+  return { text: JSON.stringify({ ...empty, findings, chordContinuations }), tokens: 100 };
+};
 const setup = async (complete: AnalysisCompletion = response) => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'chorale-analysis-')); directories.push(directory);
   const store = new AIConnectionStore(directory, cipher); await store.initialize();
@@ -43,6 +57,86 @@ const settled = async (coordinator: ScoreAnalysisCoordinator) => {
 afterEach(async () => { vi.restoreAllMocks(); await Promise.all(servers.splice(0).map(server => new Promise<void>(resolve => { server.closeAllConnections(); server.close(() => resolve()); }))); await Promise.all(directories.splice(0).map(directory => rm(directory, { recursive: true, force: true }))); });
 
 describe('automatic score analysis', () => {
+  it('exposes only current enabled findings as separate read-only chat references', async () => {
+    const { coordinator } = await setup();
+    await coordinator.request({ context: context() }); await settled(coordinator);
+    const references = coordinator.getAnnotationReferences(context());
+    expect(references).toHaveLength(4);
+    references[0].label = 'Changed caller copy';
+    expect(coordinator.getAnnotationReferences(context())[0].label).not.toBe('Changed caller copy');
+    expect(coordinator.getAnnotationReferences(context(abc.replace('C4','G4'), 2))).toEqual([]);
+    await coordinator.preferences('score-1', { lenses: [], autoRefresh: true });
+    expect(coordinator.getAnnotationReferences(context())).toEqual([]);
+  });
+  it('does not mark a selective chord response as complete, and replaces it on continuation', async () => {
+    const source = context('X:1\nM:4/4\nL:1/4\nK:Cm\n[CEG] [ACEF] [=B,DG] [CEG] |]');
+    const complete = vi.fn<AnalysisCompletion>(async () => ({ text: JSON.stringify({ ...empty, findings: [chord] }), tokens: 100 }));
+    const { coordinator } = await setup(complete);
+    await coordinator.request({ context: source });
+    const partial = await settled(coordinator);
+    expect(partial.status).toBe('partial'); expect(partial.completedMeasures).toBe(0);
+    expect(partial.result?.coverage.chords).toEqual([]);
+    expect(partial.message).toContain('Chord progression is incomplete');
+    complete.mockImplementation(async () => ({ text: JSON.stringify({ ...empty, findings: [0,1,2,3].map(beat => ({ ...chord,
+      annotation: { ...chord.annotation, position: { measure: 1, offset: createRationalDuration(beat, 4) } },
+      evidence: [{ measure: 1, voiceId: 'voice-1', offset: createRationalDuration(beat, 4) }],
+    })) }), tokens: 100 }));
+    await coordinator.request({ context: source });
+    const done = await settled(coordinator);
+    expect(done.status).toBe('current'); expect(done.completedMeasures).toBe(1);
+    expect(done.result?.findings).toHaveLength(4);
+  });
+  it('accounts for ornaments and repeated attacks without adding a chord label at every note', () => {
+    const snapshot = createScoreSnapshot({ ...context('X:1\nM:4/4\nL:1/4\nK:C\nC D E G | z4 |]'), snapshotId: 'ornaments' });
+    const raw = { ...empty, findings: [chord], chordContinuations: [{ measure: 1,
+      offsets: [1,2,3].map(numerator => ({ numerator, denominator: 4 })) }] };
+    const parsed = parseAnalysisResponse(JSON.stringify(raw), snapshot, ['chords'], [1,2], 'r');
+    expect(parsed.findings).toHaveLength(1); expect(parsed.chordCoverage).toEqual([1,2]);
+    expect(() => parseAnalysisResponse(JSON.stringify({ ...raw, chordContinuations: [{ measure: 1,
+      offsets: [{ numerator: 1, denominator: 8 }] }] }), snapshot, ['chords'], [1,2], 'r')).toThrow('existing note');
+    expect(() => parseAnalysisResponse(JSON.stringify({ ...raw, chordContinuations: [{ measure: 1,
+      offsets: [{ numerator: 0, denominator: 1 }] }] }), snapshot, ['chords'], [1,2], 'r')).toThrow();
+    expect(() => parseAnalysisResponse(JSON.stringify({ ...raw, chordContinuations: [{ measure: 1,
+      offsets: [{ numerator: 1, denominator: 4 }, { numerator: 2, denominator: 8 }] }] }), snapshot, ['chords'], [1,2], 'r')).toThrow('Duplicate chord coverage');
+    expect(() => parseAnalysisResponse(JSON.stringify({ ...raw, findings: [] }), snapshot, ['chords'], [1,2], 'r')).toThrow('preceding chord');
+  });
+  it('does not count empty findings or a measure-spanning chord as coverage for unexamined note onsets', () => {
+    const snapshot = createScoreSnapshot({ ...context(), snapshotId: 's' });
+    expect(parseAnalysisResponse(JSON.stringify(empty), snapshot, ['chords'], [1,2,3,4], 'r').chordCoverage).toEqual([]);
+    const spanning = { ...chord, annotation: { ...chord.annotation, span: { startMeasure: 1, endMeasure: 4 } } };
+    expect(parseAnalysisResponse(JSON.stringify({ ...empty, findings: [spanning] }), snapshot, ['chords'], [1,2,3,4], 'r').chordCoverage).toEqual([1]);
+  });
+  it('bounds dense chord passages and reconciles even a short score split into multiple windows', async () => {
+    const complete = vi.fn(response); const { coordinator, store } = await setup(complete);
+    await coordinator.preferences('score-1', { lenses: ['chords','cadences','modulation'], autoRefresh: true });
+    const source = context('X:1\nM:4/4\nL:1/4\nK:Cm\n' + '[CEG] [ACEF] [=B,DG] [CEG] | '.repeat(12) + '[CEG]4 |]');
+    await coordinator.request({ context: source }); const done = await settled(coordinator);
+    expect(done.status).toBe('current'); expect(done.completedMeasures).toBe(13); expect(done.result?.reconciled).toBe(true);
+    const prompts = complete.mock.calls.map(([input]) => JSON.parse(input.prompt));
+    expect(prompts[0].chordReviewOnsets.flatMap((m: { offsets: unknown[] }) => m.offsets)).toHaveLength(32);
+    expect(prompts.slice(0,2).flatMap(p => p.targetMeasures)).toEqual(Array.from({ length: 13 }, (_,i) => i+1));
+    expect(prompts[2].task).toContain('whole written score');
+    const reloaded = new ScoreAnalysisCoordinator(store, complete);
+    expect((await reloaded.observe(source)).status).toBe('current');
+    expect((await reloaded.get('score-1')).result?.chordContinuations).toHaveLength(13);
+    expect(complete).toHaveBeenCalledTimes(3);
+  });
+  it('invalidates selective legacy caches and checks persisted chord coverage against actual findings', async () => {
+    const { coordinator, store } = await setup();
+    await coordinator.request({ context: context() }); await settled(coordinator);
+    const file = path.join(store.analysisDirectory, 'score-analysis.v1.json');
+    const cache = JSON.parse(await readFile(file, 'utf8'));
+    const result = cache.documents[0].results[0];
+    result.findings = [result.findings[0]];
+    await writeFile(file, JSON.stringify(cache));
+    const reloaded = new ScoreAnalysisCoordinator(store, response);
+    const partial = await reloaded.observe(context());
+    expect(partial.status).toBe('partial'); expect(partial.completedMeasures).toBe(1);
+    expect(partial.result?.coverage.chords).toEqual([1]);
+    result.fingerprint = result.fingerprint.replace(/^v2-/, 'v1-');
+    await writeFile(file, JSON.stringify(cache));
+    expect((await new ScoreAnalysisCoordinator(store, response).observe(context())).result).toBeUndefined();
+  });
   it('persists a separate validated default without changing the chat model', async () => {
     const { store, connection, directory } = await setup();
     const reloaded = new AIConnectionStore(directory, cipher); await reloaded.initialize();
@@ -102,10 +196,10 @@ describe('automatic score analysis', () => {
     const state = await coordinator.get('score-1'); expect(state.result).toBeUndefined(); expect(state.status).toBe('idle'); expect(complete).toHaveBeenCalledOnce();
   });
   it('runs only missing lenses and keeps automatic findings outside document annotations', async () => {
-    const complete = vi.fn<AnalysisCompletion>(async input => ({ text: JSON.stringify({ ...empty, findings: JSON.parse(input.prompt).requestedLenses.includes('chords') ? [chord] : [] }), tokens: 100 }));
+    const complete = vi.fn(response);
     const { coordinator } = await setup(complete); const source = context();
     await coordinator.request({ context: source }); const done = await settled(coordinator);
-    expect(done.result?.findings).toHaveLength(1); expect(source.annotations).toEqual([]); expect(source.abc).toBe(abc);
+    expect(done.result?.findings).toHaveLength(4); expect(source.annotations).toEqual([]); expect(source.abc).toBe(abc);
     await coordinator.preferences('score-1', { lenses: ['chords','modulation'], autoRefresh: true });
     await coordinator.request({ context: source }); await settled(coordinator);
     expect(JSON.parse(complete.mock.calls[1][0].prompt).requestedLenses).toEqual(['modulation']);
@@ -147,7 +241,7 @@ describe('automatic score analysis', () => {
     await store.saveConnection({ id: connection.id, name: 'Study provider', kind: 'custom', baseUrl: `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1` });
     const coordinator = new ScoreAnalysisCoordinator(store);
     await coordinator.preferences('score-1', { lenses: ['chords'], autoRefresh: true });
-    await coordinator.request({ context: context() }); const done = await settled(coordinator);
+    await coordinator.request({ context: context('X:1\nM:4/4\nL:1/4\nK:C\nC4 |]') }); const done = await settled(coordinator);
     expect(done.status).toBe('current'); expect(done.result?.findings).toHaveLength(1);
     expect(received.model).toBe('analysis'); expect(received.tools).toBeUndefined();
     expect(received.max_tokens ?? received.max_completion_tokens).toBeLessThanOrEqual(8192);

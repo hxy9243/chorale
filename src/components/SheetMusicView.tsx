@@ -1,6 +1,8 @@
 import type { AnalysisDisplay, AnalysisFinding } from '../analysis/types';
 import { parseMeterBeatGrid } from '../music/meterPosition';
 import { keepAnalysisFinding } from '../analysis/scoreAnalysis';
+import { ChordAnalysisPopover } from './ChordAnalysisPopover';
+import { isDuplicateAnnotation } from '../music/annotationMutations';
 import React, { useEffect, useRef, useState } from 'react';
 import type abcjs from 'abcjs';
 import { StaffInstruments, type StaffSoundTarget } from './StaffInstruments';
@@ -573,20 +575,37 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
   onUpdateAnnotation,
   onDeleteAnnotation,
 }) => {
-  const automaticById = React.useMemo(() => new Map(automaticAnalysis?.findings.map(f => [f.annotation.id, f]) ?? []), [automaticAnalysis?.findings]);
+  const automaticById = React.useMemo(() => new Map(automaticAnalysis?.findings
+    .filter(f => !annotations.some(a => isDuplicateAnnotation(a, f.annotation)))
+    .map(f => [f.annotation.id, f]) ?? []), [automaticAnalysis?.findings, annotations]);
   const automaticIds = React.useMemo(() => new Set(automaticById.keys()), [automaticById]);
   const allAnnotations = React.useMemo(() => [...annotations, ...[...automaticById.values()].map(f => f.annotation)], [annotations, automaticById]);
   const [inspectedAnalysisId, setInspectedAnalysisId] = useState<string | null>(null);
+  const analysisInitiatorRef = useRef<HTMLElement | SVGElement | null>(null);
   const inspectedAnalysis = inspectedAnalysisId ? automaticById.get(inspectedAnalysisId) : undefined;
   const analysisMeters = React.useMemo(() => {
     if (!inspectedAnalysis) return new Map<number, string>();
     try { return new Map(extractScore(abcCode).measures.map(m => [m.measureNumber, m.activeMeter])); }
     catch { return new Map<number, string>(); }
   }, [abcCode, inspectedAnalysis]);
-  const inspectAnalysis = (annotation: Annotation) => { setInspectedAnalysisId(annotation.id); onSelectAnchor?.(annotation.span); };
+  const inspectAnalysis = (annotation: Annotation, initiator?: HTMLElement | SVGElement) => {
+    analysisInitiatorRef.current = initiator ?? null;
+    setAnnotationEditor(null);
+    setInspectedAnalysisId(annotation.id);
+    onSelectAnchor?.(annotation.span);
+  };
   const measureMapping = React.useMemo(() => getScoreMeasureMappingAbc(abcCode), [abcCode]);
   const firstMeasureNumber = measureMapping.firstMeasureNumber;
   const containerRef = useRef<HTMLDivElement>(null);
+  const closeAnalysis = React.useCallback((restoreFocus = false) => {
+    setInspectedAnalysisId(null);
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => {
+        const target = analysisInitiatorRef.current;
+        (target?.isConnected ? target : containerRef.current)?.focus({ preventScroll: true });
+      });
+    }
+  }, []);
   const cardRef = useRef<HTMLDivElement>(null);
   const sheetViewportRef = useRef<HTMLDivElement>(null);
   const sheetSceneRef = useRef<HTMLDivElement>(null);
@@ -1286,6 +1305,22 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
     />
   ) : null;
 
+  const analysisDetail = inspectedAnalysis && <section className="automatic-analysis-detail" aria-label="Automatic analysis detail">
+    <header><strong>{inspectedAnalysis.annotation.label}</strong>
+      <button type="button" onClick={() => closeAnalysis(true)} aria-label="Close analysis"><X size={16} aria-hidden="true" /></button></header>
+    <p>{inspectedAnalysis.annotation.body}</p>
+    <small>{automaticAnalysis?.providerName} · {automaticAnalysis?.modelName} · Suggested analysis</small>
+    <p>Evidence: {inspectedAnalysis.evidence.map(e => {
+      const grid = parseMeterBeatGrid(analysisMeters.get(e.measure) || meter);
+      const beat = 1 + e.offset.numerator * grid.beatDuration.denominator / (e.offset.denominator * grid.beatDuration.numerator);
+      return `m. ${e.measure}, ${e.voiceId}, beat ${Number.isInteger(beat) ? beat : `≈${Number(beat.toFixed(3))}`}`;
+    }).join('; ')}</p>
+    {onCreateAnnotation && <footer><button type="button" onClick={() => {
+      onCreateAnnotation(keepAnalysisFinding(inspectedAnalysis, automaticAnalysis!.providerName, automaticAnalysis!.modelName));
+      closeAnalysis(true);
+    }}>{inspectedAnalysis.annotation.span.startMeasure === 0 ? 'Keep pickup note at m. 1' : 'Keep as annotation'}</button></footer>}
+  </section>;
+
   return (
     <div ref={cardRef} className="sheet-music-card glass-panel">
       {contextMenu && <ScoreContextMenu {...contextMenu} interfaceZoom={interfaceZoom}
@@ -1367,20 +1402,12 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
         </div>
       )}
 
-      {inspectedAnalysis && <section className="automatic-analysis-detail" aria-label="Automatic analysis detail">
-        <strong>{inspectedAnalysis.annotation.label}</strong><p>{inspectedAnalysis.annotation.body}</p>
-        <small>{automaticAnalysis?.providerName} · {automaticAnalysis?.modelName} · Suggested analysis</small>
-        <p>Evidence: {inspectedAnalysis.evidence.map(e => {
-          const grid = parseMeterBeatGrid(analysisMeters.get(e.measure) || meter);
-          const beat = 1 + e.offset.numerator * grid.beatDuration.denominator / (e.offset.denominator * grid.beatDuration.numerator);
-          return `m. ${e.measure}, ${e.voiceId}, beat ${Number.isInteger(beat) ? beat : `≈${Number(beat.toFixed(3))}`}`;
-        }).join('; ')}</p>
-        <footer><button type="button" onClick={() => setInspectedAnalysisId(null)}>Close</button>
-          {onCreateAnnotation && <button type="button" onClick={() => {
-            onCreateAnnotation(keepAnalysisFinding(inspectedAnalysis, automaticAnalysis!.providerName, automaticAnalysis!.modelName));
-            setInspectedAnalysisId(null);
-          }}>{inspectedAnalysis.annotation.span.startMeasure === 0 ? 'Keep pickup note at m. 1' : 'Keep as annotation'}</button>}</footer>
-      </section>}
+      {inspectedAnalysis?.annotation.kind === 'chord' ? <ChordAnalysisPopover key={inspectedAnalysisId}
+        annotationId={inspectedAnalysis.annotation.id} measure={inspectedAnalysis.annotation.position.measure}
+        initiatorRef={analysisInitiatorRef} surfaceRef={sheetViewportRef} interfaceZoom={interfaceZoom}
+        layoutVersion={`${renderGeneration}-${currentZoom}`} onClose={closeAnalysis}>
+        {analysisDetail}
+      </ChordAnalysisPopover> : analysisDetail}
       <div ref={sheetViewportRef} className="sheet-viewport">
         <div className="sheet-scene-positioner">
           <div
@@ -1457,12 +1484,13 @@ export const SheetMusicView: React.FC<SheetMusicViewProps> = ({
                     tune={renderedTuneRef.current}
                     renderGeneration={renderGeneration}
                     activeAnnotationId={
-                      annotationEditor?.mode === 'accepted' ? annotationEditor.annotationId : null
+                      inspectedAnalysisId ?? (annotationEditor?.mode === 'accepted' ? annotationEditor.annotationId : null)
                     }
                     inlineChordEditor={editedAnnotation?.kind === 'chord' ? annotationEditorNode : null}
                     onRangeGeometry={handleAnnotationRailGeometry}
-                    onActivate={(annotation) => {
-                      if (automaticById.has(annotation.id)) { inspectAnalysis(annotation); return; }
+                    onActivate={(annotation, initiator) => {
+                      if (automaticById.has(annotation.id)) { inspectAnalysis(annotation, initiator); return; }
+                      closeAnalysis();
                       onSelectAnchor?.(resolvePlaybackAnchor(annotation.span));
                       setAnnotationEditor({ mode: 'accepted', annotationId: annotation.id });
                     }}

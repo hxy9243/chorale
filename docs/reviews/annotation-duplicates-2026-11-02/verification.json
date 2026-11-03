@@ -1,0 +1,37 @@
+{
+  "base": "1b08982",
+  "delivery": "local uncommitted patch following the automatic chord coverage fix",
+  "status": "DONE",
+  "sourceSha256": {
+    "electron/ai/controller.ts": "6d0528c0244b37be25f49fa14304af80669889228437aef83cc1b9a6af0d0075",
+    "electron/ai/scoreAnalysis.ts": "ecb8c3368bf2faadcf5cd7653dd0f5a0695bbcc9d6d0a05bcd6ad66ccaf6ca4a",
+    "electron/ai/sheetAgentRuntime.ts": "5c6a4b01be73243198c1b564ed8bc5529237fae9ae355ad3a660400812fc50ef",
+    "electron/ai/sheetTools.ts": "a606ba0fea86158365c021afc0cb81720e013d157ea6c271d40519742041482c",
+    "electron/ai/systemPrompt.ts": "2c3bc8b2d1488d119d531370be5f748b4ba2eec7bfc8e6831c21b3f23e311afc",
+    "electron/ai/toolEvents.ts": "58df476a7543fa4df4ec211593ea0cd029dbc65c1e646a0fe629f779e133a876",
+    "scripts/analysis-smoke.mjs": "42d86de16d5f22f10abf57ddbe253a6ac0bf1301ee0f289568fa6f99754e35ad",
+    "spec/annotations-and-proposals.md": "7485b115eac296b233e03298bfc59fa23cd81f86485c9ef8aad3d4cf4c13800c",
+    "spec/agent-analysis-and-annotations.md": "9e8bb1202e4a71e628391a901480f4613fe9c8dcfc6f2a95de51db4d6764fd96",
+    "src/agent/promptUtils.ts": "bdba6011d9048a1d1b9761d2cf74f17ae8dc93087e97c6518d9bddaf4b1e98f6",
+    "src/agent/proposalActions.ts": "ff5392dbeb4e5cd9124d21e4597656e965cb26b0018af2b34a8866032497a0f1",
+    "src/music/annotationMutations.ts": "5c6e50cca5445ec61981275291ff971493ba8d2c8089bc62a047f0b96ec65fdd",
+    "src/music/documentSchema.ts": "28c3a00638b2f6da5ad2554d96930cc92e25b8c89c6b0db28c85353b91a1faac",
+    "src/components/AgentChatPanel.tsx": "da93e0f35635c20ec796c5a97604038e00958c7991f9916ae6997041bd2e3e2e",
+    "src/components/SheetMusicView.tsx": "b6a5341631e0e0d1f97eb550a4be08874f9fab2b49adce684ad2f9dd15a88c3b",
+    "src/hooks/useDocumentStore.ts": "cbcd3a04cea63cac4a75af001fcd2beccc2d4db8fd6e9d8c4843c476e4505563"
+  },
+  "verification": {
+    "nodeTests": 261,
+    "vitestTests": 1105,
+    "vitestFiles": 118,
+    "focusedTests": 136,
+    "promptBudgetAndRuntimeTests": 21,
+    "persistenceTests": 36,
+    "lintErrors": 0,
+    "lintWarnings": 54,
+    "typecheck": "passed",
+    "webBuild": "passed",
+    "electronBuild": "passed",
+    "desktopSmoke": "passed with synthetic provider responses"
+  }
+}

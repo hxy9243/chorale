@@ -858,6 +858,7 @@ export const AgentChatPanel: React.FC<AgentChatPanelProps> = ({
       fileId || '',
       revision,
       new Set(annotations.map(({ id }) => id)),
+      annotations,
     );
     setInvalidProposalIds((current) => ({
       ...current,

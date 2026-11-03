@@ -1,8 +1,8 @@
 import { extractScore, type ExtractedScore } from '../music/scoreSnapshot';
-import { compareRationalDurations } from '../music/rational';
+import { compareRationalDurations, createRationalDuration } from '../music/rational';
 import { validateAnnotation } from '../music/documentSchema';
 import type { Annotation } from '../types/document';
-import { isAnalysisLens, type AnalysisFinding, type AnalysisLens } from './types';
+import { isAnalysisLens, type AnalysisFinding, type AnalysisLens, type ChordContinuation } from './types';
 
 export const musicalAnalysisKey = (abc: string): string => {
   const score = extractScore(abc);
@@ -19,7 +19,8 @@ export const musicalAnalysisKey = (abc: string): string => {
   });
   let a = 2166136261, b = 5381;
   for (let i = 0; i < musical.length; i++) { a = Math.imul(a ^ musical.charCodeAt(i), 16777619); b = Math.imul(b, 33) ^ musical.charCodeAt(i); }
-  return `v1-${(a >>> 0).toString(16)}-${(b >>> 0).toString(16)}-${musical.length}`;
+  // v2 requires an onset-complete chord reading, unlike earlier selective caches.
+  return `v2-${(a >>> 0).toString(16)}-${(b >>> 0).toString(16)}-${musical.length}`;
 };
 
 const text = (value: unknown, limit: number): value is string => typeof value === 'string' && value.length > 0 && value.length <= limit;
@@ -29,7 +30,7 @@ const record = (value: unknown): value is Record<string, unknown> => Boolean(val
 export const parseAnalysisResponse = (
   raw: string, score: ExtractedScore, lenses: readonly AnalysisLens[], measures: readonly number[], idPrefix: string,
   limits: { characters: number; findings: number; evidenceMeasures?: readonly number[] } = { characters: 160_000, findings: 256 },
-): { findings: AnalysisFinding[]; summary: string; diagnostics: string[] } => {
+): { findings: AnalysisFinding[]; summary: string; diagnostics: string[]; chordContinuations: ChordContinuation[]; chordCoverage: number[] } => {
   if (raw.length > limits.characters) throw new Error('Analysis response exceeds the supported limit.');
   const data: unknown = JSON.parse(raw.trim().replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, ''));
   if (!record(data) || !Array.isArray(data.findings) || data.findings.length > limits.findings
@@ -83,7 +84,44 @@ export const parseAnalysisResponse = (
     }
     return { lens: item.lens, annotation, evidence };
   });
-  return { findings, summary: data.summary, diagnostics: data.diagnostics as string[] };
+  const rawContinuations = data.chordContinuations ?? [];
+  if (!Array.isArray(rawContinuations) || rawContinuations.length > measures.length
+    || (rawContinuations.length && !lenses.includes('chords'))) throw new Error('Invalid chord continuation coverage.');
+  const chordPositions = findings.flatMap(f => f.lens === 'chords' && f.annotation.kind === 'chord' ? [f.annotation.position] : []);
+  const positionKey = (measure: number, offset: { numerator: number; denominator: number }) => `${measure}:${offset.numerator}/${offset.denominator}`;
+  const accounted = new Set<string>();
+  for (const position of chordPositions) {
+    const key = positionKey(position.measure, position.offset);
+    if (accounted.has(key)) throw new Error('Duplicate chord labels at the same onset.');
+    accounted.add(key);
+  }
+  const continuationMeasures = new Set<number>();
+  const chordContinuations: ChordContinuation[] = rawContinuations.map(item => {
+    if (!record(item) || !Number.isSafeInteger(item.measure) || !allowed.has(Number(item.measure))
+      || continuationMeasures.has(Number(item.measure)) || !Array.isArray(item.offsets)
+      || item.offsets.length > (byNumber.get(Number(item.measure))?.events.length ?? 0)) {
+      throw new Error('Invalid chord continuation coverage.');
+    }
+    const measure = Number(item.measure);
+    continuationMeasures.add(measure);
+    const offsets = item.offsets.map(value => {
+      if (!record(value) || !Number.isSafeInteger(value.numerator) || !Number.isSafeInteger(value.denominator)
+        || Number(value.numerator) < 0 || Number(value.denominator) <= 0) throw new Error('Invalid chord continuation offset.');
+      const offset = createRationalDuration(Number(value.numerator), Number(value.denominator));
+      if (!byNumber.get(measure)?.events.some(e => e.type === 'note' && compareRationalDurations(e.position.offset, offset) === 0)
+        || !chordPositions.some(p => p.measure === measure && compareRationalDurations(p.offset, offset) < 0)) {
+        throw new Error('A chord continuation needs an existing note and a preceding chord in the same measure.');
+      }
+      const key = positionKey(measure, offset);
+      if (accounted.has(key)) throw new Error('Duplicate chord coverage at the same onset.');
+      accounted.add(key);
+      return offset;
+    });
+    return { measure, offsets };
+  });
+  const chordCoverage = lenses.includes('chords') ? measures.filter(measure => byNumber.get(measure)?.events
+    .filter(e => e.type === 'note').every(e => accounted.has(positionKey(measure, e.position.offset)))) : [];
+  return { findings, summary: data.summary, diagnostics: data.diagnostics as string[], chordContinuations, chordCoverage };
 };
 
 export const keepAnalysisFinding = (finding: AnalysisFinding, providerName: string, modelName: string): Annotation => {

@@ -1,6 +1,6 @@
 import type { AISelection } from '../agent/aiTypes';
 import type { MusicContextSnapshot } from '../agent/types';
-import type { Annotation, MusicalPosition } from '../types/document';
+import type { Annotation, MusicalPosition, RationalDuration } from '../types/document';
 
 export const ANALYSIS_LENSES = ['chords', 'modulation', 'cadences', 'non-chord-tones', 'voice-leading'] as const;
 export type AnalysisLens = typeof ANALYSIS_LENSES[number];
@@ -9,6 +9,7 @@ export type AnalysisDisplay = { labels: 'both' | 'symbols' | 'roman'; functionCo
 export const DEFAULT_ANALYSIS_PREFERENCES: AnalysisPreferences = { lenses: [], autoRefresh: true };
 export type AnalysisEvidence = MusicalPosition & { voiceId: string };
 export type AnalysisFinding = { lens: AnalysisLens; annotation: Annotation; evidence: AnalysisEvidence[] };
+export type ChordContinuation = { measure: number; offsets: RationalDuration[] };
 export type AnalysisResult = {
   version: 1;
   fingerprint: string;
@@ -19,6 +20,7 @@ export type AnalysisResult = {
   updatedAt: string;
   coverage: Partial<Record<AnalysisLens, number[]>>;
   findings: AnalysisFinding[];
+  chordContinuations?: ChordContinuation[];
   summaries: string[];
   diagnostics: string[];
   reconciled?: boolean;
